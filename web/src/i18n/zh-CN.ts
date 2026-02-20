@@ -128,7 +128,7 @@ const zhCN = {
       categoryPlaceholder: "选择...",
       paymentMethodLabel: "支付方式",
       paymentMethodPlaceholder: "选择...",
-      noPaymentMethod: "不设置支付方式",
+      noPaymentMethod: "不设",
       categories: {
         entertainment: "娱乐",
         productivity: "效率",
