@@ -5,11 +5,40 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
 type PaymentMethodHandler struct {
 	Service *service.PaymentMethodService
+}
+
+type paymentMethodResponse struct {
+	ID             uint    `json:"id"`
+	Name           string  `json:"name"`
+	SystemKey      *string `json:"system_key"`
+	NameCustomized bool    `json:"name_customized"`
+	Icon           string  `json:"icon"`
+	SortOrder      int     `json:"sort_order"`
+}
+
+func mapPaymentMethodResponse(method model.PaymentMethod) paymentMethodResponse {
+	return paymentMethodResponse{
+		ID:             method.ID,
+		Name:           method.Name,
+		SystemKey:      method.SystemKey,
+		NameCustomized: method.NameCustomized,
+		Icon:           method.Icon,
+		SortOrder:      method.SortOrder,
+	}
+}
+
+func mapPaymentMethodResponses(methods []model.PaymentMethod) []paymentMethodResponse {
+	responses := make([]paymentMethodResponse, len(methods))
+	for i, method := range methods {
+		responses[i] = mapPaymentMethodResponse(method)
+	}
+	return responses
 }
 
 func NewPaymentMethodHandler(s *service.PaymentMethodService) *PaymentMethodHandler {
@@ -22,7 +51,7 @@ func (h *PaymentMethodHandler) List(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, methods)
+	return c.JSON(http.StatusOK, mapPaymentMethodResponses(methods))
 }
 
 func (h *PaymentMethodHandler) Create(c echo.Context) error {
@@ -50,7 +79,7 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, method)
+	return c.JSON(http.StatusCreated, mapPaymentMethodResponse(*method))
 }
 
 func (h *PaymentMethodHandler) Update(c echo.Context) error {
@@ -82,7 +111,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, method)
+	return c.JSON(http.StatusOK, mapPaymentMethodResponse(*method))
 }
 
 func (h *PaymentMethodHandler) Delete(c echo.Context) error {

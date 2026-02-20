@@ -5,11 +5,38 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
 type CategoryHandler struct {
 	Service *service.CategoryService
+}
+
+type categoryResponse struct {
+	ID             uint    `json:"id"`
+	Name           string  `json:"name"`
+	SystemKey      *string `json:"system_key"`
+	NameCustomized bool    `json:"name_customized"`
+	DisplayOrder   int     `json:"display_order"`
+}
+
+func mapCategoryResponse(category model.Category) categoryResponse {
+	return categoryResponse{
+		ID:             category.ID,
+		Name:           category.Name,
+		SystemKey:      category.SystemKey,
+		NameCustomized: category.NameCustomized,
+		DisplayOrder:   category.DisplayOrder,
+	}
+}
+
+func mapCategoryResponses(categories []model.Category) []categoryResponse {
+	responses := make([]categoryResponse, len(categories))
+	for i, category := range categories {
+		responses[i] = mapCategoryResponse(category)
+	}
+	return responses
 }
 
 func NewCategoryHandler(s *service.CategoryService) *CategoryHandler {
@@ -22,7 +49,7 @@ func (h *CategoryHandler) List(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, categories)
+	return c.JSON(http.StatusOK, mapCategoryResponses(categories))
 }
 
 func (h *CategoryHandler) Create(c echo.Context) error {
@@ -44,7 +71,7 @@ func (h *CategoryHandler) Create(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusCreated, category)
+	return c.JSON(http.StatusCreated, mapCategoryResponse(*category))
 }
 
 func (h *CategoryHandler) Update(c echo.Context) error {
@@ -70,7 +97,7 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, category)
+	return c.JSON(http.StatusOK, mapCategoryResponse(*category))
 }
 
 func (h *CategoryHandler) Delete(c echo.Context) error {

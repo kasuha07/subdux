@@ -4,11 +4,22 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
 type ExchangeRateHandler struct {
 	Service *service.ExchangeRateService
+}
+
+type userPreferenceResponse struct {
+	PreferredCurrency string `json:"preferred_currency"`
+}
+
+func mapUserPreferenceResponse(pref model.UserPreference) userPreferenceResponse {
+	return userPreferenceResponse{
+		PreferredCurrency: pref.PreferredCurrency,
+	}
 }
 
 func NewExchangeRateHandler(s *service.ExchangeRateService) *ExchangeRateHandler {
@@ -65,7 +76,7 @@ func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, pref)
+	return c.JSON(http.StatusOK, mapUserPreferenceResponse(*pref))
 }
 
 func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
@@ -83,5 +94,5 @@ func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, pref)
+	return c.JSON(http.StatusOK, mapUserPreferenceResponse(*pref))
 }

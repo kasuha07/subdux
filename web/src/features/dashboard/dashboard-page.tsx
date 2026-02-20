@@ -406,7 +406,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.upcoming")}</span>
                     </div>
                     <p className="mt-1 text-2xl font-bold tabular-nums">
-                      {summary.upcoming_renewals?.length || 0}
+                      {summary.upcoming_renewal_count ?? 0}
                     </p>
                   </CardContent>
                 </Card>

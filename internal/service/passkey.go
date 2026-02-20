@@ -38,11 +38,10 @@ type passkeySession struct {
 }
 
 type PasskeyCredentialInfo struct {
-	ID           uint       `json:"id"`
-	Name         string     `json:"name"`
-	CredentialID string     `json:"credential_id"`
-	LastUsedAt   *time.Time `json:"last_used_at"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID         uint       `json:"id"`
+	Name       string     `json:"name"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 type PasskeyBeginResult struct {
@@ -85,11 +84,10 @@ func (s *AuthService) ListPasskeys(userID uint) ([]PasskeyCredentialInfo, error)
 	result := make([]PasskeyCredentialInfo, 0, len(records))
 	for _, record := range records {
 		result = append(result, PasskeyCredentialInfo{
-			ID:           record.ID,
-			Name:         record.Name,
-			CredentialID: record.CredentialID,
-			LastUsedAt:   record.LastUsedAt,
-			CreatedAt:    record.CreatedAt,
+			ID:         record.ID,
+			Name:       record.Name,
+			LastUsedAt: record.LastUsedAt,
+			CreatedAt:  record.CreatedAt,
 		})
 	}
 	return result, nil
@@ -191,11 +189,10 @@ func (s *AuthService) FinishPasskeyRegistration(userID uint, sessionID string, p
 	}
 
 	return &PasskeyCredentialInfo{
-		ID:           record.ID,
-		Name:         record.Name,
-		CredentialID: record.CredentialID,
-		LastUsedAt:   record.LastUsedAt,
-		CreatedAt:    record.CreatedAt,
+		ID:         record.ID,
+		Name:       record.Name,
+		LastUsedAt: record.LastUsedAt,
+		CreatedAt:  record.CreatedAt,
 	}, nil
 }
 

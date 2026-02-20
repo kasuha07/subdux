@@ -64,12 +64,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
 import { toast } from "sonner"
-import type { User, AdminStats, SystemSettings, ExchangeRateStatus } from "@/types"
+import type { AdminUser, AdminStats, SystemSettings, ExchangeRateStatus } from "@/types"
 
 export default function AdminPage() {
   const { t } = useTranslation()
 
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [siteName, setSiteName] = useState("")
@@ -92,7 +92,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<User[]>("/admin/users"),
+      api.get<AdminUser[]>("/admin/users"),
       api.get<SystemSettings>("/admin/settings"),
       api.get<AdminStats>("/admin/stats"),
       api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
@@ -116,7 +116,7 @@ export default function AdminPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  async function handleToggleRole(user: User) {
+  async function handleToggleRole(user: AdminUser) {
     const newRole = user.role === "admin" ? "user" : "admin"
     try {
       await api.put(`/admin/users/${user.id}/role`, { role: newRole })
@@ -127,7 +127,7 @@ export default function AdminPage() {
     }
   }
 
-  async function handleToggleStatus(user: User) {
+  async function handleToggleStatus(user: AdminUser) {
     const newStatus = user.status === "active" ? "disabled" : "active"
     try {
       await api.put(`/admin/users/${user.id}/status`, { status: newStatus })
@@ -157,7 +157,7 @@ export default function AdminPage() {
     }
 
     try {
-      const user = await api.post<User>("/admin/users", {
+      const user = await api.post<AdminUser>("/admin/users", {
         username: newUsername,
         email: newEmail,
         password: newPassword,

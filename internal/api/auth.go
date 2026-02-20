@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
 )
@@ -19,6 +20,51 @@ type AuthHandler struct {
 
 func NewAuthHandler(s *service.AuthService, totpSvc *service.TOTPService) *AuthHandler {
 	return &AuthHandler{Service: s, TOTPService: totpSvc}
+}
+
+type authUserResponse struct {
+	ID          uint   `json:"id"`
+	Email       string `json:"email"`
+	Role        string `json:"role"`
+	Status      string `json:"status"`
+	TotpEnabled bool   `json:"totp_enabled"`
+}
+
+type authResponse struct {
+	Token string           `json:"token"`
+	User  authUserResponse `json:"user"`
+}
+
+type loginResponse struct {
+	RequiresTotp bool              `json:"requires_totp"`
+	TotpToken    string            `json:"totp_token,omitempty"`
+	Token        string            `json:"token,omitempty"`
+	User         *authUserResponse `json:"user,omitempty"`
+}
+
+func mapAuthUserResponse(user model.User) authUserResponse {
+	return authUserResponse{
+		ID:          user.ID,
+		Email:       user.Email,
+		Role:        user.Role,
+		Status:      user.Status,
+		TotpEnabled: user.TotpEnabled,
+	}
+}
+
+func mapLoginResponse(resp *service.LoginResponse) loginResponse {
+	var user *authUserResponse
+	if resp.User != nil {
+		mapped := mapAuthUserResponse(*resp.User)
+		user = &mapped
+	}
+
+	return loginResponse{
+		RequiresTotp: resp.RequiresTotp,
+		TotpToken:    resp.TotpToken,
+		Token:        resp.Token,
+		User:         user,
+	}
 }
 
 func (h *AuthHandler) Register(c echo.Context) error {
@@ -40,7 +86,10 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, resp)
+	return c.JSON(http.StatusCreated, authResponse{
+		Token: resp.Token,
+		User:  mapAuthUserResponse(resp.User),
+	})
 }
 
 func (h *AuthHandler) Me(c echo.Context) error {
@@ -49,7 +98,7 @@ func (h *AuthHandler) Me(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, user)
+	return c.JSON(http.StatusOK, mapAuthUserResponse(*user))
 }
 
 func (h *AuthHandler) ChangePassword(c echo.Context) error {
@@ -85,7 +134,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, mapLoginResponse(resp))
 }
 
 func (h *AuthHandler) SetupTOTP(c echo.Context) error {
@@ -168,7 +217,10 @@ func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to generate token"})
 	}
 
-	return c.JSON(http.StatusOK, service.AuthResponse{Token: token, User: *user})
+	return c.JSON(http.StatusOK, authResponse{
+		Token: token,
+		User:  mapAuthUserResponse(*user),
+	})
 }
 
 type passkeyBeginRegistrationInput struct {
@@ -274,5 +326,8 @@ func (h *AuthHandler) FinishPasskeyLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, authResponse{
+		Token: resp.Token,
+		User:  mapAuthUserResponse(resp.User),
+	})
 }

@@ -62,7 +62,7 @@ type CreateUserInput struct {
 
 func (s *AdminService) ListUsers() ([]model.User, error) {
 	var users []model.User
-	err := s.DB.Select("id, email, role, status, created_at, updated_at").Order("id ASC").Find(&users).Error
+	err := s.DB.Select("id, email, role, status, created_at").Order("id ASC").Find(&users).Error
 	return users, err
 }
 

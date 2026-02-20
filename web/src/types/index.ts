@@ -1,17 +1,21 @@
 export interface User {
   id: number
-  username: string
   email: string
   role: "admin" | "user"
   status: "active" | "disabled"
   totp_enabled: boolean
+}
+
+export interface AdminUser {
+  id: number
+  email: string
+  role: "admin" | "user"
+  status: "active" | "disabled"
   created_at: string
-  updated_at: string
 }
 
 export interface Subscription {
   id: number
-  user_id: number
   name: string
   amount: number
   currency: string
@@ -35,14 +39,13 @@ export interface Subscription {
   url: string
   notes: string
   created_at: string
-  updated_at: string
 }
 
 export interface DashboardSummary {
   total_monthly: number
   total_yearly: number
   enabled_count: number
-  upcoming_renewals: Subscription[]
+  upcoming_renewal_count: number
   currency: string
 }
 
@@ -54,7 +57,6 @@ export interface AuthResponse {
 export interface PasskeyCredential {
   id: number
   name: string
-  credential_id: string
   last_used_at: string | null
   created_at: string
 }
@@ -168,9 +170,7 @@ export interface UpdateSettingsInput {
 }
 
 export interface UserPreference {
-  user_id: number
   preferred_currency: string
-  updated_at: string
 }
 
 export interface ExchangeRateInfo {
@@ -189,13 +189,10 @@ export interface ExchangeRateStatus {
 
 export interface UserCurrency {
   id: number
-  user_id: number
   code: string
   symbol: string
   alias: string
   sort_order: number
-  created_at: string
-  updated_at: string
 }
 
 export interface CreateCurrencyInput {
@@ -218,13 +215,10 @@ export interface ReorderCurrencyItem {
 
 export interface Category {
   id: number
-  user_id: number
   name: string
   system_key: string | null
   name_customized: boolean
   display_order: number
-  created_at: string
-  updated_at: string
 }
 
 export interface CreateCategoryInput {
@@ -244,14 +238,11 @@ export interface ReorderCategoryItem {
 
 export interface PaymentMethod {
   id: number
-  user_id: number
   name: string
   system_key: string | null
   name_customized: boolean
   icon: string
   sort_order: number
-  created_at: string
-  updated_at: string
 }
 
 export interface CreatePaymentMethodInput {

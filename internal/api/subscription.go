@@ -4,8 +4,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
@@ -18,13 +20,77 @@ func NewSubscriptionHandler(s *service.SubscriptionService, er *service.Exchange
 	return &SubscriptionHandler{Service: s, ERService: er}
 }
 
+type subscriptionResponse struct {
+	ID                uint       `json:"id"`
+	Name              string     `json:"name"`
+	Amount            float64    `json:"amount"`
+	Currency          string     `json:"currency"`
+	Enabled           bool       `json:"enabled"`
+	BillingType       string     `json:"billing_type"`
+	RecurrenceType    string     `json:"recurrence_type"`
+	IntervalCount     *int       `json:"interval_count"`
+	IntervalUnit      string     `json:"interval_unit"`
+	BillingAnchorDate *time.Time `json:"billing_anchor_date"`
+	MonthlyDay        *int       `json:"monthly_day"`
+	YearlyMonth       *int       `json:"yearly_month"`
+	YearlyDay         *int       `json:"yearly_day"`
+	TrialEnabled      bool       `json:"trial_enabled"`
+	TrialStartDate    *time.Time `json:"trial_start_date"`
+	TrialEndDate      *time.Time `json:"trial_end_date"`
+	NextBillingDate   *time.Time `json:"next_billing_date"`
+	Category          string     `json:"category"`
+	CategoryID        *uint      `json:"category_id"`
+	PaymentMethodID   *uint      `json:"payment_method_id"`
+	Icon              string     `json:"icon"`
+	URL               string     `json:"url"`
+	Notes             string     `json:"notes"`
+	CreatedAt         time.Time  `json:"created_at"`
+}
+
+func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
+	return subscriptionResponse{
+		ID:                sub.ID,
+		Name:              sub.Name,
+		Amount:            sub.Amount,
+		Currency:          sub.Currency,
+		Enabled:           sub.Enabled,
+		BillingType:       sub.BillingType,
+		RecurrenceType:    sub.RecurrenceType,
+		IntervalCount:     sub.IntervalCount,
+		IntervalUnit:      sub.IntervalUnit,
+		BillingAnchorDate: sub.BillingAnchorDate,
+		MonthlyDay:        sub.MonthlyDay,
+		YearlyMonth:       sub.YearlyMonth,
+		YearlyDay:         sub.YearlyDay,
+		TrialEnabled:      sub.TrialEnabled,
+		TrialStartDate:    sub.TrialStartDate,
+		TrialEndDate:      sub.TrialEndDate,
+		NextBillingDate:   sub.NextBillingDate,
+		Category:          sub.Category,
+		CategoryID:        sub.CategoryID,
+		PaymentMethodID:   sub.PaymentMethodID,
+		Icon:              sub.Icon,
+		URL:               sub.URL,
+		Notes:             sub.Notes,
+		CreatedAt:         sub.CreatedAt,
+	}
+}
+
+func mapSubscriptionResponses(subs []model.Subscription) []subscriptionResponse {
+	responses := make([]subscriptionResponse, len(subs))
+	for i, sub := range subs {
+		responses[i] = mapSubscriptionResponse(sub)
+	}
+	return responses
+}
+
 func (h *SubscriptionHandler) List(c echo.Context) error {
 	userID := getUserID(c)
 	subs, err := h.Service.List(userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, subs)
+	return c.JSON(http.StatusOK, mapSubscriptionResponses(subs))
 }
 
 func (h *SubscriptionHandler) GetByID(c echo.Context) error {
@@ -39,7 +105,7 @@ func (h *SubscriptionHandler) GetByID(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "Subscription not found"})
 	}
 
-	return c.JSON(http.StatusOK, sub)
+	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) Create(c echo.Context) error {
@@ -70,7 +136,7 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, sub)
+	return c.JSON(http.StatusCreated, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) Update(c echo.Context) error {
@@ -99,7 +165,7 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, sub)
+	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) Delete(c echo.Context) error {

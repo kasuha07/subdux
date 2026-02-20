@@ -5,12 +5,39 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
 type CurrencyHandler struct {
 	Service   *service.CurrencyService
 	ERService *service.ExchangeRateService
+}
+
+type userCurrencyResponse struct {
+	ID        uint   `json:"id"`
+	Code      string `json:"code"`
+	Symbol    string `json:"symbol"`
+	Alias     string `json:"alias"`
+	SortOrder int    `json:"sort_order"`
+}
+
+func mapUserCurrencyResponse(currency model.UserCurrency) userCurrencyResponse {
+	return userCurrencyResponse{
+		ID:        currency.ID,
+		Code:      currency.Code,
+		Symbol:    currency.Symbol,
+		Alias:     currency.Alias,
+		SortOrder: currency.SortOrder,
+	}
+}
+
+func mapUserCurrencyResponses(currencies []model.UserCurrency) []userCurrencyResponse {
+	responses := make([]userCurrencyResponse, len(currencies))
+	for i, currency := range currencies {
+		responses[i] = mapUserCurrencyResponse(currency)
+	}
+	return responses
 }
 
 func NewCurrencyHandler(s *service.CurrencyService, er *service.ExchangeRateService) *CurrencyHandler {
@@ -23,7 +50,7 @@ func (h *CurrencyHandler) List(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, currencies)
+	return c.JSON(http.StatusOK, mapUserCurrencyResponses(currencies))
 }
 
 func (h *CurrencyHandler) Create(c echo.Context) error {
@@ -45,7 +72,7 @@ func (h *CurrencyHandler) Create(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusCreated, currency)
+	return c.JSON(http.StatusCreated, mapUserCurrencyResponse(*currency))
 }
 
 func (h *CurrencyHandler) Update(c echo.Context) error {
@@ -65,7 +92,7 @@ func (h *CurrencyHandler) Update(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, currency)
+	return c.JSON(http.StatusOK, mapUserCurrencyResponse(*currency))
 }
 
 func (h *CurrencyHandler) Delete(c echo.Context) error {

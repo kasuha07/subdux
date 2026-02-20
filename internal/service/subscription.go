@@ -91,11 +91,11 @@ type UpdateSubscriptionInput struct {
 }
 
 type DashboardSummary struct {
-	TotalMonthly     float64              `json:"total_monthly"`
-	TotalYearly      float64              `json:"total_yearly"`
-	EnabledCount     int64                `json:"enabled_count"`
-	UpcomingRenewals []model.Subscription `json:"upcoming_renewals"`
-	Currency         string               `json:"currency"`
+	TotalMonthly         float64 `json:"total_monthly"`
+	TotalYearly          float64 `json:"total_yearly"`
+	EnabledCount         int64   `json:"enabled_count"`
+	UpcomingRenewalCount int64   `json:"upcoming_renewal_count"`
+	Currency             string  `json:"currency"`
 }
 
 type billingDraft struct {
@@ -505,22 +505,24 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 
 	today := normalizeDateUTC(time.Now().UTC())
 	sevenDays := today.AddDate(0, 0, 7)
-	var upcoming []model.Subscription
-	s.DB.Where(
+	var upcomingRenewalCount int64
+	if err := s.DB.Model(&model.Subscription{}).Where(
 		"user_id = ? AND enabled = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date >= ? AND next_billing_date <= ?",
 		userID,
 		true,
 		billingTypeRecurring,
 		today,
 		sevenDays,
-	).Order("next_billing_date ASC").Find(&upcoming)
+	).Count(&upcomingRenewalCount).Error; err != nil {
+		return nil, err
+	}
 
 	return &DashboardSummary{
-		TotalMonthly:     totalMonthly,
-		TotalYearly:      totalMonthly * 12,
-		EnabledCount:     int64(len(subs)),
-		UpcomingRenewals: upcoming,
-		Currency:         targetCurrency,
+		TotalMonthly:         totalMonthly,
+		TotalYearly:          totalMonthly * 12,
+		EnabledCount:         int64(len(subs)),
+		UpcomingRenewalCount: upcomingRenewalCount,
+		Currency:             targetCurrency,
 	}, nil
 }
 

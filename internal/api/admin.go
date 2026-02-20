@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
@@ -21,12 +22,38 @@ func NewAdminHandler(s *service.AdminService) *AdminHandler {
 	return &AdminHandler{Service: s}
 }
 
+type adminUserResponse struct {
+	ID        uint      `json:"id"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func mapAdminUserResponse(user model.User) adminUserResponse {
+	return adminUserResponse{
+		ID:        user.ID,
+		Email:     user.Email,
+		Role:      user.Role,
+		Status:    user.Status,
+		CreatedAt: user.CreatedAt,
+	}
+}
+
+func mapAdminUserResponses(users []model.User) []adminUserResponse {
+	responses := make([]adminUserResponse, len(users))
+	for i, user := range users {
+		responses[i] = mapAdminUserResponse(user)
+	}
+	return responses
+}
+
 func (h *AdminHandler) ListUsers(c echo.Context) error {
 	users, err := h.Service.ListUsers()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list users"})
 	}
-	return c.JSON(http.StatusOK, users)
+	return c.JSON(http.StatusOK, mapAdminUserResponses(users))
 }
 
 func (h *AdminHandler) CreateUser(c echo.Context) error {
@@ -48,7 +75,7 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, user)
+	return c.JSON(http.StatusCreated, mapAdminUserResponse(*user))
 }
 
 func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
