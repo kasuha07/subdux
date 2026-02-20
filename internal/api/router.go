@@ -44,4 +44,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) {
 	protected.PUT("/subscriptions/:id", subHandler.Update)
 	protected.DELETE("/subscriptions/:id", subHandler.Delete)
 	protected.GET("/dashboard/summary", subHandler.Dashboard)
+
+	protected.GET("/auth/me", authHandler.Me)
+	protected.PUT("/auth/password", authHandler.ChangePassword)
 }

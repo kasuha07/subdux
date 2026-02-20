@@ -1,19 +1,18 @@
 import { useState, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { api, clearToken } from "@/lib/api"
+import { api } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import type { Subscription, DashboardSummary, CreateSubscriptionInput } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
-import { Plus, LogOut, DollarSign, CalendarDays, Repeat, TrendingUp } from "lucide-react"
+import { Plus, Settings, DollarSign, CalendarDays, Repeat, TrendingUp } from "lucide-react"
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,11 +37,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  function handleLogout() {
-    clearToken()
-    navigate("/login")
-  }
 
   function handleEdit(sub: Subscription) {
     setEditingSub(sub)
@@ -92,20 +86,10 @@ export default function DashboardPage() {
               <Plus className="size-4" />
               {t("dashboard.add")}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const langs = ["en", "zh-CN", "ja"] as const
-                const idx = langs.indexOf(i18n.language as typeof langs[number])
-                i18n.changeLanguage(langs[(idx + 1) % langs.length])
-              }}
-              className="text-xs"
-            >
-              {{ en: "中文", "zh-CN": "日本語", ja: "EN" }[i18n.language] ?? "中文"}
-            </Button>
-            <Button variant="ghost" size="icon-sm" onClick={handleLogout}>
-              <LogOut className="size-4" />
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/settings">
+                <Settings className="size-4" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -121,7 +105,7 @@ export default function DashboardPage() {
                   <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.monthly")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_monthly, "USD", i18n.language)}
+                  {formatCurrency(summary.total_monthly, localStorage.getItem("defaultCurrency") || "USD", i18n.language)}
                 </p>
               </CardContent>
             </Card>
@@ -132,7 +116,7 @@ export default function DashboardPage() {
                   <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.yearly")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_yearly, "USD", i18n.language)}
+                  {formatCurrency(summary.total_yearly, localStorage.getItem("defaultCurrency") || "USD", i18n.language)}
                 </p>
               </CardContent>
             </Card>

@@ -61,3 +61,8 @@ export interface UpdateSubscriptionInput {
   status?: string
   color?: string
 }
+
+export interface ChangePasswordInput {
+  current_password: string
+  new_password: string
+}

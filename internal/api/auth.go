@@ -37,6 +37,33 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	return c.JSON(http.StatusCreated, resp)
 }
 
+func (h *AuthHandler) Me(c echo.Context) error {
+	userID := getUserID(c)
+	user, err := h.Service.GetUser(userID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, user)
+}
+
+func (h *AuthHandler) ChangePassword(c echo.Context) error {
+	userID := getUserID(c)
+	var input service.ChangePasswordInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+	if input.CurrentPassword == "" || input.NewPassword == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Current and new passwords are required"})
+	}
+	if len(input.NewPassword) < 6 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 6 characters"})
+	}
+	if err := h.Service.ChangePassword(userID, input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, echo.Map{"message": "Password changed successfully"})
+}
+
 func (h *AuthHandler) Login(c echo.Context) error {
 	var input service.LoginInput
 	if err := c.Bind(&input); err != nil {

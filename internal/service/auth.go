@@ -60,6 +60,34 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 	return &AuthResponse{Token: token, User: user}, nil
 }
 
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+func (s *AuthService) GetUser(userID uint) (*model.User, error) {
+	var user model.User
+	if err := s.DB.First(&user, userID).Error; err != nil {
+		return nil, errors.New("user not found")
+	}
+	return &user, nil
+}
+
+func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) error {
+	var user model.User
+	if err := s.DB.First(&user, userID).Error; err != nil {
+		return errors.New("user not found")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.DB.Model(&user).Update("password", string(hash)).Error
+}
+
 func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
 	var user model.User
 	if err := s.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
