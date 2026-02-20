@@ -35,6 +35,7 @@ type CreateSubscriptionInput struct {
 	NextBillingDate string  `json:"next_billing_date"`
 	Category        string  `json:"category"`
 	CategoryID      *uint   `json:"category_id"`
+	PaymentMethodID *uint   `json:"payment_method_id"`
 	Icon            string  `json:"icon"`
 	URL             string  `json:"url"`
 	Notes           string  `json:"notes"`
@@ -48,6 +49,7 @@ type UpdateSubscriptionInput struct {
 	NextBillingDate *string  `json:"next_billing_date"`
 	Category        *string  `json:"category"`
 	CategoryID      *uint    `json:"category_id"`
+	PaymentMethodID *uint    `json:"payment_method_id"`
 	Icon            *string  `json:"icon"`
 	URL             *string  `json:"url"`
 	Notes           *string  `json:"notes"`
@@ -91,6 +93,14 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		currency = "USD"
 	}
 
+	var paymentMethodID *uint
+	if input.PaymentMethodID != nil && *input.PaymentMethodID != 0 {
+		if err := s.validatePaymentMethod(userID, *input.PaymentMethodID); err != nil {
+			return nil, err
+		}
+		paymentMethodID = input.PaymentMethodID
+	}
+
 	sub := model.Subscription{
 		UserID:          userID,
 		Name:            input.Name,
@@ -100,6 +110,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		NextBillingDate: nextBilling,
 		Category:        input.Category,
 		CategoryID:      input.CategoryID,
+		PaymentMethodID: paymentMethodID,
 		Icon:            input.Icon,
 		URL:             input.URL,
 		Notes:           input.Notes,
@@ -138,6 +149,16 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	if input.CategoryID != nil {
 		updates["category_id"] = *input.CategoryID
 	}
+	if input.PaymentMethodID != nil {
+		if *input.PaymentMethodID == 0 {
+			updates["payment_method_id"] = nil
+		} else {
+			if err := s.validatePaymentMethod(userID, *input.PaymentMethodID); err != nil {
+				return nil, err
+			}
+			updates["payment_method_id"] = *input.PaymentMethodID
+		}
+	}
 	if input.Icon != nil {
 		updates["icon"] = *input.Icon
 	}
@@ -163,6 +184,17 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	}
 
 	return s.GetByID(userID, id)
+}
+
+func (s *SubscriptionService) validatePaymentMethod(userID, paymentMethodID uint) error {
+	var method model.PaymentMethod
+	if err := s.DB.Where("id = ? AND user_id = ?", paymentMethodID, userID).First(&method).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("payment method not found")
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *SubscriptionService) Delete(userID, id uint) error {

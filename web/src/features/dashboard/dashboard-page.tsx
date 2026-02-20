@@ -27,6 +27,7 @@ import type {
   CreateSubscriptionInput,
   UserPreference,
   UserCurrency,
+  PaymentMethod,
 } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
@@ -112,23 +113,27 @@ export default function DashboardPage() {
     localStorage.getItem("defaultCurrency") || "USD"
   )
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Subscription["status"]>>(new Set())
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [selectedPaymentMethodIDs, setSelectedPaymentMethodIDs] = useState<Set<number>>(new Set())
   const [sortField, setSortField] = useState<SortField>(defaultSortField)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection)
 
   const fetchData = useCallback(async () => {
     try {
-      const [subs, sum, pref, currencies] = await Promise.all([
+      const [subs, sum, pref, currencies, methods] = await Promise.all([
         api.get<Subscription[]>("/subscriptions"),
         api.get<DashboardSummary>("/dashboard/summary"),
         api.get<UserPreference>("/preferences/currency"),
         api.get<UserCurrency[]>("/currencies"),
+        api.get<PaymentMethod[]>("/payment-methods"),
       ])
       setSubscriptions(subs || [])
       setSummary(sum)
       setUserCurrencies(currencies || [])
+      setPaymentMethods(methods || [])
       if (pref?.preferred_currency) {
         setPreferredCurrency(pref.preferred_currency)
         localStorage.setItem("defaultCurrency", pref.preferred_currency)
@@ -167,6 +172,11 @@ export default function DashboardPage() {
     [userCurrencies]
   )
 
+  const paymentMethodMap = useMemo(
+    () => new Map(paymentMethods.map((item) => [item.id, item] as const)),
+    [paymentMethods]
+  )
+
   const filteredSubscriptions = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
 
@@ -184,6 +194,12 @@ export default function DashboardPage() {
 
       if (selectedCategories.size > 0 && !selectedCategories.has(sub.category)) {
         return false
+      }
+
+      if (selectedPaymentMethodIDs.size > 0) {
+        if (sub.payment_method_id == null || !selectedPaymentMethodIDs.has(sub.payment_method_id)) {
+          return false
+        }
       }
 
       return true
@@ -208,11 +224,12 @@ export default function DashboardPage() {
 
       return sortDirection === "asc" ? result : -result
     })
-  }, [subscriptions, searchTerm, selectedStatuses, selectedCategories, sortField, sortDirection, i18n.language])
+  }, [subscriptions, searchTerm, selectedStatuses, selectedCategories, selectedPaymentMethodIDs, sortField, sortDirection, i18n.language])
 
   const hasActiveFilters = searchTerm.trim().length > 0 ||
     selectedStatuses.size > 0 ||
     selectedCategories.size > 0 ||
+    selectedPaymentMethodIDs.size > 0 ||
     sortField !== defaultSortField ||
     sortDirection !== defaultSortDirection
 
@@ -234,7 +251,11 @@ export default function DashboardPage() {
 
   async function handleFormSubmit(data: CreateSubscriptionInput) {
     if (editingSub) {
-      const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, data)
+      const updatePayload = {
+        ...data,
+        payment_method_id: data.payment_method_id ?? 0,
+      }
+      const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, updatePayload)
       toast.success(t("dashboard.updateSuccess"))
       setEditingSub(null)
       setFormOpen(false)
@@ -259,6 +280,7 @@ export default function DashboardPage() {
     setSearchTerm("")
     setSelectedStatuses(new Set())
     setSelectedCategories(new Set())
+    setSelectedPaymentMethodIDs(new Set())
     setSortField(defaultSortField)
     setSortDirection(defaultSortDirection)
   }
@@ -375,8 +397,8 @@ export default function DashboardPage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="shrink-0">
                 {t("dashboard.filters.filter")}
-                {(selectedStatuses.size > 0 || selectedCategories.size > 0)
-                  ? ` (${selectedStatuses.size + selectedCategories.size})`
+                {(selectedStatuses.size > 0 || selectedCategories.size > 0 || selectedPaymentMethodIDs.size > 0)
+                  ? ` (${selectedStatuses.size + selectedCategories.size + selectedPaymentMethodIDs.size})`
                   : ""}
               </Button>
             </DropdownMenuTrigger>
@@ -442,14 +464,47 @@ export default function DashboardPage() {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
 
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-56">
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map((method) => (
+                      <DropdownMenuCheckboxItem
+                        key={method.id}
+                        checked={selectedPaymentMethodIDs.has(method.id)}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) => {
+                          setSelectedPaymentMethodIDs((prev) => {
+                            const next = new Set(prev)
+                            if (checked === true) {
+                              next.add(method.id)
+                            } else {
+                              next.delete(method.id)
+                            }
+                            return next
+                          })
+                        }}
+                      >
+                        {method.name}
+                      </DropdownMenuCheckboxItem>
+                    ))
+                  ) : (
+                    <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                      {t("dashboard.filters.noPaymentMethods")}
+                    </div>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={(event) => {
                   event.preventDefault()
                   setSelectedStatuses(new Set())
                   setSelectedCategories(new Set())
+                  setSelectedPaymentMethodIDs(new Set())
                 }}
-                disabled={selectedStatuses.size === 0 && selectedCategories.size === 0}
+                disabled={selectedStatuses.size === 0 && selectedCategories.size === 0 && selectedPaymentMethodIDs.size === 0}
               >
                 <FilterX className="size-4" />
                 {t("dashboard.filters.clearFilters")}
@@ -535,6 +590,7 @@ export default function DashboardPage() {
                 key={sub.id}
                 subscription={sub}
                 currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
+                paymentMethodName={sub.payment_method_id ? paymentMethodMap.get(sub.payment_method_id)?.name : undefined}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />

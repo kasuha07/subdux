@@ -19,6 +19,7 @@ export interface Subscription {
   next_billing_date: string
   category: string
   category_id: number | null
+  payment_method_id: number | null
   icon: string
   url: string
   notes: string
@@ -87,6 +88,7 @@ export interface CreateSubscriptionInput {
   next_billing_date: string
   category: string
   category_id: number | null
+  payment_method_id: number | null
   icon: string
   url: string
   notes: string
@@ -100,6 +102,7 @@ export interface UpdateSubscriptionInput {
   next_billing_date?: string
   category?: string
   category_id?: number | null
+  payment_method_id?: number | null
   icon?: string
   url?: string
   notes?: string
@@ -204,6 +207,33 @@ export interface UpdateCategoryInput {
 }
 
 export interface ReorderCategoryItem {
+  id: number
+  sort_order: number
+}
+
+export interface PaymentMethod {
+  id: number
+  user_id: number
+  name: string
+  icon: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreatePaymentMethodInput {
+  name: string
+  icon: string
+  sort_order: number
+}
+
+export interface UpdatePaymentMethodInput {
+  name?: string
+  icon?: string
+  sort_order?: number
+}
+
+export interface ReorderPaymentMethodItem {
   id: number
   sort_order: number
 }

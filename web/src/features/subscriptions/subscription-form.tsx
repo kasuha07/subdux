@@ -19,7 +19,14 @@ import {
 import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
 import IconPicker from "./icon-picker"
-import type { Subscription, CreateSubscriptionInput, UserCurrency, UploadIconResponse, Category } from "@/types"
+import type {
+  Subscription,
+  CreateSubscriptionInput,
+  UserCurrency,
+  UploadIconResponse,
+  Category,
+  PaymentMethod,
+} from "@/types"
 
 interface SubscriptionFormProps {
   open: boolean
@@ -27,6 +34,8 @@ interface SubscriptionFormProps {
   subscription?: Subscription | null
   onSubmit: (data: CreateSubscriptionInput) => Promise<Subscription>
 }
+
+const noPaymentMethodValue = "__none__"
 
 export default function SubscriptionForm({
   open,
@@ -49,6 +58,9 @@ export default function SubscriptionForm({
   const [categoryId, setCategoryId] = useState<string>(
     subscription?.category_id?.toString() || ""
   )
+  const [paymentMethodId, setPaymentMethodId] = useState<string>(
+    subscription?.payment_method_id?.toString() || ""
+  )
   const [icon, setIcon] = useState(subscription?.icon || "")
   const [url, setUrl] = useState(subscription?.url || "")
   const [notes, setNotes] = useState(subscription?.notes || "")
@@ -57,6 +69,7 @@ export default function SubscriptionForm({
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const wasOpenRef = useRef(false)
 
   const currencyOptions = useMemo(() => {
@@ -87,6 +100,12 @@ export default function SubscriptionForm({
         setCategories(list ?? [])
       })
       .catch(() => void 0)
+
+    api.get<PaymentMethod[]>("/payment-methods")
+      .then((list) => {
+        setPaymentMethods(list ?? [])
+      })
+      .catch(() => void 0)
   }, [])
 
   useEffect(() => {
@@ -109,6 +128,17 @@ export default function SubscriptionForm({
       setCurrency(currencyOptions[0].code)
     }
   }, [currency, currencyOptions, open])
+
+  useEffect(() => {
+    if (!open || !paymentMethodId) {
+      return
+    }
+
+    const exists = paymentMethods.some((item) => item.id.toString() === paymentMethodId)
+    if (!exists) {
+      setPaymentMethodId("")
+    }
+  }, [open, paymentMethodId, paymentMethods])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -136,6 +166,7 @@ export default function SubscriptionForm({
         next_billing_date: nextBillingDate,
         category: "",
         category_id: categoryId ? parseInt(categoryId, 10) : null,
+        payment_method_id: paymentMethodId ? parseInt(paymentMethodId, 10) : null,
         icon: iconFile && !isEditing ? "" : iconValue,
         url,
         notes,
@@ -260,20 +291,40 @@ export default function SubscriptionForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>{t("subscription.form.iconPicker.label")}</Label>
-              <IconPicker
-                value={icon}
-                onChange={(v) => {
-                  setIcon(v)
-                  setIconFile(null)
+              <Label htmlFor="payment-method">{t("subscription.form.paymentMethodLabel")}</Label>
+              <Select
+                value={paymentMethodId || noPaymentMethodValue}
+                onValueChange={(value) => {
+                  setPaymentMethodId(value === noPaymentMethodValue ? "" : value)
                 }}
-                onFileSelected={(f) => {
-                  setIconFile(f)
-                  setIcon("")
-                }}
-                maxFileSizeKB={64}
-              />
+              >
+                <SelectTrigger id="payment-method">
+                  <SelectValue placeholder={t("subscription.form.paymentMethodPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={noPaymentMethodValue}>{t("subscription.form.noPaymentMethod")}</SelectItem>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.id} value={method.id.toString()}>{method.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("subscription.form.iconPicker.label")}</Label>
+            <IconPicker
+              value={icon}
+              onChange={(v) => {
+                setIcon(v)
+                setIconFile(null)
+              }}
+              onFileSelected={(f) => {
+                setIconFile(f)
+                setIcon("")
+              }}
+              maxFileSizeKB={64}
+            />
           </div>
 
           <div className="space-y-2">

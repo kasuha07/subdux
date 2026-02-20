@@ -39,6 +39,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	erService := service.NewExchangeRateService(db)
 	currencyService := service.NewCurrencyService(db)
 	categoryService := service.NewCategoryService(db)
+	paymentMethodService := service.NewPaymentMethodService(db)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
@@ -46,6 +47,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	erHandler := NewExchangeRateHandler(erService)
 	currencyHandler := NewCurrencyHandler(currencyService, erService)
 	categoryHandler := NewCategoryHandler(categoryService)
+	paymentMethodHandler := NewPaymentMethodHandler(paymentMethodService)
 
 	api := e.Group("/api")
 
@@ -117,6 +119,13 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	protected.PUT("/categories/reorder", categoryHandler.Reorder)
 	protected.PUT("/categories/:id", categoryHandler.Update)
 	protected.DELETE("/categories/:id", categoryHandler.Delete)
+
+	protected.GET("/payment-methods", paymentMethodHandler.List)
+	protected.POST("/payment-methods", paymentMethodHandler.Create)
+	protected.PUT("/payment-methods/reorder", paymentMethodHandler.Reorder)
+	protected.PUT("/payment-methods/:id", paymentMethodHandler.Update)
+	protected.DELETE("/payment-methods/:id", paymentMethodHandler.Delete)
+	protected.POST("/payment-methods/:id/icon", paymentMethodHandler.UploadIcon)
 
 	seedDefaultSettings(db)
 

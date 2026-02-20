@@ -93,15 +93,55 @@ func (s *AdminService) DeleteUser(userID uint) error {
 	if userID == 1 {
 		return errors.New("cannot delete the first user")
 	}
-	return s.DB.Transaction(func(tx *gorm.DB) error {
+
+	var subscriptionIcons []string
+	if err := s.DB.Model(&model.Subscription{}).Where("user_id = ?", userID).Pluck("icon", &subscriptionIcons).Error; err != nil {
+		return err
+	}
+	var paymentMethodIcons []string
+	if err := s.DB.Model(&model.PaymentMethod{}).Where("user_id = ?", userID).Pluck("icon", &paymentMethodIcons).Error; err != nil {
+		return err
+	}
+
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&model.Subscription{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.PaymentMethod{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.UserCurrency{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.Category{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.UserPreference{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.UserBackupCode{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("user_id = ?", userID).Delete(&model.PasskeyCredential{}).Error; err != nil {
 			return err
 		}
 		return tx.Delete(&model.User{}, userID).Error
-	})
+	}); err != nil {
+		return err
+	}
+
+	for _, icon := range subscriptionIcons {
+		if path, ok := managedIconFilePath(icon); ok {
+			_ = os.Remove(path)
+		}
+	}
+	for _, icon := range paymentMethodIcons {
+		if path, ok := managedIconFilePath(icon); ok {
+			_ = os.Remove(path)
+		}
+	}
+
+	return nil
 }
 
 func (s *AdminService) GetStats() (*AdminStats, error) {
