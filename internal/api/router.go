@@ -71,6 +71,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) {
 	admin.Use(AdminMiddleware)
 
 	admin.GET("/users", adminHandler.ListUsers)
+	admin.POST("/users", adminHandler.CreateUser)
 	admin.PUT("/users/:id/role", adminHandler.ChangeUserRole)
 	admin.PUT("/users/:id/status", adminHandler.ChangeUserStatus)
 	admin.DELETE("/users/:id", adminHandler.DeleteUser)

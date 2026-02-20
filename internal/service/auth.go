@@ -18,13 +18,14 @@ func NewAuthService(db *gorm.DB) *AuthService {
 }
 
 type RegisterInput struct {
+	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type LoginInput struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 type AuthResponse struct {
@@ -50,6 +51,9 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 	if err := s.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
 		return nil, errors.New("email already registered")
 	}
+	if err := s.DB.Where("username = ?", input.Username).First(&existing).Error; err == nil {
+		return nil, errors.New("username already taken")
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -63,6 +67,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 	}
 
 	user := model.User{
+		Username: input.Username,
 		Email:    input.Email,
 		Password: string(hash),
 		Role:     role,
@@ -73,7 +78,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +116,7 @@ func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) err
 
 func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
 	var user model.User
-	if err := s.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+	if err := s.DB.Where("email = ? OR username = ?", input.Identifier, input.Identifier).First(&user).Error; err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
@@ -123,7 +128,7 @@ func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
 		return nil, errors.New("invalid credentials")
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
 	if err != nil {
 		return nil, err
 	}

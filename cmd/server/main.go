@@ -16,6 +16,7 @@ import (
 
 func main() {
 	db := pkg.InitDB()
+	pkg.InitJWTSecret(db)
 
 	e := echo.New()
 	e.HideBanner = true

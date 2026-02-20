@@ -29,6 +29,28 @@ func (h *AdminHandler) ListUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, users)
 }
 
+func (h *AdminHandler) CreateUser(c echo.Context) error {
+	var input service.CreateUserInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	}
+
+	if input.Username == "" || input.Email == "" || input.Password == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "username, email and password are required"})
+	}
+
+	if len(input.Password) < 6 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 6 characters"})
+	}
+
+	user, err := h.Service.CreateUser(input)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, user)
+}
+
 func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

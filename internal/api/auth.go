@@ -21,8 +21,8 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
-	if input.Email == "" || input.Password == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email and password are required"})
+	if input.Username == "" || input.Email == "" || input.Password == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Username, email and password are required"})
 	}
 
 	if len(input.Password) < 6 {
@@ -70,8 +70,8 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
-	if input.Email == "" || input.Password == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email and password are required"})
+	if input.Identifier == "" || input.Password == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Username/email and password are required"})
 	}
 
 	resp, err := h.Service.Login(input)
