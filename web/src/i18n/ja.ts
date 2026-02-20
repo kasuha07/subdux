@@ -183,6 +183,9 @@ const ja = {
     },
     settings: {
       siteName: "サイト名",
+      siteNameDescription: "ページタイトルに使用されます",
+      siteUrl: "サイト URL",
+      siteUrlDescription: "ウェブサイトのアクセスURL",
       registrationEnabled: "ユーザー登録",
       registrationDescription: "新規ユーザーの登録を許可",
       save: "設定を保存",

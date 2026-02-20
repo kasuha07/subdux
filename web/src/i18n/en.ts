@@ -183,6 +183,9 @@ const en = {
     },
     settings: {
       siteName: "Site name",
+      siteNameDescription: "Used for page title",
+      siteUrl: "Site URL",
+      siteUrlDescription: "Website access URL",
       registrationEnabled: "Registration",
       registrationDescription: "Allow new users to register",
       save: "Save settings",

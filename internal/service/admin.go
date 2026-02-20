@@ -37,11 +37,13 @@ type AdminStats struct {
 type SystemSettings struct {
 	RegistrationEnabled bool   `json:"registration_enabled"`
 	SiteName            string `json:"site_name"`
+	SiteURL             string `json:"site_url"`
 }
 
 type UpdateSettingsInput struct {
 	RegistrationEnabled *bool   `json:"registration_enabled"`
 	SiteName            *string `json:"site_name"`
+	SiteURL             *string `json:"site_url"`
 }
 
 type CreateUserInput struct {
@@ -121,6 +123,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 	settings := &SystemSettings{
 		RegistrationEnabled: true,
 		SiteName:            "Subdux",
+		SiteURL:             "",
 	}
 
 	var items []model.SystemSetting
@@ -132,6 +135,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.RegistrationEnabled = item.Value == "true"
 		case "site_name":
 			settings.SiteName = item.Value
+		case "site_url":
+			settings.SiteURL = item.Value
 		}
 	}
 
@@ -156,6 +161,14 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "site_name").
 				Assign(model.SystemSetting{Value: *input.SiteName}).
 				FirstOrCreate(&model.SystemSetting{Key: "site_name"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SiteURL != nil {
+			if err := tx.Where("key = ?", "site_url").
+				Assign(model.SystemSetting{Value: *input.SiteURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "site_url"}).Error; err != nil {
 				return err
 			}
 		}

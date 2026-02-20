@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { isAuthenticated, isAdmin } from "@/lib/api"
+import { useSiteSettings } from "@/hooks/useSiteSettings"
 import { AppToaster } from "@/components/app-toaster"
 import LoginPage from "@/features/auth/login-page"
 import RegisterPage from "@/features/auth/register-page"
@@ -32,6 +33,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useSiteSettings()
+
   return (
     <BrowserRouter>
       <AppToaster />

@@ -88,6 +88,7 @@ func seedDefaultSettings(db *gorm.DB) {
 	defaults := []model.SystemSetting{
 		{Key: "registration_enabled", Value: "true"},
 		{Key: "site_name", Value: "Subdux"},
+		{Key: "site_url", Value: ""},
 	}
 
 	for _, setting := range defaults {

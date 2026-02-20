@@ -183,6 +183,9 @@ const zhCN = {
     },
     settings: {
       siteName: "站点名称",
+      siteNameDescription: "用于网页标题显示",
+      siteUrl: "站点 URL",
+      siteUrlDescription: "网站访问地址",
       registrationEnabled: "用户注册",
       registrationDescription: "允许新用户注册",
       save: "保存设置",

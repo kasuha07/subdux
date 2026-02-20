@@ -54,6 +54,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { api } from "@/lib/api"
+import { updateSiteTitle } from "@/hooks/useSiteSettings"
 import { toast } from "sonner"
 import type { User, AdminStats, SystemSettings } from "@/types"
 
@@ -64,6 +65,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [siteName, setSiteName] = useState("")
+  const [siteUrl, setSiteUrl] = useState("")
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
@@ -83,6 +85,7 @@ export default function AdminPage() {
       .then(([usersData, settingsData, statsData]) => {
         setUsers(usersData || [])
         setSiteName(settingsData?.site_name || "Subdux")
+        setSiteUrl(settingsData?.site_url || "")
         setRegistrationEnabled(settingsData?.registration_enabled ?? true)
         setStats(statsData)
       })
@@ -154,10 +157,13 @@ export default function AdminPage() {
       await api.put("/admin/settings", {
         registration_enabled: registrationEnabled,
         site_name: siteName,
+        site_url: siteUrl,
       })
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSiteName(fresh.site_name)
+      setSiteUrl(fresh.site_url)
       setRegistrationEnabled(fresh.registration_enabled)
+      updateSiteTitle(fresh.site_name)
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
       void 0
@@ -416,6 +422,25 @@ export default function AdminPage() {
                     onChange={(e) => setSiteName(e.target.value)}
                     placeholder="Subdux"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.settings.siteNameDescription")}
+                  </p>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="site-url">{t("admin.settings.siteUrl")}</Label>
+                  <Input
+                    id="site-url"
+                    type="url"
+                    value={siteUrl}
+                    onChange={(e) => setSiteUrl(e.target.value)}
+                    placeholder="https://example.com"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.settings.siteUrlDescription")}
+                  </p>
                 </div>
 
                 <Separator />

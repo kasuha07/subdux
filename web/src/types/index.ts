@@ -79,9 +79,11 @@ export interface AdminStats {
 export interface SystemSettings {
   registration_enabled: boolean
   site_name: string
+  site_url: string
 }
 
 export interface UpdateSettingsInput {
   registration_enabled?: boolean
   site_name?: string
+  site_url?: string
 }
