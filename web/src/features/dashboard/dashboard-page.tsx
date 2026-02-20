@@ -572,17 +572,6 @@ export default function DashboardPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetFiltersAndSorting}
-                disabled={!hasActiveFilters}
-                className="shrink-0"
-              >
-                <FilterX className="size-4" />
-                {t("dashboard.filters.clear")}
-              </Button>
-
             </div>
 
             <div className="space-y-2">
@@ -606,15 +595,6 @@ export default function DashboardPage() {
                   <p className="text-muted-foreground mt-1 text-sm">
                     {t("dashboard.filters.empty.description")}
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={resetFiltersAndSorting}
-                  >
-                    <FilterX className="size-4" />
-                    {t("dashboard.filters.clear")}
-                  </Button>
                 </div>
               ) : (
                 filteredSubscriptions.map((sub) => (
