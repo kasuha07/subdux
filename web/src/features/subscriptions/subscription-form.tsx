@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useState, useEffect, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { Subscription, CreateSubscriptionInput } from "@/types"
+import { api } from "@/lib/api"
+import { DEFAULT_CURRENCY_FALLBACK } from "@/lib/currencies"
+import type { Subscription, CreateSubscriptionInput, UserCurrency } from "@/types"
 
 interface SubscriptionFormProps {
   open: boolean
@@ -69,6 +71,17 @@ export default function SubscriptionForm({
   const [color, setColor] = useState(subscription?.color || "#18181b")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+
+  useEffect(() => {
+    api.get<UserCurrency[]>("/currencies")
+      .then((list) => {
+        if (list && list.length > 0) {
+          setUserCurrencies(list)
+        }
+      })
+      .catch(() => void 0)
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -141,11 +154,18 @@ export default function SubscriptionForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                  <SelectItem value="CNY">CNY</SelectItem>
-                  <SelectItem value="JPY">JPY</SelectItem>
+                  {userCurrencies.length > 0
+                    ? userCurrencies.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.code}
+                        </SelectItem>
+                      ))
+                    : DEFAULT_CURRENCY_FALLBACK.map((code) => (
+                        <SelectItem key={code} value={code}>
+                          {code}
+                        </SelectItem>
+                      ))
+                  }
                 </SelectContent>
               </Select>
             </div>

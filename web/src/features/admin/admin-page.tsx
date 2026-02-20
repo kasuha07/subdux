@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   DollarSign,
   Plus,
+  RefreshCw,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -56,7 +64,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
 import { toast } from "sonner"
-import type { User, AdminStats, SystemSettings } from "@/types"
+import type { User, AdminStats, SystemSettings, ExchangeRateStatus } from "@/types"
 
 export default function AdminPage() {
   const { t } = useTranslation()
@@ -70,6 +78,11 @@ export default function AdminPage() {
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
 
+  const [rateStatus, setRateStatus] = useState<ExchangeRateStatus | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [currencyApiKey, setCurrencyApiKey] = useState("")
+  const [exchangeRateSource, setExchangeRateSource] = useState("auto")
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newUsername, setNewUsername] = useState("")
   const [newEmail, setNewEmail] = useState("")
@@ -81,13 +94,17 @@ export default function AdminPage() {
       api.get<User[]>("/admin/users"),
       api.get<SystemSettings>("/admin/settings"),
       api.get<AdminStats>("/admin/stats"),
+      api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
     ])
-      .then(([usersData, settingsData, statsData]) => {
+      .then(([usersData, settingsData, statsData, rateStatusData]) => {
         setUsers(usersData || [])
         setSiteName(settingsData?.site_name || "Subdux")
         setSiteUrl(settingsData?.site_url || "")
         setRegistrationEnabled(settingsData?.registration_enabled ?? true)
+        setCurrencyApiKey(settingsData?.currencyapi_key || "")
+        setExchangeRateSource(settingsData?.exchange_rate_source || "auto")
         setStats(statsData)
+        setRateStatus(rateStatusData)
       })
       .catch(() => void 0)
       .finally(() => setLoading(false))
@@ -158,15 +175,33 @@ export default function AdminPage() {
         registration_enabled: registrationEnabled,
         site_name: siteName,
         site_url: siteUrl,
+        currencyapi_key: currencyApiKey,
+        exchange_rate_source: exchangeRateSource,
       })
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSiteName(fresh.site_name)
       setSiteUrl(fresh.site_url)
       setRegistrationEnabled(fresh.registration_enabled)
+      setCurrencyApiKey(fresh.currencyapi_key)
+      setExchangeRateSource(fresh.exchange_rate_source)
       updateSiteTitle(fresh.site_name)
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
       void 0
+    }
+  }
+
+  async function handleRefreshRates() {
+    setRefreshing(true)
+    try {
+      await api.post("/admin/exchange-rates/refresh", {})
+      const status = await api.get<ExchangeRateStatus>("/admin/exchange-rates/status")
+      setRateStatus(status)
+      toast.success(t("admin.exchangeRates.refreshSuccess"))
+    } catch {
+      toast.error(t("admin.exchangeRates.refreshFailed"))
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -265,6 +300,10 @@ export default function AdminPage() {
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="size-4" />
               {t("admin.tabs.settings")}
+            </TabsTrigger>
+            <TabsTrigger value="exchange-rates" className="gap-2">
+              <RefreshCw className="size-4" />
+              {t("admin.exchangeRates.title")}
             </TabsTrigger>
             <TabsTrigger value="stats" className="gap-2">
               <BarChart3 className="size-4" />
@@ -457,6 +496,84 @@ export default function AdminPage() {
                     checked={registrationEnabled}
                     onCheckedChange={setRegistrationEnabled}
                   />
+                </div>
+
+                <Separator />
+
+                <Button onClick={handleSaveSettings}>
+                  {t("admin.settings.save")}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="exchange-rates">
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="currency-api-key">{t("admin.exchangeRates.apiKeyLabel")}</Label>
+                  <Input
+                    id="currency-api-key"
+                    value={currencyApiKey}
+                    onChange={(e) => setCurrencyApiKey(e.target.value)}
+                    placeholder={t("admin.exchangeRates.apiKeyPlaceholder")}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.exchangeRates.apiKeyDescription")}
+                  </p>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="exchange-rate-source">{t("admin.exchangeRates.sourceSelectLabel")}</Label>
+                  <Select value={exchangeRateSource} onValueChange={setExchangeRateSource}>
+                    <SelectTrigger id="exchange-rate-source" className="w-64">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">{t("admin.exchangeRates.auto")}</SelectItem>
+                      <SelectItem value="free">{t("admin.exchangeRates.free")}</SelectItem>
+                      <SelectItem value="premium">{t("admin.exchangeRates.premium")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.exchangeRates.sourceSelectDescription")}
+                  </p>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{t("admin.exchangeRates.source")}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {rateStatus?.source === "premium"
+                          ? t("admin.exchangeRates.premium")
+                          : t("admin.exchangeRates.free")}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{t("admin.exchangeRates.lastFetched")}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {rateStatus?.last_fetched_at
+                          ? new Date(rateStatus.last_fetched_at).toLocaleString()
+                          : t("admin.exchangeRates.never")}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{t("admin.exchangeRates.rateCount")}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {rateStatus?.rate_count ?? 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button onClick={handleRefreshRates} disabled={refreshing}>
+                    <RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />
+                    {refreshing ? t("admin.exchangeRates.refreshing") : t("admin.exchangeRates.refresh")}
+                  </Button>
                 </div>
 
                 <Separator />

@@ -9,11 +9,12 @@ import (
 )
 
 type SubscriptionHandler struct {
-	Service *service.SubscriptionService
+	Service   *service.SubscriptionService
+	ERService *service.ExchangeRateService
 }
 
-func NewSubscriptionHandler(s *service.SubscriptionService) *SubscriptionHandler {
-	return &SubscriptionHandler{Service: s}
+func NewSubscriptionHandler(s *service.SubscriptionService, er *service.ExchangeRateService) *SubscriptionHandler {
+	return &SubscriptionHandler{Service: s, ERService: er}
 }
 
 func (h *SubscriptionHandler) List(c echo.Context) error {
@@ -101,7 +102,11 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 
 func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 	userID := getUserID(c)
-	summary, err := h.Service.GetDashboardSummary(userID)
+
+	pref, _ := h.ERService.GetUserPreference(userID)
+	targetCurrency := pref.PreferredCurrency
+
+	summary, err := h.Service.GetDashboardSummary(userID, targetCurrency, h.ERService)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}

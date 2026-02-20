@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api, isAdmin } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
-import type { Subscription, DashboardSummary, CreateSubscriptionInput } from "@/types"
+import type { Subscription, DashboardSummary, CreateSubscriptionInput, UserPreference } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import { Plus, Settings, DollarSign, CalendarDays, Repeat, TrendingUp, Shield } from "lucide-react"
@@ -63,15 +63,23 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
+  const [preferredCurrency, setPreferredCurrency] = useState(
+    localStorage.getItem("defaultCurrency") || "USD"
+  )
 
   const fetchData = useCallback(async () => {
     try {
-      const [subs, sum] = await Promise.all([
+      const [subs, sum, pref] = await Promise.all([
         api.get<Subscription[]>("/subscriptions"),
         api.get<DashboardSummary>("/dashboard/summary"),
+        api.get<UserPreference>("/preferences/currency"),
       ])
       setSubscriptions(subs || [])
       setSummary(sum)
+      if (pref?.preferred_currency) {
+        setPreferredCurrency(pref.preferred_currency)
+        localStorage.setItem("defaultCurrency", pref.preferred_currency)
+      }
     } catch {
       void 0
     } finally {
@@ -157,7 +165,7 @@ export default function DashboardPage() {
                   <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.monthly")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_monthly, localStorage.getItem("defaultCurrency") || "USD", i18n.language)}
+                  {formatCurrency(summary.total_monthly, summary.currency || preferredCurrency, i18n.language)}
                 </p>
               </CardContent>
             </Card>
@@ -168,7 +176,7 @@ export default function DashboardPage() {
                   <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.yearly")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_yearly, localStorage.getItem("defaultCurrency") || "USD", i18n.language)}
+                  {formatCurrency(summary.total_yearly, summary.currency || preferredCurrency, i18n.language)}
                 </p>
               </CardContent>
             </Card>

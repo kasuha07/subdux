@@ -38,12 +38,16 @@ type SystemSettings struct {
 	RegistrationEnabled bool   `json:"registration_enabled"`
 	SiteName            string `json:"site_name"`
 	SiteURL             string `json:"site_url"`
+	CurrencyAPIKey      string `json:"currencyapi_key"`
+	ExchangeRateSource  string `json:"exchange_rate_source"`
 }
 
 type UpdateSettingsInput struct {
 	RegistrationEnabled *bool   `json:"registration_enabled"`
 	SiteName            *string `json:"site_name"`
 	SiteURL             *string `json:"site_url"`
+	CurrencyAPIKey      *string `json:"currencyapi_key"`
+	ExchangeRateSource  *string `json:"exchange_rate_source"`
 }
 
 type CreateUserInput struct {
@@ -124,6 +128,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		RegistrationEnabled: true,
 		SiteName:            "Subdux",
 		SiteURL:             "",
+		CurrencyAPIKey:      "",
+		ExchangeRateSource:  "auto",
 	}
 
 	var items []model.SystemSetting
@@ -137,6 +143,10 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.SiteName = item.Value
 		case "site_url":
 			settings.SiteURL = item.Value
+		case "currencyapi_key":
+			settings.CurrencyAPIKey = item.Value
+		case "exchange_rate_source":
+			settings.ExchangeRateSource = item.Value
 		}
 	}
 
@@ -169,6 +179,22 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "site_url").
 				Assign(model.SystemSetting{Value: *input.SiteURL}).
 				FirstOrCreate(&model.SystemSetting{Key: "site_url"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.CurrencyAPIKey != nil {
+			if err := tx.Where("key = ?", "currencyapi_key").
+				Assign(model.SystemSetting{Value: *input.CurrencyAPIKey}).
+				FirstOrCreate(&model.SystemSetting{Key: "currencyapi_key"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.ExchangeRateSource != nil {
+			if err := tx.Where("key = ?", "exchange_rate_source").
+				Assign(model.SystemSetting{Value: *input.ExchangeRateSource}).
+				FirstOrCreate(&model.SystemSetting{Key: "exchange_rate_source"}).Error; err != nil {
 				return err
 			}
 		}

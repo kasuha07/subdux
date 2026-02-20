@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react"
+import { useState, useEffect, useMemo, useRef, type DragEvent, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -12,11 +12,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Sun, Moon, Monitor } from "lucide-react"
+import { ArrowLeft, GripVertical, Monitor, Moon, Sun, Trash2 } from "lucide-react"
 import { api, clearToken } from "@/lib/api"
+import {
+  DEFAULT_CURRENCY_FALLBACK,
+  PRESET_CURRENCIES,
+  getPresetCurrencyMeta,
+} from "@/lib/currencies"
 import { getTheme, applyTheme, type Theme } from "@/lib/theme"
 import { toast } from "sonner"
-import type { User } from "@/types"
+import type {
+  CreateCurrencyInput,
+  ReorderCurrencyItem,
+  UpdateCurrencyInput,
+  User,
+  UserCurrency,
+  UserPreference,
+} from "@/types"
 
 const languages = [
   { value: "en", label: "English" },
@@ -24,21 +36,16 @@ const languages = [
   { value: "ja", label: "日本語" },
 ]
 
-const currencies = ["USD", "EUR", "GBP", "JPY", "CNY", "CAD", "AUD"]
+const customCodeOption = "__custom__"
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
 
-  // Appearance
   const [theme, setTheme] = useState<Theme>(getTheme())
-
-  // Currency
   const [currency, setCurrency] = useState(
     localStorage.getItem("defaultCurrency") || "USD"
   )
-
-  // Account
   const [user, setUser] = useState<User | null>(null)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -47,18 +54,95 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState("")
   const [passwordSuccess, setPasswordSuccess] = useState("")
 
+  const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+  const [addCode, setAddCode] = useState("")
+  const [customCode, setCustomCode] = useState("")
+  const [addSymbol, setAddSymbol] = useState("")
+  const [addAlias, setAddAlias] = useState("")
+  const [addLoading, setAddLoading] = useState(false)
+  const [orderChanged, setOrderChanged] = useState(false)
+  const [orderSaving, setOrderSaving] = useState(false)
+
+  const dragFrom = useRef<number | null>(null)
+  const dragTo = useRef<number | null>(null)
+
   useEffect(() => {
     api.get<User>("/auth/me").then(setUser).catch(() => void 0)
+    api.get<UserPreference>("/preferences/currency").then((pref) => {
+      if (pref?.preferred_currency) {
+        setCurrency(pref.preferred_currency)
+        localStorage.setItem("defaultCurrency", pref.preferred_currency)
+      }
+    }).catch(() => void 0)
+    api.get<UserCurrency[]>("/currencies").then((list) => {
+      setUserCurrencies(list ?? [])
+    }).catch(() => void 0)
   }, [])
+
+  useEffect(() => {
+    if (userCurrencies.length === 0) {
+      return
+    }
+
+    if (!userCurrencies.some((item) => item.code === currency)) {
+      const nextCurrency = userCurrencies[0].code
+      setCurrency(nextCurrency)
+      localStorage.setItem("defaultCurrency", nextCurrency)
+      api.put("/preferences/currency", { preferred_currency: nextCurrency }).catch(() => void 0)
+    }
+  }, [currency, userCurrencies])
+
+  const addableCurrencyCodes = useMemo(
+    () => PRESET_CURRENCIES.map((item) => item.code).filter((code) => !userCurrencies.some((item) => item.code === code)),
+    [userCurrencies]
+  )
+
+  useEffect(() => {
+    if (addCode === customCodeOption) {
+      setAddSymbol("")
+      setAddAlias("")
+      return
+    }
+
+    if (addableCurrencyCodes.length === 0) {
+      setAddCode(customCodeOption)
+      return
+    }
+
+    if (!addCode || !addableCurrencyCodes.includes(addCode)) {
+      setAddCode(addableCurrencyCodes[0])
+    }
+  }, [addCode, addableCurrencyCodes])
+
+  useEffect(() => {
+    if (addCode === customCodeOption) {
+      return
+    }
+
+    const preset = getPresetCurrencyMeta(addCode)
+    if (!preset) {
+      setAddSymbol("")
+      setAddAlias("")
+      return
+    }
+
+    setAddSymbol(preset.symbol)
+    setAddAlias(preset.alias)
+  }, [addCode])
 
   function handleTheme(next: Theme) {
     setTheme(next)
     applyTheme(next)
   }
 
-  function handleCurrency(value: string) {
+  async function handleCurrency(value: string) {
     setCurrency(value)
     localStorage.setItem("defaultCurrency", value)
+    try {
+      await api.put("/preferences/currency", { preferred_currency: value })
+    } catch {
+      void 0
+    }
   }
 
   async function handleChangePassword(e: FormEvent) {
@@ -100,6 +184,113 @@ export default function SettingsPage() {
     navigate("/login")
   }
 
+  async function handleAddCurrency(e: FormEvent) {
+    e.preventDefault()
+
+    const code = (addCode === customCodeOption ? customCode : addCode).trim().toUpperCase()
+    const preset = getPresetCurrencyMeta(code)
+    if (!code) {
+      toast.error(t("settings.currencyManagement.invalidCode"))
+      return
+    }
+
+    setAddLoading(true)
+    try {
+      const input: CreateCurrencyInput = {
+        code,
+        symbol: addSymbol.trim() || preset?.symbol || "",
+        alias: addAlias.trim() || preset?.alias || "",
+        sort_order: userCurrencies.length,
+      }
+      const created = await api.post<UserCurrency>("/currencies", input)
+      setUserCurrencies((prev) => [...prev, created])
+      if (addCode === customCodeOption) {
+        setCustomCode("")
+        setAddSymbol("")
+        setAddAlias("")
+      }
+      toast.success(t("settings.currencyManagement.addSuccess"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("settings.currencyManagement.invalidCode"))
+    } finally {
+      setAddLoading(false)
+    }
+  }
+
+  async function handleDeleteCurrency(id: number) {
+    if (!window.confirm(t("settings.currencyManagement.deleteConfirm"))) {
+      return
+    }
+
+    try {
+      await api.delete(`/currencies/${id}`)
+      setUserCurrencies((prev) => prev.filter((item) => item.id !== id))
+      toast.success(t("settings.currencyManagement.deleteSuccess"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("settings.currencyManagement.cannotDeletePreferred"))
+    }
+  }
+
+  async function handleUpdateCurrency(id: number, input: UpdateCurrencyInput) {
+    try {
+      const updated = await api.put<UserCurrency>(`/currencies/${id}`, input)
+      setUserCurrencies((prev) => prev.map((item) => (item.id === id ? updated : item)))
+      toast.success(t("settings.currencyManagement.updateSuccess"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
+    }
+  }
+
+  function handleDragStart(index: number) {
+    dragFrom.current = index
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>, index: number) {
+    e.preventDefault()
+    dragTo.current = index
+  }
+
+  function handleDrop() {
+    if (dragFrom.current === null || dragTo.current === null || dragFrom.current === dragTo.current) {
+      return
+    }
+
+    const reordered = [...userCurrencies]
+    const [moved] = reordered.splice(dragFrom.current, 1)
+    reordered.splice(dragTo.current, 0, moved)
+    setUserCurrencies(reordered)
+    setOrderChanged(true)
+    dragFrom.current = null
+    dragTo.current = null
+  }
+
+  async function handleSaveOrder() {
+    setOrderSaving(true)
+    try {
+      const payload: ReorderCurrencyItem[] = userCurrencies.map((item, index) => ({
+        id: item.id,
+        sort_order: index,
+      }))
+      await api.put("/currencies/reorder", payload)
+      setUserCurrencies((prev) =>
+        prev.map((item, index) => ({
+          ...item,
+          sort_order: index,
+        }))
+      )
+      setOrderChanged(false)
+      toast.success(t("settings.currencyManagement.orderSaved"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
+    } finally {
+      setOrderSaving(false)
+    }
+  }
+
+  const preferredCurrencyCodes = userCurrencies.length > 0
+    ? userCurrencies.map((item) => item.code)
+    : DEFAULT_CURRENCY_FALLBACK
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
@@ -116,7 +307,6 @@ export default function SettingsPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6 space-y-8">
-        {/* Appearance */}
         <div>
           <h2 className="text-sm font-medium">
             {t("settings.appearance.title")}
@@ -154,7 +344,6 @@ export default function SettingsPage() {
 
         <Separator />
 
-        {/* Language */}
         <div>
           <h2 className="text-sm font-medium">
             {t("settings.language.title")}
@@ -183,7 +372,6 @@ export default function SettingsPage() {
 
         <Separator />
 
-        {/* Currency */}
         <div>
           <h2 className="text-sm font-medium">
             {t("settings.currency.title")}
@@ -197,9 +385,9 @@ export default function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {currencies.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
+                {preferredCurrencyCodes.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -209,7 +397,167 @@ export default function SettingsPage() {
 
         <Separator />
 
-        {/* Account */}
+        <div>
+          <h2 className="text-sm font-medium">
+            {t("settings.currencyManagement.title")}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {t("settings.currencyManagement.description")}
+          </p>
+
+          <div className="mt-3 space-y-1">
+            {userCurrencies.length === 0 && (
+              <p className="text-sm text-muted-foreground py-2">
+                {t("settings.currencyManagement.empty")}
+              </p>
+            )}
+
+            {userCurrencies.map((item, index) => (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={handleDrop}
+                className="grid grid-cols-[1rem_3rem_5rem_minmax(0,1fr)_1.75rem] items-center gap-2 rounded-md border bg-card px-2 py-1.5"
+              >
+                <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab" />
+                <span className="inline-flex h-7 items-center text-sm font-mono font-medium">{item.code}</span>
+
+                <Input
+                  className="h-7 w-full px-2 text-sm"
+                  placeholder={t("settings.currencyManagement.symbolPlaceholder")}
+                  defaultValue={item.symbol}
+                  maxLength={10}
+                  onBlur={(e) => {
+                    if (e.target.value !== item.symbol) {
+                      void handleUpdateCurrency(item.id, { symbol: e.target.value })
+                    }
+                  }}
+                />
+
+                <Input
+                  className="h-7 w-full px-2 text-sm"
+                  placeholder={t("settings.currencyManagement.aliasPlaceholder")}
+                  defaultValue={item.alias}
+                  maxLength={100}
+                  onBlur={(e) => {
+                    if (e.target.value !== item.alias) {
+                      void handleUpdateCurrency(item.id, { alias: e.target.value })
+                    }
+                  }}
+                />
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => void handleDeleteCurrency(item.id)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {orderChanged && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              disabled={orderSaving}
+              onClick={() => void handleSaveOrder()}
+            >
+              {orderSaving
+                ? t("settings.currencyManagement.savingOrder")
+                : t("settings.currencyManagement.saveOrder")}
+            </Button>
+          )}
+
+          <form onSubmit={(e) => void handleAddCurrency(e)} className="mt-3 space-y-2">
+            <div className="grid gap-1 sm:grid-cols-[6rem_5rem_minmax(0,1fr)_auto]">
+              <Label className="text-xs text-muted-foreground">
+                {t("settings.currencyManagement.codeLabel")}
+              </Label>
+              <Label className="text-xs text-muted-foreground">
+                {t("settings.currencyManagement.symbolLabel")}
+              </Label>
+              <Label className="text-xs text-muted-foreground">
+                {t("settings.currencyManagement.aliasLabel")}
+              </Label>
+              <Label className="text-xs text-transparent">
+                {t("settings.currencyManagement.addButton")}
+              </Label>
+            </div>
+
+            <div className="grid items-center gap-2 sm:grid-cols-[6rem_5rem_minmax(0,1fr)_auto]">
+              <Select value={addCode} onValueChange={setAddCode}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("settings.currencyManagement.codePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {addableCurrencyCodes.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={customCodeOption}>
+                    {t("settings.currencyManagement.customCode")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input
+                className="w-full text-sm"
+                placeholder={t("settings.currencyManagement.symbolPlaceholder")}
+                value={addSymbol}
+                onChange={(e) => setAddSymbol(e.target.value)}
+                maxLength={10}
+              />
+
+              <Input
+                className="w-full text-sm"
+                placeholder={t("settings.currencyManagement.aliasPlaceholder")}
+                value={addAlias}
+                onChange={(e) => setAddAlias(e.target.value)}
+                maxLength={100}
+              />
+
+              <Button
+                type="submit"
+                className="sm:min-w-20"
+                disabled={
+                  addLoading ||
+                  (addCode === customCodeOption ? customCode.trim() === "" : addCode.trim() === "")
+                }
+              >
+                {addLoading
+                  ? t("settings.currencyManagement.adding")
+                  : t("settings.currencyManagement.addButton")}
+              </Button>
+            </div>
+
+            {addCode === customCodeOption && (
+              <div className="grid gap-2 sm:max-w-72">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {t("settings.currencyManagement.customCode")}
+                  </Label>
+                  <Input
+                    className="w-full text-sm uppercase"
+                    placeholder={t("settings.currencyManagement.codePlaceholder")}
+                    value={customCode}
+                    onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+
+        <Separator />
         <div className="space-y-4">
           <div>
             <h2 className="text-sm font-medium">

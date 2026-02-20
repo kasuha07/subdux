@@ -31,14 +31,18 @@ func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func SetupRoutes(e *echo.Echo, db *gorm.DB) {
+func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	authService := service.NewAuthService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)
+	erService := service.NewExchangeRateService(db)
+	currencyService := service.NewCurrencyService(db)
 
 	authHandler := NewAuthHandler(authService)
-	subHandler := NewSubscriptionHandler(subService)
+	subHandler := NewSubscriptionHandler(subService, erService)
 	adminHandler := NewAdminHandler(adminService)
+	erHandler := NewExchangeRateHandler(erService)
+	currencyHandler := NewCurrencyHandler(currencyService, erService)
 
 	api := e.Group("/api")
 
@@ -80,8 +84,23 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) {
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.GET("/backup", adminHandler.BackupDB)
 	admin.POST("/restore", adminHandler.RestoreDB)
+	admin.GET("/exchange-rates/status", erHandler.GetStatus)
+	admin.POST("/exchange-rates/refresh", erHandler.RefreshRates)
+
+	protected.GET("/exchange-rates", erHandler.ListRates)
+	protected.GET("/exchange-rates/:base/:target", erHandler.GetRate)
+	protected.GET("/preferences/currency", erHandler.GetPreference)
+	protected.PUT("/preferences/currency", erHandler.UpdatePreference)
+
+	protected.GET("/currencies", currencyHandler.List)
+	protected.POST("/currencies", currencyHandler.Create)
+	protected.PUT("/currencies/reorder", currencyHandler.Reorder)
+	protected.PUT("/currencies/:id", currencyHandler.Update)
+	protected.DELETE("/currencies/:id", currencyHandler.Delete)
 
 	seedDefaultSettings(db)
+
+	return erService
 }
 
 func seedDefaultSettings(db *gorm.DB) {
@@ -89,6 +108,8 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "registration_enabled", Value: "true"},
 		{Key: "site_name", Value: "Subdux"},
 		{Key: "site_url", Value: ""},
+		{Key: "currencyapi_key", Value: ""},
+		{Key: "exchange_rate_source", Value: "auto"},
 	}
 
 	for _, setting := range defaults {

@@ -29,7 +29,10 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	api.SetupRoutes(e, db)
+	erService := api.SetupRoutes(e, db)
+
+	stop := make(chan struct{})
+	erService.StartBackgroundRefresh(stop)
 
 	distFS, err := fs.Sub(subdux.StaticFS, "web/dist")
 	if err != nil {

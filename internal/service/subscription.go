@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+type CurrencyConverter interface {
+	Convert(amount float64, from, to string) float64
+}
+
 type SubscriptionService struct {
 	DB *gorm.DB
 }
@@ -47,6 +51,7 @@ type DashboardSummary struct {
 	TotalYearly      float64              `json:"total_yearly"`
 	ActiveCount      int64                `json:"active_count"`
 	UpcomingRenewals []model.Subscription `json:"upcoming_renewals"`
+	Currency         string               `json:"currency"`
 }
 
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
@@ -156,21 +161,29 @@ func (s *SubscriptionService) Delete(userID, id uint) error {
 	return s.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error
 }
 
-func (s *SubscriptionService) GetDashboardSummary(userID uint) (*DashboardSummary, error) {
+func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
 	var subs []model.Subscription
 	if err := s.DB.Where("user_id = ? AND status = ?", userID, "active").Find(&subs).Error; err != nil {
 		return nil, err
 	}
 
+	if targetCurrency == "" {
+		targetCurrency = "USD"
+	}
+
 	var totalMonthly float64
 	for _, sub := range subs {
+		amount := sub.Amount
+		if converter != nil && sub.Currency != targetCurrency {
+			amount = converter.Convert(amount, sub.Currency, targetCurrency)
+		}
 		switch sub.BillingCycle {
 		case "weekly":
-			totalMonthly += sub.Amount * 4.33
+			totalMonthly += amount * 4.33
 		case "monthly":
-			totalMonthly += sub.Amount
+			totalMonthly += amount
 		case "yearly":
-			totalMonthly += sub.Amount / 12
+			totalMonthly += amount / 12
 		}
 	}
 
@@ -184,5 +197,6 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint) (*DashboardSummar
 		TotalYearly:      totalMonthly * 12,
 		ActiveCount:      int64(len(subs)),
 		UpcomingRenewals: upcoming,
+		Currency:         targetCurrency,
 	}, nil
 }

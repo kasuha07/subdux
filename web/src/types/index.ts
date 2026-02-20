@@ -31,6 +31,7 @@ export interface DashboardSummary {
   total_yearly: number
   active_count: number
   upcoming_renewals: Subscription[]
+  currency: string
 }
 
 export interface AuthResponse {
@@ -80,10 +81,63 @@ export interface SystemSettings {
   registration_enabled: boolean
   site_name: string
   site_url: string
+  currencyapi_key: string
+  exchange_rate_source: string
 }
 
 export interface UpdateSettingsInput {
   registration_enabled?: boolean
   site_name?: string
   site_url?: string
+  currencyapi_key?: string
+  exchange_rate_source?: string
+}
+
+export interface UserPreference {
+  user_id: number
+  preferred_currency: string
+  updated_at: string
+}
+
+export interface ExchangeRateInfo {
+  base_currency: string
+  target_currency: string
+  rate: number
+  source: string
+  fetched_at: string
+}
+
+export interface ExchangeRateStatus {
+  last_fetched_at: string | null
+  source: string
+  rate_count: number
+}
+
+export interface UserCurrency {
+  id: number
+  user_id: number
+  code: string
+  symbol: string
+  alias: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateCurrencyInput {
+  code: string
+  symbol: string
+  alias: string
+  sort_order: number
+}
+
+export interface UpdateCurrencyInput {
+  symbol?: string
+  alias?: string
+  sort_order?: number
+}
+
+export interface ReorderCurrencyItem {
+  id: number
+  sort_order: number
 }
