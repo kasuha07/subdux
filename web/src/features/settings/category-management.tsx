@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { GripVertical, Trash2 } from "lucide-react"
+import { GripVertical, Trash2, Pencil, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-import type { Category, CreateCategoryInput, ReorderCategoryItem } from "@/types"
+import type { Category, CreateCategoryInput, UpdateCategoryInput, ReorderCategoryItem } from "@/types"
 
 export default function CategoryManagement() {
   const { t } = useTranslation()
@@ -16,6 +16,9 @@ export default function CategoryManagement() {
   const [addLoading, setAddLoading] = useState(false)
   const [orderChanged, setOrderChanged] = useState(false)
   const [orderSaving, setOrderSaving] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editLoading, setEditLoading] = useState(false)
 
   const dragFrom = useRef<number | null>(null)
   const dragTo = useRef<number | null>(null)
@@ -63,6 +66,40 @@ export default function CategoryManagement() {
       toast.success(t("settings.categoryManagement.deleteSuccess"))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
+    }
+  }
+
+  function handleEditStart(category: Category) {
+    setEditingId(category.id)
+    setEditName(category.name)
+  }
+
+  function handleEditCancel() {
+    setEditingId(null)
+    setEditName("")
+  }
+
+  async function handleEditSave(id: number) {
+    const name = editName.trim()
+    if (!name) {
+      toast.error(t("settings.categoryManagement.invalidName"))
+      return
+    }
+
+    setEditLoading(true)
+    try {
+      const input: UpdateCategoryInput = { name }
+      const updated = await api.put<Category>(`/categories/${id}`, input)
+      setCategories((prev) =>
+        prev.map((item) => (item.id === id ? updated : item))
+      )
+      setEditingId(null)
+      setEditName("")
+      toast.success(t("settings.categoryManagement.updateSuccess"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
+    } finally {
+      setEditLoading(false)
     }
   }
 
@@ -139,15 +176,58 @@ export default function CategoryManagement() {
               >
                 <GripVertical className="size-4 text-muted-foreground cursor-grab" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{item.name}</p>
+                  {editingId === item.id ? (
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="h-8"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-sm font-medium">{item.name}</p>
+                  )}
                 </div>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => handleDeleteCategory(item.id)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                {editingId === item.id ? (
+                  <>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => handleEditSave(item.id)}
+                      disabled={editLoading}
+                      title={t("settings.categoryManagement.saveButton")}
+                    >
+                      <Check className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={handleEditCancel}
+                      disabled={editLoading}
+                      title={t("settings.categoryManagement.cancelButton")}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => handleEditStart(item)}
+                      title={t("settings.categoryManagement.editButton")}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteCategory(item.id)}
+                      title={t("common.delete")}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             ))}
             {orderChanged && (

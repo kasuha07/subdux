@@ -34,8 +34,8 @@ func (s *CategoryService) List(userID uint) ([]model.Category, error) {
 
 func (s *CategoryService) Create(userID uint, input CreateCategoryInput) (*model.Category, error) {
 	name := strings.TrimSpace(input.Name)
-	if name == "" || len(name) > 100 {
-		return nil, errors.New("name must be 1-100 characters")
+	if name == "" || len(name) > 30 {
+		return nil, errors.New("name must be 1-30 characters")
 	}
 
 	var existing model.Category
@@ -64,8 +64,8 @@ func (s *CategoryService) Update(userID, id uint, input UpdateCategoryInput) (*m
 
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)
-		if name == "" || len(name) > 100 {
-			return nil, errors.New("name must be 1-100 characters")
+		if name == "" || len(name) > 30 {
+			return nil, errors.New("name must be 1-30 characters")
 		}
 		var existing model.Category
 		err := s.DB.Where("user_id = ? AND name = ? AND id != ?", userID, name, id).First(&existing).Error

@@ -19,7 +19,7 @@ import {
 import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
 import IconPicker from "./icon-picker"
-import type { Subscription, CreateSubscriptionInput, UserCurrency, UploadIconResponse } from "@/types"
+import type { Subscription, CreateSubscriptionInput, UserCurrency, UploadIconResponse, Category } from "@/types"
 
 interface SubscriptionFormProps {
   open: boolean
@@ -27,25 +27,6 @@ interface SubscriptionFormProps {
   subscription?: Subscription | null
   onSubmit: (data: CreateSubscriptionInput) => Promise<Subscription>
 }
-
-const categories = [
-  "Entertainment",
-  "Productivity",
-  "Development",
-  "Music",
-  "Cloud",
-  "Finance",
-  "Health",
-  "Education",
-  "News",
-  "Other",
-]
-
-const colors = [
-  "#18181b", "#dc2626", "#ea580c", "#ca8a04",
-  "#16a34a", "#0891b2", "#2563eb", "#7c3aed",
-  "#db2777", "#64748b",
-]
 
 export default function SubscriptionForm({
   open,
@@ -65,7 +46,9 @@ export default function SubscriptionForm({
       ? new Date(subscription.next_billing_date).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0]
   )
-  const [category, setCategory] = useState(subscription?.category || "")
+  const [categoryId, setCategoryId] = useState<string>(
+    subscription?.category_id?.toString() || ""
+  )
   const [icon, setIcon] = useState(subscription?.icon || "")
   const [url, setUrl] = useState(subscription?.url || "")
   const [notes, setNotes] = useState(subscription?.notes || "")
@@ -74,7 +57,14 @@ export default function SubscriptionForm({
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const wasOpenRef = useRef(false)
+
+const colors = [
+  "#18181b", "#dc2626", "#ea580c", "#ca8a04",
+  "#16a34a", "#0891b2", "#2563eb", "#7c3aed",
+  "#db2777", "#64748b",
+]
 
   const currencyOptions = useMemo(() => {
     if (userCurrencies.length > 0) {
@@ -96,6 +86,12 @@ export default function SubscriptionForm({
         if (list && list.length > 0) {
           setUserCurrencies(list)
         }
+      })
+      .catch(() => void 0)
+
+    api.get<Category[]>("/categories")
+      .then((list) => {
+        setCategories(list ?? [])
       })
       .catch(() => void 0)
   }, [])
@@ -145,7 +141,8 @@ export default function SubscriptionForm({
         currency,
         billing_cycle: billingCycle,
         next_billing_date: nextBillingDate,
-        category,
+        category: "",
+        category_id: categoryId ? parseInt(categoryId, 10) : null,
         icon: iconFile && !isEditing ? "" : iconValue,
         url,
         notes,
@@ -259,13 +256,13 @@ export default function SubscriptionForm({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="category">{t("subscription.form.categoryLabel")}</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder={t("subscription.form.categoryPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{t(`subscription.form.categories.${c.toLowerCase()}`)}</SelectItem>
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -89,7 +89,7 @@ type UserCurrency struct {
 type Category struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	UserID       uint      `gorm:"not null;index;uniqueIndex:idx_user_category_name" json:"user_id"`
-	Name         string    `gorm:"not null;size:100;uniqueIndex:idx_user_category_name" json:"name"`
+	Name         string    `gorm:"not null;size:30;uniqueIndex:idx_user_category_name" json:"name"`
 	DisplayOrder int       `gorm:"default:0" json:"display_order"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

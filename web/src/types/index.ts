@@ -87,6 +87,7 @@ export interface CreateSubscriptionInput {
   billing_cycle: string
   next_billing_date: string
   category: string
+  category_id: number | null
   icon: string
   url: string
   notes: string
@@ -100,6 +101,7 @@ export interface UpdateSubscriptionInput {
   billing_cycle?: string
   next_billing_date?: string
   category?: string
+  category_id?: number | null
   icon?: string
   url?: string
   notes?: string

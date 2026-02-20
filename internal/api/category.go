@@ -39,7 +39,7 @@ func (h *CategoryHandler) Create(c echo.Context) error {
 		if err.Error() == "category name already exists" {
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
 		}
-		if err.Error() == "name must be 1-100 characters" {
+		if err.Error() == "name must be 1-30 characters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -65,7 +65,7 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 		if err.Error() == "category name already exists" {
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
 		}
-		if err.Error() == "name must be 1-100 characters" {
+		if err.Error() == "name must be 1-30 characters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})

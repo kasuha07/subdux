@@ -34,6 +34,7 @@ type CreateSubscriptionInput struct {
 	BillingCycle    string  `json:"billing_cycle"`
 	NextBillingDate string  `json:"next_billing_date"`
 	Category        string  `json:"category"`
+	CategoryID      *uint   `json:"category_id"`
 	Icon            string  `json:"icon"`
 	URL             string  `json:"url"`
 	Notes           string  `json:"notes"`
@@ -47,6 +48,7 @@ type UpdateSubscriptionInput struct {
 	BillingCycle    *string  `json:"billing_cycle"`
 	NextBillingDate *string  `json:"next_billing_date"`
 	Category        *string  `json:"category"`
+	CategoryID      *uint    `json:"category_id"`
 	Icon            *string  `json:"icon"`
 	URL             *string  `json:"url"`
 	Notes           *string  `json:"notes"`
@@ -99,6 +101,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		BillingCycle:    input.BillingCycle,
 		NextBillingDate: nextBilling,
 		Category:        input.Category,
+		CategoryID:      input.CategoryID,
 		Icon:            input.Icon,
 		URL:             input.URL,
 		Notes:           input.Notes,
@@ -134,6 +137,9 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	}
 	if input.Category != nil {
 		updates["category"] = *input.Category
+	}
+	if input.CategoryID != nil {
+		updates["category_id"] = *input.CategoryID
 	}
 	if input.Icon != nil {
 		updates["icon"] = *input.Icon
