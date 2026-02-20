@@ -1,4 +1,5 @@
 import type { Subscription } from "@/types"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,12 +12,6 @@ interface SubscriptionCardProps {
   onDelete: (id: number) => void
 }
 
-const cycleLabels: Record<string, string> = {
-  weekly: "/ week",
-  monthly: "/ mo",
-  yearly: "/ yr",
-}
-
 const statusStyles: Record<string, string> = {
   active: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
   paused: "bg-amber-500/10 text-amber-700 border-amber-200",
@@ -24,6 +19,7 @@ const statusStyles: Record<string, string> = {
 }
 
 export default function SubscriptionCard({ subscription, onEdit, onDelete }: SubscriptionCardProps) {
+  const { t, i18n } = useTranslation()
   const days = daysUntil(subscription.next_billing_date)
   const isUpcoming = days >= 0 && days <= 3
 
@@ -56,11 +52,11 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }: Sub
             {subscription.category && <span>·</span>}
             <span>
               {isUpcoming ? (
-                <span className="text-amber-600 font-medium">Due in {days}d</span>
+                <span className="text-amber-600 font-medium">{t("subscription.card.dueIn", { count: days })}</span>
               ) : days < 0 ? (
-                <span className="text-destructive font-medium">Overdue</span>
+                <span className="text-destructive font-medium">{t("subscription.card.overdue")}</span>
               ) : (
-                formatDate(subscription.next_billing_date)
+                formatDate(subscription.next_billing_date, i18n.language)
               )}
             </span>
           </div>
@@ -69,14 +65,14 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }: Sub
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
             <p className="font-semibold tabular-nums">
-              {formatCurrency(subscription.amount, subscription.currency)}
+              {formatCurrency(subscription.amount, subscription.currency, i18n.language)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {cycleLabels[subscription.billing_cycle] || subscription.billing_cycle}
+              {t(`subscription.card.cycle.${subscription.billing_cycle}`, subscription.billing_cycle)}
             </p>
           </div>
           <Badge variant="outline" className={statusStyles[subscription.status] || ""}>
-            {subscription.status}
+            {t(`subscription.card.status.${subscription.status}`, subscription.status)}
           </Badge>
         </div>
 

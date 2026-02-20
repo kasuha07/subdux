@@ -1,3 +1,5 @@
+import i18n from "@/i18n"
+
 const API_BASE = "/api"
 
 function getToken(): string | null {
@@ -38,7 +40,7 @@ async function request<T>(
   if (res.status === 401) {
     clearToken()
     window.location.href = "/login"
-    throw new Error("Unauthorized")
+    throw new Error(i18n.t("common.unauthorized"))
   }
 
   if (res.status === 204) {
@@ -48,7 +50,7 @@ async function request<T>(
   const data = await res.json()
 
   if (!res.ok) {
-    throw new Error(data.error || "Request failed")
+    throw new Error(data.error || i18n.t("common.requestFailed"))
   }
 
   return data as T

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -11,6 +12,7 @@ import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import { Plus, LogOut, DollarSign, CalendarDays, Repeat, TrendingUp } from "lucide-react"
 
 export default function DashboardPage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -48,7 +50,7 @@ export default function DashboardPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this subscription?")) return
+    if (!confirm(t("dashboard.deleteConfirm"))) return
     try {
       await api.delete(`/subscriptions/${id}`)
       await fetchData()
@@ -75,7 +77,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">{t("dashboard.loading")}</div>
       </div>
     )
   }
@@ -84,11 +86,23 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-          <h1 className="text-lg font-bold tracking-tight">Subdux</h1>
+          <h1 className="text-lg font-bold tracking-tight">{t("dashboard.title")}</h1>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={openNewForm}>
               <Plus className="size-4" />
-              Add
+              {t("dashboard.add")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const langs = ["en", "zh-CN", "ja"] as const
+                const idx = langs.indexOf(i18n.language as typeof langs[number])
+                i18n.changeLanguage(langs[(idx + 1) % langs.length])
+              }}
+              className="text-xs"
+            >
+              {{ en: "中文", "zh-CN": "日本語", ja: "EN" }[i18n.language] ?? "中文"}
             </Button>
             <Button variant="ghost" size="icon-sm" onClick={handleLogout}>
               <LogOut className="size-4" />
@@ -104,10 +118,10 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <DollarSign className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">Monthly</span>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.monthly")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_monthly)}
+                  {formatCurrency(summary.total_monthly, "USD", i18n.language)}
                 </p>
               </CardContent>
             </Card>
@@ -115,10 +129,10 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <TrendingUp className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">Yearly</span>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.yearly")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_yearly)}
+                  {formatCurrency(summary.total_yearly, "USD", i18n.language)}
                 </p>
               </CardContent>
             </Card>
@@ -126,7 +140,7 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Repeat className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">Active</span>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.active")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{summary.active_count}</p>
               </CardContent>
@@ -135,7 +149,7 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <CalendarDays className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">Upcoming</span>
+                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.upcoming")}</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">
                   {summary.upcoming_renewals?.length || 0}
@@ -153,13 +167,13 @@ export default function DashboardPage() {
               <div className="rounded-full bg-muted p-4 mb-4">
                 <Plus className="size-6 text-muted-foreground" />
               </div>
-              <h3 className="font-medium">No subscriptions yet</h3>
+              <h3 className="font-medium">{t("dashboard.empty.title")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Start tracking by adding your first subscription
+                {t("dashboard.empty.description")}
               </p>
               <Button className="mt-4" onClick={openNewForm}>
                 <Plus className="size-4" />
-                Add subscription
+                {t("dashboard.empty.addButton")}
               </Button>
             </div>
           ) : (

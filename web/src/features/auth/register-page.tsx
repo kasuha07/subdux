@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +9,7 @@ import { api, setToken } from "@/lib/api"
 import type { AuthResponse } from "@/types"
 
 export default function RegisterPage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -20,12 +22,12 @@ export default function RegisterPage() {
     setError("")
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      setError(t("auth.register.passwordMismatch"))
       return
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters")
+      setError(t("auth.register.passwordTooShort"))
       return
     }
 
@@ -36,7 +38,7 @@ export default function RegisterPage() {
       setToken(data.token)
       navigate("/")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed")
+      setError(err instanceof Error ? err.message : t("auth.register.error"))
     } finally {
       setLoading(false)
     }
@@ -46,8 +48,8 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Create account</CardTitle>
-          <CardDescription>Start tracking your subscriptions</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight">{t("auth.register.title")}</CardTitle>
+          <CardDescription>{t("auth.register.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -57,18 +59,18 @@ export default function RegisterPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.register.emailLabel")}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.register.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.register.passwordLabel")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -80,7 +82,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm password</Label>
+              <Label htmlFor="confirm-password">{t("auth.register.confirmPasswordLabel")}</Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -92,15 +94,26 @@ export default function RegisterPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? t("auth.register.submitting") : t("auth.register.submit")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            {t("auth.register.hasAccount")}{" "}
             <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">
-              Sign in
+              {t("auth.register.signIn")}
             </Link>
           </p>
+          <button
+            type="button"
+            className="mt-2 block mx-auto text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              const langs = ["en", "zh-CN", "ja"] as const
+              const idx = langs.indexOf(i18n.language as typeof langs[number])
+              i18n.changeLanguage(langs[(idx + 1) % langs.length])
+            }}
+          >
+            {{ en: "中文", "zh-CN": "日本語", ja: "EN" }[i18n.language] ?? "中文"}
+          </button>
         </CardContent>
       </Card>
     </div>

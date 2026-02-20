@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -49,6 +50,7 @@ export default function SubscriptionForm({
   subscription,
   onSubmit,
 }: SubscriptionFormProps) {
+  const { t } = useTranslation()
   const isEditing = !!subscription
 
   const [name, setName] = useState(subscription?.name || "")
@@ -88,7 +90,7 @@ export default function SubscriptionForm({
       })
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save")
+      setError(err instanceof Error ? err.message : t("subscription.form.error"))
     } finally {
       setLoading(false)
     }
@@ -98,7 +100,7 @@ export default function SubscriptionForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit subscription" : "Add subscription"}</DialogTitle>
+          <DialogTitle>{isEditing ? t("subscription.form.editTitle") : t("subscription.form.addTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -108,10 +110,10 @@ export default function SubscriptionForm({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t("subscription.form.nameLabel")}</Label>
             <Input
               id="name"
-              placeholder="Netflix, Spotify..."
+              placeholder={t("subscription.form.namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -120,20 +122,20 @@ export default function SubscriptionForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">{t("subscription.form.amountLabel")}</Label>
               <Input
                 id="amount"
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="9.99"
+                placeholder={t("subscription.form.amountPlaceholder")}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
+              <Label htmlFor="currency">{t("subscription.form.currencyLabel")}</Label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger id="currency">
                   <SelectValue />
@@ -151,20 +153,20 @@ export default function SubscriptionForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="cycle">Billing cycle</Label>
+              <Label htmlFor="cycle">{t("subscription.form.cycleLabel")}</Label>
               <Select value={billingCycle} onValueChange={setBillingCycle}>
                 <SelectTrigger id="cycle">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
+                  <SelectItem value="weekly">{t("subscription.form.cycle.weekly")}</SelectItem>
+                  <SelectItem value="monthly">{t("subscription.form.cycle.monthly")}</SelectItem>
+                  <SelectItem value="yearly">{t("subscription.form.cycle.yearly")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="next-billing">Next billing</Label>
+              <Label htmlFor="next-billing">{t("subscription.form.nextBillingLabel")}</Label>
               <Input
                 id="next-billing"
                 type="date"
@@ -177,23 +179,23 @@ export default function SubscriptionForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t("subscription.form.categoryLabel")}</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger id="category">
-                  <SelectValue placeholder="Select..." />
+                  <SelectValue placeholder={t("subscription.form.categoryPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c} value={c}>{t(`subscription.form.categories.${c.toLowerCase()}`)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="icon">Icon / Emoji</Label>
+              <Label htmlFor="icon">{t("subscription.form.iconLabel")}</Label>
               <Input
                 id="icon"
-                placeholder="🎬"
+                placeholder={t("subscription.form.iconPlaceholder")}
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
                 maxLength={4}
@@ -202,28 +204,28 @@ export default function SubscriptionForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="url">URL</Label>
+            <Label htmlFor="url">{t("subscription.form.urlLabel")}</Label>
             <Input
               id="url"
               type="url"
-              placeholder="https://..."
+              placeholder={t("subscription.form.urlPlaceholder")}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t("subscription.form.notesLabel")}</Label>
             <Input
               id="notes"
-              placeholder="Optional notes..."
+              placeholder={t("subscription.form.notesPlaceholder")}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Color</Label>
+            <Label>{t("subscription.form.colorLabel")}</Label>
             <div className="flex gap-2">
               {colors.map((c) => (
                 <button
@@ -246,10 +248,10 @@ export default function SubscriptionForm({
               className="flex-1"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("subscription.form.cancel")}
             </Button>
             <Button type="submit" className="flex-1" disabled={loading}>
-              {loading ? "Saving..." : isEditing ? "Update" : "Add subscription"}
+              {loading ? t("subscription.form.saving") : isEditing ? t("subscription.form.update") : t("subscription.form.addButton")}
             </Button>
           </div>
         </form>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +9,7 @@ import { api, setToken } from "@/lib/api"
 import type { AuthResponse } from "@/types"
 
 export default function LoginPage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -24,7 +26,7 @@ export default function LoginPage() {
       setToken(data.token)
       navigate("/")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
+      setError(err instanceof Error ? err.message : t("auth.login.error"))
     } finally {
       setLoading(false)
     }
@@ -34,8 +36,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Subdux</CardTitle>
-          <CardDescription>Sign in to manage your subscriptions</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight">{t("auth.login.title")}</CardTitle>
+          <CardDescription>{t("auth.login.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -45,18 +47,18 @@ export default function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.login.emailLabel")}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.login.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("auth.login.passwordLabel")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -67,15 +69,26 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? t("auth.login.submitting") : t("auth.login.submit")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            {t("auth.login.noAccount")}{" "}
             <Link to="/register" className="text-foreground underline underline-offset-4 hover:text-primary">
-              Sign up
+              {t("auth.login.signUp")}
             </Link>
           </p>
+          <button
+            type="button"
+            className="mt-2 block mx-auto text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              const langs = ["en", "zh-CN", "ja"] as const
+              const idx = langs.indexOf(i18n.language as typeof langs[number])
+              i18n.changeLanguage(langs[(idx + 1) % langs.length])
+            }}
+          >
+            {{ en: "中文", "zh-CN": "日本語", ja: "EN" }[i18n.language] ?? "中文"}
+          </button>
         </CardContent>
       </Card>
     </div>
