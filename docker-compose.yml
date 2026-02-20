@@ -1,0 +1,16 @@
+services:
+  subdux:
+    build: .
+    container_name: subdux
+    ports:
+      - "8080:8080"
+    volumes:
+      - subdux-data:/data
+    environment:
+      - DB_PATH=/data/subdux.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - PORT=8080
+    restart: unless-stopped
+
+volumes:
+  subdux-data:

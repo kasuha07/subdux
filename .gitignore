@@ -1,0 +1,10 @@
+data/
+web/node_modules/
+web/dist/
+*.db
+*.exe
+*.dll
+*.so
+*.dylib
+.env
+.env.local
