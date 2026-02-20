@@ -41,9 +41,10 @@ function renderIcon(icon: string, name: string): ReactNode {
   }
 
   if (icon.startsWith("assets/")) {
+    const assetPath = icon.slice("assets/".length)
     return (
       <img
-        src={`/api/${icon}`}
+        src={`/uploads/${assetPath}`}
         alt={name}
         className="h-6 w-6 object-contain"
       />

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -27,10 +28,14 @@ func validateIcon(icon string) bool {
 	if icon == "" {
 		return true
 	}
+
+	if isManagedAssetIcon(icon) {
+		return true
+	}
+
 	if strings.HasPrefix(icon, "si:") ||
 		strings.HasPrefix(icon, "http://") ||
-		strings.HasPrefix(icon, "https://") ||
-		strings.HasPrefix(icon, "assets/") {
+		strings.HasPrefix(icon, "https://") {
 		return true
 	}
 	for _, r := range icon {
@@ -38,6 +43,26 @@ func validateIcon(icon string) bool {
 			return false
 		}
 	}
+	return true
+}
+
+func isManagedAssetIcon(icon string) bool {
+	const iconPrefix = "assets/icons/"
+	if !strings.HasPrefix(icon, iconPrefix) {
+		return false
+	}
+
+	filename := strings.TrimPrefix(icon, iconPrefix)
+	if filename == "" {
+		return false
+	}
+	if strings.Contains(filename, "/") || strings.Contains(filename, `\`) {
+		return false
+	}
+	if filepath.Base(filename) != filename {
+		return false
+	}
+
 	return true
 }
 

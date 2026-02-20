@@ -35,7 +35,8 @@ function renderPreview(value: string): ReactNode {
   }
 
   if (value.startsWith("assets/")) {
-    return <img src={`/api/${value}`} alt="" className="h-6 w-6 object-contain rounded" />
+    const assetPath = value.slice("assets/".length)
+    return <img src={`/uploads/${assetPath}`} alt="" className="h-6 w-6 object-contain rounded" />
   }
 
   return <span className="text-lg leading-none">{value}</span>

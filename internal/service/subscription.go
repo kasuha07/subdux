@@ -175,9 +175,7 @@ func (s *SubscriptionService) Delete(userID, id uint) error {
 		return err
 	}
 
-	if strings.HasPrefix(sub.Icon, "assets/") {
-		os.Remove(filepath.Join("data", sub.Icon))
-	}
+	s.removeManagedIconFile(sub.Icon)
 
 	return nil
 }
@@ -232,9 +230,7 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 		return "", errors.New("failed to save icon file")
 	}
 
-	if strings.HasPrefix(sub.Icon, "assets/") {
-		os.Remove(filepath.Join("data", sub.Icon))
-	}
+	s.removeManagedIconFile(sub.Icon)
 
 	iconValue := "assets/icons/" + newFilename
 	if err := s.DB.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", subID, userID).Update("icon", iconValue).Error; err != nil {
@@ -243,6 +239,32 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 	}
 
 	return iconValue, nil
+}
+
+func (s *SubscriptionService) removeManagedIconFile(icon string) {
+	if path, ok := managedIconFilePath(icon); ok {
+		_ = os.Remove(path)
+	}
+}
+
+func managedIconFilePath(icon string) (string, bool) {
+	const iconPrefix = "assets/icons/"
+	if !strings.HasPrefix(icon, iconPrefix) {
+		return "", false
+	}
+
+	filename := strings.TrimPrefix(icon, iconPrefix)
+	if filename == "" {
+		return "", false
+	}
+	if strings.Contains(filename, "/") || strings.Contains(filename, `\`) {
+		return "", false
+	}
+	if filepath.Base(filename) != filename {
+		return "", false
+	}
+
+	return filepath.Join("data", "assets", "icons", filename), true
 }
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {

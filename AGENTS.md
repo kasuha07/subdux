@@ -9,7 +9,7 @@ Use this as the primary cross-repo playbook.
 - Backend: Go + Echo + GORM + pure-Go SQLite (`github.com/glebarez/sqlite`)
 - Frontend: React 19 + TypeScript + Vite 7 + Bun + shadcn/ui (new-york/zinc) + Tailwind v4
 - Auth: JWT (Bearer), TOTP (`pquerna/otp`), Passkey (`go-webauthn/webauthn`)
-- Runtime: single Go binary embedding `web/dist`, serves SPA + `/api` + `/api/assets`
+- Runtime: single Go binary embedding `web/dist`, serves SPA + `/api` + `/uploads`
 - Port: `8080` (override via `PORT` env var)
 
 ## Repository Map
