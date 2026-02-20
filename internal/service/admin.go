@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -43,6 +44,13 @@ type UpdateSettingsInput struct {
 	SiteName            *string `json:"site_name"`
 }
 
+type CreateUserInput struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
 func (s *AdminService) ListUsers() ([]model.User, error) {
 	var users []model.User
 	err := s.DB.Select("id, email, role, status, created_at, updated_at").Order("id ASC").Find(&users).Error
@@ -53,6 +61,10 @@ func (s *AdminService) ChangeUserRole(userID uint, role string) error {
 	if role != "admin" && role != "user" {
 		return errors.New("invalid role")
 	}
+	// Prevent demoting the first user (ID=1) to regular user
+	if userID == 1 && role == "user" {
+		return errors.New("cannot change the first user's role to regular user")
+	}
 	return s.DB.Model(&model.User{}).Where("id = ?", userID).Update("role", role).Error
 }
 
@@ -60,10 +72,18 @@ func (s *AdminService) ChangeUserStatus(userID uint, status string) error {
 	if status != "active" && status != "disabled" {
 		return errors.New("invalid status")
 	}
+	// Prevent disabling the first user (ID=1)
+	if userID == 1 && status == "disabled" {
+		return errors.New("cannot disable the first user")
+	}
 	return s.DB.Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error
 }
 
 func (s *AdminService) DeleteUser(userID uint) error {
+	// Prevent deleting the first user (ID=1)
+	if userID == 1 {
+		return errors.New("cannot delete the first user")
+	}
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&model.Subscription{}).Error; err != nil {
 			return err
@@ -142,6 +162,48 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 
 		return nil
 	})
+}
+
+func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
+	if input.Username == "" || input.Email == "" || input.Password == "" {
+		return nil, errors.New("username, email and password are required")
+	}
+
+	if len(input.Password) < 6 {
+		return nil, errors.New("password must be at least 6 characters")
+	}
+
+	role := input.Role
+	if role != "admin" && role != "user" {
+		role = "user"
+	}
+
+	var existing model.User
+	if err := s.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+		return nil, errors.New("email already registered")
+	}
+	if err := s.DB.Where("username = ?", input.Username).First(&existing).Error; err == nil {
+		return nil, errors.New("username already taken")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user := model.User{
+		Username: input.Username,
+		Email:    input.Email,
+		Password: string(hash),
+		Role:     role,
+		Status:   "active",
+	}
+
+	if err := s.DB.Create(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 func (s *AdminService) BackupDB() (string, error) {
