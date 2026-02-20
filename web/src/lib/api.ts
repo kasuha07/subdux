@@ -1,3 +1,4 @@
+import { toast } from "sonner"
 import i18n from "@/i18n"
 import type { User } from "@/types"
 
@@ -64,6 +65,7 @@ async function request<T>(
 
   if (res.status === 401) {
     clearToken()
+    toast.error(i18n.t("common.unauthorized"))
     window.location.href = "/login"
     throw new Error(i18n.t("common.unauthorized"))
   }
@@ -75,7 +77,9 @@ async function request<T>(
   const data = await res.json()
 
   if (!res.ok) {
-    throw new Error(data.error || i18n.t("common.requestFailed"))
+    const errorMsg = data.error || i18n.t("common.requestFailed")
+    toast.error(errorMsg)
+    throw new Error(errorMsg)
   }
 
   return data as T
