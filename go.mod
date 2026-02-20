@@ -3,6 +3,7 @@ module github.com/shiroha/subdux
 go 1.25.0
 
 require (
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-webauthn/webauthn v0.15.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -11,6 +12,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/pquerna/otp v1.5.0
 	golang.org/x/crypto v0.48.0
+	golang.org/x/oauth2 v0.35.0
 	gorm.io/gorm v1.31.1
 )
 
@@ -19,6 +21,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/go-webauthn/x v0.1.26 // indirect
 	github.com/google/go-tpm v0.9.6 // indirect

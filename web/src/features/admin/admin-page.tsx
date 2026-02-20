@@ -8,7 +8,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-import type { AdminStats, AdminUser, ExchangeRateStatus, SystemSettings } from "@/types"
+import type {
+  AdminStats,
+  AdminUser,
+  ExchangeRateStatus,
+  SystemSettings,
+  UpdateSettingsInput,
+} from "@/types"
 
 import AdminBackupTab from "./admin-backup-tab"
 import AdminExchangeRatesTab from "./admin-exchange-rates-tab"
@@ -34,6 +40,21 @@ export default function AdminPage() {
   const [currencyApiKey, setCurrencyApiKey] = useState("")
   const [exchangeRateSource, setExchangeRateSource] = useState("auto")
   const [maxIconFileSize, setMaxIconFileSize] = useState<number>(64)
+  const [oidcEnabled, setOIDCEnabled] = useState(false)
+  const [oidcProviderName, setOIDCProviderName] = useState("OIDC")
+  const [oidcIssuerURL, setOIDCIssuerURL] = useState("")
+  const [oidcClientID, setOIDCClientID] = useState("")
+  const [oidcClientSecret, setOIDCClientSecret] = useState("")
+  const [oidcClientSecretConfigured, setOIDCClientSecretConfigured] = useState(false)
+  const [oidcRedirectURL, setOIDCRedirectURL] = useState("")
+  const [oidcScopes, setOIDCScopes] = useState("openid profile email")
+  const [oidcAutoCreateUser, setOIDCAutoCreateUser] = useState(false)
+  const [oidcAuthorizationEndpoint, setOIDCAuthorizationEndpoint] = useState("")
+  const [oidcTokenEndpoint, setOIDCTokenEndpoint] = useState("")
+  const [oidcUserinfoEndpoint, setOIDCUserinfoEndpoint] = useState("")
+  const [oidcAudience, setOIDCAudience] = useState("")
+  const [oidcResource, setOIDCResource] = useState("")
+  const [oidcExtraAuthParams, setOIDCExtraAuthParams] = useState("")
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newUsername, setNewUsername] = useState("")
@@ -60,6 +81,21 @@ export default function AdminPage() {
             ? Math.round(settingsData.max_icon_file_size / 1024)
             : 64
         )
+        setOIDCEnabled(settingsData?.oidc_enabled ?? false)
+        setOIDCProviderName(settingsData?.oidc_provider_name || "OIDC")
+        setOIDCIssuerURL(settingsData?.oidc_issuer_url || "")
+        setOIDCClientID(settingsData?.oidc_client_id || "")
+        setOIDCClientSecret("")
+        setOIDCClientSecretConfigured(settingsData?.oidc_client_secret_configured ?? false)
+        setOIDCRedirectURL(settingsData?.oidc_redirect_url || "")
+        setOIDCScopes(settingsData?.oidc_scopes || "openid profile email")
+        setOIDCAutoCreateUser(settingsData?.oidc_auto_create_user ?? false)
+        setOIDCAuthorizationEndpoint(settingsData?.oidc_authorization_endpoint || "")
+        setOIDCTokenEndpoint(settingsData?.oidc_token_endpoint || "")
+        setOIDCUserinfoEndpoint(settingsData?.oidc_userinfo_endpoint || "")
+        setOIDCAudience(settingsData?.oidc_audience || "")
+        setOIDCResource(settingsData?.oidc_resource || "")
+        setOIDCExtraAuthParams(settingsData?.oidc_extra_auth_params || "")
         setStats(statsData)
         setRateStatus(rateStatusData)
       })
@@ -130,14 +166,32 @@ export default function AdminPage() {
 
   async function handleSaveSettings() {
     try {
-      await api.put("/admin/settings", {
+      const payload: UpdateSettingsInput = {
         registration_enabled: registrationEnabled,
         site_name: siteName,
         site_url: siteUrl,
         currencyapi_key: currencyApiKey,
         exchange_rate_source: exchangeRateSource,
         max_icon_file_size: maxIconFileSize * 1024,
-      })
+        oidc_enabled: oidcEnabled,
+        oidc_provider_name: oidcProviderName,
+        oidc_issuer_url: oidcIssuerURL,
+        oidc_client_id: oidcClientID,
+        oidc_redirect_url: oidcRedirectURL,
+        oidc_scopes: oidcScopes,
+        oidc_auto_create_user: oidcAutoCreateUser,
+        oidc_authorization_endpoint: oidcAuthorizationEndpoint,
+        oidc_token_endpoint: oidcTokenEndpoint,
+        oidc_userinfo_endpoint: oidcUserinfoEndpoint,
+        oidc_audience: oidcAudience,
+        oidc_resource: oidcResource,
+        oidc_extra_auth_params: oidcExtraAuthParams,
+      }
+      if (oidcClientSecret.trim()) {
+        payload.oidc_client_secret = oidcClientSecret.trim()
+      }
+
+      await api.put("/admin/settings", payload)
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSiteName(fresh.site_name)
       setSiteUrl(fresh.site_url)
@@ -145,6 +199,21 @@ export default function AdminPage() {
       setCurrencyApiKey(fresh.currencyapi_key)
       setExchangeRateSource(fresh.exchange_rate_source)
       setMaxIconFileSize(fresh.max_icon_file_size ? Math.round(fresh.max_icon_file_size / 1024) : 64)
+      setOIDCEnabled(fresh.oidc_enabled ?? false)
+      setOIDCProviderName(fresh.oidc_provider_name || "OIDC")
+      setOIDCIssuerURL(fresh.oidc_issuer_url || "")
+      setOIDCClientID(fresh.oidc_client_id || "")
+      setOIDCClientSecret("")
+      setOIDCClientSecretConfigured(fresh.oidc_client_secret_configured ?? false)
+      setOIDCRedirectURL(fresh.oidc_redirect_url || "")
+      setOIDCScopes(fresh.oidc_scopes || "openid profile email")
+      setOIDCAutoCreateUser(fresh.oidc_auto_create_user ?? false)
+      setOIDCAuthorizationEndpoint(fresh.oidc_authorization_endpoint || "")
+      setOIDCTokenEndpoint(fresh.oidc_token_endpoint || "")
+      setOIDCUserinfoEndpoint(fresh.oidc_userinfo_endpoint || "")
+      setOIDCAudience(fresh.oidc_audience || "")
+      setOIDCResource(fresh.oidc_resource || "")
+      setOIDCExtraAuthParams(fresh.oidc_extra_auth_params || "")
       updateSiteTitle(fresh.site_name)
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
@@ -279,6 +348,35 @@ export default function AdminPage() {
               onRegistrationEnabledChange={setRegistrationEnabled}
               maxIconFileSize={maxIconFileSize}
               onMaxIconFileSizeChange={setMaxIconFileSize}
+              oidcEnabled={oidcEnabled}
+              onOIDCEnabledChange={setOIDCEnabled}
+              oidcProviderName={oidcProviderName}
+              onOIDCProviderNameChange={setOIDCProviderName}
+              oidcIssuerURL={oidcIssuerURL}
+              onOIDCIssuerURLChange={setOIDCIssuerURL}
+              oidcClientID={oidcClientID}
+              onOIDCClientIDChange={setOIDCClientID}
+              oidcClientSecret={oidcClientSecret}
+              oidcClientSecretConfigured={oidcClientSecretConfigured}
+              onOIDCClientSecretChange={setOIDCClientSecret}
+              oidcRedirectURL={oidcRedirectURL}
+              onOIDCRedirectURLChange={setOIDCRedirectURL}
+              oidcScopes={oidcScopes}
+              onOIDCScopesChange={setOIDCScopes}
+              oidcAutoCreateUser={oidcAutoCreateUser}
+              onOIDCAutoCreateUserChange={setOIDCAutoCreateUser}
+              oidcAuthorizationEndpoint={oidcAuthorizationEndpoint}
+              onOIDCAuthorizationEndpointChange={setOIDCAuthorizationEndpoint}
+              oidcTokenEndpoint={oidcTokenEndpoint}
+              onOIDCTokenEndpointChange={setOIDCTokenEndpoint}
+              oidcUserinfoEndpoint={oidcUserinfoEndpoint}
+              onOIDCUserinfoEndpointChange={setOIDCUserinfoEndpoint}
+              oidcAudience={oidcAudience}
+              onOIDCAudienceChange={setOIDCAudience}
+              oidcResource={oidcResource}
+              onOIDCResourceChange={setOIDCResource}
+              oidcExtraAuthParams={oidcExtraAuthParams}
+              onOIDCExtraAuthParamsChange={setOIDCExtraAuthParams}
               onSave={handleSaveSettings}
             />
 

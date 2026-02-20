@@ -15,12 +15,18 @@ type AuthService struct {
 
 	passkeyMu       sync.Mutex
 	passkeySessions map[string]passkeySession
+
+	oidcMu             sync.Mutex
+	oidcStateSessions  map[string]oidcStateSession
+	oidcResultSessions map[string]oidcResultSession
 }
 
 func NewAuthService(db *gorm.DB) *AuthService {
 	return &AuthService{
-		DB:              db,
-		passkeySessions: make(map[string]passkeySession),
+		DB:                 db,
+		passkeySessions:    make(map[string]passkeySession),
+		oidcStateSessions:  make(map[string]oidcStateSession),
+		oidcResultSessions: make(map[string]oidcResultSession),
 	}
 }
 

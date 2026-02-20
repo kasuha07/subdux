@@ -34,6 +34,16 @@ type PasskeyCredential struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+type OIDCConnection struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null;uniqueIndex:idx_oidc_user_provider" json:"user_id"`
+	Provider  string    `gorm:"size:100;not null;uniqueIndex:idx_oidc_user_provider;uniqueIndex:idx_oidc_provider_subject" json:"provider"`
+	Subject   string    `gorm:"size:255;not null;uniqueIndex:idx_oidc_provider_subject" json:"subject"`
+	Email     string    `gorm:"size:255" json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type SystemSetting struct {
 	Key   string `gorm:"primaryKey;size:100" json:"key"`
 	Value string `gorm:"size:500" json:"value"`

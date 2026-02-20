@@ -38,6 +38,7 @@ func InitDB() *gorm.DB {
 		&model.UserCurrency{},
 		&model.UserBackupCode{},
 		&model.PasskeyCredential{},
+		&model.OIDCConnection{},
 		&model.Category{},
 		&model.PaymentMethod{},
 	); err != nil {

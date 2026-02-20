@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
@@ -42,6 +43,20 @@ type SystemSettings struct {
 	CurrencyAPIKey      string `json:"currencyapi_key"`
 	ExchangeRateSource  string `json:"exchange_rate_source"`
 	MaxIconFileSize     int64  `json:"max_icon_file_size"`
+	OIDCEnabled         bool   `json:"oidc_enabled"`
+	OIDCProviderName    string `json:"oidc_provider_name"`
+	OIDCIssuerURL       string `json:"oidc_issuer_url"`
+	OIDCClientID        string `json:"oidc_client_id"`
+	OIDCClientSecretSet bool   `json:"oidc_client_secret_configured"`
+	OIDCRedirectURL     string `json:"oidc_redirect_url"`
+	OIDCScopes          string `json:"oidc_scopes"`
+	OIDCAutoCreateUser  bool   `json:"oidc_auto_create_user"`
+	OIDCAuthorizeURL    string `json:"oidc_authorization_endpoint"`
+	OIDCTokenURL        string `json:"oidc_token_endpoint"`
+	OIDCUserinfoURL     string `json:"oidc_userinfo_endpoint"`
+	OIDCAudience        string `json:"oidc_audience"`
+	OIDCResource        string `json:"oidc_resource"`
+	OIDCExtraAuthParams string `json:"oidc_extra_auth_params"`
 }
 
 type UpdateSettingsInput struct {
@@ -51,6 +66,20 @@ type UpdateSettingsInput struct {
 	CurrencyAPIKey      *string `json:"currencyapi_key"`
 	ExchangeRateSource  *string `json:"exchange_rate_source"`
 	MaxIconFileSize     *int64  `json:"max_icon_file_size"`
+	OIDCEnabled         *bool   `json:"oidc_enabled"`
+	OIDCProviderName    *string `json:"oidc_provider_name"`
+	OIDCIssuerURL       *string `json:"oidc_issuer_url"`
+	OIDCClientID        *string `json:"oidc_client_id"`
+	OIDCClientSecret    *string `json:"oidc_client_secret"`
+	OIDCRedirectURL     *string `json:"oidc_redirect_url"`
+	OIDCScopes          *string `json:"oidc_scopes"`
+	OIDCAutoCreateUser  *bool   `json:"oidc_auto_create_user"`
+	OIDCAuthorizeURL    *string `json:"oidc_authorization_endpoint"`
+	OIDCTokenURL        *string `json:"oidc_token_endpoint"`
+	OIDCUserinfoURL     *string `json:"oidc_userinfo_endpoint"`
+	OIDCAudience        *string `json:"oidc_audience"`
+	OIDCResource        *string `json:"oidc_resource"`
+	OIDCExtraAuthParams *string `json:"oidc_extra_auth_params"`
 }
 
 type CreateUserInput struct {
@@ -125,6 +154,9 @@ func (s *AdminService) DeleteUser(userID uint) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&model.PasskeyCredential{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.OIDCConnection{}).Error; err != nil {
+			return err
+		}
 		return tx.Delete(&model.User{}, userID).Error
 	}); err != nil {
 		return err
@@ -173,6 +205,20 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		CurrencyAPIKey:      "",
 		ExchangeRateSource:  "auto",
 		MaxIconFileSize:     65536,
+		OIDCEnabled:         false,
+		OIDCProviderName:    "OIDC",
+		OIDCIssuerURL:       "",
+		OIDCClientID:        "",
+		OIDCClientSecretSet: false,
+		OIDCRedirectURL:     "",
+		OIDCScopes:          "openid profile email",
+		OIDCAutoCreateUser:  false,
+		OIDCAuthorizeURL:    "",
+		OIDCTokenURL:        "",
+		OIDCUserinfoURL:     "",
+		OIDCAudience:        "",
+		OIDCResource:        "",
+		OIDCExtraAuthParams: "",
 	}
 
 	var items []model.SystemSetting
@@ -194,6 +240,34 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
 				settings.MaxIconFileSize = v
 			}
+		case "oidc_enabled":
+			settings.OIDCEnabled = item.Value == "true"
+		case "oidc_provider_name":
+			settings.OIDCProviderName = item.Value
+		case "oidc_issuer_url":
+			settings.OIDCIssuerURL = item.Value
+		case "oidc_client_id":
+			settings.OIDCClientID = item.Value
+		case "oidc_client_secret":
+			settings.OIDCClientSecretSet = strings.TrimSpace(item.Value) != ""
+		case "oidc_redirect_url":
+			settings.OIDCRedirectURL = item.Value
+		case "oidc_scopes":
+			settings.OIDCScopes = item.Value
+		case "oidc_auto_create_user":
+			settings.OIDCAutoCreateUser = item.Value == "true"
+		case "oidc_authorization_endpoint":
+			settings.OIDCAuthorizeURL = item.Value
+		case "oidc_token_endpoint":
+			settings.OIDCTokenURL = item.Value
+		case "oidc_userinfo_endpoint":
+			settings.OIDCUserinfoURL = item.Value
+		case "oidc_audience":
+			settings.OIDCAudience = item.Value
+		case "oidc_resource":
+			settings.OIDCResource = item.Value
+		case "oidc_extra_auth_params":
+			settings.OIDCExtraAuthParams = item.Value
 		}
 	}
 
@@ -251,6 +325,126 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "max_icon_file_size").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "max_icon_file_size"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCEnabled != nil {
+			value := "false"
+			if *input.OIDCEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "oidc_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCProviderName != nil {
+			if err := tx.Where("key = ?", "oidc_provider_name").
+				Assign(model.SystemSetting{Value: *input.OIDCProviderName}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_provider_name"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCIssuerURL != nil {
+			if err := tx.Where("key = ?", "oidc_issuer_url").
+				Assign(model.SystemSetting{Value: *input.OIDCIssuerURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_issuer_url"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCClientID != nil {
+			if err := tx.Where("key = ?", "oidc_client_id").
+				Assign(model.SystemSetting{Value: *input.OIDCClientID}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_client_id"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCClientSecret != nil {
+			if err := tx.Where("key = ?", "oidc_client_secret").
+				Assign(model.SystemSetting{Value: *input.OIDCClientSecret}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_client_secret"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCRedirectURL != nil {
+			if err := tx.Where("key = ?", "oidc_redirect_url").
+				Assign(model.SystemSetting{Value: *input.OIDCRedirectURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_redirect_url"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCScopes != nil {
+			if err := tx.Where("key = ?", "oidc_scopes").
+				Assign(model.SystemSetting{Value: *input.OIDCScopes}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_scopes"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCAutoCreateUser != nil {
+			value := "false"
+			if *input.OIDCAutoCreateUser {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "oidc_auto_create_user").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_auto_create_user"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCAuthorizeURL != nil {
+			if err := tx.Where("key = ?", "oidc_authorization_endpoint").
+				Assign(model.SystemSetting{Value: *input.OIDCAuthorizeURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_authorization_endpoint"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCTokenURL != nil {
+			if err := tx.Where("key = ?", "oidc_token_endpoint").
+				Assign(model.SystemSetting{Value: *input.OIDCTokenURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_token_endpoint"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCUserinfoURL != nil {
+			if err := tx.Where("key = ?", "oidc_userinfo_endpoint").
+				Assign(model.SystemSetting{Value: *input.OIDCUserinfoURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_userinfo_endpoint"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCAudience != nil {
+			if err := tx.Where("key = ?", "oidc_audience").
+				Assign(model.SystemSetting{Value: *input.OIDCAudience}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_audience"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCResource != nil {
+			if err := tx.Where("key = ?", "oidc_resource").
+				Assign(model.SystemSetting{Value: *input.OIDCResource}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_resource"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCExtraAuthParams != nil {
+			if err := tx.Where("key = ?", "oidc_extra_auth_params").
+				Assign(model.SystemSetting{Value: *input.OIDCExtraAuthParams}).
+				FirstOrCreate(&model.SystemSetting{Key: "oidc_extra_auth_params"}).Error; err != nil {
 				return err
 			}
 		}

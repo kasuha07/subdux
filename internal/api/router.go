@@ -57,6 +57,10 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin)
 	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin)
 	auth.POST("/passkeys/login/finish", authHandler.FinishPasskeyLogin)
+	auth.GET("/oidc/config", authHandler.GetOIDCConfig)
+	auth.POST("/oidc/login/start", authHandler.BeginOIDCLogin)
+	auth.GET("/oidc/callback", authHandler.OIDCCallback)
+	auth.GET("/oidc/session/:id", authHandler.GetOIDCSession)
 
 	jwtConfig := echojwt.Config{
 		SigningKey: pkg.GetJWTSecret(),
@@ -85,6 +89,9 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	protected.POST("/auth/passkeys/register/start", authHandler.BeginPasskeyRegistration)
 	protected.POST("/auth/passkeys/register/finish", authHandler.FinishPasskeyRegistration)
 	protected.DELETE("/auth/passkeys/:id", authHandler.DeletePasskey)
+	protected.GET("/auth/oidc/connections", authHandler.ListOIDCConnections)
+	protected.POST("/auth/oidc/connect/start", authHandler.BeginOIDCConnect)
+	protected.DELETE("/auth/oidc/connections/:id", authHandler.DeleteOIDCConnection)
 
 	admin := api.Group("/admin")
 	admin.Use(echojwt.WithConfig(jwtConfig))
@@ -140,6 +147,20 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "currencyapi_key", Value: ""},
 		{Key: "exchange_rate_source", Value: "auto"},
 		{Key: "max_icon_file_size", Value: "65536"},
+		{Key: "oidc_enabled", Value: "false"},
+		{Key: "oidc_provider_name", Value: "OIDC"},
+		{Key: "oidc_issuer_url", Value: ""},
+		{Key: "oidc_client_id", Value: ""},
+		{Key: "oidc_client_secret", Value: ""},
+		{Key: "oidc_redirect_url", Value: ""},
+		{Key: "oidc_scopes", Value: "openid profile email"},
+		{Key: "oidc_auto_create_user", Value: "false"},
+		{Key: "oidc_authorization_endpoint", Value: ""},
+		{Key: "oidc_token_endpoint", Value: ""},
+		{Key: "oidc_userinfo_endpoint", Value: ""},
+		{Key: "oidc_audience", Value: ""},
+		{Key: "oidc_resource", Value: ""},
+		{Key: "oidc_extra_auth_params", Value: ""},
 	}
 
 	for _, setting := range defaults {

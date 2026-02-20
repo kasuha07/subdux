@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 import type { User } from "@/types"
 
+import OIDCSection from "./oidc-section"
 import PasskeySection from "./passkey-section"
 import TotpSection from "./totp-section"
 
@@ -68,6 +69,10 @@ export default function SettingsAccountTab({
         <Separator />
 
         <PasskeySection />
+
+        <Separator />
+
+        <OIDCSection />
 
         <Separator />
 

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,14 @@ import { api, setAuth } from "@/lib/api"
 import { getPasskeyCredential, isPasskeySupported, type CredentialAssertionJSON } from "@/lib/passkey"
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import { toast } from "sonner"
-import type { AuthResponse, LoginResponse, PasskeyBeginResult } from "@/types"
+import type {
+  AuthResponse,
+  LoginResponse,
+  OIDCConfig,
+  OIDCSessionResult,
+  OIDCStartResponse,
+  PasskeyBeginResult,
+} from "@/types"
 
 type LoginStep = "credentials" | "totp"
 
@@ -21,13 +28,61 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [oidcLoading, setOidcLoading] = useState(false)
+  const [oidcSubmitting, setOidcSubmitting] = useState(false)
   const [createDevAccountLoading, setCreateDevAccountLoading] = useState(false)
+  const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
 
   const [step, setStep] = useState<LoginStep>("credentials")
   const [totpToken, setTotpToken] = useState("")
   const [totpCode, setTotpCode] = useState("")
   const passkeySupported = isPasskeySupported()
   const isDevMode = import.meta.env.DEV
+
+  useEffect(() => {
+    api.get<OIDCConfig>("/auth/oidc/config")
+      .then(setOidcConfig)
+      .catch(() => void 0)
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const action = params.get("oidc_action")
+    const sessionID = params.get("oidc_session")
+    if (action !== "login" || !sessionID) {
+      return
+    }
+
+    setOidcLoading(true)
+    api.get<OIDCSessionResult>(`/auth/oidc/session/${encodeURIComponent(sessionID)}`)
+      .then((result) => {
+        if (result.error) {
+          setError(result.error)
+          return
+        }
+
+        if (result.token && result.user) {
+          setAuth(result.token, result.user)
+          toast.success(t("auth.login.success"))
+          navigate("/", { replace: true })
+          return
+        }
+
+        setError(t("auth.login.oidcError"))
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : t("auth.login.oidcError"))
+      })
+      .finally(() => {
+        const nextURL = new URL(window.location.href)
+        nextURL.searchParams.delete("oidc_action")
+        nextURL.searchParams.delete("oidc_session")
+        const query = nextURL.searchParams.toString()
+        const search = query ? `?${query}` : ""
+        window.history.replaceState({}, "", `${nextURL.pathname}${search}${nextURL.hash}`)
+        setOidcLoading(false)
+      })
+  }, [navigate, t])
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()
@@ -101,6 +156,18 @@ export default function LoginPage() {
       setError(getPasskeyErrorMessage(err, t, "auth.login.passkeyError"))
     } finally {
       setPasskeyLoading(false)
+    }
+  }
+
+  async function handleOIDCLogin() {
+    setError("")
+    setOidcSubmitting(true)
+    try {
+      const result = await api.post<OIDCStartResponse>("/auth/oidc/login/start", {})
+      window.location.href = result.authorization_url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("auth.login.oidcError"))
+      setOidcSubmitting(false)
     }
   }
 
@@ -211,15 +278,33 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? t("auth.login.submitting") : t("auth.login.submit")}
             </Button>
+            {oidcConfig?.enabled && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading || passkeyLoading || oidcLoading || oidcSubmitting}
+                onClick={() => void handleOIDCLogin()}
+              >
+                {oidcSubmitting
+                  ? t("auth.login.oidcSubmitting")
+                  : t("auth.login.oidcSubmit", { provider: oidcConfig.provider_name })}
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
               className="w-full"
-              disabled={loading || passkeyLoading || !passkeySupported}
+              disabled={loading || passkeyLoading || oidcLoading || oidcSubmitting || !passkeySupported}
               onClick={() => void handlePasskeyLogin()}
             >
               {passkeyLoading ? t("auth.login.passkeySubmitting") : t("auth.login.passkeySubmit")}
             </Button>
+            {oidcLoading && (
+              <p className="text-xs text-muted-foreground">
+                {t("auth.login.oidcProcessing")}
+              </p>
+            )}
             {!passkeySupported && (
               <p className="text-xs text-muted-foreground">
                 {t("auth.login.passkeyUnsupported")}
@@ -230,7 +315,7 @@ export default function LoginPage() {
                 type="button"
                 variant="secondary"
                 className="w-full"
-                disabled={loading || passkeyLoading || createDevAccountLoading}
+                disabled={loading || passkeyLoading || oidcLoading || oidcSubmitting || createDevAccountLoading}
                 onClick={() => void handleCreateDevAccount()}
               >
                 {createDevAccountLoading ? t("auth.login.devAccountSubmitting") : t("auth.login.devAccountCreate")}

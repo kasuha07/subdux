@@ -54,6 +54,33 @@ export interface AuthResponse {
   user: User
 }
 
+export interface OIDCConfig {
+  enabled: boolean
+  provider_name: string
+  auto_create_user: boolean
+}
+
+export interface OIDCStartResponse {
+  authorization_url: string
+}
+
+export interface OIDCConnection {
+  id: number
+  provider: string
+  email: string
+  created_at: string
+  updated_at: string
+}
+
+export interface OIDCSessionResult {
+  purpose: "login" | "connect"
+  token?: string
+  user?: User
+  connected?: boolean
+  connection?: OIDCConnection
+  error?: string
+}
+
 export interface PasskeyCredential {
   id: number
   name: string
@@ -158,6 +185,20 @@ export interface SystemSettings {
   currencyapi_key: string
   exchange_rate_source: string
   max_icon_file_size: number
+  oidc_enabled: boolean
+  oidc_provider_name: string
+  oidc_issuer_url: string
+  oidc_client_id: string
+  oidc_client_secret_configured: boolean
+  oidc_redirect_url: string
+  oidc_scopes: string
+  oidc_auto_create_user: boolean
+  oidc_authorization_endpoint: string
+  oidc_token_endpoint: string
+  oidc_userinfo_endpoint: string
+  oidc_audience: string
+  oidc_resource: string
+  oidc_extra_auth_params: string
 }
 
 export interface UpdateSettingsInput {
@@ -167,6 +208,20 @@ export interface UpdateSettingsInput {
   currencyapi_key?: string
   exchange_rate_source?: string
   max_icon_file_size?: number
+  oidc_enabled?: boolean
+  oidc_provider_name?: string
+  oidc_issuer_url?: string
+  oidc_client_id?: string
+  oidc_client_secret?: string
+  oidc_redirect_url?: string
+  oidc_scopes?: string
+  oidc_auto_create_user?: boolean
+  oidc_authorization_endpoint?: string
+  oidc_token_endpoint?: string
+  oidc_userinfo_endpoint?: string
+  oidc_audience?: string
+  oidc_resource?: string
+  oidc_extra_auth_params?: string
 }
 
 export interface UserPreference {
