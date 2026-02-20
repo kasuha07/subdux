@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
+import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import IconPicker from "./icon-picker"
 import type {
   Subscription,
@@ -303,7 +304,7 @@ export default function SubscriptionForm({
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id.toString()}>{getCategoryLabel(c, t)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -322,7 +323,7 @@ export default function SubscriptionForm({
                 <SelectContent>
                   <SelectItem value={noPaymentMethodValue}>{t("subscription.form.noPaymentMethod")}</SelectItem>
                   {paymentMethods.map((method) => (
-                    <SelectItem key={method.id} value={method.id.toString()}>{method.name}</SelectItem>
+                    <SelectItem key={method.id} value={method.id.toString()}>{getPaymentMethodLabel(method, t)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

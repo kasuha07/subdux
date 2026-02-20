@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { api, isAdmin } from "@/lib/api"
+import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
 import type {
@@ -27,6 +28,7 @@ import type {
   CreateSubscriptionInput,
   UserPreference,
   UserCurrency,
+  Category,
   PaymentMethod,
 } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
@@ -40,6 +42,7 @@ import {
   TrendingUp,
   Shield,
   Search,
+  Filter,
   FilterX,
   ArrowUpDown,
   ArrowUp,
@@ -113,6 +116,7 @@ export default function DashboardPage() {
     localStorage.getItem("defaultCurrency") || "USD"
   )
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Subscription["status"]>>(new Set())
@@ -123,16 +127,18 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [subs, sum, pref, currencies, methods] = await Promise.all([
+      const [subs, sum, pref, currencies, categoryList, methods] = await Promise.all([
         api.get<Subscription[]>("/subscriptions"),
         api.get<DashboardSummary>("/dashboard/summary"),
         api.get<UserPreference>("/preferences/currency"),
         api.get<UserCurrency[]>("/currencies"),
+        api.get<Category[]>("/categories"),
         api.get<PaymentMethod[]>("/payment-methods"),
       ])
       setSubscriptions(subs || [])
       setSummary(sum)
       setUserCurrencies(currencies || [])
+      setCategories(categoryList || [])
       setPaymentMethods(methods || [])
       if (pref?.preferred_currency) {
         setPreferredCurrency(pref.preferred_currency)
@@ -149,11 +155,26 @@ export default function DashboardPage() {
     fetchData()
   }, [fetchData])
 
+  const categoryMap = useMemo(
+    () => new Map(categories.map((item) => [item.id, item] as const)),
+    [categories]
+  )
+
+  const getSubscriptionCategoryName = useCallback((sub: Subscription): string => {
+    if (sub.category_id != null) {
+      const category = categoryMap.get(sub.category_id)
+      if (category) {
+        return getCategoryLabel(category, t)
+      }
+    }
+    return sub.category.trim()
+  }, [categoryMap, t])
+
   const categoryOptions = useMemo(() => {
     const uniqueCategories = new Set<string>()
 
     for (const sub of subscriptions) {
-      const normalizedCategory = sub.category.trim()
+      const normalizedCategory = getSubscriptionCategoryName(sub)
       if (normalizedCategory) {
         uniqueCategories.add(normalizedCategory)
       }
@@ -162,7 +183,7 @@ export default function DashboardPage() {
     return Array.from(uniqueCategories).sort((a, b) =>
       a.localeCompare(b, i18n.language, { sensitivity: "base" })
     )
-  }, [subscriptions, i18n.language])
+  }, [subscriptions, getSubscriptionCategoryName, i18n.language])
 
   const currencySymbolMap = useMemo(
     () =>
@@ -172,17 +193,22 @@ export default function DashboardPage() {
     [userCurrencies]
   )
 
-  const paymentMethodMap = useMemo(
-    () => new Map(paymentMethods.map((item) => [item.id, item] as const)),
-    [paymentMethods]
+  const paymentMethodLabelMap = useMemo(
+    () =>
+      new Map(
+        paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)
+      ),
+    [paymentMethods, t]
   )
 
   const filteredSubscriptions = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
 
     const filtered = subscriptions.filter((sub) => {
+      const categoryName = getSubscriptionCategoryName(sub)
+
       if (normalizedSearchTerm) {
-        const searchableContent = [sub.name, sub.category, sub.notes].join(" ").toLowerCase()
+        const searchableContent = [sub.name, categoryName, sub.notes].join(" ").toLowerCase()
         if (!searchableContent.includes(normalizedSearchTerm)) {
           return false
         }
@@ -192,7 +218,7 @@ export default function DashboardPage() {
         return false
       }
 
-      if (selectedCategories.size > 0 && !selectedCategories.has(sub.category)) {
+      if (selectedCategories.size > 0 && !selectedCategories.has(categoryName)) {
         return false
       }
 
@@ -224,7 +250,7 @@ export default function DashboardPage() {
 
       return sortDirection === "asc" ? result : -result
     })
-  }, [subscriptions, searchTerm, selectedStatuses, selectedCategories, selectedPaymentMethodIDs, sortField, sortDirection, i18n.language])
+  }, [subscriptions, searchTerm, selectedStatuses, selectedCategories, selectedPaymentMethodIDs, sortField, sortDirection, getSubscriptionCategoryName, i18n.language])
 
   const hasActiveFilters = searchTerm.trim().length > 0 ||
     selectedStatuses.size > 0 ||
@@ -396,6 +422,7 @@ export default function DashboardPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="shrink-0">
+                <Filter className="size-4" />
                 {t("dashboard.filters.filter")}
                 {(selectedStatuses.size > 0 || selectedCategories.size > 0 || selectedPaymentMethodIDs.size > 0)
                   ? ` (${selectedStatuses.size + selectedCategories.size + selectedPaymentMethodIDs.size})`
@@ -485,7 +512,7 @@ export default function DashboardPage() {
                           })
                         }}
                       >
-                        {method.name}
+                        {paymentMethodLabelMap.get(method.id) ?? method.name}
                       </DropdownMenuCheckboxItem>
                     ))
                   ) : (
@@ -500,11 +527,9 @@ export default function DashboardPage() {
               <DropdownMenuItem
                 onSelect={(event) => {
                   event.preventDefault()
-                  setSelectedStatuses(new Set())
-                  setSelectedCategories(new Set())
-                  setSelectedPaymentMethodIDs(new Set())
+                  resetFiltersAndSorting()
                 }}
-                disabled={selectedStatuses.size === 0 && selectedCategories.size === 0 && selectedPaymentMethodIDs.size === 0}
+                disabled={!hasActiveFilters}
               >
                 <FilterX className="size-4" />
                 {t("dashboard.filters.clearFilters")}
@@ -589,8 +614,9 @@ export default function DashboardPage() {
               <SubscriptionCard
                 key={sub.id}
                 subscription={sub}
+                categoryName={getSubscriptionCategoryName(sub)}
                 currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
-                paymentMethodName={sub.payment_method_id ? paymentMethodMap.get(sub.payment_method_id)?.name : undefined}
+                paymentMethodName={sub.payment_method_id ? paymentMethodLabelMap.get(sub.payment_method_id) : undefined}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />

@@ -42,6 +42,34 @@ const languages = [
 ]
 
 const customCodeOption = "__custom__"
+const currencyPlaceholderFallbackCode = "USD"
+
+function getIntlCurrencySymbolPlaceholder(code: string, locale: string): string | null {
+  try {
+    const parts = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      currencyDisplay: "symbol",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).formatToParts(0)
+    return parts.find((part) => part.type === "currency")?.value ?? null
+  } catch {
+    return null
+  }
+}
+
+function getIntlCurrencyAliasPlaceholder(code: string, locale: string): string | null {
+  try {
+    if (typeof Intl.DisplayNames !== "function") {
+      return null
+    }
+    const alias = new Intl.DisplayNames([locale], { type: "currency" }).of(code)
+    return alias ?? null
+  } catch {
+    return null
+  }
+}
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -104,6 +132,45 @@ export default function SettingsPage() {
         .filter((code) => !userCurrencies.some((item) => item.code === code)),
     [i18n.language, userCurrencies]
   )
+
+  const addPlaceholderCode = useMemo(() => {
+    if (addCode === customCodeOption) {
+      return customCode.trim().toUpperCase() || currencyPlaceholderFallbackCode
+    }
+    return addCode || currencyPlaceholderFallbackCode
+  }, [addCode, customCode])
+
+  const intlFallbackSymbolPlaceholder = useMemo(
+    () =>
+      getIntlCurrencySymbolPlaceholder(currencyPlaceholderFallbackCode, i18n.language) ??
+      currencyPlaceholderFallbackCode,
+    [i18n.language]
+  )
+
+  const intlFallbackAliasPlaceholder = useMemo(
+    () =>
+      getIntlCurrencyAliasPlaceholder(currencyPlaceholderFallbackCode, i18n.language) ??
+      currencyPlaceholderFallbackCode,
+    [i18n.language]
+  )
+
+  const addSymbolPlaceholder = useMemo(() => {
+    const preset = getPresetCurrencyMeta(addPlaceholderCode, i18n.language)
+    return (
+      preset?.symbol ??
+      getIntlCurrencySymbolPlaceholder(addPlaceholderCode, i18n.language) ??
+      intlFallbackSymbolPlaceholder
+    )
+  }, [addPlaceholderCode, i18n.language, intlFallbackSymbolPlaceholder])
+
+  const addAliasPlaceholder = useMemo(() => {
+    const preset = getPresetCurrencyMeta(addPlaceholderCode, i18n.language)
+    return (
+      preset?.alias ??
+      getIntlCurrencyAliasPlaceholder(addPlaceholderCode, i18n.language) ??
+      intlFallbackAliasPlaceholder
+    )
+  }, [addPlaceholderCode, i18n.language, intlFallbackAliasPlaceholder])
 
   useEffect(() => {
     if (addCode === customCodeOption) {
@@ -442,7 +509,11 @@ export default function SettingsPage() {
 
                     <Input
                       className="h-7 w-full px-2 text-sm"
-                      placeholder={t("settings.currencyManagement.symbolPlaceholder")}
+                      placeholder={
+                        getPresetCurrencyMeta(item.code, i18n.language)?.symbol ??
+                        getIntlCurrencySymbolPlaceholder(item.code, i18n.language) ??
+                        intlFallbackSymbolPlaceholder
+                      }
                       defaultValue={item.symbol}
                       maxLength={10}
                       onBlur={(e) => {
@@ -454,7 +525,11 @@ export default function SettingsPage() {
 
                     <Input
                       className="h-7 w-full px-2 text-sm"
-                      placeholder={t("settings.currencyManagement.aliasPlaceholder")}
+                      placeholder={
+                        getPresetCurrencyMeta(item.code, i18n.language)?.alias ??
+                        getIntlCurrencyAliasPlaceholder(item.code, i18n.language) ??
+                        intlFallbackAliasPlaceholder
+                      }
                       defaultValue={item.alias}
                       maxLength={100}
                       onBlur={(e) => {
@@ -526,7 +601,7 @@ export default function SettingsPage() {
 
                   <Input
                     className="w-full text-sm"
-                    placeholder={t("settings.currencyManagement.symbolPlaceholder")}
+                    placeholder={addSymbolPlaceholder}
                     value={addSymbol}
                     onChange={(e) => setAddSymbol(e.target.value)}
                     maxLength={10}
@@ -534,7 +609,7 @@ export default function SettingsPage() {
 
                   <Input
                     className="w-full text-sm"
-                    placeholder={t("settings.currencyManagement.aliasPlaceholder")}
+                    placeholder={addAliasPlaceholder}
                     value={addAlias}
                     onChange={(e) => setAddAlias(e.target.value)}
                     maxLength={100}

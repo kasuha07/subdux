@@ -87,20 +87,24 @@ type UserCurrency struct {
 }
 
 type Category struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	UserID       uint      `gorm:"not null;index;uniqueIndex:idx_user_category_name" json:"user_id"`
-	Name         string    `gorm:"not null;size:30;uniqueIndex:idx_user_category_name" json:"name"`
-	DisplayOrder int       `gorm:"default:0" json:"display_order"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	UserID         uint      `gorm:"not null;index;uniqueIndex:idx_user_category_name;uniqueIndex:idx_user_category_system_key" json:"user_id"`
+	Name           string    `gorm:"not null;size:30;uniqueIndex:idx_user_category_name" json:"name"`
+	SystemKey      *string   `gorm:"size:100;uniqueIndex:idx_user_category_system_key" json:"system_key"`
+	NameCustomized bool      `gorm:"default:false" json:"name_customized"`
+	DisplayOrder   int       `gorm:"default:0" json:"display_order"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type PaymentMethod struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"not null;index;uniqueIndex:idx_user_payment_method_name" json:"user_id"`
-	Name      string    `gorm:"not null;size:50;uniqueIndex:idx_user_payment_method_name" json:"name"`
-	Icon      string    `gorm:"size:500" json:"icon"`
-	SortOrder int       `gorm:"default:0" json:"sort_order"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	UserID         uint      `gorm:"not null;index;uniqueIndex:idx_user_payment_method_name;uniqueIndex:idx_user_payment_method_system_key" json:"user_id"`
+	Name           string    `gorm:"not null;size:50;uniqueIndex:idx_user_payment_method_name" json:"name"`
+	SystemKey      *string   `gorm:"size:100;uniqueIndex:idx_user_payment_method_system_key" json:"system_key"`
+	NameCustomized bool      `gorm:"default:false" json:"name_customized"`
+	Icon           string    `gorm:"size:500" json:"icon"`
+	SortOrder      int       `gorm:"default:0" json:"sort_order"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }

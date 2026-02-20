@@ -45,9 +45,11 @@ func (s *CategoryService) Create(userID uint, input CreateCategoryInput) (*model
 	}
 
 	category := model.Category{
-		UserID:       userID,
-		Name:         name,
-		DisplayOrder: input.DisplayOrder,
+		UserID:         userID,
+		Name:           name,
+		SystemKey:      nil,
+		NameCustomized: true,
+		DisplayOrder:   input.DisplayOrder,
 	}
 
 	if err := s.DB.Create(&category).Error; err != nil {
@@ -73,6 +75,7 @@ func (s *CategoryService) Update(userID, id uint, input UpdateCategoryInput) (*m
 			return nil, errors.New("category name already exists")
 		}
 		category.Name = name
+		category.NameCustomized = true
 	}
 
 	if input.DisplayOrder != nil {

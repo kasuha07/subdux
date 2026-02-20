@@ -86,7 +86,12 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		Status:   "active",
 	}
 
-	if err := s.DB.Create(&user).Error; err != nil {
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		return SeedUserDefaults(tx, user.ID)
+	}); err != nil {
 		return nil, err
 	}
 

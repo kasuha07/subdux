@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GripVertical, Trash2 } from "lucide-react"
 import { api } from "@/lib/api"
+import { getPaymentMethodLabel } from "@/lib/preset-labels"
 import { toast } from "sonner"
 import IconPicker from "@/features/subscriptions/icon-picker"
 import type {
@@ -16,7 +17,7 @@ import type {
 } from "@/types"
 
 export default function PaymentMethodManagement() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const [methods, setMethods] = useState<PaymentMethod[]>([])
   const [addName, setAddName] = useState("")
@@ -185,59 +186,64 @@ export default function PaymentMethodManagement() {
           </p>
         ) : (
           <>
-            {methods.map((item, index) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={() => handleDragStart(index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDrop={handleDrop}
-                className="grid grid-cols-[1rem_2.5rem_minmax(0,1fr)_1.75rem] items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-              >
-                <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab" />
+            {methods.map((item, index) => {
+              const displayName = getPaymentMethodLabel(item, t)
 
-                <IconPicker
-                  value={item.icon}
-                  onChange={(value) => {
-                    if (value !== item.icon) {
-                      void handleUpdateMethod(item.id, { icon: value })
-                    }
-                  }}
-                  onFileSelected={(file) => {
-                    void handleUploadMethodIcon(item.id, file)
-                  }}
-                  maxFileSizeKB={64}
-                />
-
-                <Input
-                  className="h-8 w-full text-sm"
-                  defaultValue={item.name}
-                  maxLength={50}
-                  placeholder={t("settings.paymentMethodManagement.namePlaceholder")}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (!value) {
-                      e.target.value = item.name
-                      toast.error(t("settings.paymentMethodManagement.invalidName"))
-                      return
-                    }
-                    if (value !== item.name) {
-                      void handleUpdateMethod(item.id, { name: value })
-                    }
-                  }}
-                />
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => void handleDeleteMethod(item.id)}
+              return (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={handleDrop}
+                  className="grid grid-cols-[1rem_2.5rem_minmax(0,1fr)_1.75rem] items-center gap-2 rounded-md border bg-card px-2 py-1.5"
                 >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
-            ))}
+                  <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab" />
+
+                  <IconPicker
+                    value={item.icon}
+                    onChange={(value) => {
+                      if (value !== item.icon) {
+                        void handleUpdateMethod(item.id, { icon: value })
+                      }
+                    }}
+                    onFileSelected={(file) => {
+                      void handleUploadMethodIcon(item.id, file)
+                    }}
+                    maxFileSizeKB={64}
+                  />
+
+                  <Input
+                    key={`${item.id}-${item.name_customized ? "custom" : "preset"}-${i18n.language}`}
+                    className="h-8 w-full text-sm"
+                    defaultValue={displayName}
+                    maxLength={50}
+                    placeholder={t("settings.paymentMethodManagement.namePlaceholder")}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (!value) {
+                        e.target.value = displayName
+                        toast.error(t("settings.paymentMethodManagement.invalidName"))
+                        return
+                      }
+                      if (value !== displayName) {
+                        void handleUpdateMethod(item.id, { name: value })
+                      }
+                    }}
+                  />
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => void handleDeleteMethod(item.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              )
+            })}
 
             {orderChanged && (
               <Button

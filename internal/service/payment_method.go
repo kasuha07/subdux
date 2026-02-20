@@ -54,10 +54,12 @@ func (s *PaymentMethodService) Create(userID uint, input CreatePaymentMethodInpu
 	}
 
 	method := model.PaymentMethod{
-		UserID:    userID,
-		Name:      name,
-		Icon:      strings.TrimSpace(input.Icon),
-		SortOrder: input.SortOrder,
+		UserID:         userID,
+		Name:           name,
+		SystemKey:      nil,
+		NameCustomized: true,
+		Icon:           strings.TrimSpace(input.Icon),
+		SortOrder:      input.SortOrder,
 	}
 
 	if err := s.DB.Create(&method).Error; err != nil {
@@ -87,6 +89,7 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 			return nil, errors.New("payment method name already exists")
 		}
 		method.Name = name
+		method.NameCustomized = true
 	}
 
 	if input.Icon != nil {

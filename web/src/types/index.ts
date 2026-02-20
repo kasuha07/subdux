@@ -191,6 +191,8 @@ export interface Category {
   id: number
   user_id: number
   name: string
+  system_key: string | null
+  name_customized: boolean
   display_order: number
   created_at: string
   updated_at: string
@@ -215,6 +217,8 @@ export interface PaymentMethod {
   id: number
   user_id: number
   name: string
+  system_key: string | null
+  name_customized: boolean
   icon: string
   sort_order: number
   created_at: string

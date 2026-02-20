@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GripVertical, Trash2, Pencil, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
+import { getCategoryLabel } from "@/lib/preset-labels"
 import { toast } from "sonner"
 import type { Category, CreateCategoryInput, UpdateCategoryInput, ReorderCategoryItem } from "@/types"
 
@@ -184,7 +185,7 @@ export default function CategoryManagement() {
                       autoFocus
                     />
                   ) : (
-                    <p className="text-sm font-medium">{item.name}</p>
+                    <p className="text-sm font-medium">{getCategoryLabel(item, t)}</p>
                   )}
                 </div>
                 {editingId === item.id ? (

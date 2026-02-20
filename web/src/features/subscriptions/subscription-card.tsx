@@ -56,6 +56,7 @@ function renderIcon(icon: string, name: string): ReactNode {
 
 interface SubscriptionCardProps {
   subscription: Subscription
+  categoryName?: string
   currencySymbol?: string
   paymentMethodName?: string
   onEdit: (sub: Subscription) => void
@@ -68,10 +69,11 @@ const statusStyles: Record<string, string> = {
   cancelled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
 }
 
-export default function SubscriptionCard({ subscription, currencySymbol, paymentMethodName, onEdit, onDelete }: SubscriptionCardProps) {
+export default function SubscriptionCard({ subscription, categoryName, currencySymbol, paymentMethodName, onEdit, onDelete }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
   const days = daysUntil(subscription.next_billing_date)
   const isUpcoming = days >= 0 && days <= 3
+  const categoryLabel = categoryName?.trim() || subscription.category
 
   return (
     <Card className="group transition-all hover:shadow-md">
@@ -97,10 +99,10 @@ export default function SubscriptionCard({ subscription, currencySymbol, payment
             )}
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {subscription.category && <span>{subscription.category}</span>}
-            {subscription.category && paymentMethodName && <span>·</span>}
+            {categoryLabel && <span>{categoryLabel}</span>}
+            {categoryLabel && paymentMethodName && <span>·</span>}
             {paymentMethodName && <span>{paymentMethodName}</span>}
-            {(subscription.category || paymentMethodName) && <span>·</span>}
+            {(categoryLabel || paymentMethodName) && <span>·</span>}
             <span>
               {isUpcoming ? (
                 <span className="text-amber-600 font-medium">{t("subscription.card.dueIn", { count: days })}</span>
