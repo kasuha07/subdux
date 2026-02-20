@@ -3,14 +3,24 @@ package model
 import "time"
 
 type User struct {
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	Username       string    `gorm:"uniqueIndex;not null;size:255" json:"username"`
+	Email          string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
+	Password       string    `gorm:"not null" json:"-"`
+	Role           string    `gorm:"size:20;default:'user'" json:"role"`
+	Status         string    `gorm:"size:20;default:'active'" json:"status"`
+	TotpSecret     *string   `gorm:"size:64" json:"-"`
+	TotpEnabled    bool      `gorm:"default:false" json:"totp_enabled"`
+	TotpTempSecret *string   `gorm:"size:64" json:"-"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type UserBackupCode struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	Username  string    `gorm:"uniqueIndex;not null;size:255" json:"username"`
-	Email     string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
-	Password  string    `gorm:"not null" json:"-"`
-	Role      string    `gorm:"size:20;default:'user'" json:"role"`
-	Status    string    `gorm:"size:20;default:'active'" json:"status"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	CodeHash  string    `gorm:"not null" json:"-"`
 	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type SystemSetting struct {
