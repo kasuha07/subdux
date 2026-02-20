@@ -208,15 +208,33 @@ export default function SubscriptionForm({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="name">{t("subscription.form.nameLabel")}</Label>
-            <Input
-              id="name"
-              placeholder={t("subscription.form.namePlaceholder")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-[auto_1fr] gap-3">
+            <div className="space-y-2">
+              <Label>{t("subscription.form.iconPicker.label")}</Label>
+              <IconPicker
+                value={icon}
+                onChange={(v) => {
+                  setIcon(v)
+                  setIconFile(null)
+                }}
+                onFileSelected={(f) => {
+                  setIconFile(f)
+                  setIcon("")
+                }}
+                maxFileSizeKB={64}
+                triggerSize="sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">{t("subscription.form.nameLabel")}</Label>
+              <Input
+                id="name"
+                placeholder={t("subscription.form.namePlaceholder")}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -309,22 +327,6 @@ export default function SubscriptionForm({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t("subscription.form.iconPicker.label")}</Label>
-            <IconPicker
-              value={icon}
-              onChange={(v) => {
-                setIcon(v)
-                setIconFile(null)
-              }}
-              onFileSelected={(f) => {
-                setIconFile(f)
-                setIcon("")
-              }}
-              maxFileSizeKB={64}
-            />
           </div>
 
           <div className="space-y-2">

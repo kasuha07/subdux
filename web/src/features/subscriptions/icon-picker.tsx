@@ -15,6 +15,7 @@ interface IconPickerProps {
   onChange: (value: string) => void
   onFileSelected: (file: File) => void
   maxFileSizeKB?: number
+  triggerSize?: "sm" | "md"
 }
 
 function renderPreview(value: string): ReactNode {
@@ -46,7 +47,13 @@ function isNonEmojiValue(v: string) {
   return v.startsWith("si:") || v.startsWith("http") || v.startsWith("assets/")
 }
 
-export default function IconPicker({ value, onChange, onFileSelected, maxFileSizeKB = 64 }: IconPickerProps) {
+export default function IconPicker({
+  value,
+  onChange,
+  onFileSelected,
+  maxFileSizeKB = 64,
+  triggerSize = "md",
+}: IconPickerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [brandSearch, setBrandSearch] = useState("")
@@ -114,7 +121,9 @@ export default function IconPicker({ value, onChange, onFileSelected, maxFileSiz
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="h-10 w-10 rounded-lg border-2 border-input flex items-center justify-center hover:border-primary/50 transition-colors cursor-pointer"
+          className={`rounded-lg border border-input flex items-center justify-center hover:border-primary/50 transition-colors cursor-pointer ${
+            triggerSize === "sm" ? "h-9 w-9" : "h-10 w-10"
+          }`}
         >
           {filePreview ? (
             <img src={filePreview} alt="" className="h-6 w-6 object-contain rounded" />
