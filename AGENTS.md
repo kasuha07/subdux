@@ -207,6 +207,12 @@ All must pass — never add `// @ts-ignore`, `// @ts-expect-error`, or cast to `
 4. If adding a Go test, note the exact single-test command.
 5. If adding a new model, update `AutoMigrate` in `pkg/database.go`.
 
+## Git Commit Rules
+
+- Commit messages must be detailed, not single-line only.
+- Use a short subject line plus a descriptive body explaining what changed and why.
+- Include key impacted areas/files and notable behavior changes in the body.
+
 ## Invariants (Do Not Break)
 
 - Never switch to a CGO-dependent SQLite driver

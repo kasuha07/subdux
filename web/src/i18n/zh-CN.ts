@@ -16,6 +16,10 @@ const zhCN = {
       passkeySubmitting: "等待 Passkey 验证...",
       passkeyUnsupported: "当前设备或浏览器不支持 Passkey",
       passkeyError: "Passkey 登录失败",
+      devAccountCreate: "创建开发账户（admin/123456）",
+      devAccountSubmitting: "正在创建开发账户...",
+      devAccountSuccess: "开发账户已创建，已填入登录信息",
+      devAccountError: "创建开发账户失败",
       twoFactor: {
         title: "两步验证",
         description: "请输入身份验证器应用中的6位验证码",
@@ -172,6 +176,27 @@ const zhCN = {
       update: "更新",
       addButton: "添加订阅",
       error: "保存失败",
+    },
+  },
+  presets: {
+    category: {
+      video: "视频",
+      music: "音乐",
+      productivity: "效率",
+      cloud: "云服务",
+      shopping: "购物",
+      finance: "财务",
+      education: "教育",
+      health: "健康",
+      news: "新闻",
+      other: "其他",
+    },
+    payment_method: {
+      credit_card: "信用卡",
+      debit_card: "借记卡",
+      paypal: "PayPal",
+      bank_transfer: "银行转账",
+      cash: "现金",
     },
   },
   settings: {

@@ -16,6 +16,10 @@ const en = {
       passkeySubmitting: "Waiting for Passkey...",
       passkeyUnsupported: "Passkey is not supported on this device or browser",
       passkeyError: "Passkey login failed",
+      devAccountCreate: "Create Dev Account (admin/123456)",
+      devAccountSubmitting: "Creating Dev Account...",
+      devAccountSuccess: "Dev account created. Credentials filled in.",
+      devAccountError: "Failed to create dev account",
       twoFactor: {
         title: "Two-Factor Authentication",
         description: "Enter the 6-digit code from your authenticator app",
@@ -172,6 +176,27 @@ const en = {
       update: "Update",
       addButton: "Add subscription",
       error: "Failed to save",
+    },
+  },
+  presets: {
+    category: {
+      video: "Video",
+      music: "Music",
+      productivity: "Productivity",
+      cloud: "Cloud",
+      shopping: "Shopping",
+      finance: "Finance",
+      education: "Education",
+      health: "Health",
+      news: "News",
+      other: "Other",
+    },
+    payment_method: {
+      credit_card: "Credit Card",
+      debit_card: "Debit Card",
+      paypal: "PayPal",
+      bank_transfer: "Bank Transfer",
+      cash: "Cash",
     },
   },
   settings: {

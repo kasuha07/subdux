@@ -21,11 +21,13 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [createDevAccountLoading, setCreateDevAccountLoading] = useState(false)
 
   const [step, setStep] = useState<LoginStep>("credentials")
   const [totpToken, setTotpToken] = useState("")
   const [totpCode, setTotpCode] = useState("")
   const passkeySupported = isPasskeySupported()
+  const isDevMode = import.meta.env.DEV
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()
@@ -99,6 +101,25 @@ export default function LoginPage() {
       setError(getPasskeyErrorMessage(err, t, "auth.login.passkeyError"))
     } finally {
       setPasskeyLoading(false)
+    }
+  }
+
+  async function handleCreateDevAccount() {
+    setError("")
+    setCreateDevAccountLoading(true)
+    try {
+      await api.post<AuthResponse>("/auth/register", {
+        username: "admin",
+        email: "admin@dev.local",
+        password: "123456",
+      })
+      setIdentifier("admin")
+      setPassword("123456")
+      toast.success(t("auth.login.devAccountSuccess"))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("auth.login.devAccountError"))
+    } finally {
+      setCreateDevAccountLoading(false)
     }
   }
 
@@ -203,6 +224,17 @@ export default function LoginPage() {
               <p className="text-xs text-muted-foreground">
                 {t("auth.login.passkeyUnsupported")}
               </p>
+            )}
+            {isDevMode && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={loading || passkeyLoading || createDevAccountLoading}
+                onClick={() => void handleCreateDevAccount()}
+              >
+                {createDevAccountLoading ? t("auth.login.devAccountSubmitting") : t("auth.login.devAccountCreate")}
+              </Button>
             )}
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">

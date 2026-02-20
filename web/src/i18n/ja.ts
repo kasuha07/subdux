@@ -16,6 +16,10 @@ const ja = {
       passkeySubmitting: "Passkeyを待機中...",
       passkeyUnsupported: "この端末またはブラウザはPasskeyに対応していません",
       passkeyError: "Passkeyログインに失敗しました",
+      devAccountCreate: "開発用アカウントを作成（admin/123456）",
+      devAccountSubmitting: "開発用アカウントを作成中...",
+      devAccountSuccess: "開発用アカウントを作成し、ログイン情報を入力しました",
+      devAccountError: "開発用アカウントの作成に失敗しました",
       twoFactor: {
         title: "二段階認証",
         description: "認証アプリの6桁コードを入力してください",
@@ -172,6 +176,27 @@ const ja = {
       update: "更新",
       addButton: "サブスクリプションを追加",
       error: "保存に失敗しました",
+    },
+  },
+  presets: {
+    category: {
+      video: "動画",
+      music: "音楽",
+      productivity: "生産性",
+      cloud: "クラウド",
+      shopping: "ショッピング",
+      finance: "金融",
+      education: "教育",
+      health: "健康",
+      news: "ニュース",
+      other: "その他",
+    },
+    payment_method: {
+      credit_card: "クレジットカード",
+      debit_card: "デビットカード",
+      paypal: "PayPal",
+      bank_transfer: "銀行振込",
+      cash: "現金",
     },
   },
   settings: {
