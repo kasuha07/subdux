@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { api } from "@/lib/api"
 import type { User, AdminStats, SystemSettings } from "@/types"
@@ -160,14 +161,6 @@ export default function AdminPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
@@ -182,6 +175,33 @@ export default function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
+        {loading ? (
+          <div className="space-y-6">
+            <div className="flex gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-9 w-28 rounded-md" />
+              ))}
+            </div>
+
+            <div className="rounded-md border">
+              <div className="border-b px-4 py-3 flex gap-8">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-8 border-b last:border-0 px-4 py-3">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="ml-auto size-6 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
             <TabsTrigger value="users" className="gap-2">
@@ -407,6 +427,7 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
         </Tabs>
+        )}
       </main>
     </div>
   )
