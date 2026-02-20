@@ -56,7 +56,7 @@ const zhCN = {
     stats: {
       monthly: "月度",
       yearly: "年度",
-      active: "活跃",
+      enabled: "已启用",
       upcoming: "即将到期",
     },
     empty: {
@@ -100,17 +100,25 @@ const zhCN = {
   },
   subscription: {
     card: {
-      cycle: {
-        weekly: "/ 周",
-        monthly: "/ 月",
-        yearly: "/ 年",
+      billingType: {
+        one_time: "买断制",
+      },
+      recurrence: {
+        interval: {
+          day: "每 {{count}} 天",
+          week: "每 {{count}} 周",
+          month: "每 {{count}} 个月",
+          year: "每 {{count}} 年",
+        },
+        monthlyDate: "每月 {{day}} 号",
+        yearlyDate: "每年 {{month}}/{{day}}",
       },
       dueIn: "{{count}}天后到期",
       overdue: "已逾期",
+      noNextBilling: "无下次计费日",
       status: {
-        active: "活跃",
-        paused: "已暂停",
-        cancelled: "已取消",
+        enabled: "已启用",
+        disabled: "已停用",
       },
     },
     form: {
@@ -121,13 +129,37 @@ const zhCN = {
       amountLabel: "金额",
       amountPlaceholder: "9.99",
       currencyLabel: "货币",
-      cycleLabel: "计费周期",
-      cycle: {
-        weekly: "每周",
-        monthly: "每月",
-        yearly: "每年",
+      billingTypeLabel: "计费类型",
+      billingType: {
+        recurring: "订阅制",
+        one_time: "买断制",
       },
-      nextBillingLabel: "下次计费",
+      enabledLabel: "启用状态",
+      enabled: "已启用",
+      disabled: "已停用",
+      purchaseDateLabel: "购买日期",
+      anchorDateLabel: "计费锚点日期",
+      recurrenceTypeLabel: "重复规则",
+      recurrenceDetailLabel: "具体内容",
+      recurrenceType: {
+        interval: "时间间隔",
+        monthly_date: "每月固定日期",
+        yearly_date: "每年固定日期",
+      },
+      intervalCountLabel: "每 N",
+      intervalUnitLabel: "单位",
+      intervalUnit: {
+        day: "天",
+        week: "周",
+        month: "月",
+        year: "年",
+      },
+      monthlyDayLabel: "每月日期",
+      yearlyMonthLabel: "月份",
+      yearlyDayLabel: "日期",
+      trialLabel: "试用期",
+      trialStartLabel: "试用开始",
+      trialEndLabel: "试用结束",
       categoryLabel: "分类",
       categoryPlaceholder: "选择...",
       paymentMethodLabel: "支付方式",

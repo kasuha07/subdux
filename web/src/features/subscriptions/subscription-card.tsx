@@ -62,16 +62,47 @@ interface SubscriptionCardProps {
 }
 
 const statusStyles: Record<string, string> = {
-  active: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  paused: "bg-amber-500/10 text-amber-700 border-amber-200",
-  cancelled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
+  enabled: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  disabled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
 }
 
 export default function SubscriptionCard({ subscription, categoryName, currencySymbol, paymentMethodName, onEdit, onDelete }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
-  const days = daysUntil(subscription.next_billing_date)
-  const isUpcoming = days >= 0 && days <= 3
+  const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
+  const isUpcoming = days !== null && days >= 0 && days <= 3
   const categoryLabel = categoryName?.trim() || subscription.category
+
+  function renderBillingLabel(): string {
+    if (subscription.billing_type === "one_time") {
+      return t("subscription.card.billingType.one_time")
+    }
+
+    if (subscription.recurrence_type === "monthly_date") {
+      return t("subscription.card.recurrence.monthlyDate", { day: subscription.monthly_day ?? 1 })
+    }
+    if (subscription.recurrence_type === "yearly_date") {
+      return t("subscription.card.recurrence.yearlyDate", {
+        month: subscription.yearly_month ?? 1,
+        day: subscription.yearly_day ?? 1,
+      })
+    }
+    return t(`subscription.card.recurrence.interval.${subscription.interval_unit}`, {
+      count: subscription.interval_count ?? 1,
+    })
+  }
+
+  function renderDueText(): string {
+    if (!subscription.next_billing_date) {
+      return t("subscription.card.noNextBilling")
+    }
+    if (isUpcoming) {
+      return t("subscription.card.dueIn", { count: days ?? 0 })
+    }
+    if ((days ?? 0) < 0) {
+      return t("subscription.card.overdue")
+    }
+    return formatDate(subscription.next_billing_date, i18n.language)
+  }
 
   return (
     <Card className="group transition-all hover:shadow-md">
@@ -103,11 +134,11 @@ export default function SubscriptionCard({ subscription, categoryName, currencyS
             {(categoryLabel || paymentMethodName) && <span>·</span>}
             <span>
               {isUpcoming ? (
-                <span className="text-amber-600 font-medium">{t("subscription.card.dueIn", { count: days })}</span>
-              ) : days < 0 ? (
-                <span className="text-destructive font-medium">{t("subscription.card.overdue")}</span>
+                <span className="text-amber-600 font-medium">{renderDueText()}</span>
+              ) : (days ?? 0) < 0 ? (
+                <span className="text-destructive font-medium">{renderDueText()}</span>
               ) : (
-                formatDate(subscription.next_billing_date, i18n.language)
+                renderDueText()
               )}
             </span>
           </div>
@@ -124,11 +155,11 @@ export default function SubscriptionCard({ subscription, categoryName, currencyS
               )}
             </p>
             <p className="text-xs text-muted-foreground">
-              {t(`subscription.card.cycle.${subscription.billing_cycle}`, subscription.billing_cycle)}
+              {renderBillingLabel()}
             </p>
           </div>
-          <Badge variant="outline" className={statusStyles[subscription.status] || ""}>
-            {t(`subscription.card.status.${subscription.status}`, subscription.status)}
+          <Badge variant="outline" className={statusStyles[subscription.enabled ? "enabled" : "disabled"] || ""}>
+            {t(`subscription.card.status.${subscription.enabled ? "enabled" : "disabled"}`)}
           </Badge>
         </div>
 

@@ -51,15 +51,19 @@ import {
 
 type SortField = "next_billing_date" | "name" | "created_at" | "amount"
 type SortDirection = "asc" | "desc"
+type EnabledFilter = "enabled" | "disabled"
 
 const defaultSortField: SortField = "next_billing_date"
 const defaultSortDirection: SortDirection = "asc"
-const statusOptions: Subscription["status"][] = ["active", "paused", "cancelled"]
+const enabledOptions: EnabledFilter[] = ["enabled", "disabled"]
 const sortFieldOptions: SortField[] = ["next_billing_date", "name", "created_at", "amount"]
 
-function toTimestamp(value: string): number {
+function toTimestamp(value: string | null): number {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER
+  }
   const ts = new Date(value).getTime()
-  return Number.isNaN(ts) ? 0 : ts
+  return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts
 }
 
 function DashboardSkeleton() {
@@ -119,7 +123,7 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<Subscription["status"]>>(new Set())
+  const [selectedEnabledStates, setSelectedEnabledStates] = useState<Set<EnabledFilter>>(new Set())
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [selectedPaymentMethodIDs, setSelectedPaymentMethodIDs] = useState<Set<number>>(new Set())
   const [sortField, setSortField] = useState<SortField>(defaultSortField)
@@ -214,8 +218,11 @@ export default function DashboardPage() {
         }
       }
 
-      if (selectedStatuses.size > 0 && !selectedStatuses.has(sub.status)) {
-        return false
+      if (selectedEnabledStates.size > 0) {
+        const enabledKey: EnabledFilter = sub.enabled ? "enabled" : "disabled"
+        if (!selectedEnabledStates.has(enabledKey)) {
+          return false
+        }
       }
 
       if (selectedCategories.size > 0 && !selectedCategories.has(categoryName)) {
@@ -250,10 +257,10 @@ export default function DashboardPage() {
 
       return sortDirection === "asc" ? result : -result
     })
-  }, [subscriptions, searchTerm, selectedStatuses, selectedCategories, selectedPaymentMethodIDs, sortField, sortDirection, getSubscriptionCategoryName, i18n.language])
+  }, [subscriptions, searchTerm, selectedEnabledStates, selectedCategories, selectedPaymentMethodIDs, sortField, sortDirection, getSubscriptionCategoryName, i18n.language])
 
   const hasActiveFilters = searchTerm.trim().length > 0 ||
-    selectedStatuses.size > 0 ||
+    selectedEnabledStates.size > 0 ||
     selectedCategories.size > 0 ||
     selectedPaymentMethodIDs.size > 0 ||
     sortField !== defaultSortField ||
@@ -304,7 +311,7 @@ export default function DashboardPage() {
 
   function resetFiltersAndSorting() {
     setSearchTerm("")
-    setSelectedStatuses(new Set())
+    setSelectedEnabledStates(new Set())
     setSelectedCategories(new Set())
     setSelectedPaymentMethodIDs(new Set())
     setSortField(defaultSortField)
@@ -359,271 +366,271 @@ export default function DashboardPage() {
           <DashboardSkeleton />
         ) : (
           <>
-        {summary && (
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <DollarSign className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.monthly")}</span>
-                </div>
-                <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_monthly, summary.currency || preferredCurrency, i18n.language)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <TrendingUp className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.yearly")}</span>
-                </div>
-                <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {formatCurrency(summary.total_yearly, summary.currency || preferredCurrency, i18n.language)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Repeat className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.active")}</span>
-                </div>
-                <p className="mt-1 text-2xl font-bold tabular-nums">{summary.active_count}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <CalendarDays className="size-4" />
-                  <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.upcoming")}</span>
-                </div>
-                <p className="mt-1 text-2xl font-bold tabular-nums">
-                  {summary.upcoming_renewals?.length || 0}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+            {summary && (
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <DollarSign className="size-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.monthly")}</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                      {formatCurrency(summary.total_monthly, summary.currency || preferredCurrency, i18n.language)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <TrendingUp className="size-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.yearly")}</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                      {formatCurrency(summary.total_yearly, summary.currency || preferredCurrency, i18n.language)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Repeat className="size-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.enabled")}</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{summary.enabled_count}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CalendarDays className="size-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.upcoming")}</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                      {summary.upcoming_renewals?.length || 0}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
-        <Separator className="mb-6" />
+            <Separator className="mb-6" />
 
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
-          <div className="relative w-56 shrink-0 lg:w-72">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={t("dashboard.filters.searchPlaceholder")}
-              className="pl-9"
-            />
-          </div>
+            <div className="mb-4 flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
+              <div className="relative w-56 shrink-0 lg:w-72">
+                <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t("dashboard.filters.searchPlaceholder")}
+                  className="pl-9"
+                />
+              </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0">
-                <Filter className="size-4" />
-                {t("dashboard.filters.filter")}
-                {(selectedStatuses.size > 0 || selectedCategories.size > 0 || selectedPaymentMethodIDs.size > 0)
-                  ? ` (${selectedStatuses.size + selectedCategories.size + selectedPaymentMethodIDs.size})`
-                  : ""}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuLabel>{t("dashboard.filters.filter")}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shrink-0">
+                    <Filter className="size-4" />
+                    {t("dashboard.filters.filter")}
+                    {(selectedEnabledStates.size > 0 || selectedCategories.size > 0 || selectedPaymentMethodIDs.size > 0)
+                      ? ` (${selectedEnabledStates.size + selectedCategories.size + selectedPaymentMethodIDs.size})`
+                      : ""}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuLabel>{t("dashboard.filters.filter")}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
 
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-48">
-                  {statusOptions.map((status) => (
-                    <DropdownMenuCheckboxItem
-                      key={status}
-                      checked={selectedStatuses.has(status)}
-                      onSelect={(event) => event.preventDefault()}
-                      onCheckedChange={(checked) => {
-                        setSelectedStatuses((prev) => {
-                          const next = new Set(prev)
-                          if (checked === true) {
-                            next.add(status)
-                          } else {
-                            next.delete(status)
-                          }
-                          return next
-                        })
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-48">
+                      {enabledOptions.map((status) => (
+                        <DropdownMenuCheckboxItem
+                          key={status}
+                          checked={selectedEnabledStates.has(status)}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) => {
+                            setSelectedEnabledStates((prev) => {
+                              const next = new Set(prev)
+                              if (checked === true) {
+                                next.add(status)
+                              } else {
+                                next.delete(status)
+                              }
+                              return next
+                            })
+                          }}
+                        >
+                          {t(`subscription.card.status.${status}`)}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56">
+                      {categoryOptions.length > 0 ? (
+                        categoryOptions.map((category) => (
+                          <DropdownMenuCheckboxItem
+                            key={category}
+                            checked={selectedCategories.has(category)}
+                            onSelect={(event) => event.preventDefault()}
+                            onCheckedChange={(checked) => {
+                              setSelectedCategories((prev) => {
+                                const next = new Set(prev)
+                                if (checked === true) {
+                                  next.add(category)
+                                } else {
+                                  next.delete(category)
+                                }
+                                return next
+                              })
+                            }}
+                          >
+                            {category}
+                          </DropdownMenuCheckboxItem>
+                        ))
+                      ) : (
+                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                          {t("dashboard.filters.noCategories")}
+                        </div>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56">
+                      {paymentMethods.length > 0 ? (
+                        paymentMethods.map((method) => (
+                          <DropdownMenuCheckboxItem
+                            key={method.id}
+                            checked={selectedPaymentMethodIDs.has(method.id)}
+                            onSelect={(event) => event.preventDefault()}
+                            onCheckedChange={(checked) => {
+                              setSelectedPaymentMethodIDs((prev) => {
+                                const next = new Set(prev)
+                                if (checked === true) {
+                                  next.add(method.id)
+                                } else {
+                                  next.delete(method.id)
+                                }
+                                return next
+                              })
+                            }}
+                          >
+                            {paymentMethodLabelMap.get(method.id) ?? method.name}
+                          </DropdownMenuCheckboxItem>
+                        ))
+                      ) : (
+                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                          {t("dashboard.filters.noPaymentMethods")}
+                        </div>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      resetFiltersAndSorting()
+                    }}
+                    disabled={!hasActiveFilters}
+                  >
+                    <FilterX className="size-4" />
+                    {t("dashboard.filters.clearFilters")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shrink-0">
+                    <ArrowUpDown className="size-4" />
+                    {getSortFieldLabel(sortField)}
+                    {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuLabel>{t("dashboard.filters.sort")}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {sortFieldOptions.map((field) => (
+                    <DropdownMenuItem
+                      key={field}
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        handleSortFieldSelect(field)
                       }}
                     >
-                      {t(`subscription.card.status.${status}`, status)}
-                    </DropdownMenuCheckboxItem>
+                      {getSortFieldLabel(field)}
+                      {sortField === field ? (
+                        sortDirection === "asc" ? <ArrowUp className="ml-auto size-3.5" /> : <ArrowDown className="ml-auto size-3.5" />
+                      ) : null}
+                    </DropdownMenuItem>
                   ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-56">
-                  {categoryOptions.length > 0 ? (
-                    categoryOptions.map((category) => (
-                      <DropdownMenuCheckboxItem
-                        key={category}
-                        checked={selectedCategories.has(category)}
-                        onSelect={(event) => event.preventDefault()}
-                        onCheckedChange={(checked) => {
-                          setSelectedCategories((prev) => {
-                            const next = new Set(prev)
-                            if (checked === true) {
-                              next.add(category)
-                            } else {
-                              next.delete(category)
-                            }
-                            return next
-                          })
-                        }}
-                      >
-                        {category}
-                      </DropdownMenuCheckboxItem>
-                    ))
-                  ) : (
-                    <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                      {t("dashboard.filters.noCategories")}
-                    </div>
-                  )}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-56">
-                  {paymentMethods.length > 0 ? (
-                    paymentMethods.map((method) => (
-                      <DropdownMenuCheckboxItem
-                        key={method.id}
-                        checked={selectedPaymentMethodIDs.has(method.id)}
-                        onSelect={(event) => event.preventDefault()}
-                        onCheckedChange={(checked) => {
-                          setSelectedPaymentMethodIDs((prev) => {
-                            const next = new Set(prev)
-                            if (checked === true) {
-                              next.add(method.id)
-                            } else {
-                              next.delete(method.id)
-                            }
-                            return next
-                          })
-                        }}
-                      >
-                        {paymentMethodLabelMap.get(method.id) ?? method.name}
-                      </DropdownMenuCheckboxItem>
-                    ))
-                  ) : (
-                    <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                      {t("dashboard.filters.noPaymentMethods")}
-                    </div>
-                  )}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
-                  resetFiltersAndSorting()
-                }}
-                disabled={!hasActiveFilters}
-              >
-                <FilterX className="size-4" />
-                {t("dashboard.filters.clearFilters")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0">
-                <ArrowUpDown className="size-4" />
-                {getSortFieldLabel(sortField)}
-                {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>{t("dashboard.filters.sort")}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {sortFieldOptions.map((field) => (
-                <DropdownMenuItem
-                  key={field}
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    handleSortFieldSelect(field)
-                  }}
-                >
-                  {getSortFieldLabel(field)}
-                  {sortField === field ? (
-                    sortDirection === "asc" ? <ArrowUp className="ml-auto size-3.5" /> : <ArrowDown className="ml-auto size-3.5" />
-                  ) : null}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetFiltersAndSorting}
-            disabled={!hasActiveFilters}
-            className="shrink-0"
-          >
-            <FilterX className="size-4" />
-            {t("dashboard.filters.clear")}
-          </Button>
-
-        </div>
-
-        <div className="space-y-2">
-          {subscriptions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="rounded-full bg-muted p-4 mb-4">
-                <Plus className="size-6 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium">{t("dashboard.empty.title")}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("dashboard.empty.description")}
-              </p>
-              <Button className="mt-4" onClick={openNewForm}>
-                <Plus className="size-4" />
-                {t("dashboard.empty.addButton")}
-              </Button>
-            </div>
-          ) : filteredSubscriptions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-              <h3 className="font-medium">{t("dashboard.filters.empty.title")}</h3>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {t("dashboard.filters.empty.description")}
-              </p>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="mt-4"
                 onClick={resetFiltersAndSorting}
+                disabled={!hasActiveFilters}
+                className="shrink-0"
               >
                 <FilterX className="size-4" />
                 {t("dashboard.filters.clear")}
               </Button>
+
             </div>
-          ) : (
-            filteredSubscriptions.map((sub) => (
-              <SubscriptionCard
-                key={sub.id}
-                subscription={sub}
-                categoryName={getSubscriptionCategoryName(sub)}
-                currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
-                paymentMethodName={sub.payment_method_id ? paymentMethodLabelMap.get(sub.payment_method_id) : undefined}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))
-          )}
-        </div>
-        </>
+
+            <div className="space-y-2">
+              {subscriptions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="rounded-full bg-muted p-4 mb-4">
+                    <Plus className="size-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-medium">{t("dashboard.empty.title")}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("dashboard.empty.description")}
+                  </p>
+                  <Button className="mt-4" onClick={openNewForm}>
+                    <Plus className="size-4" />
+                    {t("dashboard.empty.addButton")}
+                  </Button>
+                </div>
+              ) : filteredSubscriptions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+                  <h3 className="font-medium">{t("dashboard.filters.empty.title")}</h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {t("dashboard.filters.empty.description")}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={resetFiltersAndSorting}
+                  >
+                    <FilterX className="size-4" />
+                    {t("dashboard.filters.clear")}
+                  </Button>
+                </div>
+              ) : (
+                filteredSubscriptions.map((sub) => (
+                  <SubscriptionCard
+                    key={sub.id}
+                    subscription={sub}
+                    categoryName={getSubscriptionCategoryName(sub)}
+                    currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
+                    paymentMethodName={sub.payment_method_id ? paymentMethodLabelMap.get(sub.payment_method_id) : undefined}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))
+              )}
+            </div>
+          </>
         )}
       </main>
 

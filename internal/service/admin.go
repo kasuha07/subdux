@@ -151,18 +151,14 @@ func (s *AdminService) GetStats() (*AdminStats, error) {
 	s.DB.Model(&model.Subscription{}).Count(&stats.TotalSubscriptions)
 
 	var subs []model.Subscription
-	if err := s.DB.Where("status = ?", "active").Find(&subs).Error; err != nil {
+	if err := s.DB.Where("enabled = ?", true).Find(&subs).Error; err != nil {
 		return nil, err
 	}
 
 	for _, sub := range subs {
-		switch sub.BillingCycle {
-		case "weekly":
-			stats.TotalMonthlySpend += sub.Amount * 4.33
-		case "monthly":
-			stats.TotalMonthlySpend += sub.Amount
-		case "yearly":
-			stats.TotalMonthlySpend += sub.Amount / 12
+		factor := subscriptionMonthlyFactor(sub)
+		if factor > 0 {
+			stats.TotalMonthlySpend += sub.Amount * factor
 		}
 	}
 

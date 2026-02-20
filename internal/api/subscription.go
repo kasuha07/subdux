@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/service"
@@ -51,11 +52,11 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if input.Name == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name is required"})
 	}
+	if input.BillingType == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Billing type is required"})
+	}
 	if input.Amount <= 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must be positive"})
-	}
-	if input.BillingCycle == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Billing cycle is required"})
 	}
 	if !validateIcon(input.Icon) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
@@ -63,7 +64,7 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 
 	sub, err := h.Service.Create(userID, input)
 	if err != nil {
-		if err.Error() == "payment method not found" {
+		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -83,13 +84,16 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
+	if input.Amount != nil && *input.Amount <= 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must be positive"})
+	}
 	if input.Icon != nil && !validateIcon(*input.Icon) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
 	}
 
 	sub, err := h.Service.Update(userID, uint(id), input)
 	if err != nil {
-		if err.Error() == "payment method not found" {
+		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -155,4 +159,13 @@ func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, summary)
+}
+
+func isSubscriptionBadRequestError(message string) bool {
+	if message == "payment method not found" {
+		return true
+	}
+	return strings.Contains(message, "required") ||
+		strings.Contains(message, "must be") ||
+		strings.Contains(message, "invalid date format")
 }

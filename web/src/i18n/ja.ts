@@ -56,7 +56,7 @@ const ja = {
     stats: {
       monthly: "月額",
       yearly: "年額",
-      active: "有効",
+      enabled: "有効",
       upcoming: "更新予定",
     },
     empty: {
@@ -100,17 +100,25 @@ const ja = {
   },
   subscription: {
     card: {
-      cycle: {
-        weekly: "/ 週",
-        monthly: "/ 月",
-        yearly: "/ 年",
+      billingType: {
+        one_time: "買い切り制",
+      },
+      recurrence: {
+        interval: {
+          day: "{{count}}日ごと",
+          week: "{{count}}週間ごと",
+          month: "{{count}}か月ごと",
+          year: "{{count}}年ごと",
+        },
+        monthlyDate: "毎月{{day}}日",
+        yearlyDate: "毎年{{month}}月{{day}}日",
       },
       dueIn: "{{count}}日後に更新",
       overdue: "期限超過",
+      noNextBilling: "次回請求日なし",
       status: {
-        active: "有効",
-        paused: "一時停止",
-        cancelled: "解約済み",
+        enabled: "有効",
+        disabled: "無効",
       },
     },
     form: {
@@ -121,13 +129,37 @@ const ja = {
       amountLabel: "金額",
       amountPlaceholder: "9.99",
       currencyLabel: "通貨",
-      cycleLabel: "請求サイクル",
-      cycle: {
-        weekly: "毎週",
-        monthly: "毎月",
-        yearly: "毎年",
+      billingTypeLabel: "課金タイプ",
+      billingType: {
+        recurring: "サブスク制",
+        one_time: "買い切り制",
       },
-      nextBillingLabel: "次回請求日",
+      enabledLabel: "有効状態",
+      enabled: "有効",
+      disabled: "無効",
+      purchaseDateLabel: "購入日",
+      anchorDateLabel: "課金起点日",
+      recurrenceTypeLabel: "繰り返しルール",
+      recurrenceDetailLabel: "詳細",
+      recurrenceType: {
+        interval: "カスタム",
+        monthly_date: "毎月の特定日",
+        yearly_date: "毎年の特定日",
+      },
+      intervalCountLabel: "N の値",
+      intervalUnitLabel: "単位",
+      intervalUnit: {
+        day: "日",
+        week: "週",
+        month: "月",
+        year: "年",
+      },
+      monthlyDayLabel: "毎月の日付",
+      yearlyMonthLabel: "月",
+      yearlyDayLabel: "日",
+      trialLabel: "トライアル期間",
+      trialStartLabel: "トライアル開始",
+      trialEndLabel: "トライアル終了",
       categoryLabel: "カテゴリ",
       categoryPlaceholder: "選択...",
       paymentMethodLabel: "支払い方法",

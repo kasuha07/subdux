@@ -56,7 +56,7 @@ const en = {
     stats: {
       monthly: "Monthly",
       yearly: "Yearly",
-      active: "Active",
+      enabled: "Enabled",
       upcoming: "Upcoming",
     },
     empty: {
@@ -100,17 +100,25 @@ const en = {
   },
   subscription: {
     card: {
-      cycle: {
-        weekly: "/ week",
-        monthly: "/ mo",
-        yearly: "/ yr",
+      billingType: {
+        one_time: "Buyout",
+      },
+      recurrence: {
+        interval: {
+          day: "Every {{count}} day(s)",
+          week: "Every {{count}} week(s)",
+          month: "Every {{count}} month(s)",
+          year: "Every {{count}} year(s)",
+        },
+        monthlyDate: "Monthly on day {{day}}",
+        yearlyDate: "Yearly on {{month}}/{{day}}",
       },
       dueIn: "Due in {{count}}d",
       overdue: "Overdue",
+      noNextBilling: "No next billing date",
       status: {
-        active: "active",
-        paused: "paused",
-        cancelled: "cancelled",
+        enabled: "enabled",
+        disabled: "disabled",
       },
     },
     form: {
@@ -121,13 +129,37 @@ const en = {
       amountLabel: "Amount",
       amountPlaceholder: "9.99",
       currencyLabel: "Currency",
-      cycleLabel: "Billing cycle",
-      cycle: {
-        weekly: "Weekly",
-        monthly: "Monthly",
-        yearly: "Yearly",
+      billingTypeLabel: "Billing type",
+      billingType: {
+        recurring: "Subscription-based",
+        one_time: "Buyout",
       },
-      nextBillingLabel: "Next billing",
+      enabledLabel: "Enabled",
+      enabled: "Enabled",
+      disabled: "Disabled",
+      purchaseDateLabel: "Purchase date",
+      anchorDateLabel: "Billing anchor date",
+      recurrenceTypeLabel: "Recurrence rule",
+      recurrenceDetailLabel: "Rule details",
+      recurrenceType: {
+        interval: "Custom",
+        monthly_date: "Specific day each month",
+        yearly_date: "Specific date each year",
+      },
+      intervalCountLabel: "Every N",
+      intervalUnitLabel: "Unit",
+      intervalUnit: {
+        day: "Day",
+        week: "Week",
+        month: "Month",
+        year: "Year",
+      },
+      monthlyDayLabel: "Day of month",
+      yearlyMonthLabel: "Month",
+      yearlyDayLabel: "Day",
+      trialLabel: "Trial period",
+      trialStartLabel: "Trial start",
+      trialEndLabel: "Trial end",
       categoryLabel: "Category",
       categoryPlaceholder: "Select...",
       paymentMethodLabel: "Payment method",
