@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, BarChart3, Database, RefreshCw, Settings, Users } from "lucide-react"
+import {
+  ArrowLeft,
+  BarChart3,
+  Database,
+  Mail,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -19,6 +28,8 @@ import type {
 import AdminBackupTab from "./admin-backup-tab"
 import AdminExchangeRatesTab from "./admin-exchange-rates-tab"
 import AdminLoadingSkeleton from "./admin-loading-skeleton"
+import AdminSettingsOIDCTab from "./admin-settings-oidc-tab"
+import AdminSettingsSMTPTab from "./admin-settings-smtp-tab"
 import AdminSettingsTab from "./admin-settings-tab"
 import AdminStatsTab from "./admin-stats-tab"
 import AdminUsersTab from "./admin-users-tab"
@@ -376,6 +387,14 @@ export default function AdminPage() {
                 <Settings className="size-4" />
                 {t("admin.tabs.settings")}
               </TabsTrigger>
+              <TabsTrigger value="smtp" className="gap-2">
+                <Mail className="size-4" />
+                {t("admin.tabs.email")}
+              </TabsTrigger>
+              <TabsTrigger value="auth" className="gap-2">
+                <ShieldCheck className="size-4" />
+                {t("admin.tabs.authentication")}
+              </TabsTrigger>
               <TabsTrigger value="exchange-rates" className="gap-2">
                 <RefreshCw className="size-4" />
                 {t("admin.exchangeRates.title")}
@@ -417,6 +436,10 @@ export default function AdminPage() {
               onRegistrationEnabledChange={setRegistrationEnabled}
               maxIconFileSize={maxIconFileSize}
               onMaxIconFileSizeChange={setMaxIconFileSize}
+              onSave={handleSaveSettings}
+            />
+
+            <AdminSettingsSMTPTab
               smtpEnabled={smtpEnabled}
               onSMTPEnabledChange={setSMTPEnabled}
               smtpHost={smtpHost}
@@ -446,6 +469,10 @@ export default function AdminPage() {
               onSMTPSkipTLSVerifyChange={setSMTPSkipTLSVerify}
               smtpTesting={smtpTesting}
               onSMTPTest={handleTestSMTP}
+              onSave={handleSaveSettings}
+            />
+
+            <AdminSettingsOIDCTab
               oidcEnabled={oidcEnabled}
               onOIDCEnabledChange={setOIDCEnabled}
               oidcProviderName={oidcProviderName}

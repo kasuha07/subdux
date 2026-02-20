@@ -421,6 +421,8 @@ const en = {
     tabs: {
       users: "Users",
       settings: "Settings",
+      email: "Email",
+      authentication: "Authentication",
       statistics: "Statistics",
       backup: "Backup",
     },

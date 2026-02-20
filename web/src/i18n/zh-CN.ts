@@ -421,6 +421,8 @@ const zhCN = {
     tabs: {
       users: "用户",
       settings: "设置",
+      email: "邮件",
+      authentication: "认证",
       statistics: "统计",
       backup: "备份",
     },

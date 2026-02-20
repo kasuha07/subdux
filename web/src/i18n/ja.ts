@@ -421,6 +421,8 @@ const ja = {
     tabs: {
       users: "ユーザー",
       settings: "設定",
+      email: "メール",
+      authentication: "認証",
       statistics: "統計",
       backup: "バックアップ",
     },

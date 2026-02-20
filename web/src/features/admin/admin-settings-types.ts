@@ -175,3 +175,16 @@ export type AdminSettingsSMTPAdvancedFieldsProps = Pick<
   | "smtpSkipTLSVerify"
   | "smtpTimeoutSeconds"
 >
+
+export interface AdminSettingsSaveProps {
+  onSave: () => void | Promise<void>
+}
+
+export type AdminSettingsGeneralTabProps = AdminSettingsBasicSectionProps &
+  AdminSettingsSaveProps
+
+export type AdminSettingsSMTPTabProps = AdminSettingsSMTPSectionProps &
+  AdminSettingsSaveProps
+
+export type AdminSettingsOIDCTabProps = AdminSettingsOIDCSectionProps &
+  AdminSettingsSaveProps
