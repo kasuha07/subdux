@@ -31,6 +31,7 @@ import type {
   UserPreference,
 } from "@/types"
 import TotpSection from "./totp-section"
+import PasskeySection from "./passkey-section"
 
 const languages = [
   { value: "en", label: "English" },
@@ -589,6 +590,10 @@ export default function SettingsPage() {
               <Separator />
 
               <TotpSection user={user} onUserChange={setUser} />
+
+              <Separator />
+
+              <PasskeySection />
 
               <Separator />
 

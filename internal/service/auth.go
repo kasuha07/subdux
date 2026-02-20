@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
@@ -11,10 +12,16 @@ import (
 
 type AuthService struct {
 	DB *gorm.DB
+
+	passkeyMu       sync.Mutex
+	passkeySessions map[string]passkeySession
 }
 
 func NewAuthService(db *gorm.DB) *AuthService {
-	return &AuthService{DB: db}
+	return &AuthService{
+		DB:              db,
+		passkeySessions: make(map[string]passkeySession),
+	}
 }
 
 type RegisterInput struct {

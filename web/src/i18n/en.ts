@@ -15,7 +15,6 @@ const en = {
       passkeySubmit: "Sign in with Passkey",
       passkeySubmitting: "Waiting for Passkey...",
       passkeyUnsupported: "Passkey is not supported on this device or browser",
-      passkeyNeedIdentifier: "Enter your username or email first",
       passkeyError: "Passkey login failed",
       twoFactor: {
         title: "Two-Factor Authentication",
@@ -358,6 +357,14 @@ const en = {
   common: {
     unauthorized: "Unauthorized",
     requestFailed: "Request failed",
+    passkeyErrors: {
+      notAllowed: "Passkey request was cancelled or timed out",
+      notSupported: "Passkey is not supported on this device or browser",
+      invalidState: "This passkey is already registered on this device",
+      security: "Passkey is unavailable on this site. Check domain and HTTPS settings",
+      aborted: "Passkey request was interrupted",
+      notFound: "No matching passkey was found",
+    },
   },
 } as const
 

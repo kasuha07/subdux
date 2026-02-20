@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api, setAuth } from "@/lib/api"
+import { getPasskeyCredential, isPasskeySupported, type CredentialAssertionJSON } from "@/lib/passkey"
+import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import { toast } from "sonner"
-import type { AuthResponse, LoginResponse } from "@/types"
+import type { AuthResponse, LoginResponse, PasskeyBeginResult } from "@/types"
 
 type LoginStep = "credentials" | "totp"
 
@@ -18,10 +20,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
 
   const [step, setStep] = useState<LoginStep>("credentials")
   const [totpToken, setTotpToken] = useState("")
   const [totpCode, setTotpCode] = useState("")
+  const passkeySupported = isPasskeySupported()
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()
@@ -71,6 +75,31 @@ export default function LoginPage() {
     setTotpToken("")
     setTotpCode("")
     setError("")
+  }
+
+  async function handlePasskeyLogin() {
+    setError("")
+    if (!passkeySupported) {
+      setError(t("auth.login.passkeyUnsupported"))
+      return
+    }
+
+    setPasskeyLoading(true)
+    try {
+      const begin = await api.post<PasskeyBeginResult<CredentialAssertionJSON>>("/auth/passkeys/login/start", {})
+      const credential = await getPasskeyCredential(begin.options)
+      const authData = await api.post<AuthResponse>("/auth/passkeys/login/finish", {
+        session_id: begin.session_id,
+        credential,
+      })
+      setAuth(authData.token, authData.user)
+      toast.success(t("auth.login.success"))
+      navigate("/")
+    } catch (err) {
+      setError(getPasskeyErrorMessage(err, t, "auth.login.passkeyError"))
+    } finally {
+      setPasskeyLoading(false)
+    }
   }
 
   if (step === "totp") {
@@ -161,6 +190,20 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? t("auth.login.submitting") : t("auth.login.submit")}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={loading || passkeyLoading || !passkeySupported}
+              onClick={() => void handlePasskeyLogin()}
+            >
+              {passkeyLoading ? t("auth.login.passkeySubmitting") : t("auth.login.passkeySubmit")}
+            </Button>
+            {!passkeySupported && (
+              <p className="text-xs text-muted-foreground">
+                {t("auth.login.passkeyUnsupported")}
+              </p>
+            )}
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {t("auth.login.noAccount")}{" "}
@@ -184,4 +227,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

@@ -15,7 +15,6 @@ const ja = {
       passkeySubmit: "Passkeyでサインイン",
       passkeySubmitting: "Passkeyを待機中...",
       passkeyUnsupported: "この端末またはブラウザはPasskeyに対応していません",
-      passkeyNeedIdentifier: "先にユーザー名またはメールアドレスを入力してください",
       passkeyError: "Passkeyログインに失敗しました",
       twoFactor: {
         title: "二段階認証",
@@ -358,6 +357,14 @@ const ja = {
   common: {
     unauthorized: "認証エラー",
     requestFailed: "リクエストに失敗しました",
+    passkeyErrors: {
+      notAllowed: "Passkey リクエストはキャンセルされたかタイムアウトしました",
+      notSupported: "この端末またはブラウザは Passkey に対応していません",
+      invalidState: "この Passkey はこの端末ですでに登録されています",
+      security: "このサイトでは Passkey を利用できません。ドメインと HTTPS 設定を確認してください",
+      aborted: "Passkey リクエストが中断されました",
+      notFound: "一致する Passkey が見つかりませんでした",
+    },
   },
 } as const
 
