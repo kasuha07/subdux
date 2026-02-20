@@ -1,62 +1,36 @@
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { Plus, Settings, Shield } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { api, isAdmin } from "@/lib/api"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
-import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
 import type {
-  Subscription,
-  DashboardSummary,
-  CreateSubscriptionInput,
-  UserPreference,
-  UserCurrency,
   Category,
+  CreateSubscriptionInput,
+  DashboardSummary,
   PaymentMethod,
+  Subscription,
+  UserCurrency,
+  UserPreference,
 } from "@/types"
+
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import {
-  Plus,
-  Settings,
-  DollarSign,
-  CalendarDays,
-  Repeat,
-  TrendingUp,
-  Shield,
-  Search,
-  Filter,
-  FilterX,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-} from "lucide-react"
-
-type SortField = "next_billing_date" | "name" | "created_at" | "amount"
-type SortDirection = "asc" | "desc"
-type EnabledFilter = "enabled" | "disabled"
-
-const defaultSortField: SortField = "next_billing_date"
-const defaultSortDirection: SortDirection = "asc"
-const enabledOptions: EnabledFilter[] = ["enabled", "disabled"]
-const sortFieldOptions: SortField[] = ["next_billing_date", "name", "created_at", "amount"]
+  defaultSortDirection,
+  defaultSortField,
+  type EnabledFilter,
+  type SortDirection,
+  type SortField,
+} from "./dashboard-filter-constants"
+import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
+import DashboardSummaryCards from "./dashboard-summary-cards"
 
 function toTimestamp(value: string | null): number {
   if (!value) {
@@ -94,7 +68,7 @@ function DashboardSkeleton() {
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-3 w-24" />
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="space-y-1.5 text-right">
                   <Skeleton className="ml-auto h-4 w-16" />
                   <Skeleton className="ml-auto h-3 w-12" />
@@ -125,7 +99,9 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedEnabledStates, setSelectedEnabledStates] = useState<Set<EnabledFilter>>(new Set())
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [includeNoCategory, setIncludeNoCategory] = useState(false)
   const [selectedPaymentMethodIDs, setSelectedPaymentMethodIDs] = useState<Set<number>>(new Set())
+  const [includeNoPaymentMethod, setIncludeNoPaymentMethod] = useState(false)
   const [sortField, setSortField] = useState<SortField>(defaultSortField)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection)
 
@@ -164,15 +140,18 @@ export default function DashboardPage() {
     [categories]
   )
 
-  const getSubscriptionCategoryName = useCallback((sub: Subscription): string => {
-    if (sub.category_id != null) {
-      const category = categoryMap.get(sub.category_id)
-      if (category) {
-        return getCategoryLabel(category, t)
+  const getSubscriptionCategoryName = useCallback(
+    (sub: Subscription): string => {
+      if (sub.category_id != null) {
+        const category = categoryMap.get(sub.category_id)
+        if (category) {
+          return getCategoryLabel(category, t)
+        }
       }
-    }
-    return sub.category.trim()
-  }, [categoryMap, t])
+      return sub.category.trim()
+    },
+    [categoryMap, t]
+  )
 
   const categoryOptions = useMemo(() => {
     const uniqueCategories = new Set<string>()
@@ -190,18 +169,12 @@ export default function DashboardPage() {
   }, [subscriptions, getSubscriptionCategoryName, i18n.language])
 
   const currencySymbolMap = useMemo(
-    () =>
-      new Map(
-        userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)
-      ),
+    () => new Map(userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)),
     [userCurrencies]
   )
 
   const paymentMethodLabelMap = useMemo(
-    () =>
-      new Map(
-        paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)
-      ),
+    () => new Map(paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)),
     [paymentMethods, t]
   )
 
@@ -210,6 +183,7 @@ export default function DashboardPage() {
 
     const filtered = subscriptions.filter((sub) => {
       const categoryName = getSubscriptionCategoryName(sub)
+      const hasCategory = categoryName.trim().length > 0
 
       if (normalizedSearchTerm) {
         const searchableContent = [sub.name, categoryName, sub.notes].join(" ").toLowerCase()
@@ -225,12 +199,22 @@ export default function DashboardPage() {
         }
       }
 
-      if (selectedCategories.size > 0 && !selectedCategories.has(categoryName)) {
-        return false
+      if (selectedCategories.size > 0 || includeNoCategory) {
+        if (hasCategory) {
+          if (!selectedCategories.has(categoryName)) {
+            return false
+          }
+        } else if (!includeNoCategory) {
+          return false
+        }
       }
 
-      if (selectedPaymentMethodIDs.size > 0) {
-        if (sub.payment_method_id == null || !selectedPaymentMethodIDs.has(sub.payment_method_id)) {
+      if (selectedPaymentMethodIDs.size > 0 || includeNoPaymentMethod) {
+        if (sub.payment_method_id == null) {
+          if (!includeNoPaymentMethod) {
+            return false
+          }
+        } else if (!selectedPaymentMethodIDs.has(sub.payment_method_id)) {
           return false
         }
       }
@@ -257,12 +241,27 @@ export default function DashboardPage() {
 
       return sortDirection === "asc" ? result : -result
     })
-  }, [subscriptions, searchTerm, selectedEnabledStates, selectedCategories, selectedPaymentMethodIDs, sortField, sortDirection, getSubscriptionCategoryName, i18n.language])
+  }, [
+    subscriptions,
+    searchTerm,
+    selectedEnabledStates,
+    selectedCategories,
+    includeNoCategory,
+    selectedPaymentMethodIDs,
+    includeNoPaymentMethod,
+    sortField,
+    sortDirection,
+    getSubscriptionCategoryName,
+    i18n.language,
+  ])
 
-  const hasActiveFilters = searchTerm.trim().length > 0 ||
+  const hasActiveFilters =
+    searchTerm.trim().length > 0 ||
     selectedEnabledStates.size > 0 ||
     selectedCategories.size > 0 ||
+    includeNoCategory ||
     selectedPaymentMethodIDs.size > 0 ||
+    includeNoPaymentMethod ||
     sortField !== defaultSortField ||
     sortDirection !== defaultSortDirection
 
@@ -294,14 +293,14 @@ export default function DashboardPage() {
       setFormOpen(false)
       await fetchData()
       return updated
-    } else {
-      const created = await api.post<Subscription>("/subscriptions", data)
-      toast.success(t("dashboard.createSuccess"))
-      setEditingSub(null)
-      setFormOpen(false)
-      await fetchData()
-      return created
     }
+
+    const created = await api.post<Subscription>("/subscriptions", data)
+    toast.success(t("dashboard.createSuccess"))
+    setEditingSub(null)
+    setFormOpen(false)
+    await fetchData()
+    return created
   }
 
   function openNewForm() {
@@ -313,7 +312,9 @@ export default function DashboardPage() {
     setSearchTerm("")
     setSelectedEnabledStates(new Set())
     setSelectedCategories(new Set())
+    setIncludeNoCategory(false)
     setSelectedPaymentMethodIDs(new Set())
+    setIncludeNoPaymentMethod(false)
     setSortField(defaultSortField)
     setSortDirection(defaultSortDirection)
   }
@@ -333,6 +334,42 @@ export default function DashboardPage() {
 
     setSortField(field)
     setSortDirection(defaultSortDirection)
+  }
+
+  function handleToggleEnabledState(status: EnabledFilter, checked: boolean) {
+    setSelectedEnabledStates((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(status)
+      } else {
+        next.delete(status)
+      }
+      return next
+    })
+  }
+
+  function handleToggleCategory(category: string, checked: boolean) {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(category)
+      } else {
+        next.delete(category)
+      }
+      return next
+    })
+  }
+
+  function handleTogglePaymentMethod(paymentMethodID: number, checked: boolean) {
+    setSelectedPaymentMethodIDs((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(paymentMethodID)
+      } else {
+        next.delete(paymentMethodID)
+      }
+      return next
+    })
   }
 
   return (
@@ -367,217 +404,43 @@ export default function DashboardPage() {
         ) : (
           <>
             {summary && (
-              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <DollarSign className="size-4" />
-                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.monthly")}</span>
-                    </div>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
-                      {formatCurrency(summary.total_monthly, summary.currency || preferredCurrency, i18n.language)}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <TrendingUp className="size-4" />
-                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.yearly")}</span>
-                    </div>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
-                      {formatCurrency(summary.total_yearly, summary.currency || preferredCurrency, i18n.language)}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Repeat className="size-4" />
-                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.enabled")}</span>
-                    </div>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">{summary.enabled_count}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <CalendarDays className="size-4" />
-                      <span className="text-xs font-medium uppercase tracking-wider">{t("dashboard.stats.upcoming")}</span>
-                    </div>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
-                      {summary.upcoming_renewal_count ?? 0}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+              <DashboardSummaryCards
+                summary={summary}
+                preferredCurrency={preferredCurrency}
+                language={i18n.language}
+              />
             )}
 
             <Separator className="mb-6" />
 
-            <div className="mb-4 flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
-              <div className="relative w-56 shrink-0 lg:w-72">
-                <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={t("dashboard.filters.searchPlaceholder")}
-                  className="pl-9"
-                />
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="shrink-0">
-                    <Filter className="size-4" />
-                    {t("dashboard.filters.filter")}
-                    {(selectedEnabledStates.size > 0 || selectedCategories.size > 0 || selectedPaymentMethodIDs.size > 0)
-                      ? ` (${selectedEnabledStates.size + selectedCategories.size + selectedPaymentMethodIDs.size})`
-                      : ""}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-52">
-                  <DropdownMenuLabel>{t("dashboard.filters.filter")}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-48">
-                      {enabledOptions.map((status) => (
-                        <DropdownMenuCheckboxItem
-                          key={status}
-                          checked={selectedEnabledStates.has(status)}
-                          onSelect={(event) => event.preventDefault()}
-                          onCheckedChange={(checked) => {
-                            setSelectedEnabledStates((prev) => {
-                              const next = new Set(prev)
-                              if (checked === true) {
-                                next.add(status)
-                              } else {
-                                next.delete(status)
-                              }
-                              return next
-                            })
-                          }}
-                        >
-                          {t(`subscription.card.status.${status}`)}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      {categoryOptions.length > 0 ? (
-                        categoryOptions.map((category) => (
-                          <DropdownMenuCheckboxItem
-                            key={category}
-                            checked={selectedCategories.has(category)}
-                            onSelect={(event) => event.preventDefault()}
-                            onCheckedChange={(checked) => {
-                              setSelectedCategories((prev) => {
-                                const next = new Set(prev)
-                                if (checked === true) {
-                                  next.add(category)
-                                } else {
-                                  next.delete(category)
-                                }
-                                return next
-                              })
-                            }}
-                          >
-                            {category}
-                          </DropdownMenuCheckboxItem>
-                        ))
-                      ) : (
-                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                          {t("dashboard.filters.noCategories")}
-                        </div>
-                      )}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      {paymentMethods.length > 0 ? (
-                        paymentMethods.map((method) => (
-                          <DropdownMenuCheckboxItem
-                            key={method.id}
-                            checked={selectedPaymentMethodIDs.has(method.id)}
-                            onSelect={(event) => event.preventDefault()}
-                            onCheckedChange={(checked) => {
-                              setSelectedPaymentMethodIDs((prev) => {
-                                const next = new Set(prev)
-                                if (checked === true) {
-                                  next.add(method.id)
-                                } else {
-                                  next.delete(method.id)
-                                }
-                                return next
-                              })
-                            }}
-                          >
-                            {paymentMethodLabelMap.get(method.id) ?? method.name}
-                          </DropdownMenuCheckboxItem>
-                        ))
-                      ) : (
-                        <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                          {t("dashboard.filters.noPaymentMethods")}
-                        </div>
-                      )}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      resetFiltersAndSorting()
-                    }}
-                    disabled={!hasActiveFilters}
-                  >
-                    <FilterX className="size-4" />
-                    {t("dashboard.filters.clearFilters")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="shrink-0">
-                    <ArrowUpDown className="size-4" />
-                    {getSortFieldLabel(sortField)}
-                    {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuLabel>{t("dashboard.filters.sort")}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {sortFieldOptions.map((field) => (
-                    <DropdownMenuItem
-                      key={field}
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        handleSortFieldSelect(field)
-                      }}
-                    >
-                      {getSortFieldLabel(field)}
-                      {sortField === field ? (
-                        sortDirection === "asc" ? <ArrowUp className="ml-auto size-3.5" /> : <ArrowDown className="ml-auto size-3.5" />
-                      ) : null}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-            </div>
+            <DashboardFiltersToolbar
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              selectedEnabledStates={selectedEnabledStates}
+              selectedCategories={selectedCategories}
+              includeNoCategory={includeNoCategory}
+              selectedPaymentMethodIDs={selectedPaymentMethodIDs}
+              includeNoPaymentMethod={includeNoPaymentMethod}
+              categoryOptions={categoryOptions}
+              paymentMethods={paymentMethods}
+              paymentMethodLabelMap={paymentMethodLabelMap}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSortFieldSelect={handleSortFieldSelect}
+              getSortFieldLabel={getSortFieldLabel}
+              hasActiveFilters={hasActiveFilters}
+              onResetFiltersAndSorting={resetFiltersAndSorting}
+              onToggleEnabledState={handleToggleEnabledState}
+              onToggleCategory={handleToggleCategory}
+              onToggleNoCategory={setIncludeNoCategory}
+              onTogglePaymentMethod={handleTogglePaymentMethod}
+              onToggleNoPaymentMethod={setIncludeNoPaymentMethod}
+            />
 
             <div className="space-y-2">
               {subscriptions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="rounded-full bg-muted p-4 mb-4">
+                  <div className="mb-4 rounded-full bg-muted p-4">
                     <Plus className="size-6 text-muted-foreground" />
                   </div>
                   <h3 className="font-medium">{t("dashboard.empty.title")}</h3>
@@ -592,7 +455,7 @@ export default function DashboardPage() {
               ) : filteredSubscriptions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
                   <h3 className="font-medium">{t("dashboard.filters.empty.title")}</h3>
-                  <p className="text-muted-foreground mt-1 text-sm">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {t("dashboard.filters.empty.description")}
                   </p>
                 </div>
@@ -603,7 +466,11 @@ export default function DashboardPage() {
                     subscription={sub}
                     categoryName={getSubscriptionCategoryName(sub)}
                     currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
-                    paymentMethodName={sub.payment_method_id ? paymentMethodLabelMap.get(sub.payment_method_id) : undefined}
+                    paymentMethodName={
+                      sub.payment_method_id
+                        ? paymentMethodLabelMap.get(sub.payment_method_id)
+                        : undefined
+                    }
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
