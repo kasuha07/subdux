@@ -122,6 +122,12 @@ const ja = {
   settings: {
     title: "設定",
     back: "戻る",
+    general: {
+      title: "一般",
+    },
+    payment: {
+      title: "支払いと通貨",
+    },
     appearance: {
       title: "外観",
       description: "Subdux の外観をカスタマイズ",

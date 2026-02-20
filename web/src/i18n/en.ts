@@ -122,6 +122,12 @@ const en = {
   settings: {
     title: "Settings",
     back: "Back",
+    general: {
+      title: "General",
+    },
+    payment: {
+      title: "Payment & Currency",
+    },
     appearance: {
       title: "Appearance",
       description: "Customize how Subdux looks",

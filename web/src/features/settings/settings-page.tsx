@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, GripVertical, Monitor, Moon, Sun, Trash2 } from "lucide-react"
 import { api, clearToken } from "@/lib/api"
 import {
@@ -307,361 +308,372 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-6 space-y-8">
-        <div>
-          <h2 className="text-sm font-medium">
-            {t("settings.appearance.title")}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {t("settings.appearance.description")}
-          </p>
-          <div className="mt-3 flex gap-2">
-            <Button
-              size="sm"
-              variant={theme === "light" ? "default" : "outline"}
-              onClick={() => handleTheme("light")}
-            >
-              <Sun className="size-4" />
-              {t("settings.appearance.light")}
-            </Button>
-            <Button
-              size="sm"
-              variant={theme === "dark" ? "default" : "outline"}
-              onClick={() => handleTheme("dark")}
-            >
-              <Moon className="size-4" />
-              {t("settings.appearance.dark")}
-            </Button>
-            <Button
-              size="sm"
-              variant={theme === "system" ? "default" : "outline"}
-              onClick={() => handleTheme("system")}
-            >
-              <Monitor className="size-4" />
-              {t("settings.appearance.system")}
-            </Button>
-          </div>
-        </div>
+      <main className="mx-auto max-w-4xl px-4 py-6">
+        <Tabs defaultValue="general" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="general">{t("settings.general.title")}</TabsTrigger>
+            <TabsTrigger value="payment">{t("settings.payment.title")}</TabsTrigger>
+            <TabsTrigger value="account">{t("settings.account.title")}</TabsTrigger>
+          </TabsList>
 
-        <Separator />
-
-        <div>
-          <h2 className="text-sm font-medium">
-            {t("settings.language.title")}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {t("settings.language.description")}
-          </p>
-          <div className="mt-3">
-            <Select
-              value={i18n.language}
-              onValueChange={(v) => i18n.changeLanguage(v)}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h2 className="text-sm font-medium">
-            {t("settings.currency.title")}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {t("settings.currency.description")}
-          </p>
-          <div className="mt-3">
-            <Select value={currency} onValueChange={handleCurrency}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {preferredCurrencyCodes.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h2 className="text-sm font-medium">
-            {t("settings.currencyManagement.title")}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {t("settings.currencyManagement.description")}
-          </p>
-
-          <div className="mt-3 space-y-1">
-            {userCurrencies.length === 0 && (
-              <p className="text-sm text-muted-foreground py-2">
-                {t("settings.currencyManagement.empty")}
+          <TabsContent value="general" className="space-y-6">
+            <div>
+              <h2 className="text-sm font-medium">
+                {t("settings.appearance.title")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("settings.appearance.description")}
               </p>
-            )}
-
-            {userCurrencies.map((item, index) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={() => handleDragStart(index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDrop={handleDrop}
-                className="grid grid-cols-[1rem_3rem_5rem_minmax(0,1fr)_1.75rem] items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-              >
-                <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab" />
-                <span className="inline-flex h-7 items-center text-sm font-mono font-medium">{item.code}</span>
-
-                <Input
-                  className="h-7 w-full px-2 text-sm"
-                  placeholder={t("settings.currencyManagement.symbolPlaceholder")}
-                  defaultValue={item.symbol}
-                  maxLength={10}
-                  onBlur={(e) => {
-                    if (e.target.value !== item.symbol) {
-                      void handleUpdateCurrency(item.id, { symbol: e.target.value })
-                    }
-                  }}
-                />
-
-                <Input
-                  className="h-7 w-full px-2 text-sm"
-                  placeholder={t("settings.currencyManagement.aliasPlaceholder")}
-                  defaultValue={item.alias}
-                  maxLength={100}
-                  onBlur={(e) => {
-                    if (e.target.value !== item.alias) {
-                      void handleUpdateCurrency(item.id, { alias: e.target.value })
-                    }
-                  }}
-                />
-
+              <div className="mt-3 flex gap-2">
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => void handleDeleteCurrency(item.id)}
+                  size="sm"
+                  variant={theme === "light" ? "default" : "outline"}
+                  onClick={() => handleTheme("light")}
                 >
-                  <Trash2 className="size-3.5" />
+                  <Sun className="size-4" />
+                  {t("settings.appearance.light")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={theme === "dark" ? "default" : "outline"}
+                  onClick={() => handleTheme("dark")}
+                >
+                  <Moon className="size-4" />
+                  {t("settings.appearance.dark")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={theme === "system" ? "default" : "outline"}
+                  onClick={() => handleTheme("system")}
+                >
+                  <Monitor className="size-4" />
+                  {t("settings.appearance.system")}
                 </Button>
               </div>
-            ))}
-          </div>
-
-          {orderChanged && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2"
-              disabled={orderSaving}
-              onClick={() => void handleSaveOrder()}
-            >
-              {orderSaving
-                ? t("settings.currencyManagement.savingOrder")
-                : t("settings.currencyManagement.saveOrder")}
-            </Button>
-          )}
-
-          <form onSubmit={(e) => void handleAddCurrency(e)} className="mt-3 space-y-2">
-            <div className="grid gap-1 sm:grid-cols-[6rem_5rem_minmax(0,1fr)_auto]">
-              <Label className="text-xs text-muted-foreground">
-                {t("settings.currencyManagement.codeLabel")}
-              </Label>
-              <Label className="text-xs text-muted-foreground">
-                {t("settings.currencyManagement.symbolLabel")}
-              </Label>
-              <Label className="text-xs text-muted-foreground">
-                {t("settings.currencyManagement.aliasLabel")}
-              </Label>
-              <Label className="text-xs text-transparent">
-                {t("settings.currencyManagement.addButton")}
-              </Label>
             </div>
 
-            <div className="grid items-center gap-2 sm:grid-cols-[6rem_5rem_minmax(0,1fr)_auto]">
-              <Select value={addCode} onValueChange={setAddCode}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("settings.currencyManagement.codePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {addableCurrencyCodes.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {code}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={customCodeOption}>
-                    {t("settings.currencyManagement.customCode")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+            <Separator />
 
-              <Input
-                className="w-full text-sm"
-                placeholder={t("settings.currencyManagement.symbolPlaceholder")}
-                value={addSymbol}
-                onChange={(e) => setAddSymbol(e.target.value)}
-                maxLength={10}
-              />
+            <div>
+              <h2 className="text-sm font-medium">
+                {t("settings.language.title")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("settings.language.description")}
+              </p>
+              <div className="mt-3">
+                <Select
+                  value={i18n.language}
+                  onValueChange={(v) => i18n.changeLanguage(v)}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {languages.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </TabsContent>
 
-              <Input
-                className="w-full text-sm"
-                placeholder={t("settings.currencyManagement.aliasPlaceholder")}
-                value={addAlias}
-                onChange={(e) => setAddAlias(e.target.value)}
-                maxLength={100}
-              />
-
-              <Button
-                type="submit"
-                className="sm:min-w-20"
-                disabled={
-                  addLoading ||
-                  (addCode === customCodeOption ? customCode.trim() === "" : addCode.trim() === "")
-                }
-              >
-                {addLoading
-                  ? t("settings.currencyManagement.adding")
-                  : t("settings.currencyManagement.addButton")}
-              </Button>
+          <TabsContent value="payment" className="space-y-6">
+            <div>
+              <h2 className="text-sm font-medium">
+                {t("settings.currency.title")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("settings.currency.description")}
+              </p>
+              <div className="mt-3">
+                <Select value={currency} onValueChange={handleCurrency}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {preferredCurrencyCodes.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {addCode === customCodeOption && (
-              <div className="grid gap-2 sm:max-w-72">
-                <div className="space-y-1">
+            <Separator />
+
+            <div>
+              <h2 className="text-sm font-medium">
+                {t("settings.currencyManagement.title")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("settings.currencyManagement.description")}
+              </p>
+
+              <div className="mt-3 space-y-1">
+                {userCurrencies.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-2">
+                    {t("settings.currencyManagement.empty")}
+                  </p>
+                )}
+
+                {userCurrencies.map((item, index) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={handleDrop}
+                    className="grid grid-cols-[1rem_3rem_5rem_minmax(0,1fr)_1.75rem] items-center gap-2 rounded-md border bg-card px-2 py-1.5"
+                  >
+                    <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab" />
+                    <span className="inline-flex h-7 items-center text-sm font-mono font-medium">{item.code}</span>
+
+                    <Input
+                      className="h-7 w-full px-2 text-sm"
+                      placeholder={t("settings.currencyManagement.symbolPlaceholder")}
+                      defaultValue={item.symbol}
+                      maxLength={10}
+                      onBlur={(e) => {
+                        if (e.target.value !== item.symbol) {
+                          void handleUpdateCurrency(item.id, { symbol: e.target.value })
+                        }
+                      }}
+                    />
+
+                    <Input
+                      className="h-7 w-full px-2 text-sm"
+                      placeholder={t("settings.currencyManagement.aliasPlaceholder")}
+                      defaultValue={item.alias}
+                      maxLength={100}
+                      onBlur={(e) => {
+                        if (e.target.value !== item.alias) {
+                          void handleUpdateCurrency(item.id, { alias: e.target.value })
+                        }
+                      }}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => void handleDeleteCurrency(item.id)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {orderChanged && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  disabled={orderSaving}
+                  onClick={() => void handleSaveOrder()}
+                >
+                  {orderSaving
+                    ? t("settings.currencyManagement.savingOrder")
+                    : t("settings.currencyManagement.saveOrder")}
+                </Button>
+              )}
+
+              <form onSubmit={(e) => void handleAddCurrency(e)} className="mt-3 space-y-2">
+                <div className="grid gap-1 sm:grid-cols-[6rem_5rem_minmax(0,1fr)_auto]">
                   <Label className="text-xs text-muted-foreground">
-                    {t("settings.currencyManagement.customCode")}
+                    {t("settings.currencyManagement.codeLabel")}
                   </Label>
+                  <Label className="text-xs text-muted-foreground">
+                    {t("settings.currencyManagement.symbolLabel")}
+                  </Label>
+                  <Label className="text-xs text-muted-foreground">
+                    {t("settings.currencyManagement.aliasLabel")}
+                  </Label>
+                  <Label className="text-xs text-transparent">
+                    {t("settings.currencyManagement.addButton")}
+                  </Label>
+                </div>
+
+                <div className="grid items-center gap-2 sm:grid-cols-[6rem_5rem_minmax(0,1fr)_auto]">
+                  <Select value={addCode} onValueChange={setAddCode}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t("settings.currencyManagement.codePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {addableCurrencyCodes.map((code) => (
+                        <SelectItem key={code} value={code}>
+                          {code}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={customCodeOption}>
+                        {t("settings.currencyManagement.customCode")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <Input
-                    className="w-full text-sm uppercase"
-                    placeholder={t("settings.currencyManagement.codePlaceholder")}
-                    value={customCode}
-                    onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+                    className="w-full text-sm"
+                    placeholder={t("settings.currencyManagement.symbolPlaceholder")}
+                    value={addSymbol}
+                    onChange={(e) => setAddSymbol(e.target.value)}
                     maxLength={10}
                   />
+
+                  <Input
+                    className="w-full text-sm"
+                    placeholder={t("settings.currencyManagement.aliasPlaceholder")}
+                    value={addAlias}
+                    onChange={(e) => setAddAlias(e.target.value)}
+                    maxLength={100}
+                  />
+
+                  <Button
+                    type="submit"
+                    className="sm:min-w-20"
+                    disabled={
+                      addLoading ||
+                      (addCode === customCodeOption ? customCode.trim() === "" : addCode.trim() === "")
+                    }
+                  >
+                    {addLoading
+                      ? t("settings.currencyManagement.adding")
+                      : t("settings.currencyManagement.addButton")}
+                  </Button>
                 </div>
-              </div>
-            )}
-          </form>
-        </div>
 
-        <Separator />
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-sm font-medium">
-              {t("settings.account.title")}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {t("settings.account.description")}
-            </p>
-          </div>
+                {addCode === customCodeOption && (
+                  <div className="grid gap-2 sm:max-w-72">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">
+                        {t("settings.currencyManagement.customCode")}
+                      </Label>
+                      <Input
+                        className="w-full text-sm uppercase"
+                        placeholder={t("settings.currencyManagement.codePlaceholder")}
+                        value={customCode}
+                        onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+                        maxLength={10}
+                      />
+                    </div>
+                  </div>
+                )}
+              </form>
+            </div>
+          </TabsContent>
 
-          <div>
-            <Label className="text-muted-foreground text-xs">
-              {t("settings.account.email")}
-            </Label>
-            <p className="text-sm mt-0.5">{user?.email ?? "—"}</p>
-          </div>
-
-          <Separator />
-
-          <TotpSection user={user} onUserChange={setUser} />
-
-          <Separator />
-
-          <div>
-            <h3 className="text-sm font-medium">
-              {t("settings.account.changePassword")}
-            </h3>
-            <form onSubmit={handleChangePassword} className="mt-3 grid gap-3 max-w-sm">
-              {passwordError && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {passwordError}
-                </div>
-              )}
-              {passwordSuccess && (
-                <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-                  {passwordSuccess}
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="current-password">
-                  {t("settings.account.currentPassword")}
-                </Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password">
-                  {t("settings.account.newPassword")}
-                </Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">
-                  {t("settings.account.confirmPassword")}
-                </Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
+          <TabsContent value="account">
+            <div className="space-y-4">
               <div>
-                <Button size="sm" type="submit" disabled={passwordLoading}>
-                  {passwordLoading
-                    ? t("settings.account.updating")
-                    : t("settings.account.update")}
+                <h2 className="text-sm font-medium">
+                  {t("settings.account.title")}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {t("settings.account.description")}
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground text-xs">
+                  {t("settings.account.email")}
+                </Label>
+                <p className="text-sm mt-0.5">{user?.email ?? "—"}</p>
+              </div>
+
+              <Separator />
+
+              <TotpSection user={user} onUserChange={setUser} />
+
+              <Separator />
+
+              <div>
+                <h3 className="text-sm font-medium">
+                  {t("settings.account.changePassword")}
+                </h3>
+                <form onSubmit={handleChangePassword} className="mt-3 grid gap-3 max-w-sm">
+                  {passwordError && (
+                    <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {passwordError}
+                    </div>
+                  )}
+                  {passwordSuccess && (
+                    <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+                      {passwordSuccess}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="current-password">
+                      {t("settings.account.currentPassword")}
+                    </Label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">
+                      {t("settings.account.newPassword")}
+                    </Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">
+                      {t("settings.account.confirmPassword")}
+                    </Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Button size="sm" type="submit" disabled={passwordLoading}>
+                      {passwordLoading
+                        ? t("settings.account.updating")
+                        : t("settings.account.update")}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+
+              <Separator />
+
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.account.logoutDescription")}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={handleLogout}
+                >
+                  {t("settings.account.logout")}
                 </Button>
               </div>
-            </form>
-          </div>
-
-          <Separator />
-
-          <div>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.account.logoutDescription")}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={handleLogout}
-            >
-              {t("settings.account.logout")}
-            </Button>
-          </div>
-        </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )

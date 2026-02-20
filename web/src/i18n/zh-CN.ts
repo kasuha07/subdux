@@ -122,6 +122,12 @@ const zhCN = {
   settings: {
     title: "设置",
     back: "返回",
+    general: {
+      title: "通用",
+    },
+    payment: {
+      title: "支付与货币",
+    },
     appearance: {
       title: "外观",
       description: "自定义 Subdux 的外观",
