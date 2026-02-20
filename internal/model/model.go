@@ -48,6 +48,7 @@ type Subscription struct {
 	BillingCycle    string    `gorm:"not null;size:20" json:"billing_cycle"` // weekly, monthly, yearly
 	NextBillingDate time.Time `json:"next_billing_date"`
 	Category        string    `gorm:"size:100" json:"category"`
+	CategoryID      *uint     `gorm:"index" json:"category_id"`
 	Icon            string    `gorm:"size:500" json:"icon"`
 	URL             string    `json:"url"`
 	Notes           string    `json:"notes"`
@@ -83,4 +84,13 @@ type UserCurrency struct {
 	SortOrder int       `gorm:"default:0" json:"sort_order"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type Category struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	UserID       uint      `gorm:"not null;index;uniqueIndex:idx_user_category_name" json:"user_id"`
+	Name         string    `gorm:"not null;size:100;uniqueIndex:idx_user_category_name" json:"name"`
+	DisplayOrder int       `gorm:"default:0" json:"display_order"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

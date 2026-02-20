@@ -38,12 +38,14 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	adminService := service.NewAdminService(db)
 	erService := service.NewExchangeRateService(db)
 	currencyService := service.NewCurrencyService(db)
+	categoryService := service.NewCategoryService(db)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
 	adminHandler := NewAdminHandler(adminService)
 	erHandler := NewExchangeRateHandler(erService)
 	currencyHandler := NewCurrencyHandler(currencyService, erService)
+	categoryHandler := NewCategoryHandler(categoryService)
 
 	api := e.Group("/api")
 
@@ -109,6 +111,12 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	protected.PUT("/currencies/reorder", currencyHandler.Reorder)
 	protected.PUT("/currencies/:id", currencyHandler.Update)
 	protected.DELETE("/currencies/:id", currencyHandler.Delete)
+
+	protected.GET("/categories", categoryHandler.List)
+	protected.POST("/categories", categoryHandler.Create)
+	protected.PUT("/categories/reorder", categoryHandler.Reorder)
+	protected.PUT("/categories/:id", categoryHandler.Update)
+	protected.DELETE("/categories/:id", categoryHandler.Delete)
 
 	seedDefaultSettings(db)
 

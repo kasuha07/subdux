@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { api } from "@/lib/api"
+import { api, isAdmin } from "@/lib/api"
 import type { SystemSettings } from "@/types"
 
 export function useSiteSettings() {
@@ -8,6 +8,7 @@ export function useSiteSettings() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) return
+    if (!isAdmin()) return
 
     api.get<SystemSettings>("/admin/settings")
       .then((data) => {

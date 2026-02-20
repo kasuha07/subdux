@@ -32,6 +32,7 @@ import type {
 } from "@/types"
 import TotpSection from "./totp-section"
 import PasskeySection from "./passkey-section"
+import CategoryManagement from "./category-management"
 
 const languages = [
   { value: "en", label: "English" },
@@ -567,6 +568,10 @@ export default function SettingsPage() {
                 )}
               </form>
             </div>
+
+            <Separator />
+
+            <CategoryManagement />
           </TabsContent>
 
           <TabsContent value="account">

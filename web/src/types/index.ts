@@ -18,6 +18,7 @@ export interface Subscription {
   billing_cycle: "weekly" | "monthly" | "yearly"
   next_billing_date: string
   category: string
+  category_id: number | null
   icon: string
   url: string
   notes: string
@@ -180,6 +181,30 @@ export interface UpdateCurrencyInput {
 }
 
 export interface ReorderCurrencyItem {
+  id: number
+  sort_order: number
+}
+
+export interface Category {
+  id: number
+  user_id: number
+  name: string
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateCategoryInput {
+  name: string
+  display_order: number
+}
+
+export interface UpdateCategoryInput {
+  name?: string
+  display_order?: number
+}
+
+export interface ReorderCategoryItem {
   id: number
   sort_order: number
 }
