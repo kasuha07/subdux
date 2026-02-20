@@ -9,12 +9,14 @@ import { Pencil, Trash2, ExternalLink } from "lucide-react"
 import { getBrandIcon } from "@/lib/brand-icons"
 
 function renderIcon(icon: string, name: string): ReactNode {
+  const fallbackInitial = (
+    <span className="flex size-full items-center justify-center bg-muted text-sm font-bold text-foreground">
+      {name.charAt(0).toUpperCase()}
+    </span>
+  )
+
   if (!icon) {
-    return (
-      <span className="text-sm font-bold text-white">
-        {name.charAt(0).toUpperCase()}
-      </span>
-    )
+    return fallbackInitial
   }
 
   if (icon.startsWith("si:")) {
@@ -23,11 +25,7 @@ function renderIcon(icon: string, name: string): ReactNode {
       const { Icon } = brand
       return <Icon size={20} color="default" />
     }
-    return (
-      <span className="text-sm font-bold text-white">
-        {name.charAt(0).toUpperCase()}
-      </span>
-    )
+    return fallbackInitial
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://")) {
