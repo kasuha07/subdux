@@ -3,6 +3,7 @@ package pkg
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -72,4 +73,45 @@ func GenerateToken(userID uint, username string, email string, role string) (str
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(GetJWTSecret())
+}
+
+// TOTPPendingClaims is a short-lived intermediate token (5 min) issued after
+// password auth succeeds when 2FA is enabled. Only accepted by /api/auth/totp/verify-login.
+type TOTPPendingClaims struct {
+	UserID      uint `json:"user_id"`
+	PendingTOTP bool `json:"pending_totp"`
+	jwt.RegisteredClaims
+}
+
+func GenerateTOTPPendingToken(userID uint) (string, error) {
+	claims := &TOTPPendingClaims{
+		UserID:      userID,
+		PendingTOTP: true,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(GetJWTSecret())
+}
+
+func ValidateTOTPPendingToken(tokenStr string) (uint, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &TOTPPendingClaims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return GetJWTSecret(), nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	claims, ok := token.Claims.(*TOTPPendingClaims)
+	if !ok || !token.Valid {
+		return 0, errors.New("invalid token")
+	}
+	if !claims.PendingTOTP {
+		return 0, errors.New("not a pending TOTP token")
+	}
+	return claims.UserID, nil
 }
