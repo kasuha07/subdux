@@ -29,6 +29,7 @@ import type {
   UserCurrency,
   UserPreference,
 } from "@/types"
+import TotpSection from "./totp-section"
 
 const languages = [
   { value: "en", label: "English" },
@@ -574,6 +575,10 @@ export default function SettingsPage() {
             </Label>
             <p className="text-sm mt-0.5">{user?.email ?? "—"}</p>
           </div>
+
+          <Separator />
+
+          <TotpSection user={user} onUserChange={setUser} />
 
           <Separator />
 

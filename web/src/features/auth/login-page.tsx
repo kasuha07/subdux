@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api, setAuth } from "@/lib/api"
 import { toast } from "sonner"
-import type { AuthResponse } from "@/types"
+import type { AuthResponse, LoginResponse } from "@/types"
+
+type LoginStep = "credentials" | "totp"
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
@@ -17,21 +19,107 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
+  const [step, setStep] = useState<LoginStep>("credentials")
+  const [totpToken, setTotpToken] = useState("")
+  const [totpCode, setTotpCode] = useState("")
+
+  async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     try {
-      const data = await api.post<AuthResponse>("/auth/login", { identifier, password })
-      setAuth(data.token, data.user)
-      toast.success(t("auth.login.success"))
-      navigate("/")
+      const data = await api.post<LoginResponse>("/auth/login", { identifier, password })
+      if ("requires_totp" in data && data.requires_totp) {
+        setTotpToken(data.totp_token)
+        setStep("totp")
+      } else {
+        const authData = data as AuthResponse
+        setAuth(authData.token, authData.user)
+        toast.success(t("auth.login.success"))
+        navigate("/")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.login.error"))
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleTotpSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
+
+    try {
+      const data = await api.post<AuthResponse>("/auth/totp/verify-login", {
+        totp_token: totpToken,
+        code: totpCode.trim(),
+      })
+      setAuth(data.token, data.user)
+      toast.success(t("auth.login.success"))
+      navigate("/")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("auth.login.twoFactor.error"))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleBack() {
+    setStep("credentials")
+    setTotpToken("")
+    setTotpCode("")
+    setError("")
+  }
+
+  if (step === "totp") {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">
+              {t("auth.login.twoFactor.title")}
+            </CardTitle>
+            <CardDescription>{t("auth.login.twoFactor.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => void handleTotpSubmit(e)} className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="totp-code">{t("auth.login.twoFactor.description")}</Label>
+                <Input
+                  id="totp-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9a-fA-F]*"
+                  maxLength={8}
+                  placeholder={t("auth.login.twoFactor.codePlaceholder")}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading || totpCode.length < 6}>
+                {loading ? t("auth.login.twoFactor.submitting") : t("auth.login.twoFactor.submit")}
+              </Button>
+            </form>
+            <button
+              type="button"
+              className="mt-3 block mx-auto text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
+              onClick={handleBack}
+            >
+              {t("auth.login.twoFactor.back")}
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -42,7 +130,7 @@ export default function LoginPage() {
           <CardDescription>{t("auth.login.description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => void handleCredentialsSubmit(e)} className="space-y-4">
             {error && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
@@ -96,3 +184,4 @@ export default function LoginPage() {
     </div>
   )
 }
+
