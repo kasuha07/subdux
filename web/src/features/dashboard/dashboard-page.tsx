@@ -4,12 +4,56 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api, isAdmin } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import type { Subscription, DashboardSummary, CreateSubscriptionInput } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import { Plus, Settings, DollarSign, CalendarDays, Repeat, TrendingUp, Shield } from "lucide-react"
+
+function DashboardSkeleton() {
+  return (
+    <>
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Skeleton className="size-4 rounded" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <Skeleton className="mt-2 h-7 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Separator className="mb-6" />
+
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="flex items-center gap-4 p-4">
+              <Skeleton className="size-10 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="space-y-1.5 text-right">
+                  <Skeleton className="ml-auto h-4 w-16" />
+                  <Skeleton className="ml-auto h-3 w-12" />
+                </div>
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
+  )
+}
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation()
@@ -68,21 +112,13 @@ export default function DashboardPage() {
     setFormOpen(true)
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">{t("dashboard.loading")}</div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
           <h1 className="text-lg font-bold tracking-tight">{t("dashboard.title")}</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={openNewForm}>
+            <Button variant="outline" size="sm" onClick={openNewForm} disabled={loading}>
               <Plus className="size-4" />
               {t("dashboard.add")}
             </Button>
@@ -103,6 +139,10 @@ export default function DashboardPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6">
+        {loading ? (
+          <DashboardSkeleton />
+        ) : (
+          <>
         {summary && (
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Card>
@@ -178,6 +218,8 @@ export default function DashboardPage() {
             ))
           )}
         </div>
+        </>
+        )}
       </main>
 
       <SubscriptionForm
