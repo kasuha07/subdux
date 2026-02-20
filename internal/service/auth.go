@@ -33,8 +33,14 @@ type AuthResponse struct {
 	User  model.User `json:"user"`
 }
 
+type LoginResponse struct {
+	RequiresTotp bool        `json:"requires_totp"`
+	TotpToken    string      `json:"totp_token,omitempty"`
+	Token        string      `json:"token,omitempty"`
+	User         *model.User `json:"user,omitempty"`
+}
+
 func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
-	// First registered user becomes admin; registration can be disabled by admin
 	var userCount int64
 	s.DB.Model(&model.User{}).Count(&userCount)
 
@@ -60,7 +66,6 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	// First user becomes admin
 	role := "user"
 	if userCount == 0 {
 		role = "admin"
@@ -114,7 +119,7 @@ func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) err
 	return s.DB.Model(&user).Update("password", string(hash)).Error
 }
 
-func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
+func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
 	var user model.User
 	if err := s.DB.Where("email = ? OR username = ?", input.Identifier, input.Identifier).First(&user).Error; err != nil {
 		return nil, errors.New("invalid credentials")
@@ -128,10 +133,18 @@ func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
 		return nil, errors.New("invalid credentials")
 	}
 
+	if user.TotpEnabled {
+		pendingToken, err := pkg.GenerateTOTPPendingToken(user.ID)
+		if err != nil {
+			return nil, err
+		}
+		return &LoginResponse{RequiresTotp: true, TotpToken: pendingToken}, nil
+	}
+
 	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthResponse{Token: token, User: user}, nil
+	return &LoginResponse{Token: token, User: &user}, nil
 }
