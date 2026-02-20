@@ -15,6 +15,7 @@ import {
 import { ArrowLeft, Sun, Moon, Monitor } from "lucide-react"
 import { api, clearToken } from "@/lib/api"
 import { getTheme, applyTheme, type Theme } from "@/lib/theme"
+import { toast } from "sonner"
 import type { User } from "@/types"
 
 const languages = [
@@ -80,7 +81,7 @@ export default function SettingsPage() {
         current_password: currentPassword,
         new_password: newPassword,
       })
-      setPasswordSuccess(t("settings.account.passwordChanged"))
+      toast.success(t("settings.account.passwordChanged"))
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
@@ -95,6 +96,7 @@ export default function SettingsPage() {
 
   function handleLogout() {
     clearToken()
+    toast.success(t("settings.account.logoutSuccess"))
     navigate("/login")
   }
 

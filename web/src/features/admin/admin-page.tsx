@@ -11,6 +11,7 @@ import {
   Download,
   AlertTriangle,
   DollarSign,
+  Plus,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,6 +54,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { api } from "@/lib/api"
+import { toast } from "sonner"
 import type { User, AdminStats, SystemSettings } from "@/types"
 
 export default function AdminPage() {
@@ -56,6 +67,12 @@ export default function AdminPage() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
+
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [newUsername, setNewUsername] = useState("")
+  const [newEmail, setNewEmail] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [newRole, setNewRole] = useState<"user" | "admin">("user")
 
   useEffect(() => {
     Promise.all([
@@ -78,6 +95,7 @@ export default function AdminPage() {
     try {
       await api.put(`/admin/users/${user.id}/role`, { role: newRole })
       setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, role: newRole } : u)))
+      toast.success(t("admin.users.roleUpdated"))
     } catch {
       void 0
     }
@@ -88,6 +106,7 @@ export default function AdminPage() {
     try {
       await api.put(`/admin/users/${user.id}/status`, { status: newStatus })
       setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, status: newStatus } : u)))
+      toast.success(t("admin.users.statusUpdated"))
     } catch {
       void 0
     }
@@ -98,6 +117,33 @@ export default function AdminPage() {
     try {
       await api.delete(`/admin/users/${id}`)
       setUsers(prev => prev.filter(u => u.id !== id))
+      toast.success(t("admin.users.deleteSuccess"))
+    } catch {
+      void 0
+    }
+  }
+
+  async function handleCreateUser() {
+    if (!newUsername || !newEmail || !newPassword) return
+    if (newPassword.length < 6) {
+      toast.error(t("admin.users.passwordTooShort"))
+      return
+    }
+
+    try {
+      const user = await api.post<User>("/admin/users", {
+        username: newUsername,
+        email: newEmail,
+        password: newPassword,
+        role: newRole,
+      })
+      setUsers(prev => [...prev, user])
+      setCreateDialogOpen(false)
+      setNewUsername("")
+      setNewEmail("")
+      setNewPassword("")
+      setNewRole("user")
+      toast.success(t("admin.users.createSuccess"))
     } catch {
       void 0
     }
@@ -112,6 +158,7 @@ export default function AdminPage() {
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSiteName(fresh.site_name)
       setRegistrationEnabled(fresh.registration_enabled)
+      toast.success(t("admin.settings.saveSuccess"))
     } catch {
       void 0
     }
@@ -134,8 +181,9 @@ export default function AdminPage() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+      toast.success(t("admin.backup.downloadSuccess"))
     } catch {
-      void 0
+      toast.error(t("admin.backup.downloadFailed"))
     }
   }
 
@@ -155,9 +203,9 @@ export default function AdminPage() {
       if (!res.ok) throw new Error()
 
       setRestoreConfirmOpen(false)
-      alert(t("admin.backup.restoreSuccess"))
+      toast.success(t("admin.backup.restoreSuccess"))
     } catch {
-      void 0
+      toast.error(t("admin.backup.restoreFailed"))
     }
   }
 
@@ -223,6 +271,79 @@ export default function AdminPage() {
           </TabsList>
 
           <TabsContent value="users">
+            <div className="mb-4 flex justify-end">
+              <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="size-4 mr-2" />
+                    {t("admin.users.createUser")}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>{t("admin.users.createUser")}</DialogTitle>
+                    <DialogDescription>
+                      {t("admin.users.createUserDescription")}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="username">{t("admin.users.username")}</Label>
+                      <Input
+                        id="username"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        placeholder="johndoe"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="email">{t("admin.users.email")}</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="john@example.com"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="password">{t("admin.users.password")}</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t("admin.users.passwordMinLength")}
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="role">{t("admin.users.role")}</Label>
+                      <select
+                        id="role"
+                        value={newRole}
+                        onChange={(e) => setNewRole(e.target.value as "user" | "admin")}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="user">{t("admin.users.roleUser")}</option>
+                        <option value="admin">{t("admin.users.roleAdmin")}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      onClick={handleCreateUser}
+                      disabled={!newUsername || !newEmail || !newPassword || newPassword.length < 6}
+                    >
+                      {t("admin.users.create")}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>

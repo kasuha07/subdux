@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, isAdmin } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
+import { toast } from "sonner"
 import type { Subscription, DashboardSummary, CreateSubscriptionInput } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
@@ -91,6 +92,7 @@ export default function DashboardPage() {
     if (!confirm(t("dashboard.deleteConfirm"))) return
     try {
       await api.delete(`/subscriptions/${id}`)
+      toast.success(t("dashboard.deleteSuccess"))
       await fetchData()
     } catch {
       void 0
@@ -100,10 +102,13 @@ export default function DashboardPage() {
   async function handleFormSubmit(data: CreateSubscriptionInput) {
     if (editingSub) {
       await api.put(`/subscriptions/${editingSub.id}`, data)
+      toast.success(t("dashboard.updateSuccess"))
     } else {
       await api.post("/subscriptions", data)
+      toast.success(t("dashboard.createSuccess"))
     }
     setEditingSub(null)
+    setFormOpen(false)
     await fetchData()
   }
 

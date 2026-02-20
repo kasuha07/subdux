@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api, setAuth } from "@/lib/api"
+import { toast } from "sonner"
 import type { AuthResponse } from "@/types"
 
 export default function RegisterPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -34,8 +36,9 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const data = await api.post<AuthResponse>("/auth/register", { email, password })
+      const data = await api.post<AuthResponse>("/auth/register", { username, email, password })
       setAuth(data.token, data.user)
+      toast.success(t("auth.register.success"))
       navigate("/")
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.register.error"))
@@ -58,6 +61,17 @@ export default function RegisterPage() {
                 {error}
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="username">{t("auth.register.usernameLabel")}</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder={t("auth.register.usernamePlaceholder")}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">{t("auth.register.emailLabel")}</Label>
               <Input

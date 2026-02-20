@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api, setAuth } from "@/lib/api"
+import { toast } from "sonner"
 import type { AuthResponse } from "@/types"
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -22,8 +23,9 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const data = await api.post<AuthResponse>("/auth/login", { email, password })
+      const data = await api.post<AuthResponse>("/auth/login", { identifier, password })
       setAuth(data.token, data.user)
+      toast.success(t("auth.login.success"))
       navigate("/")
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.login.error"))
@@ -47,13 +49,13 @@ export default function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">{t("auth.login.emailLabel")}</Label>
+              <Label htmlFor="identifier">{t("auth.login.identifierLabel")}</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder={t("auth.login.emailPlaceholder")}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                placeholder={t("auth.login.identifierPlaceholder")}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
               />
             </div>
