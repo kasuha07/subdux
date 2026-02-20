@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react"
+import { useState, useEffect, useMemo, useRef, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { api } from "@/lib/api"
-import { DEFAULT_CURRENCY_FALLBACK } from "@/lib/currencies"
+import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
 import type { Subscription, CreateSubscriptionInput, UserCurrency } from "@/types"
 
 interface SubscriptionFormProps {
@@ -57,7 +57,7 @@ export default function SubscriptionForm({
 
   const [name, setName] = useState(subscription?.name || "")
   const [amount, setAmount] = useState(subscription?.amount?.toString() || "")
-  const [currency, setCurrency] = useState(subscription?.currency || "USD")
+  const [currency, setCurrency] = useState(subscription?.currency || DEFAULT_CURRENCY_FALLBACK[0] || "")
   const [billingCycle, setBillingCycle] = useState<string>(subscription?.billing_cycle || "monthly")
   const [nextBillingDate, setNextBillingDate] = useState(
     subscription?.next_billing_date
@@ -72,6 +72,21 @@ export default function SubscriptionForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+  const wasOpenRef = useRef(false)
+
+  const currencyOptions = useMemo(() => {
+    if (userCurrencies.length > 0) {
+      return userCurrencies.map((item) => ({
+        code: item.code,
+        label: item.alias.trim() || getPresetCurrencyMeta(item.code)?.alias || item.code,
+      }))
+    }
+
+    return DEFAULT_CURRENCY_FALLBACK.map((code) => ({
+      code,
+      label: getPresetCurrencyMeta(code)?.alias || code,
+    }))
+  }, [userCurrencies])
 
   useEffect(() => {
     api.get<UserCurrency[]>("/currencies")
@@ -82,6 +97,24 @@ export default function SubscriptionForm({
       })
       .catch(() => void 0)
   }, [])
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current && !isEditing && currencyOptions.length > 0) {
+      setCurrency(currencyOptions[0].code)
+    }
+
+    wasOpenRef.current = open
+  }, [currencyOptions, isEditing, open])
+
+  useEffect(() => {
+    if (!open || currencyOptions.length === 0) {
+      return
+    }
+
+    if (!currencyOptions.some((option) => option.code === currency)) {
+      setCurrency(currencyOptions[0].code)
+    }
+  }, [currency, currencyOptions, open])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -154,18 +187,11 @@ export default function SubscriptionForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {userCurrencies.length > 0
-                    ? userCurrencies.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.code}
-                        </SelectItem>
-                      ))
-                    : DEFAULT_CURRENCY_FALLBACK.map((code) => (
-                        <SelectItem key={code} value={code}>
-                          {code}
-                        </SelectItem>
-                      ))
-                  }
+                  {currencyOptions.map((option) => (
+                    <SelectItem key={option.code} value={option.code}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
