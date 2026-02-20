@@ -4,6 +4,7 @@ export interface User {
   email: string
   role: "admin" | "user"
   status: "active" | "disabled"
+  totp_enabled: boolean
   created_at: string
   updated_at: string
 }
@@ -37,6 +38,32 @@ export interface DashboardSummary {
 export interface AuthResponse {
   token: string
   user: User
+}
+
+export interface TotpSetupResponse {
+  otpauth_uri: string
+  secret: string
+}
+
+export interface TotpConfirmResponse {
+  backup_codes: string[]
+}
+
+export interface TotpRequiredResponse {
+  requires_totp: true
+  totp_token: string
+}
+
+export type LoginResponse = AuthResponse | TotpRequiredResponse
+
+export interface VerifyTotpInput {
+  totp_token: string
+  code: string
+}
+
+export interface DisableTotpInput {
+  password: string
+  code: string
 }
 
 export interface CreateSubscriptionInput {
