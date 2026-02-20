@@ -23,7 +23,6 @@ export interface Subscription {
   url: string
   notes: string
   status: "active" | "paused" | "cancelled"
-  color: string
   created_at: string
   updated_at: string
 }
@@ -91,7 +90,6 @@ export interface CreateSubscriptionInput {
   icon: string
   url: string
   notes: string
-  color: string
 }
 
 export interface UpdateSubscriptionInput {
@@ -106,7 +104,6 @@ export interface UpdateSubscriptionInput {
   url?: string
   notes?: string
   status?: string
-  color?: string
 }
 
 export interface ChangePasswordInput {

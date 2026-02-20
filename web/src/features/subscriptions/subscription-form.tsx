@@ -52,19 +52,12 @@ export default function SubscriptionForm({
   const [icon, setIcon] = useState(subscription?.icon || "")
   const [url, setUrl] = useState(subscription?.url || "")
   const [notes, setNotes] = useState(subscription?.notes || "")
-  const [color, setColor] = useState(subscription?.color || "#18181b")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const wasOpenRef = useRef(false)
-
-const colors = [
-  "#18181b", "#dc2626", "#ea580c", "#ca8a04",
-  "#16a34a", "#0891b2", "#2563eb", "#7c3aed",
-  "#db2777", "#64748b",
-]
 
   const currencyOptions = useMemo(() => {
     if (userCurrencies.length > 0) {
@@ -146,7 +139,6 @@ const colors = [
         icon: iconFile && !isEditing ? "" : iconValue,
         url,
         notes,
-        color,
       })
 
       if (iconFile && !isEditing && created?.id) {
@@ -303,23 +295,6 @@ const colors = [
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t("subscription.form.colorLabel")}</Label>
-            <div className="flex gap-2">
-              {colors.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`h-7 w-7 rounded-full border-2 transition-all ${
-                    color === c ? "border-foreground scale-110" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
           </div>
 
           <div className="flex gap-2 pt-2">

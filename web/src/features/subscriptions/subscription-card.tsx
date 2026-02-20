@@ -75,7 +75,6 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }: Sub
       <CardContent className="flex items-center gap-4 p-4">
         <div
           className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
-          style={{ backgroundColor: subscription.color || "#18181b" }}
         >
           {renderIcon(subscription.icon, subscription.name)}
         </div>

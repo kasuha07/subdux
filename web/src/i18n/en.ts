@@ -162,7 +162,6 @@ const en = {
       urlPlaceholder: "https://...",
       notesLabel: "Notes",
       notesPlaceholder: "Optional notes...",
-      colorLabel: "Color",
       cancel: "Cancel",
       saving: "Saving...",
       update: "Update",

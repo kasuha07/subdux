@@ -162,7 +162,6 @@ const ja = {
       urlPlaceholder: "https://...",
       notesLabel: "メモ",
       notesPlaceholder: "メモ（任意）...",
-      colorLabel: "カラー",
       cancel: "キャンセル",
       saving: "保存中...",
       update: "更新",

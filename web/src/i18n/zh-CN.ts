@@ -162,7 +162,6 @@ const zhCN = {
       urlPlaceholder: "https://...",
       notesLabel: "备注",
       notesPlaceholder: "可选备注...",
-      colorLabel: "颜色",
       cancel: "取消",
       saving: "保存中...",
       update: "更新",

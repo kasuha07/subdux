@@ -53,7 +53,6 @@ type Subscription struct {
 	URL             string    `json:"url"`
 	Notes           string    `json:"notes"`
 	Status          string    `gorm:"size:20;default:'active'" json:"status"` // active, paused, cancelled
-	Color           string    `gorm:"size:20" json:"color"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

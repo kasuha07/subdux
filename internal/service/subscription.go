@@ -38,7 +38,6 @@ type CreateSubscriptionInput struct {
 	Icon            string  `json:"icon"`
 	URL             string  `json:"url"`
 	Notes           string  `json:"notes"`
-	Color           string  `json:"color"`
 }
 
 type UpdateSubscriptionInput struct {
@@ -53,7 +52,6 @@ type UpdateSubscriptionInput struct {
 	URL             *string  `json:"url"`
 	Notes           *string  `json:"notes"`
 	Status          *string  `json:"status"`
-	Color           *string  `json:"color"`
 }
 
 type DashboardSummary struct {
@@ -106,7 +104,6 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		URL:             input.URL,
 		Notes:           input.Notes,
 		Status:          "active",
-		Color:           input.Color,
 	}
 
 	if err := s.DB.Create(&sub).Error; err != nil {
@@ -152,9 +149,6 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	}
 	if input.Status != nil {
 		updates["status"] = *input.Status
-	}
-	if input.Color != nil {
-		updates["color"] = *input.Color
 	}
 	if input.NextBillingDate != nil {
 		parsed, err := time.Parse("2006-01-02", *input.NextBillingDate)
