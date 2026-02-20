@@ -110,15 +110,48 @@ export default function SubscriptionForm({
   }, [])
 
   useEffect(() => {
-    if (open && !wasOpenRef.current && !isEditing && currencyOptions.length > 0) {
-      setCurrency(currencyOptions[0].code)
+    const isOpening = open && !wasOpenRef.current
+
+    if (isOpening) {
+      setError("")
+      setLoading(false)
+      setIconFile(null)
+
+      if (subscription) {
+        setName(subscription.name)
+        setAmount(subscription.amount.toString())
+        setCurrency(subscription.currency || currencyOptions[0]?.code || DEFAULT_CURRENCY_FALLBACK[0] || "")
+        setBillingCycle(subscription.billing_cycle || "monthly")
+        setNextBillingDate(
+          subscription.next_billing_date
+            ? new Date(subscription.next_billing_date).toISOString().split("T")[0]
+            : new Date().toISOString().split("T")[0]
+        )
+        setCategoryId(subscription.category_id?.toString() || "")
+        setPaymentMethodId(subscription.payment_method_id?.toString() || "")
+        setIcon(subscription.icon || "")
+        setUrl(subscription.url || "")
+        setNotes(subscription.notes || "")
+      } else {
+        setName("")
+        setAmount("")
+        setCurrency(currencyOptions[0]?.code || DEFAULT_CURRENCY_FALLBACK[0] || "")
+        setBillingCycle("monthly")
+        setNextBillingDate(new Date().toISOString().split("T")[0])
+        setCategoryId("")
+        setPaymentMethodId("")
+        setIcon("")
+        setUrl("")
+        setNotes("")
+      }
     }
+
     if (!open) {
       setIconFile(null)
     }
 
     wasOpenRef.current = open
-  }, [currencyOptions, isEditing, open])
+  }, [currencyOptions, open, subscription])
 
   useEffect(() => {
     if (!open || currencyOptions.length === 0) {
