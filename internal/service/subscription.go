@@ -1,6 +1,14 @@
 package service
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
@@ -158,7 +166,83 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 }
 
 func (s *SubscriptionService) Delete(userID, id uint) error {
-	return s.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error
+	sub, err := s.GetByID(userID, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error; err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(sub.Icon, "assets/") {
+		os.Remove(filepath.Join("data", sub.Icon))
+	}
+
+	return nil
+}
+
+func (s *SubscriptionService) GetMaxIconFileSize() int64 {
+	var setting model.SystemSetting
+	if err := s.DB.Where("key = ?", "max_icon_file_size").First(&setting).Error; err == nil {
+		if v, err := strconv.ParseInt(setting.Value, 10, 64); err == nil {
+			return v
+		}
+	}
+	return 65536
+}
+
+func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io.Reader, filename string, maxSize int64) (string, error) {
+	sub, err := s.GetByID(userID, subID)
+	if err != nil {
+		return "", errors.New("subscription not found")
+	}
+
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
+		return "", errors.New("only PNG and JPG images are supported")
+	}
+
+	buf, err := io.ReadAll(io.LimitReader(file, maxSize+1))
+	if err != nil {
+		return "", errors.New("failed to read file")
+	}
+	if int64(len(buf)) > maxSize {
+		return "", errors.New("file size exceeds limit")
+	}
+
+	contentType := http.DetectContentType(buf)
+	if contentType != "image/png" && contentType != "image/jpeg" {
+		return "", errors.New("only PNG and JPG images are supported")
+	}
+
+	if ext == ".jpeg" {
+		ext = ".jpg"
+	}
+
+	iconDir := filepath.Join("data", "assets", "icons")
+	if err := os.MkdirAll(iconDir, 0755); err != nil {
+		return "", errors.New("failed to create icon directory")
+	}
+
+	newFilename := fmt.Sprintf("%d_%d_%d%s", userID, subID, time.Now().UnixNano(), ext)
+	destPath := filepath.Join(iconDir, newFilename)
+
+	if err := os.WriteFile(destPath, buf, 0644); err != nil {
+		return "", errors.New("failed to save icon file")
+	}
+
+	if strings.HasPrefix(sub.Icon, "assets/") {
+		os.Remove(filepath.Join("data", sub.Icon))
+	}
+
+	iconValue := "assets/icons/" + newFilename
+	if err := s.DB.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", subID, userID).Update("icon", iconValue).Error; err != nil {
+		os.Remove(destPath)
+		return "", err
+	}
+
+	return iconValue, nil
 }
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {

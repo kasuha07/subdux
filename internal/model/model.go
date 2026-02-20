@@ -23,6 +23,17 @@ type UserBackupCode struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type PasskeyCredential struct {
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	UserID       uint       `gorm:"index;not null" json:"user_id"`
+	Name         string     `gorm:"size:255;not null" json:"name"`
+	CredentialID string     `gorm:"size:1024;not null;uniqueIndex:idx_passkey_credential_id" json:"credential_id"`
+	Credential   []byte     `gorm:"type:blob;not null" json:"-"`
+	LastUsedAt   *time.Time `json:"last_used_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
 type SystemSetting struct {
 	Key   string `gorm:"primaryKey;size:100" json:"key"`
 	Value string `gorm:"size:500" json:"value"`
@@ -37,7 +48,7 @@ type Subscription struct {
 	BillingCycle    string    `gorm:"not null;size:20" json:"billing_cycle"` // weekly, monthly, yearly
 	NextBillingDate time.Time `json:"next_billing_date"`
 	Category        string    `gorm:"size:100" json:"category"`
-	Icon            string    `gorm:"size:100" json:"icon"`
+	Icon            string    `gorm:"size:500" json:"icon"`
 	URL             string    `json:"url"`
 	Notes           string    `json:"notes"`
 	Status          string    `gorm:"size:20;default:'active'" json:"status"` // active, paused, cancelled

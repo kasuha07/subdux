@@ -92,4 +92,32 @@ export const api = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  uploadFile: async <T>(path: string, formData: FormData): Promise<T> => {
+    const token = getToken()
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: formData,
+    })
+    if (res.status === 401) {
+      clearToken()
+      toast.error(i18n.t("common.unauthorized"))
+      window.location.href = "/login"
+      throw new Error(i18n.t("common.unauthorized"))
+    }
+    if (res.status === 204) {
+      return undefined as T
+    }
+    const data = await res.json()
+    if (!res.ok) {
+      const errorMsg = data.error || i18n.t("common.requestFailed")
+      toast.error(errorMsg)
+      throw new Error(errorMsg)
+    }
+    return data as T
+  },
 }

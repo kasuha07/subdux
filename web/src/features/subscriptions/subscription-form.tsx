@@ -18,13 +18,14 @@ import {
 } from "@/components/ui/select"
 import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
-import type { Subscription, CreateSubscriptionInput, UserCurrency } from "@/types"
+import IconPicker from "./icon-picker"
+import type { Subscription, CreateSubscriptionInput, UserCurrency, UploadIconResponse } from "@/types"
 
 interface SubscriptionFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   subscription?: Subscription | null
-  onSubmit: (data: CreateSubscriptionInput) => Promise<void>
+  onSubmit: (data: CreateSubscriptionInput) => Promise<Subscription>
 }
 
 const categories = [
@@ -71,6 +72,7 @@ export default function SubscriptionForm({
   const [color, setColor] = useState(subscription?.color || "#18181b")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [iconFile, setIconFile] = useState<File | null>(null)
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const wasOpenRef = useRef(false)
 
@@ -102,6 +104,9 @@ export default function SubscriptionForm({
     if (open && !wasOpenRef.current && !isEditing && currencyOptions.length > 0) {
       setCurrency(currencyOptions[0].code)
     }
+    if (!open) {
+      setIconFile(null)
+    }
 
     wasOpenRef.current = open
   }, [currencyOptions, isEditing, open])
@@ -122,18 +127,46 @@ export default function SubscriptionForm({
     setLoading(true)
 
     try {
-      await onSubmit({
+      let iconValue = icon
+
+      if (iconFile && isEditing && subscription?.id) {
+        const formData = new FormData()
+        formData.append("icon", iconFile)
+        const result = await api.uploadFile<UploadIconResponse>(
+          `/subscriptions/${subscription.id}/icon`,
+          formData
+        )
+        iconValue = result.icon
+      }
+
+      const created = await onSubmit({
         name,
         amount: parseFloat(amount),
         currency,
         billing_cycle: billingCycle,
         next_billing_date: nextBillingDate,
         category,
-        icon,
+        icon: iconFile && !isEditing ? "" : iconValue,
         url,
         notes,
         color,
       })
+
+      if (iconFile && !isEditing && created?.id) {
+        const formData = new FormData()
+        formData.append("icon", iconFile)
+        try {
+          await api.uploadFile<UploadIconResponse>(
+            `/subscriptions/${created.id}/icon`,
+            formData
+          )
+        } catch {
+          setError(t("subscription.form.iconUploadFailed"))
+          setTimeout(() => onOpenChange(false), 1500)
+          return
+        }
+      }
+
       onOpenChange(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : t("subscription.form.error"))
@@ -238,13 +271,18 @@ export default function SubscriptionForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="icon">{t("subscription.form.iconLabel")}</Label>
-              <Input
-                id="icon"
-                placeholder={t("subscription.form.iconPlaceholder")}
+              <Label>{t("subscription.form.iconPicker.label")}</Label>
+              <IconPicker
                 value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                maxLength={4}
+                onChange={(v) => {
+                  setIcon(v)
+                  setIconFile(null)
+                }}
+                onFileSelected={(f) => {
+                  setIconFile(f)
+                  setIcon("")
+                }}
+                maxFileSizeKB={64}
               />
             </div>
           </div>

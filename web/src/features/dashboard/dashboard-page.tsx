@@ -109,15 +109,20 @@ export default function DashboardPage() {
 
   async function handleFormSubmit(data: CreateSubscriptionInput) {
     if (editingSub) {
-      await api.put(`/subscriptions/${editingSub.id}`, data)
+      const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, data)
       toast.success(t("dashboard.updateSuccess"))
+      setEditingSub(null)
+      setFormOpen(false)
+      await fetchData()
+      return updated
     } else {
-      await api.post("/subscriptions", data)
+      const created = await api.post<Subscription>("/subscriptions", data)
       toast.success(t("dashboard.createSuccess"))
+      setEditingSub(null)
+      setFormOpen(false)
+      await fetchData()
+      return created
     }
-    setEditingSub(null)
-    setFormOpen(false)
-    await fetchData()
   }
 
   function openNewForm() {

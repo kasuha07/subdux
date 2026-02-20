@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
@@ -40,6 +41,7 @@ type SystemSettings struct {
 	SiteURL             string `json:"site_url"`
 	CurrencyAPIKey      string `json:"currencyapi_key"`
 	ExchangeRateSource  string `json:"exchange_rate_source"`
+	MaxIconFileSize     int64  `json:"max_icon_file_size"`
 }
 
 type UpdateSettingsInput struct {
@@ -48,6 +50,7 @@ type UpdateSettingsInput struct {
 	SiteURL             *string `json:"site_url"`
 	CurrencyAPIKey      *string `json:"currencyapi_key"`
 	ExchangeRateSource  *string `json:"exchange_rate_source"`
+	MaxIconFileSize     *int64  `json:"max_icon_file_size"`
 }
 
 type CreateUserInput struct {
@@ -94,6 +97,9 @@ func (s *AdminService) DeleteUser(userID uint) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&model.Subscription{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.PasskeyCredential{}).Error; err != nil {
+			return err
+		}
 		return tx.Delete(&model.User{}, userID).Error
 	})
 }
@@ -130,6 +136,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		SiteURL:             "",
 		CurrencyAPIKey:      "",
 		ExchangeRateSource:  "auto",
+		MaxIconFileSize:     65536,
 	}
 
 	var items []model.SystemSetting
@@ -147,6 +154,10 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.CurrencyAPIKey = item.Value
 		case "exchange_rate_source":
 			settings.ExchangeRateSource = item.Value
+		case "max_icon_file_size":
+			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
+				settings.MaxIconFileSize = v
+			}
 		}
 	}
 
@@ -195,6 +206,15 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "exchange_rate_source").
 				Assign(model.SystemSetting{Value: *input.ExchangeRateSource}).
 				FirstOrCreate(&model.SystemSetting{Key: "exchange_rate_source"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.MaxIconFileSize != nil {
+			value := strconv.FormatInt(*input.MaxIconFileSize, 10)
+			if err := tx.Where("key = ?", "max_icon_file_size").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "max_icon_file_size"}).Error; err != nil {
 				return err
 			}
 		}

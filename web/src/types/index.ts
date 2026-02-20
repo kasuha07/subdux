@@ -40,6 +40,19 @@ export interface AuthResponse {
   user: User
 }
 
+export interface PasskeyCredential {
+  id: number
+  name: string
+  credential_id: string
+  last_used_at: string | null
+  created_at: string
+}
+
+export interface PasskeyBeginResult<TOptions = unknown> {
+  session_id: string
+  options: TOptions
+}
+
 export interface TotpSetupResponse {
   otpauth_uri: string
   secret: string
@@ -110,6 +123,7 @@ export interface SystemSettings {
   site_url: string
   currencyapi_key: string
   exchange_rate_source: string
+  max_icon_file_size: number
 }
 
 export interface UpdateSettingsInput {
@@ -118,6 +132,7 @@ export interface UpdateSettingsInput {
   site_url?: string
   currencyapi_key?: string
   exchange_rate_source?: string
+  max_icon_file_size?: number
 }
 
 export interface UserPreference {
@@ -167,4 +182,8 @@ export interface UpdateCurrencyInput {
 export interface ReorderCurrencyItem {
   id: number
   sort_order: number
+}
+
+export interface UploadIconResponse {
+  icon: string
 }

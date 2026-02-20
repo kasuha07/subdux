@@ -51,6 +51,8 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	auth.POST("/register", authHandler.Register)
 	auth.POST("/login", authHandler.Login)
 	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin)
+	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin)
+	auth.POST("/passkeys/login/finish", authHandler.FinishPasskeyLogin)
 
 	jwtConfig := echojwt.Config{
 		SigningKey: pkg.GetJWTSecret(),
@@ -67,6 +69,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	protected.GET("/subscriptions/:id", subHandler.GetByID)
 	protected.PUT("/subscriptions/:id", subHandler.Update)
 	protected.DELETE("/subscriptions/:id", subHandler.Delete)
+	protected.POST("/subscriptions/:id/icon", subHandler.UploadIcon)
 	protected.GET("/dashboard/summary", subHandler.Dashboard)
 
 	protected.GET("/auth/me", authHandler.Me)
@@ -74,6 +77,10 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	protected.GET("/auth/totp/setup", authHandler.SetupTOTP)
 	protected.POST("/auth/totp/confirm", authHandler.ConfirmTOTP)
 	protected.POST("/auth/totp/disable", authHandler.DisableTOTP)
+	protected.GET("/auth/passkeys", authHandler.ListPasskeys)
+	protected.POST("/auth/passkeys/register/start", authHandler.BeginPasskeyRegistration)
+	protected.POST("/auth/passkeys/register/finish", authHandler.FinishPasskeyRegistration)
+	protected.DELETE("/auth/passkeys/:id", authHandler.DeletePasskey)
 
 	admin := api.Group("/admin")
 	admin.Use(echojwt.WithConfig(jwtConfig))
@@ -115,6 +122,7 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "site_url", Value: ""},
 		{Key: "currencyapi_key", Value: ""},
 		{Key: "exchange_rate_source", Value: "auto"},
+		{Key: "max_icon_file_size", Value: "65536"},
 	}
 
 	for _, setting := range defaults {

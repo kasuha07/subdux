@@ -3,10 +3,43 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/service"
 )
+
+func isEmojiRune(r rune) bool {
+	if r == '\u200D' || r == '\uFE0F' || r == '\uFE0E' {
+		return true
+	}
+	if r >= 0x1F1E0 && r <= 0x1F1FF {
+		return true
+	}
+	if r < 0x00A0 {
+		return false
+	}
+	return unicode.IsGraphic(r) && !unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsPunct(r) && !unicode.IsSpace(r)
+}
+
+func validateIcon(icon string) bool {
+	if icon == "" {
+		return true
+	}
+	if strings.HasPrefix(icon, "si:") ||
+		strings.HasPrefix(icon, "http://") ||
+		strings.HasPrefix(icon, "https://") ||
+		strings.HasPrefix(icon, "assets/") {
+		return true
+	}
+	for _, r := range icon {
+		if !isEmojiRune(r) {
+			return false
+		}
+	}
+	return true
+}
 
 type SubscriptionHandler struct {
 	Service   *service.SubscriptionService
@@ -57,6 +90,9 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if input.BillingCycle == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Billing cycle is required"})
 	}
+	if !validateIcon(input.Icon) {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
+	}
 
 	sub, err := h.Service.Create(userID, input)
 	if err != nil {
@@ -76,6 +112,9 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 	var input service.UpdateSubscriptionInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+	if input.Icon != nil && !validateIcon(*input.Icon) {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
 	}
 
 	sub, err := h.Service.Update(userID, uint(id), input)
@@ -98,6 +137,38 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
+	userID := getUserID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	}
+
+	fileHeader, err := c.FormFile("icon")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "no file provided"})
+	}
+
+	maxSize := h.Service.GetMaxIconFileSize()
+
+	src, err := fileHeader.Open()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to read file"})
+	}
+	defer src.Close()
+
+	iconPath, err := h.Service.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
+	if err != nil {
+		msg := err.Error()
+		if msg == "only PNG and JPG images are supported" || msg == "file size exceeds limit" || msg == "subscription not found" {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": msg})
+		}
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": msg})
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})
 }
 
 func (h *SubscriptionHandler) Dashboard(c echo.Context) error {

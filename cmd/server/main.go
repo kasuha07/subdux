@@ -34,6 +34,8 @@ func main() {
 	stop := make(chan struct{})
 	erService.StartBackgroundRefresh(stop)
 
+	e.Static("/api/assets", "data/assets")
+
 	distFS, err := fs.Sub(subdux.StaticFS, "web/dist")
 	if err != nil {
 		log.Fatal("Failed to access embedded frontend:", err)

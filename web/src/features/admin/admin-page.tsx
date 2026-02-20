@@ -82,6 +82,7 @@ export default function AdminPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [currencyApiKey, setCurrencyApiKey] = useState("")
   const [exchangeRateSource, setExchangeRateSource] = useState("auto")
+  const [maxIconFileSize, setMaxIconFileSize] = useState<number>(64)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newUsername, setNewUsername] = useState("")
@@ -103,6 +104,11 @@ export default function AdminPage() {
         setRegistrationEnabled(settingsData?.registration_enabled ?? true)
         setCurrencyApiKey(settingsData?.currencyapi_key || "")
         setExchangeRateSource(settingsData?.exchange_rate_source || "auto")
+        setMaxIconFileSize(
+          settingsData?.max_icon_file_size
+            ? Math.round(settingsData.max_icon_file_size / 1024)
+            : 64
+        )
         setStats(statsData)
         setRateStatus(rateStatusData)
       })
@@ -177,6 +183,7 @@ export default function AdminPage() {
         site_url: siteUrl,
         currencyapi_key: currencyApiKey,
         exchange_rate_source: exchangeRateSource,
+        max_icon_file_size: maxIconFileSize * 1024,
       })
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSiteName(fresh.site_name)
@@ -184,6 +191,11 @@ export default function AdminPage() {
       setRegistrationEnabled(fresh.registration_enabled)
       setCurrencyApiKey(fresh.currencyapi_key)
       setExchangeRateSource(fresh.exchange_rate_source)
+      setMaxIconFileSize(
+        fresh.max_icon_file_size
+          ? Math.round(fresh.max_icon_file_size / 1024)
+          : 64
+      )
       updateSiteTitle(fresh.site_name)
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
@@ -496,6 +508,37 @@ export default function AdminPage() {
                     checked={registrationEnabled}
                     onCheckedChange={setRegistrationEnabled}
                   />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="max-icon-size">
+                    {t("admin.settings.maxIconFileSize")}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="max-icon-size"
+                      type="number"
+                      min={1}
+                      max={10240}
+                      step={1}
+                      className="w-32"
+                      value={maxIconFileSize}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10)
+                        if (!isNaN(val) && val >= 1) {
+                          setMaxIconFileSize(val)
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {t("admin.settings.maxIconFileSizeUnit")}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.settings.maxIconFileSizeDescription")}
+                  </p>
                 </div>
 
                 <Separator />

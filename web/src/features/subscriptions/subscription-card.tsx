@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import type { Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
@@ -5,6 +6,52 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrency, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink } from "lucide-react"
+import { getBrandIcon } from "@/lib/brand-icons"
+
+function renderIcon(icon: string, name: string): ReactNode {
+  if (!icon) {
+    return (
+      <span className="text-sm font-bold text-white">
+        {name.charAt(0).toUpperCase()}
+      </span>
+    )
+  }
+
+  if (icon.startsWith("si:")) {
+    const brand = getBrandIcon(icon.slice(3))
+    if (brand) {
+      const { Icon } = brand
+      return <Icon size={20} color="default" />
+    }
+    return (
+      <span className="text-sm font-bold text-white">
+        {name.charAt(0).toUpperCase()}
+      </span>
+    )
+  }
+
+  if (icon.startsWith("http://") || icon.startsWith("https://")) {
+    return (
+      <img
+        src={icon}
+        alt={name}
+        className="h-6 w-6 object-contain"
+      />
+    )
+  }
+
+  if (icon.startsWith("assets/")) {
+    return (
+      <img
+        src={`/api/${icon}`}
+        alt={name}
+        className="h-6 w-6 object-contain"
+      />
+    )
+  }
+
+  return <span className="text-lg leading-none">{icon}</span>
+}
 
 interface SubscriptionCardProps {
   subscription: Subscription
@@ -27,10 +74,10 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }: Sub
     <Card className="group transition-all hover:shadow-md">
       <CardContent className="flex items-center gap-4 p-4">
         <div
-          className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center text-lg font-semibold text-white"
+          className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
           style={{ backgroundColor: subscription.color || "#18181b" }}
         >
-          {subscription.icon || subscription.name.charAt(0).toUpperCase()}
+          {renderIcon(subscription.icon, subscription.name)}
         </div>
 
         <div className="min-w-0 flex-1">
