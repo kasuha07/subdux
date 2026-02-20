@@ -33,12 +33,13 @@ func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	authService := service.NewAuthService(db)
+	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)
 	erService := service.NewExchangeRateService(db)
 	currencyService := service.NewCurrencyService(db)
 
-	authHandler := NewAuthHandler(authService)
+	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
 	adminHandler := NewAdminHandler(adminService)
 	erHandler := NewExchangeRateHandler(erService)
@@ -49,6 +50,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	auth := api.Group("/auth")
 	auth.POST("/register", authHandler.Register)
 	auth.POST("/login", authHandler.Login)
+	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin)
 
 	jwtConfig := echojwt.Config{
 		SigningKey: pkg.GetJWTSecret(),
@@ -69,6 +71,9 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 
 	protected.GET("/auth/me", authHandler.Me)
 	protected.PUT("/auth/password", authHandler.ChangePassword)
+	protected.GET("/auth/totp/setup", authHandler.SetupTOTP)
+	protected.POST("/auth/totp/confirm", authHandler.ConfirmTOTP)
+	protected.POST("/auth/totp/disable", authHandler.DisableTOTP)
 
 	admin := api.Group("/admin")
 	admin.Use(echojwt.WithConfig(jwtConfig))
