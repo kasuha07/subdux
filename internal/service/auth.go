@@ -33,6 +33,19 @@ type AuthResponse struct {
 }
 
 func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
+	// First registered user becomes admin; registration can be disabled by admin
+	var userCount int64
+	s.DB.Model(&model.User{}).Count(&userCount)
+
+	if userCount > 0 {
+		var setting model.SystemSetting
+		if err := s.DB.Where("key = ?", "registration_enabled").First(&setting).Error; err == nil {
+			if setting.Value == "false" {
+				return nil, errors.New("registration is disabled")
+			}
+		}
+	}
+
 	var existing model.User
 	if err := s.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
 		return nil, errors.New("email already registered")
@@ -43,16 +56,24 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		return nil, err
 	}
 
+	// First user becomes admin
+	role := "user"
+	if userCount == 0 {
+		role = "admin"
+	}
+
 	user := model.User{
 		Email:    input.Email,
 		Password: string(hash),
+		Role:     role,
+		Status:   "active",
 	}
 
 	if err := s.DB.Create(&user).Error; err != nil {
 		return nil, err
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Email)
+	token, err := pkg.GenerateToken(user.ID, user.Email, user.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -94,11 +115,15 @@ func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
 		return nil, errors.New("invalid credentials")
 	}
 
+	if user.Status == "disabled" {
+		return nil, errors.New("account is disabled")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Email)
+	token, err := pkg.GenerateToken(user.ID, user.Email, user.Role)
 	if err != nil {
 		return nil, err
 	}

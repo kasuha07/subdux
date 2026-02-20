@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { api } from "@/lib/api"
+import { api, isAdmin } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import type { Subscription, DashboardSummary, CreateSubscriptionInput } from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
-import { Plus, Settings, DollarSign, CalendarDays, Repeat, TrendingUp } from "lucide-react"
+import { Plus, Settings, DollarSign, CalendarDays, Repeat, TrendingUp, Shield } from "lucide-react"
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation()
@@ -86,6 +86,13 @@ export default function DashboardPage() {
               <Plus className="size-4" />
               {t("dashboard.add")}
             </Button>
+            {isAdmin() && (
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link to="/admin">
+                  <Shield className="size-4" />
+                </Link>
+              </Button>
+            )}
             <Button variant="ghost" size="icon-sm" asChild>
               <Link to="/settings">
                 <Settings className="size-4" />
@@ -174,6 +181,7 @@ export default function DashboardPage() {
       </main>
 
       <SubscriptionForm
+        key={editingSub?.id ?? "new"}
         open={formOpen}
         onOpenChange={(open) => {
           setFormOpen(open)

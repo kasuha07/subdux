@@ -6,8 +6,15 @@ type User struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Email     string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
 	Password  string    `gorm:"not null" json:"-"`
+	Role      string    `gorm:"size:20;default:'user'" json:"role"`
+	Status    string    `gorm:"size:20;default:'active'" json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type SystemSetting struct {
+	Key   string `gorm:"primaryKey;size:100" json:"key"`
+	Value string `gorm:"size:500" json:"value"`
 }
 
 type Subscription struct {

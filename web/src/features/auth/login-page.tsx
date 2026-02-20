@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { api, setToken } from "@/lib/api"
+import { api, setAuth } from "@/lib/api"
 import type { AuthResponse } from "@/types"
 
 export default function LoginPage() {
@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     try {
       const data = await api.post<AuthResponse>("/auth/login", { email, password })
-      setToken(data.token)
+      setAuth(data.token, data.user)
       navigate("/")
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.login.error"))

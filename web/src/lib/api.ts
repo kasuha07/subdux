@@ -1,4 +1,5 @@
 import i18n from "@/i18n"
+import type { User } from "@/types"
 
 const API_BASE = "/api"
 
@@ -12,10 +13,34 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem("token")
+  localStorage.removeItem("user")
 }
 
 export function isAuthenticated(): boolean {
   return !!getToken()
+}
+
+export function setUser(user: User): void {
+  localStorage.setItem("user", JSON.stringify(user))
+}
+
+export function getUser(): User | null {
+  const raw = localStorage.getItem("user")
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as User
+  } catch {
+    return null
+  }
+}
+
+export function isAdmin(): boolean {
+  return getUser()?.role === "admin"
+}
+
+export function setAuth(token: string, user: User): void {
+  setToken(token)
+  setUser(user)
 }
 
 async function request<T>(

@@ -1,6 +1,8 @@
 export interface User {
   id: number
   email: string
+  role: "admin" | "user"
+  status: "active" | "disabled"
   created_at: string
   updated_at: string
 }
@@ -65,4 +67,20 @@ export interface UpdateSubscriptionInput {
 export interface ChangePasswordInput {
   current_password: string
   new_password: string
+}
+
+export interface AdminStats {
+  total_users: number
+  total_subscriptions: number
+  total_monthly_spend: number
+}
+
+export interface SystemSettings {
+  registration_enabled: boolean
+  site_name: string
+}
+
+export interface UpdateSettingsInput {
+  registration_enabled?: boolean
+  site_name?: string
 }
