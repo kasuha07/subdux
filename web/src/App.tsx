@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { isAuthenticated, isAdmin } from "@/lib/api"
-import { Toaster } from "@/components/ui/sonner"
+import { AppToaster } from "@/components/app-toaster"
 import LoginPage from "@/features/auth/login-page"
 import RegisterPage from "@/features/auth/register-page"
 import DashboardPage from "@/features/dashboard/dashboard-page"
@@ -34,7 +34,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster />
+      <AppToaster />
       <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
