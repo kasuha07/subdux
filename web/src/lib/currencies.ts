@@ -4,39 +4,79 @@ export interface PresetCurrency {
   alias: string
 }
 
-export const PRESET_CURRENCIES: PresetCurrency[] = [
-  { code: "USD", symbol: "$", alias: "US Dollar" },
-  { code: "EUR", symbol: "€", alias: "Euro" },
-  { code: "GBP", symbol: "£", alias: "British Pound" },
-  { code: "JPY", symbol: "¥", alias: "Japanese Yen" },
-  { code: "CNY", symbol: "￥", alias: "Chinese Yuan" },
-  { code: "CAD", symbol: "C$", alias: "Canadian Dollar" },
-  { code: "AUD", symbol: "A$", alias: "Australian Dollar" },
-  { code: "CHF", symbol: "CHF", alias: "Swiss Franc" },
-  { code: "HKD", symbol: "HK$", alias: "Hong Kong Dollar" },
-  { code: "SGD", symbol: "S$", alias: "Singapore Dollar" },
-  { code: "KRW", symbol: "₩", alias: "South Korean Won" },
-  { code: "INR", symbol: "₹", alias: "Indian Rupee" },
-  { code: "BRL", symbol: "R$", alias: "Brazilian Real" },
-  { code: "MXN", symbol: "MX$", alias: "Mexican Peso" },
-  { code: "TWD", symbol: "NT$", alias: "New Taiwan Dollar" },
-  { code: "THB", symbol: "฿", alias: "Thai Baht" },
-  { code: "TRY", symbol: "₺", alias: "Turkish Lira" },
-  { code: "NZD", symbol: "NZ$", alias: "New Zealand Dollar" },
-  { code: "SEK", symbol: "kr", alias: "Swedish Krona" },
-  { code: "NOK", symbol: "kr", alias: "Norwegian Krone" },
-  { code: "DKK", symbol: "kr", alias: "Danish Krone" },
-  { code: "PLN", symbol: "zł", alias: "Polish Zloty" },
-]
+const PRESET_CURRENCY_CODES = [
+  "USD", "EUR", "GBP", "JPY", "CNY", "CAD", "AUD", "CHF", "HKD", "SGD", "KRW",
+  "INR", "BRL", "MXN", "TWD", "THB", "TRY", "NZD", "SEK", "NOK", "DKK", "PLN",
+] as const
+
+function getIntlCurrencyAlias(code: string, locale: string): string {
+  if (typeof Intl.DisplayNames === "function") {
+    const displayNames = new Intl.DisplayNames([locale], { type: "currency" })
+    const alias = displayNames.of(code)
+    if (alias) {
+      return alias
+    }
+  }
+  return code
+}
+
+function getIntlCurrencySymbol(code: string, locale: string): string {
+  const parts = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: code,
+    currencyDisplay: "symbol",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).formatToParts(0)
+
+  const symbol = parts.find((part) => part.type === "currency")?.value
+  return symbol || code
+}
+
+const presetCurrencyCache = new Map<string, PresetCurrency[]>()
+const presetCurrencyMapCache = new Map<string, Map<string, PresetCurrency>>()
+
+function normalizeLocale(locale: string): string {
+  const normalized = locale.trim()
+  return normalized || "en"
+}
+
+export function getPresetCurrencies(locale: string = "en"): PresetCurrency[] {
+  const normalizedLocale = normalizeLocale(locale)
+  const cached = presetCurrencyCache.get(normalizedLocale)
+  if (cached) {
+    return cached
+  }
+
+  const generated = PRESET_CURRENCY_CODES.map((code) => ({
+    code,
+    symbol: getIntlCurrencySymbol(code, normalizedLocale),
+    alias: getIntlCurrencyAlias(code, normalizedLocale),
+  }))
+  presetCurrencyCache.set(normalizedLocale, generated)
+  return generated
+}
+
+export const PRESET_CURRENCIES: PresetCurrency[] = getPresetCurrencies("en")
 
 export const DEFAULT_CURRENCY_FALLBACK = ["USD", "EUR", "GBP", "CNY", "JPY"]
 
-const presetCurrencyMap = new Map(
-  PRESET_CURRENCIES.map((item) => [item.code, item] as const)
-)
+function getPresetCurrencyMap(locale: string): Map<string, PresetCurrency> {
+  const normalizedLocale = normalizeLocale(locale)
+  const cached = presetCurrencyMapCache.get(normalizedLocale)
+  if (cached) {
+    return cached
+  }
 
-export function getPresetCurrencyMeta(code: string): PresetCurrency | undefined {
-  return presetCurrencyMap.get(code.toUpperCase())
+  const currencyMap = new Map(
+    getPresetCurrencies(normalizedLocale).map((item) => [item.code, item] as const)
+  )
+  presetCurrencyMapCache.set(normalizedLocale, currencyMap)
+  return currencyMap
+}
+
+export function getPresetCurrencyMeta(code: string, locale: string = "en"): PresetCurrency | undefined {
+  return getPresetCurrencyMap(locale).get(code.toUpperCase())
 }
 
 export function formatCurrencyDisplay(code: string, alias?: string, symbol?: string): string {

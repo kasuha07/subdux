@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatCurrency, daysUntil, formatDate } from "@/lib/utils"
+import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink } from "lucide-react"
 import { getBrandIcon } from "@/lib/brand-icons"
 
@@ -55,6 +55,7 @@ function renderIcon(icon: string, name: string): ReactNode {
 
 interface SubscriptionCardProps {
   subscription: Subscription
+  currencySymbol?: string
   onEdit: (sub: Subscription) => void
   onDelete: (id: number) => void
 }
@@ -65,7 +66,7 @@ const statusStyles: Record<string, string> = {
   cancelled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
 }
 
-export default function SubscriptionCard({ subscription, onEdit, onDelete }: SubscriptionCardProps) {
+export default function SubscriptionCard({ subscription, currencySymbol, onEdit, onDelete }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
   const days = daysUntil(subscription.next_billing_date)
   const isUpcoming = days >= 0 && days <= 3
@@ -111,7 +112,12 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }: Sub
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
             <p className="font-semibold tabular-nums">
-              {formatCurrency(subscription.amount, subscription.currency, i18n.language)}
+              {formatCurrencyWithSymbol(
+                subscription.amount,
+                subscription.currency,
+                currencySymbol,
+                i18n.language
+              )}
             </p>
             <p className="text-xs text-muted-foreground">
               {t(`subscription.card.cycle.${subscription.billing_cycle}`, subscription.billing_cycle)}

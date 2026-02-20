@@ -13,6 +13,28 @@ export function formatCurrency(amount: number, currency: string = "USD", locale:
   }).format(amount)
 }
 
+export function formatCurrencyWithSymbol(
+  amount: number,
+  currency: string = "USD",
+  symbol?: string,
+  locale: string = "en-US"
+): string {
+  const normalizedSymbol = symbol?.trim()
+  if (!normalizedSymbol) {
+    return formatCurrency(amount, currency, locale)
+  }
+
+  const parts = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).formatToParts(amount)
+
+  return parts
+    .map((part) => (part.type === "currency" ? normalizedSymbol : part.value))
+    .join("")
+}
+
 export function formatDate(date: string, locale: string = "en-US"): string {
   return new Date(date).toLocaleDateString(locale, {
     month: "short",

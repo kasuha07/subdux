@@ -34,7 +34,7 @@ export default function SubscriptionForm({
   subscription,
   onSubmit,
 }: SubscriptionFormProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isEditing = !!subscription
 
   const [name, setName] = useState(subscription?.name || "")
@@ -63,15 +63,15 @@ export default function SubscriptionForm({
     if (userCurrencies.length > 0) {
       return userCurrencies.map((item) => ({
         code: item.code,
-        label: item.alias.trim() || getPresetCurrencyMeta(item.code)?.alias || item.code,
+        label: item.alias.trim() || getPresetCurrencyMeta(item.code, i18n.language)?.alias || item.code,
       }))
     }
 
     return DEFAULT_CURRENCY_FALLBACK.map((code) => ({
       code,
-      label: getPresetCurrencyMeta(code)?.alias || code,
+      label: getPresetCurrencyMeta(code, i18n.language)?.alias || code,
     }))
-  }, [userCurrencies])
+  }, [i18n.language, userCurrencies])
 
   useEffect(() => {
     api.get<UserCurrency[]>("/currencies")

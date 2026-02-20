@@ -17,7 +17,7 @@ import { ArrowLeft, GripVertical, Monitor, Moon, Sun, Trash2 } from "lucide-reac
 import { api, clearToken } from "@/lib/api"
 import {
   DEFAULT_CURRENCY_FALLBACK,
-  PRESET_CURRENCIES,
+  getPresetCurrencies,
   getPresetCurrencyMeta,
 } from "@/lib/currencies"
 import { getTheme, applyTheme, type Theme } from "@/lib/theme"
@@ -97,8 +97,11 @@ export default function SettingsPage() {
   }, [currency, userCurrencies])
 
   const addableCurrencyCodes = useMemo(
-    () => PRESET_CURRENCIES.map((item) => item.code).filter((code) => !userCurrencies.some((item) => item.code === code)),
-    [userCurrencies]
+    () =>
+      getPresetCurrencies(i18n.language)
+        .map((item) => item.code)
+        .filter((code) => !userCurrencies.some((item) => item.code === code)),
+    [i18n.language, userCurrencies]
   )
 
   useEffect(() => {
@@ -123,7 +126,7 @@ export default function SettingsPage() {
       return
     }
 
-    const preset = getPresetCurrencyMeta(addCode)
+    const preset = getPresetCurrencyMeta(addCode, i18n.language)
     if (!preset) {
       setAddSymbol("")
       setAddAlias("")
@@ -132,7 +135,7 @@ export default function SettingsPage() {
 
     setAddSymbol(preset.symbol)
     setAddAlias(preset.alias)
-  }, [addCode])
+  }, [addCode, i18n.language])
 
   function handleTheme(next: Theme) {
     setTheme(next)
@@ -192,7 +195,7 @@ export default function SettingsPage() {
     e.preventDefault()
 
     const code = (addCode === customCodeOption ? customCode : addCode).trim().toUpperCase()
-    const preset = getPresetCurrencyMeta(code)
+    const preset = getPresetCurrencyMeta(code, i18n.language)
     if (!code) {
       toast.error(t("settings.currencyManagement.invalidCode"))
       return

@@ -21,7 +21,13 @@ import {
 import { api, isAdmin } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
-import type { Subscription, DashboardSummary, CreateSubscriptionInput, UserPreference } from "@/types"
+import type {
+  Subscription,
+  DashboardSummary,
+  CreateSubscriptionInput,
+  UserPreference,
+  UserCurrency,
+} from "@/types"
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import {
@@ -105,6 +111,7 @@ export default function DashboardPage() {
   const [preferredCurrency, setPreferredCurrency] = useState(
     localStorage.getItem("defaultCurrency") || "USD"
   )
+  const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatuses, setSelectedStatuses] = useState<Set<Subscription["status"]>>(new Set())
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
@@ -113,13 +120,15 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [subs, sum, pref] = await Promise.all([
+      const [subs, sum, pref, currencies] = await Promise.all([
         api.get<Subscription[]>("/subscriptions"),
         api.get<DashboardSummary>("/dashboard/summary"),
         api.get<UserPreference>("/preferences/currency"),
+        api.get<UserCurrency[]>("/currencies"),
       ])
       setSubscriptions(subs || [])
       setSummary(sum)
+      setUserCurrencies(currencies || [])
       if (pref?.preferred_currency) {
         setPreferredCurrency(pref.preferred_currency)
         localStorage.setItem("defaultCurrency", pref.preferred_currency)
@@ -149,6 +158,14 @@ export default function DashboardPage() {
       a.localeCompare(b, i18n.language, { sensitivity: "base" })
     )
   }, [subscriptions, i18n.language])
+
+  const currencySymbolMap = useMemo(
+    () =>
+      new Map(
+        userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)
+      ),
+    [userCurrencies]
+  )
 
   const filteredSubscriptions = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
@@ -517,6 +534,7 @@ export default function DashboardPage() {
               <SubscriptionCard
                 key={sub.id}
                 subscription={sub}
+                currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />
