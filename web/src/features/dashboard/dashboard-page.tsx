@@ -623,6 +623,9 @@ export default function DashboardPage() {
         }}
         subscription={editingSub}
         onSubmit={handleFormSubmit}
+        userCurrencies={userCurrencies}
+        categories={categories}
+        paymentMethods={paymentMethods}
       />
     </div>
   )

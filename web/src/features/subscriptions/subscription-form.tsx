@@ -35,6 +35,9 @@ interface SubscriptionFormProps {
   onOpenChange: (open: boolean) => void
   subscription?: Subscription | null
   onSubmit: (data: CreateSubscriptionInput) => Promise<Subscription>
+  userCurrencies: UserCurrency[]
+  categories: Category[]
+  paymentMethods: PaymentMethod[]
 }
 
 const noPaymentMethodValue = "__none__"
@@ -51,6 +54,9 @@ export default function SubscriptionForm({
   onOpenChange,
   subscription,
   onSubmit,
+  userCurrencies,
+  categories,
+  paymentMethods,
 }: SubscriptionFormProps) {
   const { t, i18n } = useTranslation()
   const isEditing = !!subscription
@@ -82,9 +88,6 @@ export default function SubscriptionForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
-  const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const wasOpenRef = useRef(false)
 
   const handleIconChange = useCallback((value: string) => {
@@ -120,28 +123,6 @@ export default function SubscriptionForm({
       label: getPresetCurrencyMeta(code, i18n.language)?.alias || code,
     }))
   }, [i18n.language, userCurrencies])
-
-  useEffect(() => {
-    api.get<UserCurrency[]>("/currencies")
-      .then((list) => {
-        if (list && list.length > 0) {
-          setUserCurrencies(list)
-        }
-      })
-      .catch(() => void 0)
-
-    api.get<Category[]>("/categories")
-      .then((list) => {
-        setCategories(list ?? [])
-      })
-      .catch(() => void 0)
-
-    api.get<PaymentMethod[]>("/payment-methods")
-      .then((list) => {
-        setPaymentMethods(list ?? [])
-      })
-      .catch(() => void 0)
-  }, [])
 
   useEffect(() => {
     const isOpening = open && !wasOpenRef.current
