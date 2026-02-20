@@ -16,6 +16,20 @@ export interface AdminSettingsTabProps {
   onOIDCTokenEndpointChange: (value: string) => void
   onOIDCUserinfoEndpointChange: (value: string) => void
   onRegistrationEnabledChange: (enabled: boolean) => void
+  onSMTPAuthMethodChange: (value: string) => void
+  onSMTPEnabledChange: (enabled: boolean) => void
+  onSMTPEncryptionChange: (value: string) => void
+  onSMTPFromEmailChange: (value: string) => void
+  onSMTPFromNameChange: (value: string) => void
+  onSMTPHeloNameChange: (value: string) => void
+  onSMTPHostChange: (value: string) => void
+  onSMTPPasswordChange: (value: string) => void
+  onSMTPSkipTLSVerifyChange: (enabled: boolean) => void
+  onSMTPPortChange: (value: number) => void
+  onSMTPTestRecipientChange: (value: string) => void
+  onSMTPTest: () => void | Promise<void>
+  onSMTPTimeoutSecondsChange: (value: number) => void
+  onSMTPUsernameChange: (value: string) => void
   onSave: () => void | Promise<void>
   onSiteNameChange: (value: string) => void
   onSiteUrlChange: (value: string) => void
@@ -35,6 +49,21 @@ export interface AdminSettingsTabProps {
   oidcTokenEndpoint: string
   oidcUserinfoEndpoint: string
   registrationEnabled: boolean
+  smtpAuthMethod: string
+  smtpEnabled: boolean
+  smtpEncryption: string
+  smtpFromEmail: string
+  smtpFromName: string
+  smtpHeloName: string
+  smtpHost: string
+  smtpPassword: string
+  smtpPasswordConfigured: boolean
+  smtpPort: number
+  smtpSkipTLSVerify: boolean
+  smtpTestRecipient: string
+  smtpTesting: boolean
+  smtpTimeoutSeconds: number
+  smtpUsername: string
   siteName: string
   siteUrl: string
 }
@@ -84,6 +113,39 @@ export type AdminSettingsOIDCSectionProps = Pick<
   | "oidcUserinfoEndpoint"
 >
 
+export type AdminSettingsSMTPSectionProps = Pick<
+  AdminSettingsTabProps,
+  | "onSMTPAuthMethodChange"
+  | "onSMTPEnabledChange"
+  | "onSMTPEncryptionChange"
+  | "onSMTPFromEmailChange"
+  | "onSMTPFromNameChange"
+  | "onSMTPHeloNameChange"
+  | "onSMTPHostChange"
+  | "onSMTPPasswordChange"
+  | "onSMTPSkipTLSVerifyChange"
+  | "onSMTPPortChange"
+  | "onSMTPTestRecipientChange"
+  | "onSMTPTest"
+  | "onSMTPTimeoutSecondsChange"
+  | "onSMTPUsernameChange"
+  | "smtpAuthMethod"
+  | "smtpEnabled"
+  | "smtpEncryption"
+  | "smtpFromEmail"
+  | "smtpFromName"
+  | "smtpHeloName"
+  | "smtpHost"
+  | "smtpPassword"
+  | "smtpPasswordConfigured"
+  | "smtpPort"
+  | "smtpSkipTLSVerify"
+  | "smtpTestRecipient"
+  | "smtpTesting"
+  | "smtpTimeoutSeconds"
+  | "smtpUsername"
+>
+
 export type AdminSettingsOIDCAdvancedFieldsProps = Pick<
   AdminSettingsOIDCSectionProps,
   | "onOIDCAudienceChange"
@@ -98,4 +160,18 @@ export type AdminSettingsOIDCAdvancedFieldsProps = Pick<
   | "oidcResource"
   | "oidcTokenEndpoint"
   | "oidcUserinfoEndpoint"
+>
+
+export type AdminSettingsSMTPAdvancedFieldsProps = Pick<
+  AdminSettingsSMTPSectionProps,
+  | "onSMTPAuthMethodChange"
+  | "onSMTPEncryptionChange"
+  | "onSMTPHeloNameChange"
+  | "onSMTPSkipTLSVerifyChange"
+  | "onSMTPTimeoutSecondsChange"
+  | "smtpAuthMethod"
+  | "smtpEncryption"
+  | "smtpHeloName"
+  | "smtpSkipTLSVerify"
+  | "smtpTimeoutSeconds"
 >

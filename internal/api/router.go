@@ -105,6 +105,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	admin.GET("/stats", adminHandler.GetStats)
 	admin.GET("/settings", adminHandler.GetSettings)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
+	admin.POST("/settings/smtp/test", adminHandler.TestSMTP)
 	admin.GET("/backup", adminHandler.BackupDB)
 	admin.POST("/restore", adminHandler.RestoreDB)
 	admin.GET("/exchange-rates/status", erHandler.GetStatus)
@@ -147,6 +148,18 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "currencyapi_key", Value: ""},
 		{Key: "exchange_rate_source", Value: "auto"},
 		{Key: "max_icon_file_size", Value: "65536"},
+		{Key: "smtp_enabled", Value: "false"},
+		{Key: "smtp_host", Value: ""},
+		{Key: "smtp_port", Value: "587"},
+		{Key: "smtp_username", Value: ""},
+		{Key: "smtp_password", Value: ""},
+		{Key: "smtp_from_email", Value: ""},
+		{Key: "smtp_from_name", Value: ""},
+		{Key: "smtp_encryption", Value: "starttls"},
+		{Key: "smtp_auth_method", Value: "auto"},
+		{Key: "smtp_helo_name", Value: ""},
+		{Key: "smtp_timeout_seconds", Value: "10"},
+		{Key: "smtp_skip_tls_verify", Value: "false"},
 		{Key: "oidc_enabled", Value: "false"},
 		{Key: "oidc_provider_name", Value: "OIDC"},
 		{Key: "oidc_issuer_url", Value: ""},

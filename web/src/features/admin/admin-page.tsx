@@ -6,7 +6,7 @@ import { ArrowLeft, BarChart3, Database, RefreshCw, Settings, Users } from "luci
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
-import { api } from "@/lib/api"
+import { api, getUser } from "@/lib/api"
 import { toast } from "sonner"
 import type {
   AdminStats,
@@ -40,6 +40,21 @@ export default function AdminPage() {
   const [currencyApiKey, setCurrencyApiKey] = useState("")
   const [exchangeRateSource, setExchangeRateSource] = useState("auto")
   const [maxIconFileSize, setMaxIconFileSize] = useState<number>(64)
+  const [smtpEnabled, setSMTPEnabled] = useState(false)
+  const [smtpHost, setSMTPHost] = useState("")
+  const [smtpPort, setSMTPPort] = useState<number>(587)
+  const [smtpUsername, setSMTPUsername] = useState("")
+  const [smtpPassword, setSMTPPassword] = useState("")
+  const [smtpPasswordConfigured, setSMTPPasswordConfigured] = useState(false)
+  const [smtpFromEmail, setSMTPFromEmail] = useState("")
+  const [smtpFromName, setSMTPFromName] = useState("")
+  const [smtpEncryption, setSMTPEncryption] = useState("starttls")
+  const [smtpAuthMethod, setSMTPAuthMethod] = useState("auto")
+  const [smtpHeloName, setSMTPHeloName] = useState("")
+  const [smtpTimeoutSeconds, setSMTPTimeoutSeconds] = useState<number>(10)
+  const [smtpSkipTLSVerify, setSMTPSkipTLSVerify] = useState(false)
+  const [smtpTestRecipient, setSMTPTestRecipient] = useState(() => getUser()?.email ?? "")
+  const [smtpTesting, setSMTPTesting] = useState(false)
   const [oidcEnabled, setOIDCEnabled] = useState(false)
   const [oidcProviderName, setOIDCProviderName] = useState("OIDC")
   const [oidcIssuerURL, setOIDCIssuerURL] = useState("")
@@ -81,6 +96,19 @@ export default function AdminPage() {
             ? Math.round(settingsData.max_icon_file_size / 1024)
             : 64
         )
+        setSMTPEnabled(settingsData?.smtp_enabled ?? false)
+        setSMTPHost(settingsData?.smtp_host || "")
+        setSMTPPort(settingsData?.smtp_port || 587)
+        setSMTPUsername(settingsData?.smtp_username || "")
+        setSMTPPassword("")
+        setSMTPPasswordConfigured(settingsData?.smtp_password_configured ?? false)
+        setSMTPFromEmail(settingsData?.smtp_from_email || "")
+        setSMTPFromName(settingsData?.smtp_from_name || "")
+        setSMTPEncryption(settingsData?.smtp_encryption || "starttls")
+        setSMTPAuthMethod(settingsData?.smtp_auth_method || "auto")
+        setSMTPHeloName(settingsData?.smtp_helo_name || "")
+        setSMTPTimeoutSeconds(settingsData?.smtp_timeout_seconds || 10)
+        setSMTPSkipTLSVerify(settingsData?.smtp_skip_tls_verify ?? false)
         setOIDCEnabled(settingsData?.oidc_enabled ?? false)
         setOIDCProviderName(settingsData?.oidc_provider_name || "OIDC")
         setOIDCIssuerURL(settingsData?.oidc_issuer_url || "")
@@ -173,6 +201,17 @@ export default function AdminPage() {
         currencyapi_key: currencyApiKey,
         exchange_rate_source: exchangeRateSource,
         max_icon_file_size: maxIconFileSize * 1024,
+        smtp_enabled: smtpEnabled,
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
+        smtp_username: smtpUsername,
+        smtp_from_email: smtpFromEmail,
+        smtp_from_name: smtpFromName,
+        smtp_encryption: smtpEncryption,
+        smtp_auth_method: smtpAuthMethod,
+        smtp_helo_name: smtpHeloName,
+        smtp_timeout_seconds: smtpTimeoutSeconds,
+        smtp_skip_tls_verify: smtpSkipTLSVerify,
         oidc_enabled: oidcEnabled,
         oidc_provider_name: oidcProviderName,
         oidc_issuer_url: oidcIssuerURL,
@@ -190,6 +229,9 @@ export default function AdminPage() {
       if (oidcClientSecret.trim()) {
         payload.oidc_client_secret = oidcClientSecret.trim()
       }
+      if (smtpPassword.trim()) {
+        payload.smtp_password = smtpPassword.trim()
+      }
 
       await api.put("/admin/settings", payload)
       const fresh = await api.get<SystemSettings>("/admin/settings")
@@ -199,6 +241,19 @@ export default function AdminPage() {
       setCurrencyApiKey(fresh.currencyapi_key)
       setExchangeRateSource(fresh.exchange_rate_source)
       setMaxIconFileSize(fresh.max_icon_file_size ? Math.round(fresh.max_icon_file_size / 1024) : 64)
+      setSMTPEnabled(fresh.smtp_enabled ?? false)
+      setSMTPHost(fresh.smtp_host || "")
+      setSMTPPort(fresh.smtp_port || 587)
+      setSMTPUsername(fresh.smtp_username || "")
+      setSMTPPassword("")
+      setSMTPPasswordConfigured(fresh.smtp_password_configured ?? false)
+      setSMTPFromEmail(fresh.smtp_from_email || "")
+      setSMTPFromName(fresh.smtp_from_name || "")
+      setSMTPEncryption(fresh.smtp_encryption || "starttls")
+      setSMTPAuthMethod(fresh.smtp_auth_method || "auto")
+      setSMTPHeloName(fresh.smtp_helo_name || "")
+      setSMTPTimeoutSeconds(fresh.smtp_timeout_seconds || 10)
+      setSMTPSkipTLSVerify(fresh.smtp_skip_tls_verify ?? false)
       setOIDCEnabled(fresh.oidc_enabled ?? false)
       setOIDCProviderName(fresh.oidc_provider_name || "OIDC")
       setOIDCIssuerURL(fresh.oidc_issuer_url || "")
@@ -218,6 +273,20 @@ export default function AdminPage() {
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
       void 0
+    }
+  }
+
+  async function handleTestSMTP() {
+    setSMTPTesting(true)
+    try {
+      await api.post<{ message: string }>("/admin/settings/smtp/test", {
+        recipient_email: smtpTestRecipient.trim(),
+      })
+      toast.success(t("admin.settings.smtpTestSuccess"))
+    } catch {
+      void 0
+    } finally {
+      setSMTPTesting(false)
     }
   }
 
@@ -348,6 +417,35 @@ export default function AdminPage() {
               onRegistrationEnabledChange={setRegistrationEnabled}
               maxIconFileSize={maxIconFileSize}
               onMaxIconFileSizeChange={setMaxIconFileSize}
+              smtpEnabled={smtpEnabled}
+              onSMTPEnabledChange={setSMTPEnabled}
+              smtpHost={smtpHost}
+              onSMTPHostChange={setSMTPHost}
+              smtpPort={smtpPort}
+              onSMTPPortChange={setSMTPPort}
+              smtpTestRecipient={smtpTestRecipient}
+              onSMTPTestRecipientChange={setSMTPTestRecipient}
+              smtpUsername={smtpUsername}
+              onSMTPUsernameChange={setSMTPUsername}
+              smtpPassword={smtpPassword}
+              smtpPasswordConfigured={smtpPasswordConfigured}
+              onSMTPPasswordChange={setSMTPPassword}
+              smtpFromEmail={smtpFromEmail}
+              onSMTPFromEmailChange={setSMTPFromEmail}
+              smtpFromName={smtpFromName}
+              onSMTPFromNameChange={setSMTPFromName}
+              smtpEncryption={smtpEncryption}
+              onSMTPEncryptionChange={setSMTPEncryption}
+              smtpAuthMethod={smtpAuthMethod}
+              onSMTPAuthMethodChange={setSMTPAuthMethod}
+              smtpHeloName={smtpHeloName}
+              onSMTPHeloNameChange={setSMTPHeloName}
+              smtpTimeoutSeconds={smtpTimeoutSeconds}
+              onSMTPTimeoutSecondsChange={setSMTPTimeoutSeconds}
+              smtpSkipTLSVerify={smtpSkipTLSVerify}
+              onSMTPSkipTLSVerifyChange={setSMTPSkipTLSVerify}
+              smtpTesting={smtpTesting}
+              onSMTPTest={handleTestSMTP}
               oidcEnabled={oidcEnabled}
               onOIDCEnabledChange={setOIDCEnabled}
               oidcProviderName={oidcProviderName}

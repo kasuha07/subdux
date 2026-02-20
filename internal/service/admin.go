@@ -1,8 +1,12 @@
 package service
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -43,6 +47,18 @@ type SystemSettings struct {
 	CurrencyAPIKey      string `json:"currencyapi_key"`
 	ExchangeRateSource  string `json:"exchange_rate_source"`
 	MaxIconFileSize     int64  `json:"max_icon_file_size"`
+	SMTPEnabled         bool   `json:"smtp_enabled"`
+	SMTPHost            string `json:"smtp_host"`
+	SMTPPort            int64  `json:"smtp_port"`
+	SMTPUsername        string `json:"smtp_username"`
+	SMTPPasswordSet     bool   `json:"smtp_password_configured"`
+	SMTPFromEmail       string `json:"smtp_from_email"`
+	SMTPFromName        string `json:"smtp_from_name"`
+	SMTPEncryption      string `json:"smtp_encryption"`
+	SMTPAuthMethod      string `json:"smtp_auth_method"`
+	SMTPHeloName        string `json:"smtp_helo_name"`
+	SMTPTimeoutSeconds  int64  `json:"smtp_timeout_seconds"`
+	SMTPSkipTLSVerify   bool   `json:"smtp_skip_tls_verify"`
 	OIDCEnabled         bool   `json:"oidc_enabled"`
 	OIDCProviderName    string `json:"oidc_provider_name"`
 	OIDCIssuerURL       string `json:"oidc_issuer_url"`
@@ -66,6 +82,18 @@ type UpdateSettingsInput struct {
 	CurrencyAPIKey      *string `json:"currencyapi_key"`
 	ExchangeRateSource  *string `json:"exchange_rate_source"`
 	MaxIconFileSize     *int64  `json:"max_icon_file_size"`
+	SMTPEnabled         *bool   `json:"smtp_enabled"`
+	SMTPHost            *string `json:"smtp_host"`
+	SMTPPort            *int64  `json:"smtp_port"`
+	SMTPUsername        *string `json:"smtp_username"`
+	SMTPPassword        *string `json:"smtp_password"`
+	SMTPFromEmail       *string `json:"smtp_from_email"`
+	SMTPFromName        *string `json:"smtp_from_name"`
+	SMTPEncryption      *string `json:"smtp_encryption"`
+	SMTPAuthMethod      *string `json:"smtp_auth_method"`
+	SMTPHeloName        *string `json:"smtp_helo_name"`
+	SMTPTimeoutSeconds  *int64  `json:"smtp_timeout_seconds"`
+	SMTPSkipTLSVerify   *bool   `json:"smtp_skip_tls_verify"`
 	OIDCEnabled         *bool   `json:"oidc_enabled"`
 	OIDCProviderName    *string `json:"oidc_provider_name"`
 	OIDCIssuerURL       *string `json:"oidc_issuer_url"`
@@ -205,6 +233,18 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		CurrencyAPIKey:      "",
 		ExchangeRateSource:  "auto",
 		MaxIconFileSize:     65536,
+		SMTPEnabled:         false,
+		SMTPHost:            "",
+		SMTPPort:            587,
+		SMTPUsername:        "",
+		SMTPPasswordSet:     false,
+		SMTPFromEmail:       "",
+		SMTPFromName:        "",
+		SMTPEncryption:      "starttls",
+		SMTPAuthMethod:      "auto",
+		SMTPHeloName:        "",
+		SMTPTimeoutSeconds:  10,
+		SMTPSkipTLSVerify:   false,
 		OIDCEnabled:         false,
 		OIDCProviderName:    "OIDC",
 		OIDCIssuerURL:       "",
@@ -240,6 +280,34 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
 				settings.MaxIconFileSize = v
 			}
+		case "smtp_enabled":
+			settings.SMTPEnabled = item.Value == "true"
+		case "smtp_host":
+			settings.SMTPHost = item.Value
+		case "smtp_port":
+			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
+				settings.SMTPPort = v
+			}
+		case "smtp_username":
+			settings.SMTPUsername = item.Value
+		case "smtp_password":
+			settings.SMTPPasswordSet = strings.TrimSpace(item.Value) != ""
+		case "smtp_from_email":
+			settings.SMTPFromEmail = item.Value
+		case "smtp_from_name":
+			settings.SMTPFromName = item.Value
+		case "smtp_encryption":
+			settings.SMTPEncryption = item.Value
+		case "smtp_auth_method":
+			settings.SMTPAuthMethod = item.Value
+		case "smtp_helo_name":
+			settings.SMTPHeloName = item.Value
+		case "smtp_timeout_seconds":
+			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
+				settings.SMTPTimeoutSeconds = v
+			}
+		case "smtp_skip_tls_verify":
+			settings.SMTPSkipTLSVerify = item.Value == "true"
 		case "oidc_enabled":
 			settings.OIDCEnabled = item.Value == "true"
 		case "oidc_provider_name":
@@ -325,6 +393,112 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "max_icon_file_size").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "max_icon_file_size"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPEnabled != nil {
+			value := "false"
+			if *input.SMTPEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "smtp_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPHost != nil {
+			if err := tx.Where("key = ?", "smtp_host").
+				Assign(model.SystemSetting{Value: *input.SMTPHost}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_host"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPPort != nil {
+			value := strconv.FormatInt(*input.SMTPPort, 10)
+			if err := tx.Where("key = ?", "smtp_port").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_port"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPUsername != nil {
+			if err := tx.Where("key = ?", "smtp_username").
+				Assign(model.SystemSetting{Value: *input.SMTPUsername}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_username"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPPassword != nil {
+			if err := tx.Where("key = ?", "smtp_password").
+				Assign(model.SystemSetting{Value: *input.SMTPPassword}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_password"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPFromEmail != nil {
+			if err := tx.Where("key = ?", "smtp_from_email").
+				Assign(model.SystemSetting{Value: *input.SMTPFromEmail}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_from_email"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPFromName != nil {
+			if err := tx.Where("key = ?", "smtp_from_name").
+				Assign(model.SystemSetting{Value: *input.SMTPFromName}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_from_name"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPEncryption != nil {
+			if err := tx.Where("key = ?", "smtp_encryption").
+				Assign(model.SystemSetting{Value: *input.SMTPEncryption}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_encryption"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPAuthMethod != nil {
+			if err := tx.Where("key = ?", "smtp_auth_method").
+				Assign(model.SystemSetting{Value: *input.SMTPAuthMethod}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_auth_method"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPHeloName != nil {
+			if err := tx.Where("key = ?", "smtp_helo_name").
+				Assign(model.SystemSetting{Value: *input.SMTPHeloName}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_helo_name"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPTimeoutSeconds != nil {
+			value := strconv.FormatInt(*input.SMTPTimeoutSeconds, 10)
+			if err := tx.Where("key = ?", "smtp_timeout_seconds").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_timeout_seconds"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPSkipTLSVerify != nil {
+			value := "false"
+			if *input.SMTPSkipTLSVerify {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "smtp_skip_tls_verify").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_skip_tls_verify"}).Error; err != nil {
 				return err
 			}
 		}
@@ -451,6 +625,294 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 
 		return nil
 	})
+}
+
+type smtpRuntimeConfig struct {
+	Host           string
+	Port           int64
+	Username       string
+	Password       string
+	FromEmail      string
+	FromName       string
+	Encryption     string
+	AuthMethod     string
+	HeloName       string
+	TimeoutSeconds int64
+	SkipTLSVerify  bool
+}
+
+type smtpLoginAuth struct {
+	username string
+	password string
+}
+
+func (a *smtpLoginAuth) Start(_ *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", []byte(a.username), nil
+}
+
+func (a *smtpLoginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if !more {
+		return nil, nil
+	}
+
+	prompt := strings.ToLower(strings.TrimSpace(string(fromServer)))
+	switch {
+	case strings.Contains(prompt, "username"):
+		return []byte(a.username), nil
+	case strings.Contains(prompt, "password"):
+		return []byte(a.password), nil
+	default:
+		return nil, errors.New("unsupported smtp login challenge")
+	}
+}
+
+func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) error {
+	cfg, err := s.loadSMTPRuntimeConfig()
+	if err != nil {
+		return err
+	}
+
+	recipient := strings.TrimSpace(recipientOverride)
+	if recipient == "" {
+		var user model.User
+		if err := s.DB.Select("email").First(&user, userID).Error; err != nil {
+			return errors.New("failed to load current user email")
+		}
+		recipient = strings.TrimSpace(user.Email)
+	}
+
+	if recipient == "" {
+		return errors.New("recipient email is required for smtp test")
+	}
+
+	if _, err := mail.ParseAddress(recipient); err != nil {
+		return errors.New("invalid recipient email")
+	}
+
+	subject := "Subdux SMTP Test"
+	body := fmt.Sprintf("This is a test email from Subdux.\r\nSent at: %s", time.Now().Format(time.RFC3339))
+	message := buildSMTPMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
+
+	if err := sendSMTPMessage(*cfg, recipient, message); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AdminService) loadSMTPRuntimeConfig() (*smtpRuntimeConfig, error) {
+	settings, err := s.GetSettings()
+	if err != nil {
+		return nil, errors.New("failed to load smtp settings")
+	}
+
+	if !settings.SMTPEnabled {
+		return nil, errors.New("smtp is disabled")
+	}
+
+	host := strings.TrimSpace(settings.SMTPHost)
+	if host == "" {
+		return nil, errors.New("smtp host is required")
+	}
+
+	if settings.SMTPPort < 1 || settings.SMTPPort > 65535 {
+		return nil, errors.New("smtp port must be between 1 and 65535")
+	}
+
+	fromEmail := strings.TrimSpace(settings.SMTPFromEmail)
+	if fromEmail == "" {
+		return nil, errors.New("smtp from email is required")
+	}
+
+	encryption := strings.ToLower(strings.TrimSpace(settings.SMTPEncryption))
+	if encryption == "" {
+		encryption = "starttls"
+	}
+	switch encryption {
+	case "starttls", "ssl_tls", "none":
+	default:
+		return nil, errors.New("unsupported smtp encryption mode")
+	}
+
+	authMethod := strings.ToLower(strings.TrimSpace(settings.SMTPAuthMethod))
+	if authMethod == "" {
+		authMethod = "auto"
+	}
+	switch authMethod {
+	case "auto", "plain", "login", "cram_md5", "none":
+	default:
+		return nil, errors.New("unsupported smtp auth method")
+	}
+
+	timeoutSeconds := settings.SMTPTimeoutSeconds
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 10
+	}
+
+	password := ""
+	var passwordSetting model.SystemSetting
+	if err := s.DB.Where("key = ?", "smtp_password").First(&passwordSetting).Error; err == nil {
+		password = passwordSetting.Value
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errors.New("failed to read smtp password")
+	}
+
+	username := strings.TrimSpace(settings.SMTPUsername)
+	if authMethod != "auto" && authMethod != "none" && (username == "" || strings.TrimSpace(password) == "") {
+		return nil, errors.New("smtp username and password are required for selected auth method")
+	}
+
+	return &smtpRuntimeConfig{
+		Host:           host,
+		Port:           settings.SMTPPort,
+		Username:       username,
+		Password:       password,
+		FromEmail:      fromEmail,
+		FromName:       strings.TrimSpace(settings.SMTPFromName),
+		Encryption:     encryption,
+		AuthMethod:     authMethod,
+		HeloName:       strings.TrimSpace(settings.SMTPHeloName),
+		TimeoutSeconds: timeoutSeconds,
+		SkipTLSVerify:  settings.SMTPSkipTLSVerify,
+	}, nil
+}
+
+func buildSMTPMessage(fromEmail string, fromName string, toEmail string, subject string, body string) []byte {
+	escapedName := strings.ReplaceAll(fromName, "\"", "'")
+	fromHeader := fromEmail
+	if strings.TrimSpace(escapedName) != "" {
+		fromHeader = fmt.Sprintf("\"%s\" <%s>", escapedName, fromEmail)
+	}
+
+	headers := []string{
+		fmt.Sprintf("From: %s", fromHeader),
+		fmt.Sprintf("To: %s", toEmail),
+		fmt.Sprintf("Subject: %s", subject),
+		"MIME-Version: 1.0",
+		"Content-Type: text/plain; charset=UTF-8",
+	}
+
+	return []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + body + "\r\n")
+}
+
+func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) error {
+	address := net.JoinHostPort(cfg.Host, strconv.FormatInt(cfg.Port, 10))
+	dialer := net.Dialer{
+		Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
+	}
+
+	var client *smtp.Client
+	if cfg.Encryption == "ssl_tls" {
+		conn, err := tls.DialWithDialer(&dialer, "tcp", address, &tls.Config{
+			ServerName:         cfg.Host,
+			InsecureSkipVerify: cfg.SkipTLSVerify,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to connect to smtp server: %w", err)
+		}
+		client, err = smtp.NewClient(conn, cfg.Host)
+		if err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("failed to initialize smtp client: %w", err)
+		}
+	} else {
+		conn, err := dialer.Dial("tcp", address)
+		if err != nil {
+			return fmt.Errorf("failed to connect to smtp server: %w", err)
+		}
+		client, err = smtp.NewClient(conn, cfg.Host)
+		if err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("failed to initialize smtp client: %w", err)
+		}
+	}
+	defer client.Close()
+
+	if cfg.HeloName != "" {
+		if err := client.Hello(cfg.HeloName); err != nil {
+			return fmt.Errorf("smtp HELO/EHLO failed: %w", err)
+		}
+	}
+
+	if cfg.Encryption == "starttls" {
+		if ok, _ := client.Extension("STARTTLS"); !ok {
+			return errors.New("smtp server does not support STARTTLS")
+		}
+		if err := client.StartTLS(&tls.Config{
+			ServerName:         cfg.Host,
+			InsecureSkipVerify: cfg.SkipTLSVerify,
+		}); err != nil {
+			return fmt.Errorf("failed to start TLS: %w", err)
+		}
+	}
+
+	auth, err := buildSMTPAuth(cfg)
+	if err != nil {
+		return err
+	}
+	if auth != nil {
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("smtp authentication failed: %w", err)
+		}
+	}
+
+	if err := client.Mail(cfg.FromEmail); err != nil {
+		return fmt.Errorf("smtp MAIL FROM failed: %w", err)
+	}
+	if err := client.Rcpt(recipient); err != nil {
+		return fmt.Errorf("smtp RCPT TO failed: %w", err)
+	}
+
+	writer, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp DATA failed: %w", err)
+	}
+
+	if _, err := writer.Write(message); err != nil {
+		_ = writer.Close()
+		return fmt.Errorf("failed to write smtp message: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("failed to finalize smtp message: %w", err)
+	}
+
+	if err := client.Quit(); err != nil {
+		return fmt.Errorf("failed to close smtp session: %w", err)
+	}
+
+	return nil
+}
+
+func buildSMTPAuth(cfg smtpRuntimeConfig) (smtp.Auth, error) {
+	username := strings.TrimSpace(cfg.Username)
+	password := strings.TrimSpace(cfg.Password)
+
+	switch cfg.AuthMethod {
+	case "none":
+		return nil, nil
+	case "auto":
+		if username == "" || password == "" {
+			return nil, nil
+		}
+		return smtp.PlainAuth("", username, password, cfg.Host), nil
+	case "plain":
+		if username == "" || password == "" {
+			return nil, errors.New("smtp username and password are required for PLAIN auth")
+		}
+		return smtp.PlainAuth("", username, password, cfg.Host), nil
+	case "login":
+		if username == "" || password == "" {
+			return nil, errors.New("smtp username and password are required for LOGIN auth")
+		}
+		return &smtpLoginAuth{username: username, password: password}, nil
+	case "cram_md5":
+		if username == "" || password == "" {
+			return nil, errors.New("smtp username and password are required for CRAM-MD5 auth")
+		}
+		return smtp.CRAMMD5Auth(username, password), nil
+	default:
+		return nil, errors.New("unsupported smtp auth method")
+	}
 }
 
 func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {

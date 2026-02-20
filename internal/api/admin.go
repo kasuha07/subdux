@@ -161,6 +161,23 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})
 }
 
+func (h *AdminHandler) TestSMTP(c echo.Context) error {
+	var input struct {
+		RecipientEmail string `json:"recipient_email"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	}
+
+	currentUserID := getUserID(c)
+
+	if err := h.Service.SendSMTPTestEmail(currentUserID, input.RecipientEmail); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "test email sent"})
+}
+
 func (h *AdminHandler) BackupDB(c echo.Context) error {
 	backupPath, err := h.Service.BackupDB()
 	if err != nil {

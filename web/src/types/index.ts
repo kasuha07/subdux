@@ -185,6 +185,18 @@ export interface SystemSettings {
   currencyapi_key: string
   exchange_rate_source: string
   max_icon_file_size: number
+  smtp_enabled: boolean
+  smtp_host: string
+  smtp_port: number
+  smtp_username: string
+  smtp_password_configured: boolean
+  smtp_from_email: string
+  smtp_from_name: string
+  smtp_encryption: string
+  smtp_auth_method: string
+  smtp_helo_name: string
+  smtp_timeout_seconds: number
+  smtp_skip_tls_verify: boolean
   oidc_enabled: boolean
   oidc_provider_name: string
   oidc_issuer_url: string
@@ -208,6 +220,18 @@ export interface UpdateSettingsInput {
   currencyapi_key?: string
   exchange_rate_source?: string
   max_icon_file_size?: number
+  smtp_enabled?: boolean
+  smtp_host?: string
+  smtp_port?: number
+  smtp_username?: string
+  smtp_password?: string
+  smtp_from_email?: string
+  smtp_from_name?: string
+  smtp_encryption?: string
+  smtp_auth_method?: string
+  smtp_helo_name?: string
+  smtp_timeout_seconds?: number
+  smtp_skip_tls_verify?: boolean
   oidc_enabled?: boolean
   oidc_provider_name?: string
   oidc_issuer_url?: string
