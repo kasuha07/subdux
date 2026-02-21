@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next"
 import { Monitor, Moon, Sun } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
   Select,
@@ -11,11 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TabsContent } from "@/components/ui/tabs"
-import type { Theme } from "@/lib/theme"
+import {
+  THEME_COLOR_SCHEME_OPTIONS,
+  getThemeColorSchemeSwatch,
+  type CustomThemeColors,
+  type Theme,
+  type ThemeColorScheme,
+} from "@/lib/theme"
 
 interface SettingsGeneralTabProps {
+  colorScheme: ThemeColorScheme
+  customThemeColors: CustomThemeColors
   language: string
+  onColorSchemeChange: (next: ThemeColorScheme) => void
+  onCustomThemeColorChange: (key: keyof CustomThemeColors, value: string) => void
   onLanguageChange: (language: string) => void
+  onResetCustomThemeColors: () => void
   onThemeChange: (next: Theme) => void
   theme: Theme
 }
@@ -26,9 +39,25 @@ const languages = [
   { value: "ja", label: "日本語" },
 ]
 
+const customColorFields: Array<{
+  id: string
+  key: keyof CustomThemeColors
+  labelKey: string
+}> = [
+  { id: "theme-light-primary", key: "light_primary", labelKey: "settings.appearance.lightPrimary" },
+  { id: "theme-light-accent", key: "light_accent", labelKey: "settings.appearance.lightAccent" },
+  { id: "theme-dark-primary", key: "dark_primary", labelKey: "settings.appearance.darkPrimary" },
+  { id: "theme-dark-accent", key: "dark_accent", labelKey: "settings.appearance.darkAccent" },
+]
+
 export default function SettingsGeneralTab({
+  colorScheme,
+  customThemeColors,
   language,
+  onColorSchemeChange,
+  onCustomThemeColorChange,
   onLanguageChange,
+  onResetCustomThemeColors,
   onThemeChange,
   theme,
 }: SettingsGeneralTabProps) {
@@ -90,6 +119,73 @@ export default function SettingsGeneralTab({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <Separator />
+
+      <div>
+        <h2 className="text-sm font-medium">{t("settings.appearance.colorSchemeTitle")}</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {t("settings.appearance.colorSchemeDescription")}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
+          {THEME_COLOR_SCHEME_OPTIONS.map((scheme) => {
+            const swatch = getThemeColorSchemeSwatch(scheme, customThemeColors)
+            return (
+              <Button
+                key={scheme}
+                type="button"
+                size="sm"
+                variant={colorScheme === scheme ? "default" : "outline"}
+                className="w-full justify-between"
+                onClick={() => onColorSchemeChange(scheme)}
+              >
+                <span>{t(`settings.appearance.colorSchemes.${scheme}`)}</span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="size-3 rounded-full border border-black/10"
+                    style={{ backgroundColor: swatch[0] }}
+                  />
+                  <span
+                    className="size-3 rounded-full border border-black/10"
+                    style={{ backgroundColor: swatch[1] }}
+                  />
+                </span>
+              </Button>
+            )
+          })}
+        </div>
+
+        {colorScheme === "custom" ? (
+          <div className="mt-4 space-y-3 rounded-md border bg-card/60 p-3">
+            <p className="text-xs text-muted-foreground">
+              {t("settings.appearance.customDescription")}
+            </p>
+            <div className="grid grid-cols-5 items-end gap-2">
+              {customColorFields.map((field) => (
+                <div key={field.id} className="space-y-1.5">
+                  <Label htmlFor={field.id}>{t(field.labelKey)}</Label>
+                  <Input
+                    id={field.id}
+                    type="color"
+                    value={customThemeColors[field.key]}
+                    onChange={(event) => onCustomThemeColorChange(field.key, event.target.value)}
+                    className="h-10 cursor-pointer p-1"
+                  />
+                </div>
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-10"
+                onClick={onResetCustomThemeColors}
+              >
+                {t("settings.appearance.resetCustom")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </TabsContent>
   )

@@ -19,7 +19,17 @@ import {
   getPresetCurrencies,
   getPresetCurrencyMeta,
 } from "@/lib/currencies"
-import { applyTheme, getTheme, type Theme } from "@/lib/theme"
+import {
+  applyThemeColorScheme,
+  applyTheme,
+  getCustomThemeColors,
+  getDefaultCustomThemeColors,
+  getTheme,
+  getThemeColorScheme,
+  type CustomThemeColors,
+  type Theme,
+  type ThemeColorScheme,
+} from "@/lib/theme"
 import { toast } from "sonner"
 import type {
   AuthResponse,
@@ -39,6 +49,11 @@ import SettingsPaymentTab from "./settings-payment-tab"
 
 const customCodeOption = "__custom__"
 const currencyPlaceholderFallbackCode = "USD"
+type SettingsTab = "general" | "payment" | "account"
+
+function isSettingsTab(value: string): value is SettingsTab {
+  return value === "general" || value === "payment" || value === "account"
+}
 
 function getIntlCurrencySymbolPlaceholder(code: string, locale: string): string | null {
   try {
@@ -72,6 +87,11 @@ export default function SettingsPage() {
   const navigate = useNavigate()
 
   const [theme, setTheme] = useState<Theme>(getTheme())
+  const [themeColorScheme, setThemeColorScheme] = useState<ThemeColorScheme>(getThemeColorScheme())
+  const [customThemeColors, setCustomThemeColors] = useState<CustomThemeColors>(
+    getCustomThemeColors()
+  )
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [currency, setCurrency] = useState(localStorage.getItem("defaultCurrency") || "USD")
   const [user, setUser] = useState<User | null>(null)
   const [newEmail, setNewEmail] = useState("")
@@ -99,9 +119,23 @@ export default function SettingsPage() {
 
   const dragFrom = useRef<number | null>(null)
   const dragTo = useRef<number | null>(null)
+  const paymentLoaded = useRef(false)
+  const accountLoaded = useRef(false)
 
   useEffect(() => {
+    if (activeTab !== "account" || accountLoaded.current) {
+      return
+    }
+    accountLoaded.current = true
     api.get<User>("/auth/me").then(setUser).catch(() => void 0)
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== "payment" || paymentLoaded.current) {
+      return
+    }
+    paymentLoaded.current = true
+
     api.get<UserPreference>("/preferences/currency")
       .then((pref) => {
         if (pref?.preferred_currency) {
@@ -110,12 +144,13 @@ export default function SettingsPage() {
         }
       })
       .catch(() => void 0)
+
     api.get<UserCurrency[]>("/currencies")
       .then((list) => {
         setUserCurrencies(list ?? [])
       })
       .catch(() => void 0)
-  }, [])
+  }, [activeTab])
 
   useEffect(() => {
     if (userCurrencies.length === 0) {
@@ -237,6 +272,26 @@ export default function SettingsPage() {
   function handleTheme(next: Theme) {
     setTheme(next)
     applyTheme(next)
+  }
+
+  function handleThemeColorScheme(nextScheme: ThemeColorScheme) {
+    setThemeColorScheme(nextScheme)
+    applyThemeColorScheme(nextScheme, customThemeColors)
+  }
+
+  function handleCustomThemeColorChange(key: keyof CustomThemeColors, value: string) {
+    const nextColors: CustomThemeColors = {
+      ...customThemeColors,
+      [key]: value,
+    }
+    setCustomThemeColors(nextColors)
+    applyThemeColorScheme(themeColorScheme, nextColors)
+  }
+
+  function handleResetCustomThemeColors() {
+    const defaultColors = getDefaultCustomThemeColors()
+    setCustomThemeColors(defaultColors)
+    applyThemeColorScheme(themeColorScheme, defaultColors)
   }
 
   async function handleCurrency(value: string) {
@@ -480,7 +535,15 @@ export default function SettingsPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6">
-        <Tabs defaultValue="general" className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (isSettingsTab(value)) {
+              setActiveTab(value)
+            }
+          }}
+          className="space-y-6"
+        >
           <TabsList>
             <TabsTrigger value="general">{t("settings.general.title")}</TabsTrigger>
             <TabsTrigger value="payment">{t("settings.payment.title")}</TabsTrigger>
@@ -490,6 +553,11 @@ export default function SettingsPage() {
           <SettingsGeneralTab
             theme={theme}
             onThemeChange={handleTheme}
+            colorScheme={themeColorScheme}
+            onColorSchemeChange={handleThemeColorScheme}
+            customThemeColors={customThemeColors}
+            onCustomThemeColorChange={handleCustomThemeColorChange}
+            onResetCustomThemeColors={handleResetCustomThemeColors}
             language={i18n.language}
             onLanguageChange={(language) => {
               void i18n.changeLanguage(language)

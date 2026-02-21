@@ -280,7 +280,7 @@ const ja = {
     title: "設定",
     back: "戻る",
     general: {
-      title: "一般",
+      title: "表示",
     },
     payment: {
       title: "支払い方法、通貨とカテゴリ",
@@ -292,6 +292,21 @@ const ja = {
       light: "ライト",
       dark: "ダーク",
       system: "システム",
+      colorSchemeTitle: "配色",
+      colorSchemeDescription: "プリセット配色を選ぶか、独自の配色を作成できます",
+      colorSchemes: {
+        default: "デフォルト",
+        ocean: "オーシャン",
+        sunset: "サンセット",
+        forest: "フォレスト",
+        custom: "カスタム",
+      },
+      customDescription: "カスタム配色は現在のブラウザにのみ保存されます",
+      lightPrimary: "ライト主色",
+      lightAccent: "ライトアクセント",
+      darkPrimary: "ダーク主色",
+      darkAccent: "ダークアクセント",
+      resetCustom: "カスタム配色をリセット",
     },
     language: {
       title: "言語",

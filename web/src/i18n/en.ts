@@ -280,7 +280,7 @@ const en = {
     title: "Settings",
     back: "Back",
     general: {
-      title: "General",
+      title: "Display",
     },
     payment: {
       title: "Payment Methods, Currency & Categories",
@@ -292,6 +292,21 @@ const en = {
       light: "Light",
       dark: "Dark",
       system: "System",
+      colorSchemeTitle: "Color Scheme",
+      colorSchemeDescription: "Choose a preset palette, or build your own custom palette",
+      colorSchemes: {
+        default: "Default",
+        ocean: "Ocean",
+        sunset: "Sunset",
+        forest: "Forest",
+        custom: "Custom",
+      },
+      customDescription: "Custom colors are saved only in your current browser",
+      lightPrimary: "Light primary",
+      lightAccent: "Light accent",
+      darkPrimary: "Dark primary",
+      darkAccent: "Dark accent",
+      resetCustom: "Reset custom colors",
     },
     language: {
       title: "Language",

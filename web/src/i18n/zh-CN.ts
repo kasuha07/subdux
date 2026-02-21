@@ -280,7 +280,7 @@ const zhCN = {
     title: "设置",
     back: "返回",
     general: {
-      title: "通用",
+      title: "显示",
     },
     payment: {
       title: "支付方式、货币与分类",
@@ -292,6 +292,21 @@ const zhCN = {
       light: "浅色",
       dark: "深色",
       system: "跟随系统",
+      colorSchemeTitle: "配色方案",
+      colorSchemeDescription: "可选择预设配色，也可以创建自己的自定义配色",
+      colorSchemes: {
+        default: "默认",
+        ocean: "海洋",
+        sunset: "日落",
+        forest: "森林",
+        custom: "自定义",
+      },
+      customDescription: "自定义配色仅保存在当前浏览器中",
+      lightPrimary: "浅色主色",
+      lightAccent: "浅色强调色",
+      darkPrimary: "深色主色",
+      darkAccent: "深色强调色",
+      resetCustom: "重置自定义配色",
     },
     language: {
       title: "语言",
