@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func main() {
 	erService.StartBackgroundRefresh(stop)
 	startNotificationChecker(notificationService, stop)
 
-	e.Static("/uploads", "data/assets")
+	e.Static("/uploads", filepath.Join(pkg.GetDataPath(), "assets"))
 
 	distFS, err := fs.Sub(subdux.StaticFS, "web/dist")
 	if err != nil {
