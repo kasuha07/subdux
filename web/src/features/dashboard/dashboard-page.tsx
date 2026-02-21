@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Settings, Shield } from "lucide-react"
@@ -7,38 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
+import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { api, isAdmin } from "@/lib/api"
-import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import { toast } from "sonner"
-import type {
-  Category,
-  CreateSubscriptionInput,
-  DashboardSummary,
-  PaymentMethod,
-  Subscription,
-  UserCurrency,
-  UserPreference,
-} from "@/types"
+import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
-import {
-  defaultSortDirection,
-  defaultSortField,
-  type EnabledFilter,
-  type SortDirection,
-  type SortField,
-} from "./dashboard-filter-constants"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
-
-function toTimestamp(value: string | null): number {
-  if (!value) {
-    return Number.MAX_SAFE_INTEGER
-  }
-  const ts = new Date(value).getTime()
-  return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts
-}
 
 function DashboardSkeleton() {
   return (
@@ -85,185 +63,55 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation()
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
-  const [preferredCurrency, setPreferredCurrency] = useState(
-    localStorage.getItem("defaultCurrency") || "USD"
-  )
-  const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedEnabledStates, setSelectedEnabledStates] = useState<Set<EnabledFilter>>(new Set())
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
-  const [includeNoCategory, setIncludeNoCategory] = useState(false)
-  const [selectedPaymentMethodIDs, setSelectedPaymentMethodIDs] = useState<Set<number>>(new Set())
-  const [includeNoPaymentMethod, setIncludeNoPaymentMethod] = useState(false)
-  const [sortField, setSortField] = useState<SortField>(defaultSortField)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection)
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [subs, sum, pref, currencies, categoryList, methods] = await Promise.all([
-        api.get<Subscription[]>("/subscriptions"),
-        api.get<DashboardSummary>("/dashboard/summary"),
-        api.get<UserPreference>("/preferences/currency"),
-        api.get<UserCurrency[]>("/currencies"),
-        api.get<Category[]>("/categories"),
-        api.get<PaymentMethod[]>("/payment-methods"),
-      ])
-      setSubscriptions(subs || [])
-      setSummary(sum)
-      setUserCurrencies(currencies || [])
-      setCategories(categoryList || [])
-      setPaymentMethods(methods || [])
-      if (pref?.preferred_currency) {
-        setPreferredCurrency(pref.preferred_currency)
-        localStorage.setItem("defaultCurrency", pref.preferred_currency)
-      }
-    } catch {
-      void 0
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    categories,
+    fetchData,
+    loading,
+    paymentMethods,
+    preferredCurrency,
+    subscriptions,
+    summary,
+    userCurrencies,
+  } = useDashboardData()
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  const categoryMap = useMemo(
-    () => new Map(categories.map((item) => [item.id, item] as const)),
-    [categories]
-  )
-
-  const getSubscriptionCategoryName = useCallback(
-    (sub: Subscription): string => {
-      if (sub.category_id != null) {
-        const category = categoryMap.get(sub.category_id)
-        if (category) {
-          return getCategoryLabel(category, t)
-        }
-      }
-      return sub.category.trim()
-    },
-    [categoryMap, t]
-  )
-
-  const categoryOptions = useMemo(() => {
-    const uniqueCategories = new Set<string>()
-
-    for (const sub of subscriptions) {
-      const normalizedCategory = getSubscriptionCategoryName(sub)
-      if (normalizedCategory) {
-        uniqueCategories.add(normalizedCategory)
-      }
-    }
-
-    return Array.from(uniqueCategories).sort((a, b) =>
-      a.localeCompare(b, i18n.language, { sensitivity: "base" })
-    )
-  }, [subscriptions, getSubscriptionCategoryName, i18n.language])
+  const {
+    categoryOptions,
+    filteredSubscriptions,
+    getSortFieldLabel,
+    getSubscriptionCategoryName,
+    handleSortFieldSelect,
+    handleToggleCategory,
+    handleToggleEnabledState,
+    handleTogglePaymentMethod,
+    hasActiveFilters,
+    includeNoCategory,
+    includeNoPaymentMethod,
+    onToggleNoCategory,
+    onToggleNoPaymentMethod,
+    paymentMethodLabelMap,
+    resetFiltersAndSorting,
+    searchTerm,
+    selectedCategories,
+    selectedEnabledStates,
+    selectedPaymentMethodIDs,
+    setSearchTerm,
+    sortDirection,
+    sortField,
+  } = useDashboardFilters({
+    categories,
+    language: i18n.language,
+    paymentMethods,
+    subscriptions,
+    t,
+  })
 
   const currencySymbolMap = useMemo(
     () => new Map(userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)),
     [userCurrencies]
   )
-
-  const paymentMethodLabelMap = useMemo(
-    () => new Map(paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)),
-    [paymentMethods, t]
-  )
-
-  const filteredSubscriptions = useMemo(() => {
-    const normalizedSearchTerm = searchTerm.trim().toLowerCase()
-
-    const filtered = subscriptions.filter((sub) => {
-      const categoryName = getSubscriptionCategoryName(sub)
-      const hasCategory = categoryName.trim().length > 0
-
-      if (normalizedSearchTerm) {
-        const searchableContent = [sub.name, categoryName, sub.notes].join(" ").toLowerCase()
-        if (!searchableContent.includes(normalizedSearchTerm)) {
-          return false
-        }
-      }
-
-      if (selectedEnabledStates.size > 0) {
-        const enabledKey: EnabledFilter = sub.enabled ? "enabled" : "disabled"
-        if (!selectedEnabledStates.has(enabledKey)) {
-          return false
-        }
-      }
-
-      if (selectedCategories.size > 0 || includeNoCategory) {
-        if (hasCategory) {
-          if (!selectedCategories.has(categoryName)) {
-            return false
-          }
-        } else if (!includeNoCategory) {
-          return false
-        }
-      }
-
-      if (selectedPaymentMethodIDs.size > 0 || includeNoPaymentMethod) {
-        if (sub.payment_method_id == null) {
-          if (!includeNoPaymentMethod) {
-            return false
-          }
-        } else if (!selectedPaymentMethodIDs.has(sub.payment_method_id)) {
-          return false
-        }
-      }
-
-      return true
-    })
-
-    return [...filtered].sort((a, b) => {
-      let result = 0
-
-      if (sortField === "name") {
-        result = a.name.localeCompare(b.name, i18n.language, { sensitivity: "base" })
-      } else if (sortField === "created_at") {
-        result = toTimestamp(a.created_at) - toTimestamp(b.created_at)
-      } else if (sortField === "amount") {
-        result = a.amount - b.amount
-      } else {
-        result = toTimestamp(a.next_billing_date) - toTimestamp(b.next_billing_date)
-      }
-
-      if (result === 0) {
-        result = a.id - b.id
-      }
-
-      return sortDirection === "asc" ? result : -result
-    })
-  }, [
-    subscriptions,
-    searchTerm,
-    selectedEnabledStates,
-    selectedCategories,
-    includeNoCategory,
-    selectedPaymentMethodIDs,
-    includeNoPaymentMethod,
-    sortField,
-    sortDirection,
-    getSubscriptionCategoryName,
-    i18n.language,
-  ])
-
-  const hasActiveFilters =
-    searchTerm.trim().length > 0 ||
-    selectedEnabledStates.size > 0 ||
-    selectedCategories.size > 0 ||
-    includeNoCategory ||
-    selectedPaymentMethodIDs.size > 0 ||
-    includeNoPaymentMethod ||
-    sortField !== defaultSortField ||
-    sortDirection !== defaultSortDirection
 
   function handleEdit(sub: Subscription) {
     setEditingSub(sub)
@@ -306,70 +154,6 @@ export default function DashboardPage() {
   function openNewForm() {
     setEditingSub(null)
     setFormOpen(true)
-  }
-
-  function resetFiltersAndSorting() {
-    setSearchTerm("")
-    setSelectedEnabledStates(new Set())
-    setSelectedCategories(new Set())
-    setIncludeNoCategory(false)
-    setSelectedPaymentMethodIDs(new Set())
-    setIncludeNoPaymentMethod(false)
-    setSortField(defaultSortField)
-    setSortDirection(defaultSortDirection)
-  }
-
-  function getSortFieldLabel(field: SortField): string {
-    if (field === "name") return t("dashboard.filters.sortFields.name")
-    if (field === "created_at") return t("dashboard.filters.sortFields.createdAt")
-    if (field === "amount") return t("dashboard.filters.sortFields.amount")
-    return t("dashboard.filters.sortFields.nextBillingDate")
-  }
-
-  function handleSortFieldSelect(field: SortField) {
-    if (sortField === field) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
-      return
-    }
-
-    setSortField(field)
-    setSortDirection(defaultSortDirection)
-  }
-
-  function handleToggleEnabledState(status: EnabledFilter, checked: boolean) {
-    setSelectedEnabledStates((prev) => {
-      const next = new Set(prev)
-      if (checked) {
-        next.add(status)
-      } else {
-        next.delete(status)
-      }
-      return next
-    })
-  }
-
-  function handleToggleCategory(category: string, checked: boolean) {
-    setSelectedCategories((prev) => {
-      const next = new Set(prev)
-      if (checked) {
-        next.add(category)
-      } else {
-        next.delete(category)
-      }
-      return next
-    })
-  }
-
-  function handleTogglePaymentMethod(paymentMethodID: number, checked: boolean) {
-    setSelectedPaymentMethodIDs((prev) => {
-      const next = new Set(prev)
-      if (checked) {
-        next.add(paymentMethodID)
-      } else {
-        next.delete(paymentMethodID)
-      }
-      return next
-    })
   }
 
   return (
@@ -432,9 +216,9 @@ export default function DashboardPage() {
               onResetFiltersAndSorting={resetFiltersAndSorting}
               onToggleEnabledState={handleToggleEnabledState}
               onToggleCategory={handleToggleCategory}
-              onToggleNoCategory={setIncludeNoCategory}
+              onToggleNoCategory={onToggleNoCategory}
               onTogglePaymentMethod={handleTogglePaymentMethod}
-              onToggleNoPaymentMethod={setIncludeNoPaymentMethod}
+              onToggleNoPaymentMethod={onToggleNoPaymentMethod}
             />
 
             <div className="space-y-2">

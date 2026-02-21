@@ -140,6 +140,12 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		return s.sendTelegram(channel, testSubName, testBillingDate)
 	case "webhook":
 		return s.sendWebhook(channel, testSubName, testBillingDate)
+	case "gotify":
+		return s.sendGotify(channel, testSubName, testBillingDate)
+	case "ntfy":
+		return s.sendNtfy(channel, testSubName, testBillingDate)
+	case "bark":
+		return s.sendBark(channel, testSubName, testBillingDate)
 	default:
 		return errors.New("unsupported channel type")
 	}
@@ -316,6 +322,12 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				sendErr = s.sendTelegram(channel, sub.Name, billingDateStr)
 			case "webhook":
 				sendErr = s.sendWebhook(channel, sub.Name, billingDateStr)
+			case "gotify":
+				sendErr = s.sendGotify(channel, sub.Name, billingDateStr)
+			case "ntfy":
+				sendErr = s.sendNtfy(channel, sub.Name, billingDateStr)
+			case "bark":
+				sendErr = s.sendBark(channel, sub.Name, billingDateStr)
 			}
 
 			logEntry := model.NotificationLog{
@@ -555,9 +567,158 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, sub
 	return nil
 }
 
+func (s *NotificationService) sendGotify(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		URL   string `json:"url"`
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid gotify config")
+	}
+	if cfg.URL == "" || cfg.Token == "" {
+		return errors.New("gotify config requires url and token")
+	}
+
+	payload := map[string]interface{}{
+		"title":    fmt.Sprintf("Subscription Reminder: %s", subName),
+		"message":  fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate),
+		"priority": 5,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	endpoint := strings.TrimRight(cfg.URL, "/") + "/message?token=" + cfg.Token
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("gotify request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("gotify API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (s *NotificationService) sendNtfy(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		URL      string `json:"url"`
+		Topic    string `json:"topic"`
+		Token    string `json:"token"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid ntfy config")
+	}
+
+	serverURL := cfg.URL
+	if serverURL == "" {
+		serverURL = "https://ntfy.sh"
+	}
+
+	if cfg.Topic == "" {
+		return errors.New("ntfy config requires topic")
+	}
+
+	endpoint := strings.TrimRight(serverURL, "/") + "/" + cfg.Topic
+	message := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate)
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(message))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Title", fmt.Sprintf("Subscription Reminder: %s", subName))
+	req.Header.Set("Priority", "default")
+	req.Header.Set("Tags", "calendar")
+
+	if cfg.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	} else if cfg.Username != "" && cfg.Password != "" {
+		req.SetBasicAuth(cfg.Username, cfg.Password)
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("ntfy request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("ntfy API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (s *NotificationService) sendBark(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		URL       string `json:"url"`
+		DeviceKey string `json:"device_key"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid bark config")
+	}
+
+	serverURL := cfg.URL
+	if serverURL == "" {
+		serverURL = "https://api.day.app"
+	}
+
+	if cfg.DeviceKey == "" {
+		return errors.New("bark config requires device_key")
+	}
+
+	payload := map[string]interface{}{
+		"title": fmt.Sprintf("Subscription Reminder: %s", subName),
+		"body":  fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate),
+		"group": "Subdux",
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	endpoint := strings.TrimRight(serverURL, "/") + "/" + cfg.DeviceKey
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("bark request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("bark API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
 func isValidChannelType(t string) bool {
 	switch t {
-	case "smtp", "resend", "telegram", "webhook":
+	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark":
 		return true
 	default:
 		return false
@@ -656,6 +817,54 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		if !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
 			return errors.New("webhook url must start with http:// or https://")
+		}
+		return nil
+	case "gotify":
+		var cfg struct {
+			URL   string `json:"url"`
+			Token string `json:"token"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid gotify config format")
+		}
+		if cfg.URL == "" {
+			return errors.New("gotify channel requires url")
+		}
+		if !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
+			return errors.New("gotify url must start with http:// or https://")
+		}
+		if cfg.Token == "" {
+			return errors.New("gotify channel requires token")
+		}
+		return nil
+	case "ntfy":
+		var cfg struct {
+			Topic string `json:"topic"`
+			URL   string `json:"url"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid ntfy config format")
+		}
+		if cfg.Topic == "" {
+			return errors.New("ntfy channel requires topic")
+		}
+		if cfg.URL != "" && !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
+			return errors.New("ntfy url must start with http:// or https://")
+		}
+		return nil
+	case "bark":
+		var cfg struct {
+			DeviceKey string `json:"device_key"`
+			URL       string `json:"url"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid bark config format")
+		}
+		if cfg.DeviceKey == "" {
+			return errors.New("bark channel requires device_key")
+		}
+		if cfg.URL != "" && !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
+			return errors.New("bark url must start with http:// or https://")
 		}
 		return nil
 	default:

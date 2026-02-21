@@ -27,7 +27,7 @@ interface Props {
   saving: boolean
 }
 
-type ChannelType = "smtp" | "resend" | "telegram" | "webhook"
+type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark"
 
 function parseConfig(raw: string): Record<string, string> {
   try {
@@ -61,6 +61,16 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
   const [webhookUrl, setWebhookUrl] = useState(initCfg.url ?? "")
   const [webhookSecret, setWebhookSecret] = useState(initCfg.secret ?? "")
 
+  const [gotifyUrl, setGotifyUrl] = useState(initCfg.url ?? "")
+  const [gotifyToken, setGotifyToken] = useState(initCfg.token ?? "")
+
+  const [ntfyUrl, setNtfyUrl] = useState(initCfg.url ?? "")
+  const [ntfyTopic, setNtfyTopic] = useState(initCfg.topic ?? "")
+  const [ntfyToken, setNtfyToken] = useState(initCfg.token ?? "")
+
+  const [barkUrl, setBarkUrl] = useState(initCfg.url ?? "")
+  const [barkDeviceKey, setBarkDeviceKey] = useState(initCfg.device_key ?? "")
+
   function buildConfig(): string {
     switch (type) {
       case "smtp":
@@ -80,6 +90,19 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
         return JSON.stringify({ bot_token: botToken.trim(), chat_id: chatId.trim() })
       case "webhook":
         return JSON.stringify({ url: webhookUrl.trim(), ...(webhookSecret.trim() ? { secret: webhookSecret.trim() } : {}) })
+      case "gotify":
+        return JSON.stringify({ url: gotifyUrl.trim(), token: gotifyToken.trim() })
+      case "ntfy":
+        return JSON.stringify({
+          ...(ntfyUrl.trim() ? { url: ntfyUrl.trim() } : {}),
+          topic: ntfyTopic.trim(),
+          ...(ntfyToken.trim() ? { token: ntfyToken.trim() } : {}),
+        })
+      case "bark":
+        return JSON.stringify({
+          ...(barkUrl.trim() ? { url: barkUrl.trim() } : {}),
+          device_key: barkDeviceKey.trim(),
+        })
     }
   }
 
@@ -106,6 +129,9 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <SelectItem value="resend">{t("settings.notifications.channels.type.resend")}</SelectItem>
                 <SelectItem value="telegram">{t("settings.notifications.channels.type.telegram")}</SelectItem>
                 <SelectItem value="webhook">{t("settings.notifications.channels.type.webhook")}</SelectItem>
+                <SelectItem value="gotify">{t("settings.notifications.channels.type.gotify")}</SelectItem>
+                <SelectItem value="ntfy">{t("settings.notifications.channels.type.ntfy")}</SelectItem>
+                <SelectItem value="bark">{t("settings.notifications.channels.type.bark")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -199,6 +225,49 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
               <div className="space-y-2">
                 <Label htmlFor="wh-secret">{t("settings.notifications.channels.configFields.secret")}</Label>
                 <Input id="wh-secret" placeholder={t("settings.notifications.channels.configFields.secretPlaceholder")} value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {type === "gotify" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="gotify-url">{t("settings.notifications.channels.configFields.gotifyUrl")}</Label>
+                <Input id="gotify-url" type="url" placeholder={t("settings.notifications.channels.configFields.gotifyUrlPlaceholder")} value={gotifyUrl} onChange={(e) => setGotifyUrl(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gotify-token">{t("settings.notifications.channels.configFields.gotifyToken")}</Label>
+                <Input id="gotify-token" placeholder={t("settings.notifications.channels.configFields.gotifyTokenPlaceholder")} value={gotifyToken} onChange={(e) => setGotifyToken(e.target.value)} required />
+              </div>
+            </>
+          )}
+
+          {type === "ntfy" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-url">{t("settings.notifications.channels.configFields.ntfyUrl")}</Label>
+                <Input id="ntfy-url" type="url" placeholder={t("settings.notifications.channels.configFields.ntfyUrlPlaceholder")} value={ntfyUrl} onChange={(e) => setNtfyUrl(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-topic">{t("settings.notifications.channels.configFields.ntfyTopic")}</Label>
+                <Input id="ntfy-topic" placeholder={t("settings.notifications.channels.configFields.ntfyTopicPlaceholder")} value={ntfyTopic} onChange={(e) => setNtfyTopic(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-token">{t("settings.notifications.channels.configFields.ntfyToken")}</Label>
+                <Input id="ntfy-token" placeholder={t("settings.notifications.channels.configFields.ntfyTokenPlaceholder")} value={ntfyToken} onChange={(e) => setNtfyToken(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {type === "bark" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="bark-url">{t("settings.notifications.channels.configFields.barkUrl")}</Label>
+                <Input id="bark-url" type="url" placeholder={t("settings.notifications.channels.configFields.barkUrlPlaceholder")} value={barkUrl} onChange={(e) => setBarkUrl(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bark-key">{t("settings.notifications.channels.configFields.barkDeviceKey")}</Label>
+                <Input id="bark-key" placeholder={t("settings.notifications.channels.configFields.barkDeviceKeyPlaceholder")} value={barkDeviceKey} onChange={(e) => setBarkDeviceKey(e.target.value)} required />
               </div>
             </>
           )}

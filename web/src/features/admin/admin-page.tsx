@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -14,16 +13,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { updateSiteTitle } from "@/hooks/useSiteSettings"
-import { api, getUser } from "@/lib/api"
-import { toast } from "sonner"
-import type {
-  AdminStats,
-  AdminUser,
-  ExchangeRateStatus,
-  SystemSettings,
-  UpdateSettingsInput,
-} from "@/types"
+import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
 
 import AdminBackupTab from "./admin-backup-tab"
 import AdminExchangeRatesTab from "./admin-exchange-rates-tab"
@@ -34,400 +24,10 @@ import AdminSettingsTab from "./admin-settings-tab"
 import AdminStatsTab from "./admin-stats-tab"
 import AdminUsersTab from "./admin-users-tab"
 
-function parseFilenameFromContentDisposition(contentDisposition: string | null): string | null {
-  if (!contentDisposition) {
-    return null
-  }
-
-  const match = contentDisposition.match(/filename="?([^"]+)"?/i)
-  if (!match || !match[1]) {
-    return null
-  }
-
-  return match[1]
-}
-
 export default function AdminPage() {
   const { t } = useTranslation()
-
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [siteName, setSiteName] = useState("")
-  const [siteUrl, setSiteUrl] = useState("")
-  const [registrationEnabled, setRegistrationEnabled] = useState(true)
-  const [registrationEmailVerificationEnabled, setRegistrationEmailVerificationEnabled] = useState(false)
-  const [includeAssetsInBackup, setIncludeAssetsInBackup] = useState(false)
-  const [restoreFile, setRestoreFile] = useState<File | null>(null)
-  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
-
-  const [rateStatus, setRateStatus] = useState<ExchangeRateStatus | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [currencyApiKey, setCurrencyApiKey] = useState("")
-  const [exchangeRateSource, setExchangeRateSource] = useState("auto")
-  const [maxIconFileSize, setMaxIconFileSize] = useState<number>(64)
-  const [smtpEnabled, setSMTPEnabled] = useState(false)
-  const [smtpHost, setSMTPHost] = useState("")
-  const [smtpPort, setSMTPPort] = useState<number>(587)
-  const [smtpUsername, setSMTPUsername] = useState("")
-  const [smtpPassword, setSMTPPassword] = useState("")
-  const [smtpPasswordConfigured, setSMTPPasswordConfigured] = useState(false)
-  const [smtpFromEmail, setSMTPFromEmail] = useState("")
-  const [smtpFromName, setSMTPFromName] = useState("")
-  const [smtpEncryption, setSMTPEncryption] = useState("starttls")
-  const [smtpAuthMethod, setSMTPAuthMethod] = useState("auto")
-  const [smtpHeloName, setSMTPHeloName] = useState("")
-  const [smtpTimeoutSeconds, setSMTPTimeoutSeconds] = useState<number>(10)
-  const [smtpSkipTLSVerify, setSMTPSkipTLSVerify] = useState(false)
-  const [smtpTestRecipient, setSMTPTestRecipient] = useState(() => getUser()?.email ?? "")
-  const [smtpTesting, setSMTPTesting] = useState(false)
-  const [oidcEnabled, setOIDCEnabled] = useState(false)
-  const [oidcProviderName, setOIDCProviderName] = useState("OIDC")
-  const [oidcIssuerURL, setOIDCIssuerURL] = useState("")
-  const [oidcClientID, setOIDCClientID] = useState("")
-  const [oidcClientSecret, setOIDCClientSecret] = useState("")
-  const [oidcClientSecretConfigured, setOIDCClientSecretConfigured] = useState(false)
-  const [oidcRedirectURL, setOIDCRedirectURL] = useState("")
-  const [oidcScopes, setOIDCScopes] = useState("openid profile email")
-  const [oidcAutoCreateUser, setOIDCAutoCreateUser] = useState(false)
-  const [oidcAuthorizationEndpoint, setOIDCAuthorizationEndpoint] = useState("")
-  const [oidcTokenEndpoint, setOIDCTokenEndpoint] = useState("")
-  const [oidcUserinfoEndpoint, setOIDCUserinfoEndpoint] = useState("")
-  const [oidcAudience, setOIDCAudience] = useState("")
-  const [oidcResource, setOIDCResource] = useState("")
-  const [oidcExtraAuthParams, setOIDCExtraAuthParams] = useState("")
-
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [newUsername, setNewUsername] = useState("")
-  const [newEmail, setNewEmail] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [newRole, setNewRole] = useState<"user" | "admin">("user")
-
-  useEffect(() => {
-    Promise.all([
-      api.get<AdminUser[]>("/admin/users"),
-      api.get<SystemSettings>("/admin/settings"),
-      api.get<AdminStats>("/admin/stats"),
-      api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
-    ])
-      .then(([usersData, settingsData, statsData, rateStatusData]) => {
-        setUsers(usersData || [])
-        setSiteName(settingsData?.site_name || "Subdux")
-        setSiteUrl(settingsData?.site_url || "")
-        setRegistrationEnabled(settingsData?.registration_enabled ?? true)
-        setRegistrationEmailVerificationEnabled(settingsData?.registration_email_verification_enabled ?? false)
-        setCurrencyApiKey(settingsData?.currencyapi_key || "")
-        setExchangeRateSource(settingsData?.exchange_rate_source || "auto")
-        setMaxIconFileSize(
-          settingsData?.max_icon_file_size
-            ? Math.round(settingsData.max_icon_file_size / 1024)
-            : 64
-        )
-        setSMTPEnabled(settingsData?.smtp_enabled ?? false)
-        setSMTPHost(settingsData?.smtp_host || "")
-        setSMTPPort(settingsData?.smtp_port || 587)
-        setSMTPUsername(settingsData?.smtp_username || "")
-        setSMTPPassword("")
-        setSMTPPasswordConfigured(settingsData?.smtp_password_configured ?? false)
-        setSMTPFromEmail(settingsData?.smtp_from_email || "")
-        setSMTPFromName(settingsData?.smtp_from_name || "")
-        setSMTPEncryption(settingsData?.smtp_encryption || "starttls")
-        setSMTPAuthMethod(settingsData?.smtp_auth_method || "auto")
-        setSMTPHeloName(settingsData?.smtp_helo_name || "")
-        setSMTPTimeoutSeconds(settingsData?.smtp_timeout_seconds || 10)
-        setSMTPSkipTLSVerify(settingsData?.smtp_skip_tls_verify ?? false)
-        setOIDCEnabled(settingsData?.oidc_enabled ?? false)
-        setOIDCProviderName(settingsData?.oidc_provider_name || "OIDC")
-        setOIDCIssuerURL(settingsData?.oidc_issuer_url || "")
-        setOIDCClientID(settingsData?.oidc_client_id || "")
-        setOIDCClientSecret("")
-        setOIDCClientSecretConfigured(settingsData?.oidc_client_secret_configured ?? false)
-        setOIDCRedirectURL(settingsData?.oidc_redirect_url || "")
-        setOIDCScopes(settingsData?.oidc_scopes || "openid profile email")
-        setOIDCAutoCreateUser(settingsData?.oidc_auto_create_user ?? false)
-        setOIDCAuthorizationEndpoint(settingsData?.oidc_authorization_endpoint || "")
-        setOIDCTokenEndpoint(settingsData?.oidc_token_endpoint || "")
-        setOIDCUserinfoEndpoint(settingsData?.oidc_userinfo_endpoint || "")
-        setOIDCAudience(settingsData?.oidc_audience || "")
-        setOIDCResource(settingsData?.oidc_resource || "")
-        setOIDCExtraAuthParams(settingsData?.oidc_extra_auth_params || "")
-        setStats(statsData)
-        setRateStatus(rateStatusData)
-      })
-      .catch(() => void 0)
-      .finally(() => setLoading(false))
-  }, [])
-
-  async function handleToggleRole(user: AdminUser) {
-    const nextRole = user.role === "admin" ? "user" : "admin"
-    try {
-      await api.put(`/admin/users/${user.id}/role`, { role: nextRole })
-      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, role: nextRole } : item)))
-      toast.success(t("admin.users.roleUpdated"))
-    } catch {
-      void 0
-    }
-  }
-
-  async function handleToggleStatus(user: AdminUser) {
-    const nextStatus = user.status === "active" ? "disabled" : "active"
-    try {
-      await api.put(`/admin/users/${user.id}/status`, { status: nextStatus })
-      setUsers((prev) =>
-        prev.map((item) => (item.id === user.id ? { ...item, status: nextStatus } : item))
-      )
-      toast.success(t("admin.users.statusUpdated"))
-    } catch {
-      void 0
-    }
-  }
-
-  async function handleDeleteUser(id: number) {
-    if (!confirm(t("admin.users.deleteConfirm"))) return
-    try {
-      await api.delete(`/admin/users/${id}`)
-      setUsers((prev) => prev.filter((item) => item.id !== id))
-      toast.success(t("admin.users.deleteSuccess"))
-    } catch {
-      void 0
-    }
-  }
-
-  async function handleCreateUser() {
-    if (!newUsername || !newEmail || !newPassword) return
-    if (newPassword.length < 6) {
-      toast.error(t("admin.users.passwordTooShort"))
-      return
-    }
-
-    try {
-      const user = await api.post<AdminUser>("/admin/users", {
-        username: newUsername,
-        email: newEmail,
-        password: newPassword,
-        role: newRole,
-      })
-      setUsers((prev) => [...prev, user])
-      setCreateDialogOpen(false)
-      setNewUsername("")
-      setNewEmail("")
-      setNewPassword("")
-      setNewRole("user")
-      toast.success(t("admin.users.createSuccess"))
-    } catch {
-      void 0
-    }
-  }
-
-  async function handleSaveSettings() {
-    try {
-      const payload: UpdateSettingsInput = {
-        registration_enabled: registrationEnabled,
-        registration_email_verification_enabled: registrationEmailVerificationEnabled,
-        site_name: siteName,
-        site_url: siteUrl,
-        currencyapi_key: currencyApiKey,
-        exchange_rate_source: exchangeRateSource,
-        max_icon_file_size: maxIconFileSize * 1024,
-        smtp_enabled: smtpEnabled,
-        smtp_host: smtpHost,
-        smtp_port: smtpPort,
-        smtp_username: smtpUsername,
-        smtp_from_email: smtpFromEmail,
-        smtp_from_name: smtpFromName,
-        smtp_encryption: smtpEncryption,
-        smtp_auth_method: smtpAuthMethod,
-        smtp_helo_name: smtpHeloName,
-        smtp_timeout_seconds: smtpTimeoutSeconds,
-        smtp_skip_tls_verify: smtpSkipTLSVerify,
-        oidc_enabled: oidcEnabled,
-        oidc_provider_name: oidcProviderName,
-        oidc_issuer_url: oidcIssuerURL,
-        oidc_client_id: oidcClientID,
-        oidc_redirect_url: oidcRedirectURL,
-        oidc_scopes: oidcScopes,
-        oidc_auto_create_user: oidcAutoCreateUser,
-        oidc_authorization_endpoint: oidcAuthorizationEndpoint,
-        oidc_token_endpoint: oidcTokenEndpoint,
-        oidc_userinfo_endpoint: oidcUserinfoEndpoint,
-        oidc_audience: oidcAudience,
-        oidc_resource: oidcResource,
-        oidc_extra_auth_params: oidcExtraAuthParams,
-      }
-      if (oidcClientSecret.trim()) {
-        payload.oidc_client_secret = oidcClientSecret.trim()
-      }
-      if (smtpPassword.trim()) {
-        payload.smtp_password = smtpPassword.trim()
-      }
-
-      await api.put("/admin/settings", payload)
-      const fresh = await api.get<SystemSettings>("/admin/settings")
-      setSiteName(fresh.site_name)
-      setSiteUrl(fresh.site_url)
-      setRegistrationEnabled(fresh.registration_enabled)
-      setRegistrationEmailVerificationEnabled(fresh.registration_email_verification_enabled ?? false)
-      setCurrencyApiKey(fresh.currencyapi_key)
-      setExchangeRateSource(fresh.exchange_rate_source)
-      setMaxIconFileSize(fresh.max_icon_file_size ? Math.round(fresh.max_icon_file_size / 1024) : 64)
-      setSMTPEnabled(fresh.smtp_enabled ?? false)
-      setSMTPHost(fresh.smtp_host || "")
-      setSMTPPort(fresh.smtp_port || 587)
-      setSMTPUsername(fresh.smtp_username || "")
-      setSMTPPassword("")
-      setSMTPPasswordConfigured(fresh.smtp_password_configured ?? false)
-      setSMTPFromEmail(fresh.smtp_from_email || "")
-      setSMTPFromName(fresh.smtp_from_name || "")
-      setSMTPEncryption(fresh.smtp_encryption || "starttls")
-      setSMTPAuthMethod(fresh.smtp_auth_method || "auto")
-      setSMTPHeloName(fresh.smtp_helo_name || "")
-      setSMTPTimeoutSeconds(fresh.smtp_timeout_seconds || 10)
-      setSMTPSkipTLSVerify(fresh.smtp_skip_tls_verify ?? false)
-      setOIDCEnabled(fresh.oidc_enabled ?? false)
-      setOIDCProviderName(fresh.oidc_provider_name || "OIDC")
-      setOIDCIssuerURL(fresh.oidc_issuer_url || "")
-      setOIDCClientID(fresh.oidc_client_id || "")
-      setOIDCClientSecret("")
-      setOIDCClientSecretConfigured(fresh.oidc_client_secret_configured ?? false)
-      setOIDCRedirectURL(fresh.oidc_redirect_url || "")
-      setOIDCScopes(fresh.oidc_scopes || "openid profile email")
-      setOIDCAutoCreateUser(fresh.oidc_auto_create_user ?? false)
-      setOIDCAuthorizationEndpoint(fresh.oidc_authorization_endpoint || "")
-      setOIDCTokenEndpoint(fresh.oidc_token_endpoint || "")
-      setOIDCUserinfoEndpoint(fresh.oidc_userinfo_endpoint || "")
-      setOIDCAudience(fresh.oidc_audience || "")
-      setOIDCResource(fresh.oidc_resource || "")
-      setOIDCExtraAuthParams(fresh.oidc_extra_auth_params || "")
-      updateSiteTitle(fresh.site_name)
-      toast.success(t("admin.settings.saveSuccess"))
-    } catch {
-      void 0
-    }
-  }
-
-  function hasSMTPConfigForRegistrationVerification(): boolean {
-    if (!smtpEnabled) {
-      return false
-    }
-
-    const host = smtpHost.trim()
-    const fromEmail = smtpFromEmail.trim()
-    const username = smtpUsername.trim()
-    const hasPassword = smtpPassword.trim() !== "" || smtpPasswordConfigured
-
-    if (host === "" || fromEmail === "") {
-      return false
-    }
-    if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
-      return false
-    }
-
-    const authMethod = smtpAuthMethod.trim().toLowerCase()
-    if (!["auto", "plain", "login", "cram_md5", "none"].includes(authMethod)) {
-      return false
-    }
-    if (authMethod !== "auto" && authMethod !== "none" && (username === "" || !hasPassword)) {
-      return false
-    }
-
-    return true
-  }
-
-  function handleRegistrationEmailVerificationChange(enabled: boolean) {
-    if (!enabled) {
-      setRegistrationEmailVerificationEnabled(false)
-      return
-    }
-
-    if (!hasSMTPConfigForRegistrationVerification()) {
-      toast.error(t("admin.settings.registrationEmailVerificationSmtpWarning"))
-      return
-    }
-
-    setRegistrationEmailVerificationEnabled(true)
-  }
-
-  async function handleTestSMTP() {
-    setSMTPTesting(true)
-    try {
-      await api.post<{ message: string }>("/admin/settings/smtp/test", {
-        recipient_email: smtpTestRecipient.trim(),
-      })
-      toast.success(t("admin.settings.smtpTestSuccess"))
-    } catch {
-      void 0
-    } finally {
-      setSMTPTesting(false)
-    }
-  }
-
-  async function handleRefreshRates() {
-    setRefreshing(true)
-    try {
-      await api.post("/admin/exchange-rates/refresh", {})
-      const status = await api.get<ExchangeRateStatus>("/admin/exchange-rates/status")
-      setRateStatus(status)
-      toast.success(t("admin.exchangeRates.refreshSuccess"))
-    } catch {
-      toast.error(t("admin.exchangeRates.refreshFailed"))
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
-  async function handleDownloadBackup() {
-    try {
-      const token = localStorage.getItem("token")
-      const params = new URLSearchParams()
-      if (includeAssetsInBackup) {
-        params.set("include_assets", "true")
-      }
-      const endpoint = params.size > 0 ? `/api/admin/backup?${params.toString()}` : "/api/admin/backup"
-
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) throw new Error()
-
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const anchor = document.createElement("a")
-      anchor.href = url
-      const filename =
-        parseFilenameFromContentDisposition(res.headers.get("content-disposition")) ??
-        `subdux-backup-${new Date().toISOString().split("T")[0]}${includeAssetsInBackup ? ".zip" : ".db"}`
-      anchor.download = filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(anchor)
-      toast.success(t("admin.backup.downloadSuccess"))
-    } catch {
-      toast.error(t("admin.backup.downloadFailed"))
-    }
-  }
-
-  async function handleRestore() {
-    if (!restoreFile) return
-
-    const formData = new FormData()
-    formData.append("backup", restoreFile)
-
-    try {
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/admin/restore", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
-      if (!res.ok) throw new Error()
-
-      setRestoreConfirmOpen(false)
-      toast.success(t("admin.backup.restoreSuccess"))
-    } catch {
-      toast.error(t("admin.backup.restoreFailed"))
-    }
-  }
+  const admin = useAdminPageState({ t })
+  const { settingsForm } = admin
 
   return (
     <div className="min-h-screen bg-background">
@@ -443,7 +43,7 @@ export default function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        {loading ? (
+        {admin.loading ? (
           <AdminLoadingSkeleton />
         ) : (
           <Tabs defaultValue="users" className="space-y-6">
@@ -479,125 +79,143 @@ export default function AdminPage() {
             </TabsList>
 
             <AdminUsersTab
-              users={users}
-              createDialogOpen={createDialogOpen}
-              onCreateDialogOpenChange={setCreateDialogOpen}
-              newUsername={newUsername}
-              onNewUsernameChange={setNewUsername}
-              newEmail={newEmail}
-              onNewEmailChange={setNewEmail}
-              newPassword={newPassword}
-              onNewPasswordChange={setNewPassword}
-              newRole={newRole}
-              onNewRoleChange={setNewRole}
-              onCreateUser={handleCreateUser}
-              onToggleRole={handleToggleRole}
-              onToggleStatus={handleToggleStatus}
-              onDeleteUser={handleDeleteUser}
+              users={admin.users}
+              createDialogOpen={admin.createDialogOpen}
+              onCreateDialogOpenChange={admin.setCreateDialogOpen}
+              newUsername={admin.newUsername}
+              onNewUsernameChange={admin.setNewUsername}
+              newEmail={admin.newEmail}
+              onNewEmailChange={admin.setNewEmail}
+              newPassword={admin.newPassword}
+              onNewPasswordChange={admin.setNewPassword}
+              newRole={admin.newRole}
+              onNewRoleChange={admin.setNewRole}
+              onCreateUser={admin.handleCreateUser}
+              onToggleRole={admin.handleToggleRole}
+              onToggleStatus={admin.handleToggleStatus}
+              onDeleteUser={admin.handleDeleteUser}
             />
 
             <AdminSettingsTab
-              siteName={siteName}
-              onSiteNameChange={setSiteName}
-              siteUrl={siteUrl}
-              onSiteUrlChange={setSiteUrl}
-              registrationEnabled={registrationEnabled}
-              registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
-              onRegistrationEnabledChange={setRegistrationEnabled}
-              onRegistrationEmailVerificationEnabledChange={handleRegistrationEmailVerificationChange}
-              maxIconFileSize={maxIconFileSize}
-              onMaxIconFileSizeChange={setMaxIconFileSize}
-              onSave={handleSaveSettings}
+              siteName={settingsForm.siteName}
+              onSiteNameChange={(value) => admin.setSettingsField("siteName", value)}
+              siteUrl={settingsForm.siteUrl}
+              onSiteUrlChange={(value) => admin.setSettingsField("siteUrl", value)}
+              registrationEnabled={settingsForm.registrationEnabled}
+              registrationEmailVerificationEnabled={settingsForm.registrationEmailVerificationEnabled}
+              onRegistrationEnabledChange={(enabled) =>
+                admin.setSettingsField("registrationEnabled", enabled)
+              }
+              onRegistrationEmailVerificationEnabledChange={
+                admin.handleRegistrationEmailVerificationChange
+              }
+              maxIconFileSize={settingsForm.maxIconFileSize}
+              onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
+              onSave={admin.handleSaveSettings}
             />
 
             <AdminSettingsSMTPTab
-              smtpEnabled={smtpEnabled}
-              onSMTPEnabledChange={setSMTPEnabled}
-              smtpHost={smtpHost}
-              onSMTPHostChange={setSMTPHost}
-              smtpPort={smtpPort}
-              onSMTPPortChange={setSMTPPort}
-              smtpTestRecipient={smtpTestRecipient}
-              onSMTPTestRecipientChange={setSMTPTestRecipient}
-              smtpUsername={smtpUsername}
-              onSMTPUsernameChange={setSMTPUsername}
-              smtpPassword={smtpPassword}
-              smtpPasswordConfigured={smtpPasswordConfigured}
-              onSMTPPasswordChange={setSMTPPassword}
-              smtpFromEmail={smtpFromEmail}
-              onSMTPFromEmailChange={setSMTPFromEmail}
-              smtpFromName={smtpFromName}
-              onSMTPFromNameChange={setSMTPFromName}
-              smtpEncryption={smtpEncryption}
-              onSMTPEncryptionChange={setSMTPEncryption}
-              smtpAuthMethod={smtpAuthMethod}
-              onSMTPAuthMethodChange={setSMTPAuthMethod}
-              smtpHeloName={smtpHeloName}
-              onSMTPHeloNameChange={setSMTPHeloName}
-              smtpTimeoutSeconds={smtpTimeoutSeconds}
-              onSMTPTimeoutSecondsChange={setSMTPTimeoutSeconds}
-              smtpSkipTLSVerify={smtpSkipTLSVerify}
-              onSMTPSkipTLSVerifyChange={setSMTPSkipTLSVerify}
-              smtpTesting={smtpTesting}
-              onSMTPTest={handleTestSMTP}
-              onSave={handleSaveSettings}
+              smtpEnabled={settingsForm.smtpEnabled}
+              onSMTPEnabledChange={(enabled) => admin.setSettingsField("smtpEnabled", enabled)}
+              smtpHost={settingsForm.smtpHost}
+              onSMTPHostChange={(value) => admin.setSettingsField("smtpHost", value)}
+              smtpPort={settingsForm.smtpPort}
+              onSMTPPortChange={(value) => admin.setSettingsField("smtpPort", value)}
+              smtpTestRecipient={admin.smtpTestRecipient}
+              onSMTPTestRecipientChange={admin.setSMTPTestRecipient}
+              smtpUsername={settingsForm.smtpUsername}
+              onSMTPUsernameChange={(value) => admin.setSettingsField("smtpUsername", value)}
+              smtpPassword={settingsForm.smtpPassword}
+              smtpPasswordConfigured={settingsForm.smtpPasswordConfigured}
+              onSMTPPasswordChange={(value) => admin.setSettingsField("smtpPassword", value)}
+              smtpFromEmail={settingsForm.smtpFromEmail}
+              onSMTPFromEmailChange={(value) => admin.setSettingsField("smtpFromEmail", value)}
+              smtpFromName={settingsForm.smtpFromName}
+              onSMTPFromNameChange={(value) => admin.setSettingsField("smtpFromName", value)}
+              smtpEncryption={settingsForm.smtpEncryption}
+              onSMTPEncryptionChange={(value) => admin.setSettingsField("smtpEncryption", value)}
+              smtpAuthMethod={settingsForm.smtpAuthMethod}
+              onSMTPAuthMethodChange={(value) => admin.setSettingsField("smtpAuthMethod", value)}
+              smtpHeloName={settingsForm.smtpHeloName}
+              onSMTPHeloNameChange={(value) => admin.setSettingsField("smtpHeloName", value)}
+              smtpTimeoutSeconds={settingsForm.smtpTimeoutSeconds}
+              onSMTPTimeoutSecondsChange={(value) =>
+                admin.setSettingsField("smtpTimeoutSeconds", value)
+              }
+              smtpSkipTLSVerify={settingsForm.smtpSkipTLSVerify}
+              onSMTPSkipTLSVerifyChange={(enabled) =>
+                admin.setSettingsField("smtpSkipTLSVerify", enabled)
+              }
+              smtpTesting={admin.smtpTesting}
+              onSMTPTest={admin.handleTestSMTP}
+              onSave={admin.handleSaveSettings}
             />
 
             <AdminSettingsOIDCTab
-              oidcEnabled={oidcEnabled}
-              onOIDCEnabledChange={setOIDCEnabled}
-              oidcProviderName={oidcProviderName}
-              onOIDCProviderNameChange={setOIDCProviderName}
-              oidcIssuerURL={oidcIssuerURL}
-              onOIDCIssuerURLChange={setOIDCIssuerURL}
-              oidcClientID={oidcClientID}
-              onOIDCClientIDChange={setOIDCClientID}
-              oidcClientSecret={oidcClientSecret}
-              oidcClientSecretConfigured={oidcClientSecretConfigured}
-              onOIDCClientSecretChange={setOIDCClientSecret}
-              oidcRedirectURL={oidcRedirectURL}
-              onOIDCRedirectURLChange={setOIDCRedirectURL}
-              oidcScopes={oidcScopes}
-              onOIDCScopesChange={setOIDCScopes}
-              oidcAutoCreateUser={oidcAutoCreateUser}
-              onOIDCAutoCreateUserChange={setOIDCAutoCreateUser}
-              oidcAuthorizationEndpoint={oidcAuthorizationEndpoint}
-              onOIDCAuthorizationEndpointChange={setOIDCAuthorizationEndpoint}
-              oidcTokenEndpoint={oidcTokenEndpoint}
-              onOIDCTokenEndpointChange={setOIDCTokenEndpoint}
-              oidcUserinfoEndpoint={oidcUserinfoEndpoint}
-              onOIDCUserinfoEndpointChange={setOIDCUserinfoEndpoint}
-              oidcAudience={oidcAudience}
-              onOIDCAudienceChange={setOIDCAudience}
-              oidcResource={oidcResource}
-              onOIDCResourceChange={setOIDCResource}
-              oidcExtraAuthParams={oidcExtraAuthParams}
-              onOIDCExtraAuthParamsChange={setOIDCExtraAuthParams}
-              onSave={handleSaveSettings}
+              oidcEnabled={settingsForm.oidcEnabled}
+              onOIDCEnabledChange={(enabled) => admin.setSettingsField("oidcEnabled", enabled)}
+              oidcProviderName={settingsForm.oidcProviderName}
+              onOIDCProviderNameChange={(value) => admin.setSettingsField("oidcProviderName", value)}
+              oidcIssuerURL={settingsForm.oidcIssuerURL}
+              onOIDCIssuerURLChange={(value) => admin.setSettingsField("oidcIssuerURL", value)}
+              oidcClientID={settingsForm.oidcClientID}
+              onOIDCClientIDChange={(value) => admin.setSettingsField("oidcClientID", value)}
+              oidcClientSecret={settingsForm.oidcClientSecret}
+              oidcClientSecretConfigured={settingsForm.oidcClientSecretConfigured}
+              onOIDCClientSecretChange={(value) => admin.setSettingsField("oidcClientSecret", value)}
+              oidcRedirectURL={settingsForm.oidcRedirectURL}
+              onOIDCRedirectURLChange={(value) => admin.setSettingsField("oidcRedirectURL", value)}
+              oidcScopes={settingsForm.oidcScopes}
+              onOIDCScopesChange={(value) => admin.setSettingsField("oidcScopes", value)}
+              oidcAutoCreateUser={settingsForm.oidcAutoCreateUser}
+              onOIDCAutoCreateUserChange={(enabled) =>
+                admin.setSettingsField("oidcAutoCreateUser", enabled)
+              }
+              oidcAuthorizationEndpoint={settingsForm.oidcAuthorizationEndpoint}
+              onOIDCAuthorizationEndpointChange={(value) =>
+                admin.setSettingsField("oidcAuthorizationEndpoint", value)
+              }
+              oidcTokenEndpoint={settingsForm.oidcTokenEndpoint}
+              onOIDCTokenEndpointChange={(value) => admin.setSettingsField("oidcTokenEndpoint", value)}
+              oidcUserinfoEndpoint={settingsForm.oidcUserinfoEndpoint}
+              onOIDCUserinfoEndpointChange={(value) =>
+                admin.setSettingsField("oidcUserinfoEndpoint", value)
+              }
+              oidcAudience={settingsForm.oidcAudience}
+              onOIDCAudienceChange={(value) => admin.setSettingsField("oidcAudience", value)}
+              oidcResource={settingsForm.oidcResource}
+              onOIDCResourceChange={(value) => admin.setSettingsField("oidcResource", value)}
+              oidcExtraAuthParams={settingsForm.oidcExtraAuthParams}
+              onOIDCExtraAuthParamsChange={(value) =>
+                admin.setSettingsField("oidcExtraAuthParams", value)
+              }
+              onSave={admin.handleSaveSettings}
             />
 
             <AdminExchangeRatesTab
-              currencyApiKey={currencyApiKey}
-              onCurrencyApiKeyChange={setCurrencyApiKey}
-              exchangeRateSource={exchangeRateSource}
-              onExchangeRateSourceChange={setExchangeRateSource}
-              rateStatus={rateStatus}
-              refreshing={refreshing}
-              onRefresh={handleRefreshRates}
-              onSave={handleSaveSettings}
+              currencyApiKey={settingsForm.currencyApiKey}
+              onCurrencyApiKeyChange={(value) => admin.setSettingsField("currencyApiKey", value)}
+              exchangeRateSource={settingsForm.exchangeRateSource}
+              onExchangeRateSourceChange={(value) =>
+                admin.setSettingsField("exchangeRateSource", value)
+              }
+              rateStatus={admin.rateStatus}
+              refreshing={admin.refreshing}
+              onRefresh={admin.handleRefreshRates}
+              onSave={admin.handleSaveSettings}
             />
 
-            <AdminStatsTab stats={stats} />
+            <AdminStatsTab stats={admin.stats} />
 
             <AdminBackupTab
-              includeAssetsInBackup={includeAssetsInBackup}
-              restoreFile={restoreFile}
-              onIncludeAssetsInBackupChange={setIncludeAssetsInBackup}
-              onRestoreFileChange={setRestoreFile}
-              restoreConfirmOpen={restoreConfirmOpen}
-              onRestoreConfirmOpenChange={setRestoreConfirmOpen}
-              onDownloadBackup={handleDownloadBackup}
-              onRestore={handleRestore}
+              includeAssetsInBackup={admin.includeAssetsInBackup}
+              restoreFile={admin.restoreFile}
+              onIncludeAssetsInBackupChange={admin.setIncludeAssetsInBackup}
+              onRestoreFileChange={admin.setRestoreFile}
+              restoreConfirmOpen={admin.restoreConfirmOpen}
+              onRestoreConfirmOpenChange={admin.setRestoreConfirmOpen}
+              onDownloadBackup={admin.handleDownloadBackup}
+              onRestore={admin.handleRestore}
             />
           </Tabs>
         )}

@@ -381,7 +381,7 @@ export interface UploadIconResponse {
 
 export interface NotificationChannel {
   id: number
-  type: "smtp" | "resend" | "telegram" | "webhook"
+  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark"
   enabled: boolean
   config: string
   created_at: string
@@ -409,7 +409,25 @@ export interface WebhookChannelConfig {
   method?: string
 }
 
-export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig
+export interface GotifyChannelConfig {
+  url: string
+  token: string
+}
+
+export interface NtfyChannelConfig {
+  url?: string
+  topic: string
+  token?: string
+  username?: string
+  password?: string
+}
+
+export interface BarkChannelConfig {
+  url?: string
+  device_key: string
+}
+
+export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig
 
 export interface CreateNotificationChannelInput {
   type: string
