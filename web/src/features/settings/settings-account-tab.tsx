@@ -15,12 +15,24 @@ import TotpSection from "./totp-section"
 interface SettingsAccountTabProps {
   confirmPassword: string
   currentPassword: string
+  emailChangeError: string
+  emailChangeLoading: boolean
+  emailChangePassword: string
+  emailCodeLoading: boolean
+  emailCodeSent: boolean
+  emailVerificationCode: string
+  newEmail: string
   newPassword: string
+  onConfirmEmailChange: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onChangePassword: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onEmailChangePasswordChange: (value: string) => void
+  onEmailVerificationCodeChange: (value: string) => void
   onConfirmPasswordChange: (value: string) => void
   onCurrentPasswordChange: (value: string) => void
   onLogout: () => void
+  onNewEmailChange: (value: string) => void
   onNewPasswordChange: (value: string) => void
+  onSendEmailChangeCode: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onUserChange: (user: User) => void
   passwordError: string
   passwordLoading: boolean
@@ -31,12 +43,24 @@ interface SettingsAccountTabProps {
 export default function SettingsAccountTab({
   confirmPassword,
   currentPassword,
+  emailChangeError,
+  emailChangeLoading,
+  emailChangePassword,
+  emailCodeLoading,
+  emailCodeSent,
+  emailVerificationCode,
+  newEmail,
   newPassword,
+  onConfirmEmailChange,
   onChangePassword,
+  onEmailChangePasswordChange,
+  onEmailVerificationCodeChange,
   onConfirmPasswordChange,
   onCurrentPasswordChange,
   onLogout,
+  onNewEmailChange,
   onNewPasswordChange,
+  onSendEmailChangeCode,
   onUserChange,
   passwordError,
   passwordLoading,
@@ -60,6 +84,76 @@ export default function SettingsAccountTab({
             {t("settings.account.email")}
           </Label>
           <p className="mt-0.5 text-sm">{user?.email ?? "—"}</p>
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium">{t("settings.account.changeEmail")}</h3>
+          <form onSubmit={(event) => void onSendEmailChangeCode(event)} className="mt-3 grid max-w-sm gap-3">
+            {emailChangeError && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {emailChangeError}
+              </div>
+            )}
+            {emailCodeSent && (
+              <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+                {t("settings.account.emailCodeSent")}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="new-email">{t("settings.account.newEmail")}</Label>
+              <Input
+                id="new-email"
+                type="email"
+                placeholder={t("auth.register.emailPlaceholder")}
+                value={newEmail}
+                onChange={(event) => onNewEmailChange(event.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-change-password">{t("settings.account.currentPassword")}</Label>
+              <Input
+                id="email-change-password"
+                type="password"
+                placeholder="••••••••"
+                value={emailChangePassword}
+                onChange={(event) => onEmailChangePasswordChange(event.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Button size="sm" type="submit" disabled={emailCodeLoading}>
+                {emailCodeLoading
+                  ? t("settings.account.sendingEmailCode")
+                  : t("settings.account.sendEmailCode")}
+              </Button>
+            </div>
+          </form>
+
+          <form onSubmit={(event) => void onConfirmEmailChange(event)} className="mt-3 grid max-w-sm gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="email-verification-code">{t("settings.account.emailVerificationCode")}</Label>
+              <Input
+                id="email-verification-code"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder={t("auth.register.verificationCodePlaceholder")}
+                value={emailVerificationCode}
+                onChange={(event) => onEmailVerificationCodeChange(event.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Button size="sm" type="submit" disabled={emailChangeLoading}>
+                {emailChangeLoading
+                  ? t("settings.account.confirmingEmailChange")
+                  : t("settings.account.confirmEmailChange")}
+              </Button>
+            </div>
+          </form>
         </div>
 
         <Separator />

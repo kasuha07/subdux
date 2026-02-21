@@ -16,6 +16,18 @@ type User struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type EmailVerificationCode struct {
+	ID             uint       `gorm:"primaryKey" json:"id"`
+	UserID         *uint      `gorm:"index;default:null" json:"user_id"`
+	Email          string     `gorm:"size:255;not null;index:idx_email_verification_lookup,priority:2" json:"email"`
+	Purpose        string     `gorm:"size:50;not null;index:idx_email_verification_lookup,priority:1" json:"purpose"`
+	CodeHash       string     `gorm:"not null" json:"-"`
+	FailedAttempts int        `gorm:"default:0" json:"-"`
+	ExpiresAt      time.Time  `gorm:"not null;index" json:"expires_at"`
+	ConsumedAt     *time.Time `gorm:"index" json:"consumed_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
 type UserBackupCode struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"index;not null" json:"user_id"`

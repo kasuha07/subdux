@@ -16,6 +16,7 @@ export interface AdminSettingsTabProps {
   onOIDCTokenEndpointChange: (value: string) => void
   onOIDCUserinfoEndpointChange: (value: string) => void
   onRegistrationEnabledChange: (enabled: boolean) => void
+  onRegistrationEmailVerificationEnabledChange: (enabled: boolean) => void
   onSMTPAuthMethodChange: (value: string) => void
   onSMTPEnabledChange: (enabled: boolean) => void
   onSMTPEncryptionChange: (value: string) => void
@@ -49,6 +50,7 @@ export interface AdminSettingsTabProps {
   oidcTokenEndpoint: string
   oidcUserinfoEndpoint: string
   registrationEnabled: boolean
+  registrationEmailVerificationEnabled: boolean
   smtpAuthMethod: string
   smtpEnabled: boolean
   smtpEncryption: string
@@ -73,9 +75,11 @@ export type AdminSettingsBasicSectionProps = Pick<
   | "maxIconFileSize"
   | "onMaxIconFileSizeChange"
   | "onRegistrationEnabledChange"
+  | "onRegistrationEmailVerificationEnabledChange"
   | "onSiteNameChange"
   | "onSiteUrlChange"
   | "registrationEnabled"
+  | "registrationEmailVerificationEnabled"
   | "siteName"
   | "siteUrl"
 >

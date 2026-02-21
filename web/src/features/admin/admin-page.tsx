@@ -34,6 +34,19 @@ import AdminSettingsTab from "./admin-settings-tab"
 import AdminStatsTab from "./admin-stats-tab"
 import AdminUsersTab from "./admin-users-tab"
 
+function parseFilenameFromContentDisposition(contentDisposition: string | null): string | null {
+  if (!contentDisposition) {
+    return null
+  }
+
+  const match = contentDisposition.match(/filename="?([^"]+)"?/i)
+  if (!match || !match[1]) {
+    return null
+  }
+
+  return match[1]
+}
+
 export default function AdminPage() {
   const { t } = useTranslation()
 
@@ -43,6 +56,8 @@ export default function AdminPage() {
   const [siteName, setSiteName] = useState("")
   const [siteUrl, setSiteUrl] = useState("")
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
+  const [registrationEmailVerificationEnabled, setRegistrationEmailVerificationEnabled] = useState(false)
+  const [includeAssetsInBackup, setIncludeAssetsInBackup] = useState(false)
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
 
@@ -100,6 +115,7 @@ export default function AdminPage() {
         setSiteName(settingsData?.site_name || "Subdux")
         setSiteUrl(settingsData?.site_url || "")
         setRegistrationEnabled(settingsData?.registration_enabled ?? true)
+        setRegistrationEmailVerificationEnabled(settingsData?.registration_email_verification_enabled ?? false)
         setCurrencyApiKey(settingsData?.currencyapi_key || "")
         setExchangeRateSource(settingsData?.exchange_rate_source || "auto")
         setMaxIconFileSize(
@@ -207,6 +223,7 @@ export default function AdminPage() {
     try {
       const payload: UpdateSettingsInput = {
         registration_enabled: registrationEnabled,
+        registration_email_verification_enabled: registrationEmailVerificationEnabled,
         site_name: siteName,
         site_url: siteUrl,
         currencyapi_key: currencyApiKey,
@@ -249,6 +266,7 @@ export default function AdminPage() {
       setSiteName(fresh.site_name)
       setSiteUrl(fresh.site_url)
       setRegistrationEnabled(fresh.registration_enabled)
+      setRegistrationEmailVerificationEnabled(fresh.registration_email_verification_enabled ?? false)
       setCurrencyApiKey(fresh.currencyapi_key)
       setExchangeRateSource(fresh.exchange_rate_source)
       setMaxIconFileSize(fresh.max_icon_file_size ? Math.round(fresh.max_icon_file_size / 1024) : 64)
@@ -287,6 +305,48 @@ export default function AdminPage() {
     }
   }
 
+  function hasSMTPConfigForRegistrationVerification(): boolean {
+    if (!smtpEnabled) {
+      return false
+    }
+
+    const host = smtpHost.trim()
+    const fromEmail = smtpFromEmail.trim()
+    const username = smtpUsername.trim()
+    const hasPassword = smtpPassword.trim() !== "" || smtpPasswordConfigured
+
+    if (host === "" || fromEmail === "") {
+      return false
+    }
+    if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+      return false
+    }
+
+    const authMethod = smtpAuthMethod.trim().toLowerCase()
+    if (!["auto", "plain", "login", "cram_md5", "none"].includes(authMethod)) {
+      return false
+    }
+    if (authMethod !== "auto" && authMethod !== "none" && (username === "" || !hasPassword)) {
+      return false
+    }
+
+    return true
+  }
+
+  function handleRegistrationEmailVerificationChange(enabled: boolean) {
+    if (!enabled) {
+      setRegistrationEmailVerificationEnabled(false)
+      return
+    }
+
+    if (!hasSMTPConfigForRegistrationVerification()) {
+      toast.error(t("admin.settings.registrationEmailVerificationSmtpWarning"))
+      return
+    }
+
+    setRegistrationEmailVerificationEnabled(true)
+  }
+
   async function handleTestSMTP() {
     setSMTPTesting(true)
     try {
@@ -318,7 +378,13 @@ export default function AdminPage() {
   async function handleDownloadBackup() {
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("/api/admin/backup", {
+      const params = new URLSearchParams()
+      if (includeAssetsInBackup) {
+        params.set("include_assets", "true")
+      }
+      const endpoint = params.size > 0 ? `/api/admin/backup?${params.toString()}` : "/api/admin/backup"
+
+      const res = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error()
@@ -327,7 +393,10 @@ export default function AdminPage() {
       const url = window.URL.createObjectURL(blob)
       const anchor = document.createElement("a")
       anchor.href = url
-      anchor.download = `subdux-backup-${new Date().toISOString().split("T")[0]}.db`
+      const filename =
+        parseFilenameFromContentDisposition(res.headers.get("content-disposition")) ??
+        `subdux-backup-${new Date().toISOString().split("T")[0]}${includeAssetsInBackup ? ".zip" : ".db"}`
+      anchor.download = filename
       document.body.appendChild(anchor)
       anchor.click()
       window.URL.revokeObjectURL(url)
@@ -433,7 +502,9 @@ export default function AdminPage() {
               siteUrl={siteUrl}
               onSiteUrlChange={setSiteUrl}
               registrationEnabled={registrationEnabled}
+              registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
               onRegistrationEnabledChange={setRegistrationEnabled}
+              onRegistrationEmailVerificationEnabledChange={handleRegistrationEmailVerificationChange}
               maxIconFileSize={maxIconFileSize}
               onMaxIconFileSizeChange={setMaxIconFileSize}
               onSave={handleSaveSettings}
@@ -519,7 +590,9 @@ export default function AdminPage() {
             <AdminStatsTab stats={stats} />
 
             <AdminBackupTab
+              includeAssetsInBackup={includeAssetsInBackup}
               restoreFile={restoreFile}
+              onIncludeAssetsInBackupChange={setIncludeAssetsInBackup}
               onRestoreFileChange={setRestoreFile}
               restoreConfirmOpen={restoreConfirmOpen}
               onRestoreConfirmOpenChange={setRestoreConfirmOpen}

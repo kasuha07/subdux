@@ -1,9 +1,11 @@
 package service
 
 import (
+	"archive/zip"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -41,73 +43,75 @@ type AdminStats struct {
 }
 
 type SystemSettings struct {
-	RegistrationEnabled bool   `json:"registration_enabled"`
-	SiteName            string `json:"site_name"`
-	SiteURL             string `json:"site_url"`
-	CurrencyAPIKey      string `json:"currencyapi_key"`
-	ExchangeRateSource  string `json:"exchange_rate_source"`
-	MaxIconFileSize     int64  `json:"max_icon_file_size"`
-	SMTPEnabled         bool   `json:"smtp_enabled"`
-	SMTPHost            string `json:"smtp_host"`
-	SMTPPort            int64  `json:"smtp_port"`
-	SMTPUsername        string `json:"smtp_username"`
-	SMTPPasswordSet     bool   `json:"smtp_password_configured"`
-	SMTPFromEmail       string `json:"smtp_from_email"`
-	SMTPFromName        string `json:"smtp_from_name"`
-	SMTPEncryption      string `json:"smtp_encryption"`
-	SMTPAuthMethod      string `json:"smtp_auth_method"`
-	SMTPHeloName        string `json:"smtp_helo_name"`
-	SMTPTimeoutSeconds  int64  `json:"smtp_timeout_seconds"`
-	SMTPSkipTLSVerify   bool   `json:"smtp_skip_tls_verify"`
-	OIDCEnabled         bool   `json:"oidc_enabled"`
-	OIDCProviderName    string `json:"oidc_provider_name"`
-	OIDCIssuerURL       string `json:"oidc_issuer_url"`
-	OIDCClientID        string `json:"oidc_client_id"`
-	OIDCClientSecretSet bool   `json:"oidc_client_secret_configured"`
-	OIDCRedirectURL     string `json:"oidc_redirect_url"`
-	OIDCScopes          string `json:"oidc_scopes"`
-	OIDCAutoCreateUser  bool   `json:"oidc_auto_create_user"`
-	OIDCAuthorizeURL    string `json:"oidc_authorization_endpoint"`
-	OIDCTokenURL        string `json:"oidc_token_endpoint"`
-	OIDCUserinfoURL     string `json:"oidc_userinfo_endpoint"`
-	OIDCAudience        string `json:"oidc_audience"`
-	OIDCResource        string `json:"oidc_resource"`
-	OIDCExtraAuthParams string `json:"oidc_extra_auth_params"`
+	RegistrationEnabled                  bool   `json:"registration_enabled"`
+	RegistrationEmailVerificationEnabled bool   `json:"registration_email_verification_enabled"`
+	SiteName                             string `json:"site_name"`
+	SiteURL                              string `json:"site_url"`
+	CurrencyAPIKey                       string `json:"currencyapi_key"`
+	ExchangeRateSource                   string `json:"exchange_rate_source"`
+	MaxIconFileSize                      int64  `json:"max_icon_file_size"`
+	SMTPEnabled                          bool   `json:"smtp_enabled"`
+	SMTPHost                             string `json:"smtp_host"`
+	SMTPPort                             int64  `json:"smtp_port"`
+	SMTPUsername                         string `json:"smtp_username"`
+	SMTPPasswordSet                      bool   `json:"smtp_password_configured"`
+	SMTPFromEmail                        string `json:"smtp_from_email"`
+	SMTPFromName                         string `json:"smtp_from_name"`
+	SMTPEncryption                       string `json:"smtp_encryption"`
+	SMTPAuthMethod                       string `json:"smtp_auth_method"`
+	SMTPHeloName                         string `json:"smtp_helo_name"`
+	SMTPTimeoutSeconds                   int64  `json:"smtp_timeout_seconds"`
+	SMTPSkipTLSVerify                    bool   `json:"smtp_skip_tls_verify"`
+	OIDCEnabled                          bool   `json:"oidc_enabled"`
+	OIDCProviderName                     string `json:"oidc_provider_name"`
+	OIDCIssuerURL                        string `json:"oidc_issuer_url"`
+	OIDCClientID                         string `json:"oidc_client_id"`
+	OIDCClientSecretSet                  bool   `json:"oidc_client_secret_configured"`
+	OIDCRedirectURL                      string `json:"oidc_redirect_url"`
+	OIDCScopes                           string `json:"oidc_scopes"`
+	OIDCAutoCreateUser                   bool   `json:"oidc_auto_create_user"`
+	OIDCAuthorizeURL                     string `json:"oidc_authorization_endpoint"`
+	OIDCTokenURL                         string `json:"oidc_token_endpoint"`
+	OIDCUserinfoURL                      string `json:"oidc_userinfo_endpoint"`
+	OIDCAudience                         string `json:"oidc_audience"`
+	OIDCResource                         string `json:"oidc_resource"`
+	OIDCExtraAuthParams                  string `json:"oidc_extra_auth_params"`
 }
 
 type UpdateSettingsInput struct {
-	RegistrationEnabled *bool   `json:"registration_enabled"`
-	SiteName            *string `json:"site_name"`
-	SiteURL             *string `json:"site_url"`
-	CurrencyAPIKey      *string `json:"currencyapi_key"`
-	ExchangeRateSource  *string `json:"exchange_rate_source"`
-	MaxIconFileSize     *int64  `json:"max_icon_file_size"`
-	SMTPEnabled         *bool   `json:"smtp_enabled"`
-	SMTPHost            *string `json:"smtp_host"`
-	SMTPPort            *int64  `json:"smtp_port"`
-	SMTPUsername        *string `json:"smtp_username"`
-	SMTPPassword        *string `json:"smtp_password"`
-	SMTPFromEmail       *string `json:"smtp_from_email"`
-	SMTPFromName        *string `json:"smtp_from_name"`
-	SMTPEncryption      *string `json:"smtp_encryption"`
-	SMTPAuthMethod      *string `json:"smtp_auth_method"`
-	SMTPHeloName        *string `json:"smtp_helo_name"`
-	SMTPTimeoutSeconds  *int64  `json:"smtp_timeout_seconds"`
-	SMTPSkipTLSVerify   *bool   `json:"smtp_skip_tls_verify"`
-	OIDCEnabled         *bool   `json:"oidc_enabled"`
-	OIDCProviderName    *string `json:"oidc_provider_name"`
-	OIDCIssuerURL       *string `json:"oidc_issuer_url"`
-	OIDCClientID        *string `json:"oidc_client_id"`
-	OIDCClientSecret    *string `json:"oidc_client_secret"`
-	OIDCRedirectURL     *string `json:"oidc_redirect_url"`
-	OIDCScopes          *string `json:"oidc_scopes"`
-	OIDCAutoCreateUser  *bool   `json:"oidc_auto_create_user"`
-	OIDCAuthorizeURL    *string `json:"oidc_authorization_endpoint"`
-	OIDCTokenURL        *string `json:"oidc_token_endpoint"`
-	OIDCUserinfoURL     *string `json:"oidc_userinfo_endpoint"`
-	OIDCAudience        *string `json:"oidc_audience"`
-	OIDCResource        *string `json:"oidc_resource"`
-	OIDCExtraAuthParams *string `json:"oidc_extra_auth_params"`
+	RegistrationEnabled                  *bool   `json:"registration_enabled"`
+	RegistrationEmailVerificationEnabled *bool   `json:"registration_email_verification_enabled"`
+	SiteName                             *string `json:"site_name"`
+	SiteURL                              *string `json:"site_url"`
+	CurrencyAPIKey                       *string `json:"currencyapi_key"`
+	ExchangeRateSource                   *string `json:"exchange_rate_source"`
+	MaxIconFileSize                      *int64  `json:"max_icon_file_size"`
+	SMTPEnabled                          *bool   `json:"smtp_enabled"`
+	SMTPHost                             *string `json:"smtp_host"`
+	SMTPPort                             *int64  `json:"smtp_port"`
+	SMTPUsername                         *string `json:"smtp_username"`
+	SMTPPassword                         *string `json:"smtp_password"`
+	SMTPFromEmail                        *string `json:"smtp_from_email"`
+	SMTPFromName                         *string `json:"smtp_from_name"`
+	SMTPEncryption                       *string `json:"smtp_encryption"`
+	SMTPAuthMethod                       *string `json:"smtp_auth_method"`
+	SMTPHeloName                         *string `json:"smtp_helo_name"`
+	SMTPTimeoutSeconds                   *int64  `json:"smtp_timeout_seconds"`
+	SMTPSkipTLSVerify                    *bool   `json:"smtp_skip_tls_verify"`
+	OIDCEnabled                          *bool   `json:"oidc_enabled"`
+	OIDCProviderName                     *string `json:"oidc_provider_name"`
+	OIDCIssuerURL                        *string `json:"oidc_issuer_url"`
+	OIDCClientID                         *string `json:"oidc_client_id"`
+	OIDCClientSecret                     *string `json:"oidc_client_secret"`
+	OIDCRedirectURL                      *string `json:"oidc_redirect_url"`
+	OIDCScopes                           *string `json:"oidc_scopes"`
+	OIDCAutoCreateUser                   *bool   `json:"oidc_auto_create_user"`
+	OIDCAuthorizeURL                     *string `json:"oidc_authorization_endpoint"`
+	OIDCTokenURL                         *string `json:"oidc_token_endpoint"`
+	OIDCUserinfoURL                      *string `json:"oidc_userinfo_endpoint"`
+	OIDCAudience                         *string `json:"oidc_audience"`
+	OIDCResource                         *string `json:"oidc_resource"`
+	OIDCExtraAuthParams                  *string `json:"oidc_extra_auth_params"`
 }
 
 type CreateUserInput struct {
@@ -185,6 +189,9 @@ func (s *AdminService) DeleteUser(userID uint) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&model.OIDCConnection{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("user_id = ?", userID).Delete(&model.EmailVerificationCode{}).Error; err != nil {
+			return err
+		}
 		return tx.Delete(&model.User{}, userID).Error
 	}); err != nil {
 		return err
@@ -227,38 +234,39 @@ func (s *AdminService) GetStats() (*AdminStats, error) {
 
 func (s *AdminService) GetSettings() (*SystemSettings, error) {
 	settings := &SystemSettings{
-		RegistrationEnabled: true,
-		SiteName:            "Subdux",
-		SiteURL:             "",
-		CurrencyAPIKey:      "",
-		ExchangeRateSource:  "auto",
-		MaxIconFileSize:     65536,
-		SMTPEnabled:         false,
-		SMTPHost:            "",
-		SMTPPort:            587,
-		SMTPUsername:        "",
-		SMTPPasswordSet:     false,
-		SMTPFromEmail:       "",
-		SMTPFromName:        "",
-		SMTPEncryption:      "starttls",
-		SMTPAuthMethod:      "auto",
-		SMTPHeloName:        "",
-		SMTPTimeoutSeconds:  10,
-		SMTPSkipTLSVerify:   false,
-		OIDCEnabled:         false,
-		OIDCProviderName:    "OIDC",
-		OIDCIssuerURL:       "",
-		OIDCClientID:        "",
-		OIDCClientSecretSet: false,
-		OIDCRedirectURL:     "",
-		OIDCScopes:          "openid profile email",
-		OIDCAutoCreateUser:  false,
-		OIDCAuthorizeURL:    "",
-		OIDCTokenURL:        "",
-		OIDCUserinfoURL:     "",
-		OIDCAudience:        "",
-		OIDCResource:        "",
-		OIDCExtraAuthParams: "",
+		RegistrationEnabled:                  true,
+		RegistrationEmailVerificationEnabled: false,
+		SiteName:                             "Subdux",
+		SiteURL:                              "",
+		CurrencyAPIKey:                       "",
+		ExchangeRateSource:                   "auto",
+		MaxIconFileSize:                      65536,
+		SMTPEnabled:                          false,
+		SMTPHost:                             "",
+		SMTPPort:                             587,
+		SMTPUsername:                         "",
+		SMTPPasswordSet:                      false,
+		SMTPFromEmail:                        "",
+		SMTPFromName:                         "",
+		SMTPEncryption:                       "starttls",
+		SMTPAuthMethod:                       "auto",
+		SMTPHeloName:                         "",
+		SMTPTimeoutSeconds:                   10,
+		SMTPSkipTLSVerify:                    false,
+		OIDCEnabled:                          false,
+		OIDCProviderName:                     "OIDC",
+		OIDCIssuerURL:                        "",
+		OIDCClientID:                         "",
+		OIDCClientSecretSet:                  false,
+		OIDCRedirectURL:                      "",
+		OIDCScopes:                           "openid profile email",
+		OIDCAutoCreateUser:                   false,
+		OIDCAuthorizeURL:                     "",
+		OIDCTokenURL:                         "",
+		OIDCUserinfoURL:                      "",
+		OIDCAudience:                         "",
+		OIDCResource:                         "",
+		OIDCExtraAuthParams:                  "",
 	}
 
 	var items []model.SystemSetting
@@ -268,6 +276,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		switch item.Key {
 		case "registration_enabled":
 			settings.RegistrationEnabled = item.Value == "true"
+		case "registration_email_verification_enabled":
+			settings.RegistrationEmailVerificationEnabled = item.Value == "true"
 		case "site_name":
 			settings.SiteName = item.Value
 		case "site_url":
@@ -352,6 +362,18 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "registration_enabled").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "registration_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.RegistrationEmailVerificationEnabled != nil {
+			value := "false"
+			if *input.RegistrationEmailVerificationEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "registration_email_verification_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "registration_email_verification_enabled"}).Error; err != nil {
 				return err
 			}
 		}
@@ -623,8 +645,33 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			}
 		}
 
+		registrationEmailVerificationEnabled, err := isSystemSettingEnabled(
+			tx,
+			"registration_email_verification_enabled",
+			false,
+		)
+		if err != nil {
+			return err
+		}
+		if registrationEmailVerificationEnabled {
+			if _, err := loadSMTPRuntimeConfig(tx); err != nil {
+				return errors.New("smtp settings must be valid when registration email verification is enabled")
+			}
+		}
+
 		return nil
 	})
+}
+
+func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, error) {
+	var setting model.SystemSetting
+	if err := tx.Where("key = ?", key).First(&setting).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return defaultValue, nil
+		}
+		return defaultValue, err
+	}
+	return setting.Value == "true", nil
 }
 
 type smtpRuntimeConfig struct {
@@ -667,7 +714,7 @@ func (a *smtpLoginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 }
 
 func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) error {
-	cfg, err := s.loadSMTPRuntimeConfig()
+	cfg, err := loadSMTPRuntimeConfig(s.DB)
 	if err != nil {
 		return err
 	}
@@ -701,30 +748,64 @@ func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) 
 }
 
 func (s *AdminService) loadSMTPRuntimeConfig() (*smtpRuntimeConfig, error) {
-	settings, err := s.GetSettings()
-	if err != nil {
+	return loadSMTPRuntimeConfig(s.DB)
+}
+
+func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
+	if db == nil {
 		return nil, errors.New("failed to load smtp settings")
 	}
 
-	if !settings.SMTPEnabled {
+	defaults := map[string]string{
+		"smtp_enabled":         "false",
+		"smtp_host":            "",
+		"smtp_port":            "587",
+		"smtp_username":        "",
+		"smtp_password":        "",
+		"smtp_from_email":      "",
+		"smtp_from_name":       "",
+		"smtp_encryption":      "starttls",
+		"smtp_auth_method":     "auto",
+		"smtp_helo_name":       "",
+		"smtp_timeout_seconds": "10",
+		"smtp_skip_tls_verify": "false",
+	}
+
+	keys := make([]string, 0, len(defaults))
+	values := make(map[string]string, len(defaults))
+	for key, value := range defaults {
+		keys = append(keys, key)
+		values[key] = value
+	}
+
+	var items []model.SystemSetting
+	if err := db.Where("key IN ?", keys).Find(&items).Error; err != nil {
+		return nil, errors.New("failed to load smtp settings")
+	}
+	for _, item := range items {
+		values[item.Key] = item.Value
+	}
+
+	if values["smtp_enabled"] != "true" {
 		return nil, errors.New("smtp is disabled")
 	}
 
-	host := strings.TrimSpace(settings.SMTPHost)
+	host := strings.TrimSpace(values["smtp_host"])
 	if host == "" {
 		return nil, errors.New("smtp host is required")
 	}
 
-	if settings.SMTPPort < 1 || settings.SMTPPort > 65535 {
+	port, err := strconv.ParseInt(strings.TrimSpace(values["smtp_port"]), 10, 64)
+	if err != nil || port < 1 || port > 65535 {
 		return nil, errors.New("smtp port must be between 1 and 65535")
 	}
 
-	fromEmail := strings.TrimSpace(settings.SMTPFromEmail)
+	fromEmail := strings.TrimSpace(values["smtp_from_email"])
 	if fromEmail == "" {
 		return nil, errors.New("smtp from email is required")
 	}
 
-	encryption := strings.ToLower(strings.TrimSpace(settings.SMTPEncryption))
+	encryption := strings.ToLower(strings.TrimSpace(values["smtp_encryption"]))
 	if encryption == "" {
 		encryption = "starttls"
 	}
@@ -734,7 +815,7 @@ func (s *AdminService) loadSMTPRuntimeConfig() (*smtpRuntimeConfig, error) {
 		return nil, errors.New("unsupported smtp encryption mode")
 	}
 
-	authMethod := strings.ToLower(strings.TrimSpace(settings.SMTPAuthMethod))
+	authMethod := strings.ToLower(strings.TrimSpace(values["smtp_auth_method"]))
 	if authMethod == "" {
 		authMethod = "auto"
 	}
@@ -744,36 +825,30 @@ func (s *AdminService) loadSMTPRuntimeConfig() (*smtpRuntimeConfig, error) {
 		return nil, errors.New("unsupported smtp auth method")
 	}
 
-	timeoutSeconds := settings.SMTPTimeoutSeconds
-	if timeoutSeconds <= 0 {
+	timeoutSeconds, err := strconv.ParseInt(strings.TrimSpace(values["smtp_timeout_seconds"]), 10, 64)
+	if err != nil || timeoutSeconds <= 0 {
 		timeoutSeconds = 10
 	}
 
-	password := ""
-	var passwordSetting model.SystemSetting
-	if err := s.DB.Where("key = ?", "smtp_password").First(&passwordSetting).Error; err == nil {
-		password = passwordSetting.Value
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.New("failed to read smtp password")
-	}
+	username := strings.TrimSpace(values["smtp_username"])
+	password := values["smtp_password"]
 
-	username := strings.TrimSpace(settings.SMTPUsername)
 	if authMethod != "auto" && authMethod != "none" && (username == "" || strings.TrimSpace(password) == "") {
 		return nil, errors.New("smtp username and password are required for selected auth method")
 	}
 
 	return &smtpRuntimeConfig{
 		Host:           host,
-		Port:           settings.SMTPPort,
+		Port:           port,
 		Username:       username,
 		Password:       password,
 		FromEmail:      fromEmail,
-		FromName:       strings.TrimSpace(settings.SMTPFromName),
+		FromName:       strings.TrimSpace(values["smtp_from_name"]),
 		Encryption:     encryption,
 		AuthMethod:     authMethod,
-		HeloName:       strings.TrimSpace(settings.SMTPHeloName),
+		HeloName:       strings.TrimSpace(values["smtp_helo_name"]),
 		TimeoutSeconds: timeoutSeconds,
-		SkipTLSVerify:  settings.SMTPSkipTLSVerify,
+		SkipTLSVerify:  values["smtp_skip_tls_verify"] == "true",
 	}, nil
 }
 
@@ -962,7 +1037,7 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 	return &user, nil
 }
 
-func (s *AdminService) BackupDB() (string, error) {
+func (s *AdminService) BackupDB(includeAssets bool) (string, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	backupPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
 
@@ -971,5 +1046,104 @@ func (s *AdminService) BackupDB() (string, error) {
 		return "", err
 	}
 
-	return backupPath, nil
+	if !includeAssets {
+		return backupPath, nil
+	}
+
+	archivePath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.zip", timestamp))
+	if err := createBackupZip(archivePath, backupPath); err != nil {
+		_ = os.Remove(backupPath)
+		_ = os.Remove(archivePath)
+		return "", err
+	}
+
+	_ = os.Remove(backupPath)
+
+	return archivePath, nil
+}
+
+func createBackupZip(archivePath string, dbPath string) error {
+	file, err := os.Create(archivePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	zipWriter := zip.NewWriter(file)
+
+	if err := addFileToBackupZip(zipWriter, dbPath, "subdux.db"); err != nil {
+		_ = zipWriter.Close()
+		return err
+	}
+
+	if err := addAssetsToBackupZip(zipWriter); err != nil {
+		_ = zipWriter.Close()
+		return err
+	}
+
+	return zipWriter.Close()
+}
+
+func addFileToBackupZip(zipWriter *zip.Writer, sourcePath string, archivePath string) error {
+	sourceFile, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	targetFile, err := zipWriter.Create(archivePath)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(targetFile, sourceFile); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func addAssetsToBackupZip(zipWriter *zip.Writer) error {
+	assetsRoot := filepath.Join("data", "assets")
+	if err := addDirectoryToBackupZip(zipWriter, "assets/"); err != nil {
+		return err
+	}
+
+	info, err := os.Stat(assetsRoot)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	if !info.IsDir() {
+		return nil
+	}
+
+	return filepath.Walk(assetsRoot, func(path string, fileInfo os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if fileInfo.IsDir() {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(assetsRoot, path)
+		if err != nil {
+			return err
+		}
+
+		archivePath := filepath.ToSlash(filepath.Join("assets", relativePath))
+		return addFileToBackupZip(zipWriter, path, archivePath)
+	})
+}
+
+func addDirectoryToBackupZip(zipWriter *zip.Writer, archivePath string) error {
+	header := &zip.FileHeader{
+		Name: archivePath,
+	}
+	header.SetMode(os.ModeDir | 0o755)
+
+	_, err := zipWriter.CreateHeader(header)
+	return err
 }

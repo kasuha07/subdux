@@ -54,6 +54,11 @@ export interface AuthResponse {
   user: User
 }
 
+export interface RegistrationConfig {
+  registration_enabled: boolean
+  email_verification_enabled: boolean
+}
+
 export interface OIDCConfig {
   enabled: boolean
   provider_name: string
@@ -172,6 +177,26 @@ export interface ChangePasswordInput {
   new_password: string
 }
 
+export interface ForgotPasswordInput {
+  email: string
+}
+
+export interface ResetPasswordInput {
+  email: string
+  verification_code: string
+  new_password: string
+}
+
+export interface SendEmailChangeCodeInput {
+  new_email: string
+  password: string
+}
+
+export interface ConfirmEmailChangeInput {
+  new_email: string
+  verification_code: string
+}
+
 export interface AdminStats {
   total_users: number
   total_subscriptions: number
@@ -180,6 +205,7 @@ export interface AdminStats {
 
 export interface SystemSettings {
   registration_enabled: boolean
+  registration_email_verification_enabled: boolean
   site_name: string
   site_url: string
   currencyapi_key: string
@@ -215,6 +241,7 @@ export interface SystemSettings {
 
 export interface UpdateSettingsInput {
   registration_enabled?: boolean
+  registration_email_verification_enabled?: boolean
   site_name?: string
   site_url?: string
   currencyapi_key?: string

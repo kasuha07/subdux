@@ -52,8 +52,12 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	api := e.Group("/api")
 
 	auth := api.Group("/auth")
+	auth.GET("/register/config", authHandler.GetRegistrationConfig)
+	auth.POST("/register/send-code", authHandler.SendRegisterVerificationCode)
 	auth.POST("/register", authHandler.Register)
 	auth.POST("/login", authHandler.Login)
+	auth.POST("/password/forgot", authHandler.ForgotPassword)
+	auth.POST("/password/reset", authHandler.ResetPassword)
 	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin)
 	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin)
 	auth.POST("/passkeys/login/finish", authHandler.FinishPasskeyLogin)
@@ -82,6 +86,8 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 
 	protected.GET("/auth/me", authHandler.Me)
 	protected.PUT("/auth/password", authHandler.ChangePassword)
+	protected.POST("/auth/email/change/send-code", authHandler.SendEmailChangeVerificationCode)
+	protected.POST("/auth/email/change/confirm", authHandler.ConfirmEmailChange)
 	protected.GET("/auth/totp/setup", authHandler.SetupTOTP)
 	protected.POST("/auth/totp/confirm", authHandler.ConfirmTOTP)
 	protected.POST("/auth/totp/disable", authHandler.DisableTOTP)
@@ -143,6 +149,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 func seedDefaultSettings(db *gorm.DB) {
 	defaults := []model.SystemSetting{
 		{Key: "registration_enabled", Value: "true"},
+		{Key: "registration_email_verification_enabled", Value: "false"},
 		{Key: "site_name", Value: "Subdux"},
 		{Key: "site_url", Value: ""},
 		{Key: "currencyapi_key", Value: ""},

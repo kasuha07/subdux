@@ -4,6 +4,8 @@ import { useSiteSettings } from "@/hooks/useSiteSettings"
 import { AppToaster } from "@/components/app-toaster"
 import LoginPage from "@/features/auth/login-page"
 import RegisterPage from "@/features/auth/register-page"
+import ForgotPasswordPage from "@/features/auth/forgot-password-page"
+import ResetPasswordPage from "@/features/auth/reset-password-page"
 import DashboardPage from "@/features/dashboard/dashboard-page"
 import SettingsPage from "@/features/settings/settings-page"
 import AdminPage from "@/features/admin/admin-page"
@@ -41,6 +43,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+        <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
         <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />

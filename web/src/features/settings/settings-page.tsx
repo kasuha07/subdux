@@ -13,7 +13,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { api, clearToken } from "@/lib/api"
+import { api, clearToken, setAuth } from "@/lib/api"
 import {
   DEFAULT_CURRENCY_FALLBACK,
   getPresetCurrencies,
@@ -22,8 +22,11 @@ import {
 import { applyTheme, getTheme, type Theme } from "@/lib/theme"
 import { toast } from "sonner"
 import type {
+  AuthResponse,
+  ConfirmEmailChangeInput,
   CreateCurrencyInput,
   ReorderCurrencyItem,
+  SendEmailChangeCodeInput,
   UpdateCurrencyInput,
   User,
   UserCurrency,
@@ -71,6 +74,13 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>(getTheme())
   const [currency, setCurrency] = useState(localStorage.getItem("defaultCurrency") || "USD")
   const [user, setUser] = useState<User | null>(null)
+  const [newEmail, setNewEmail] = useState("")
+  const [emailChangePassword, setEmailChangePassword] = useState("")
+  const [emailVerificationCode, setEmailVerificationCode] = useState("")
+  const [emailCodeSent, setEmailCodeSent] = useState(false)
+  const [emailCodeLoading, setEmailCodeLoading] = useState(false)
+  const [emailChangeLoading, setEmailChangeLoading] = useState(false)
+  const [emailChangeError, setEmailChangeError] = useState("")
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -270,6 +280,74 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSendEmailChangeCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setEmailChangeError("")
+    setEmailCodeSent(false)
+
+    if (!newEmail.trim()) {
+      setEmailChangeError(t("settings.account.newEmailRequired"))
+      return
+    }
+    if (!emailChangePassword) {
+      setEmailChangeError(t("settings.account.emailChangePasswordRequired"))
+      return
+    }
+    if (user?.email && newEmail.trim().toLowerCase() === user.email.toLowerCase()) {
+      setEmailChangeError(t("settings.account.newEmailMustBeDifferent"))
+      return
+    }
+
+    setEmailCodeLoading(true)
+    try {
+      const payload: SendEmailChangeCodeInput = {
+        new_email: newEmail.trim(),
+        password: emailChangePassword,
+      }
+      await api.post<{ message: string }>("/auth/email/change/send-code", payload)
+      setEmailCodeSent(true)
+      toast.success(t("settings.account.emailCodeSent"))
+    } catch (err) {
+      setEmailChangeError(err instanceof Error ? err.message : t("settings.account.emailChangeError"))
+    } finally {
+      setEmailCodeLoading(false)
+    }
+  }
+
+  async function handleConfirmEmailChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setEmailChangeError("")
+
+    if (!newEmail.trim()) {
+      setEmailChangeError(t("settings.account.newEmailRequired"))
+      return
+    }
+    if (!emailVerificationCode.trim()) {
+      setEmailChangeError(t("settings.account.emailVerificationCodeRequired"))
+      return
+    }
+
+    setEmailChangeLoading(true)
+    try {
+      const payload: ConfirmEmailChangeInput = {
+        new_email: newEmail.trim(),
+        verification_code: emailVerificationCode.trim(),
+      }
+      const authData = await api.post<AuthResponse>("/auth/email/change/confirm", payload)
+      setAuth(authData.token, authData.user)
+      setUser(authData.user)
+      setNewEmail("")
+      setEmailChangePassword("")
+      setEmailVerificationCode("")
+      setEmailCodeSent(false)
+      toast.success(t("settings.account.emailChangeSuccess"))
+    } catch (err) {
+      setEmailChangeError(err instanceof Error ? err.message : t("settings.account.emailChangeError"))
+    } finally {
+      setEmailChangeLoading(false)
+    }
+  }
+
   function handleLogout() {
     clearToken()
     toast.success(t("settings.account.logoutSuccess"))
@@ -452,6 +530,18 @@ export default function SettingsPage() {
           <SettingsAccountTab
             user={user}
             onUserChange={setUser}
+            newEmail={newEmail}
+            onNewEmailChange={setNewEmail}
+            emailChangePassword={emailChangePassword}
+            onEmailChangePasswordChange={setEmailChangePassword}
+            emailVerificationCode={emailVerificationCode}
+            onEmailVerificationCodeChange={setEmailVerificationCode}
+            emailCodeLoading={emailCodeLoading}
+            emailChangeLoading={emailChangeLoading}
+            emailCodeSent={emailCodeSent}
+            emailChangeError={emailChangeError}
+            onSendEmailChangeCode={handleSendEmailChangeCode}
+            onConfirmEmailChange={handleConfirmEmailChange}
             passwordError={passwordError}
             passwordSuccess={passwordSuccess}
             currentPassword={currentPassword}

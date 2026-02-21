@@ -31,6 +31,7 @@ func InitDB() *gorm.DB {
 
 	if err := db.AutoMigrate(
 		&model.User{},
+		&model.EmailVerificationCode{},
 		&model.Subscription{},
 		&model.SystemSetting{},
 		&model.ExchangeRate{},

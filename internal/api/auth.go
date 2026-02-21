@@ -3,9 +3,12 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/labstack/echo/v4"
@@ -68,14 +71,53 @@ func mapLoginResponse(resp *service.LoginResponse) loginResponse {
 	}
 }
 
+func authServiceErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, service.ErrRegistrationDisabled):
+		return http.StatusForbidden
+	case errors.Is(err, service.ErrEmailAlreadyRegistered), errors.Is(err, service.ErrUsernameAlreadyTaken):
+		return http.StatusConflict
+	case errors.Is(err, service.ErrVerificationCodeTooFrequent):
+		return http.StatusTooManyRequests
+	case errors.Is(err, service.ErrUserNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, service.ErrRegistrationEmailVerificationDisabled),
+		errors.Is(err, service.ErrVerificationCodeRequired),
+		errors.Is(err, service.ErrVerificationCodeInvalid),
+		errors.Is(err, service.ErrVerificationCodeTooManyAttempts),
+		errors.Is(err, service.ErrInvalidEmail),
+		errors.Is(err, service.ErrCurrentPasswordIncorrect),
+		errors.Is(err, service.ErrNewEmailSameAsCurrent),
+		errors.Is(err, service.ErrSMTPUnavailable):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func writeAuthServiceError(c echo.Context, err error) error {
+	status := authServiceErrorStatus(err)
+	if status == http.StatusInternalServerError {
+		return c.JSON(status, echo.Map{"error": "internal server error"})
+	}
+	return c.JSON(status, echo.Map{"error": err.Error()})
+}
+
 func (h *AuthHandler) Register(c echo.Context) error {
 	var input service.RegisterInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
+	input.Username = strings.TrimSpace(input.Username)
+	input.Email = strings.TrimSpace(input.Email)
+	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
+
 	if input.Username == "" || input.Email == "" || input.Password == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Username, email and password are required"})
+	}
+	if _, err := mail.ParseAddress(input.Email); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
 	if len(input.Password) < 6 {
@@ -84,13 +126,97 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	resp, err := h.Service.Register(input)
 	if err != nil {
-		return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
+		return writeAuthServiceError(c, err)
 	}
 
 	return c.JSON(http.StatusCreated, authResponse{
 		Token: resp.Token,
 		User:  mapAuthUserResponse(resp.User),
 	})
+}
+
+func (h *AuthHandler) GetRegistrationConfig(c echo.Context) error {
+	config, err := h.Service.GetRegistrationConfig()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load registration config"})
+	}
+	return c.JSON(http.StatusOK, config)
+}
+
+func (h *AuthHandler) SendRegisterVerificationCode(c echo.Context) error {
+	var input struct {
+		Email string `json:"email"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	email := strings.TrimSpace(input.Email)
+	if email == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email is required"})
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+	}
+
+	if err := h.Service.SendRegistrationVerificationCode(email); err != nil {
+		return writeAuthServiceError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "verification code sent"})
+}
+
+func (h *AuthHandler) ForgotPassword(c echo.Context) error {
+	var input struct {
+		Email string `json:"email"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	email := strings.TrimSpace(input.Email)
+	if email == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email is required"})
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+	}
+
+	if err := h.Service.RequestPasswordReset(email); err != nil {
+		return writeAuthServiceError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "if the account exists, a verification code has been sent"})
+}
+
+func (h *AuthHandler) ResetPassword(c echo.Context) error {
+	var input struct {
+		Email            string `json:"email"`
+		VerificationCode string `json:"verification_code"`
+		NewPassword      string `json:"new_password"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	input.Email = strings.TrimSpace(input.Email)
+	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
+
+	if input.Email == "" || input.VerificationCode == "" || input.NewPassword == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email, verification code and new password are required"})
+	}
+	if _, err := mail.ParseAddress(input.Email); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+	}
+	if len(input.NewPassword) < 6 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 6 characters"})
+	}
+
+	if err := h.Service.ResetPassword(input.Email, input.VerificationCode, input.NewPassword); err != nil {
+		return writeAuthServiceError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "password reset successfully"})
 }
 
 func (h *AuthHandler) Me(c echo.Context) error {
@@ -118,6 +244,61 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "Password changed successfully"})
+}
+
+func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
+	userID := getUserID(c)
+	var input struct {
+		NewEmail string `json:"new_email"`
+		Password string `json:"password"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	input.NewEmail = strings.TrimSpace(input.NewEmail)
+	if input.NewEmail == "" || input.Password == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New email and password are required"})
+	}
+	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+	}
+
+	if err := h.Service.SendEmailChangeVerificationCode(userID, input.NewEmail, input.Password); err != nil {
+		return writeAuthServiceError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "verification code sent"})
+}
+
+func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
+	userID := getUserID(c)
+	var input struct {
+		NewEmail         string `json:"new_email"`
+		VerificationCode string `json:"verification_code"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	input.NewEmail = strings.TrimSpace(input.NewEmail)
+	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
+	if input.NewEmail == "" || input.VerificationCode == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New email and verification code are required"})
+	}
+	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+	}
+
+	resp, err := h.Service.ConfirmEmailChange(userID, input.NewEmail, input.VerificationCode)
+	if err != nil {
+		return writeAuthServiceError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, authResponse{
+		Token: resp.Token,
+		User:  mapAuthUserResponse(resp.User),
+	})
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {

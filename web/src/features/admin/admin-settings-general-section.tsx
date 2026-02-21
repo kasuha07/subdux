@@ -10,9 +10,11 @@ import type { AdminSettingsBasicSectionProps } from "./admin-settings-types"
 export default function AdminSettingsGeneralSection({
   maxIconFileSize,
   onMaxIconFileSizeChange,
+  onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
   onSiteNameChange,
   onSiteUrlChange,
+  registrationEmailVerificationEnabled,
   registrationEnabled,
   siteName,
   siteUrl,
@@ -57,6 +59,24 @@ export default function AdminSettingsGeneralSection({
           id="registration"
           checked={registrationEnabled}
           onCheckedChange={onRegistrationEnabledChange}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="registration-email-verification">
+            {t("admin.settings.registrationEmailVerificationEnabled")}
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            {t("admin.settings.registrationEmailVerificationDescription")}
+          </p>
+        </div>
+        <Switch
+          id="registration-email-verification"
+          checked={registrationEmailVerificationEnabled}
+          onCheckedChange={onRegistrationEmailVerificationEnabledChange}
         />
       </div>
 

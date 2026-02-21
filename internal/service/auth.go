@@ -2,7 +2,9 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
@@ -31,9 +33,10 @@ func NewAuthService(db *gorm.DB) *AuthService {
 }
 
 type RegisterInput struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Username         string `json:"username"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	VerificationCode string `json:"verification_code"`
 }
 
 type LoginInput struct {
@@ -54,24 +57,41 @@ type LoginResponse struct {
 }
 
 func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
-	var userCount int64
-	s.DB.Model(&model.User{}).Count(&userCount)
+	input.Username = strings.TrimSpace(input.Username)
+	input.Email = normalizeEmail(input.Email)
+	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
 
-	if userCount > 0 {
-		var setting model.SystemSetting
-		if err := s.DB.Where("key = ?", "registration_enabled").First(&setting).Error; err == nil {
-			if setting.Value == "false" {
-				return nil, errors.New("registration is disabled")
-			}
+	var userCount int64
+	if err := s.DB.Model(&model.User{}).Count(&userCount).Error; err != nil {
+		return nil, err
+	}
+
+	if !s.isRegistrationEnabled(userCount) {
+		return nil, ErrRegistrationDisabled
+	}
+
+	emailVerificationEnabled := s.isRegistrationEmailVerificationEnabled()
+	if emailVerificationEnabled {
+		if input.VerificationCode == "" {
+			return nil, ErrVerificationCodeRequired
+		}
+		if err := s.consumeVerificationCode(nil, input.Email, verificationPurposeRegister, input.VerificationCode); err != nil {
+			return nil, err
 		}
 	}
 
-	var existing model.User
-	if err := s.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
-		return nil, errors.New("email already registered")
+	if exists, err := s.emailExists(input.Email, 0); err != nil {
+		return nil, err
+	} else if exists {
+		return nil, ErrEmailAlreadyRegistered
 	}
-	if err := s.DB.Where("username = ?", input.Username).First(&existing).Error; err == nil {
-		return nil, errors.New("username already taken")
+
+	var usernameCount int64
+	if err := s.DB.Model(&model.User{}).Where("username = ?", input.Username).Count(&usernameCount).Error; err != nil {
+		return nil, err
+	}
+	if usernameCount > 0 {
+		return nil, ErrUsernameAlreadyTaken
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
@@ -101,6 +121,13 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		return nil, err
 	}
 
+	if emailVerificationEnabled {
+		now := time.Now()
+		_ = s.DB.Model(&model.EmailVerificationCode{}).
+			Where("email = ? AND purpose = ? AND consumed_at IS NULL", input.Email, verificationPurposeRegister).
+			Update("consumed_at", &now).Error
+	}
+
 	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
 	if err != nil {
 		return nil, err
@@ -117,7 +144,7 @@ type ChangePasswordInput struct {
 func (s *AuthService) GetUser(userID uint) (*model.User, error) {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
-		return nil, errors.New("user not found")
+		return nil, ErrUserNotFound
 	}
 	return &user, nil
 }
@@ -125,10 +152,10 @@ func (s *AuthService) GetUser(userID uint) (*model.User, error) {
 func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) error {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
-		return errors.New("user not found")
+		return ErrUserNotFound
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
-		return errors.New("current password is incorrect")
+		return ErrCurrentPasswordIncorrect
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -138,8 +165,11 @@ func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) err
 }
 
 func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
+	identifier := strings.TrimSpace(input.Identifier)
+	normalizedEmail := strings.ToLower(identifier)
+
 	var user model.User
-	if err := s.DB.Where("email = ? OR username = ?", input.Identifier, input.Identifier).First(&user).Error; err != nil {
+	if err := s.DB.Where("LOWER(email) = ? OR username = ?", normalizedEmail, identifier).First(&user).Error; err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 

@@ -11,10 +11,12 @@ import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 export default function AdminSettingsTab({
   maxIconFileSize,
   onMaxIconFileSizeChange,
+  onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
   onSave,
   onSiteNameChange,
   onSiteUrlChange,
+  registrationEmailVerificationEnabled,
   registrationEnabled,
   siteName,
   siteUrl,
@@ -28,9 +30,11 @@ export default function AdminSettingsTab({
           <AdminSettingsGeneralSection
             maxIconFileSize={maxIconFileSize}
             onMaxIconFileSizeChange={onMaxIconFileSizeChange}
+            onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
             onRegistrationEnabledChange={onRegistrationEnabledChange}
             onSiteNameChange={onSiteNameChange}
             onSiteUrlChange={onSiteUrlChange}
+            registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
             registrationEnabled={registrationEnabled}
             siteName={siteName}
             siteUrl={siteUrl}
