@@ -66,8 +66,6 @@ const admin = {
     "smtpUsernamePlaceholder": "mailer@example.com",
     "smtpPassword": "SMTPパスワード",
     "smtpPasswordPlaceholder": "既存のパスワードを保持する場合は空欄",
-    "smtpPasswordConfigured": "SMTPパスワードは設定済みです。置き換える場合のみ入力してください。",
-    "smtpPasswordNotConfigured": "SMTPパスワードは未設定です。",
     "smtpFromEmail": "送信元メール",
     "smtpFromEmailPlaceholder": "no-reply@example.com",
     "smtpFromName": "送信者名",

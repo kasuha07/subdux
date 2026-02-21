@@ -215,7 +215,7 @@ export interface SystemSettings {
   registration_email_verification_enabled: boolean
   site_name: string
   site_url: string
-  currencyapi_key: string
+  currencyapi_key_configured: boolean
   exchange_rate_source: string
   max_icon_file_size: number
   smtp_enabled: boolean

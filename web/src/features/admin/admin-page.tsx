@@ -194,6 +194,7 @@ export default function AdminPage() {
 
             <AdminExchangeRatesTab
               currencyApiKey={settingsForm.currencyApiKey}
+              currencyApiKeyConfigured={settingsForm.currencyApiKeyConfigured}
               onCurrencyApiKeyChange={(value) => admin.setSettingsField("currencyApiKey", value)}
               exchangeRateSource={settingsForm.exchangeRateSource}
               onExchangeRateSourceChange={(value) =>

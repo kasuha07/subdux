@@ -13,6 +13,7 @@ import type {
 
 interface AdminSettingsFormState {
   currencyApiKey: string
+  currencyApiKeyConfigured: boolean
   exchangeRateSource: string
   maxIconFileSize: number
   oidcAudience: string
@@ -97,7 +98,8 @@ interface UseAdminPageStateResult {
 
 function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
   return {
-    currencyApiKey: settings?.currencyapi_key || "",
+    currencyApiKey: "",
+    currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
     exchangeRateSource: settings?.exchange_rate_source || "auto",
     maxIconFileSize: settings?.max_icon_file_size
       ? Math.round(settings.max_icon_file_size / 1024)
@@ -302,7 +304,6 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         registration_email_verification_enabled: settingsForm.registrationEmailVerificationEnabled,
         site_name: settingsForm.siteName,
         site_url: settingsForm.siteUrl,
-        currencyapi_key: settingsForm.currencyApiKey,
         exchange_rate_source: settingsForm.exchangeRateSource,
         max_icon_file_size: settingsForm.maxIconFileSize * 1024,
         smtp_enabled: settingsForm.smtpEnabled,
@@ -336,6 +337,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       }
       if (settingsForm.smtpPassword.trim()) {
         payload.smtp_password = settingsForm.smtpPassword.trim()
+      }
+      if (settingsForm.currencyApiKey.trim()) {
+        payload.currencyapi_key = settingsForm.currencyApiKey.trim()
       }
 
       await api.put("/admin/settings", payload)

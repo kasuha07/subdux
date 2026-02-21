@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { RefreshCw } from "lucide-react"
 
@@ -18,6 +19,7 @@ import type { ExchangeRateStatus } from "@/types"
 
 interface AdminExchangeRatesTabProps {
   currencyApiKey: string
+  currencyApiKeyConfigured: boolean
   exchangeRateSource: string
   onCurrencyApiKeyChange: (value: string) => void
   onExchangeRateSourceChange: (value: string) => void
@@ -29,6 +31,7 @@ interface AdminExchangeRatesTabProps {
 
 export default function AdminExchangeRatesTab({
   currencyApiKey,
+  currencyApiKeyConfigured,
   exchangeRateSource,
   onCurrencyApiKeyChange,
   onExchangeRateSourceChange,
@@ -38,6 +41,11 @@ export default function AdminExchangeRatesTab({
   refreshing,
 }: AdminExchangeRatesTabProps) {
   const { t } = useTranslation()
+  const [editingCurrencyApiKey, setEditingCurrencyApiKey] = useState(false)
+  const configuredMaskValue = "••••••••"
+  const currencyApiKeyDisplayValue = editingCurrencyApiKey
+    ? currencyApiKey
+    : currencyApiKey || (currencyApiKeyConfigured ? configuredMaskValue : "")
 
   return (
     <TabsContent value="exchange-rates">
@@ -47,7 +55,9 @@ export default function AdminExchangeRatesTab({
             <Label htmlFor="currency-api-key">{t("admin.exchangeRates.apiKeyLabel")}</Label>
             <Input
               id="currency-api-key"
-              value={currencyApiKey}
+              value={currencyApiKeyDisplayValue}
+              onFocus={() => setEditingCurrencyApiKey(true)}
+              onBlur={() => setEditingCurrencyApiKey(false)}
               onChange={(event) => onCurrencyApiKeyChange(event.target.value)}
               placeholder={t("admin.exchangeRates.apiKeyPlaceholder")}
             />

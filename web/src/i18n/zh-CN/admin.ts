@@ -66,8 +66,6 @@ const admin = {
     "smtpUsernamePlaceholder": "mailer@example.com",
     "smtpPassword": "SMTP 密码",
     "smtpPasswordPlaceholder": "留空表示保持当前密码不变",
-    "smtpPasswordConfigured": "SMTP 密码已配置，只有需要更换时才输入新值。",
-    "smtpPasswordNotConfigured": "SMTP 密码尚未配置。",
     "smtpFromEmail": "发件邮箱",
     "smtpFromEmailPlaceholder": "no-reply@example.com",
     "smtpFromName": "发件人名称",

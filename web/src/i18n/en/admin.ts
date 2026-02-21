@@ -66,8 +66,6 @@ const admin = {
     "smtpUsernamePlaceholder": "mailer@example.com",
     "smtpPassword": "SMTP Password",
     "smtpPasswordPlaceholder": "Leave blank to keep existing password",
-    "smtpPasswordConfigured": "SMTP password is configured. Enter a value only if you want to replace it.",
-    "smtpPasswordNotConfigured": "SMTP password is not configured yet.",
     "smtpFromEmail": "From Email",
     "smtpFromEmailPlaceholder": "no-reply@example.com",
     "smtpFromName": "From Name",

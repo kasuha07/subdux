@@ -48,7 +48,7 @@ type SystemSettings struct {
 	RegistrationEmailVerificationEnabled bool   `json:"registration_email_verification_enabled"`
 	SiteName                             string `json:"site_name"`
 	SiteURL                              string `json:"site_url"`
-	CurrencyAPIKey                       string `json:"currencyapi_key"`
+	CurrencyAPIKeySet                    bool   `json:"currencyapi_key_configured"`
 	ExchangeRateSource                   string `json:"exchange_rate_source"`
 	MaxIconFileSize                      int64  `json:"max_icon_file_size"`
 	SMTPEnabled                          bool   `json:"smtp_enabled"`
@@ -239,7 +239,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		RegistrationEmailVerificationEnabled: false,
 		SiteName:                             "Subdux",
 		SiteURL:                              "",
-		CurrencyAPIKey:                       "",
+		CurrencyAPIKeySet:                    false,
 		ExchangeRateSource:                   "auto",
 		MaxIconFileSize:                      65536,
 		SMTPEnabled:                          false,
@@ -284,7 +284,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		case "site_url":
 			settings.SiteURL = item.Value
 		case "currencyapi_key":
-			settings.CurrencyAPIKey = item.Value
+			settings.CurrencyAPIKeySet = strings.TrimSpace(item.Value) != ""
 		case "exchange_rate_source":
 			settings.ExchangeRateSource = item.Value
 		case "max_icon_file_size":

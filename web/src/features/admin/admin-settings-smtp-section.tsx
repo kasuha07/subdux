@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -40,6 +41,11 @@ export default function AdminSettingsSMTPSection({
   smtpUsername,
 }: AdminSettingsSMTPSectionProps) {
   const { t } = useTranslation()
+  const [editingSMTPPassword, setEditingSMTPPassword] = useState(false)
+  const configuredMaskValue = "••••••••"
+  const smtpPasswordDisplayValue = editingSMTPPassword
+    ? smtpPassword
+    : smtpPassword || (smtpPasswordConfigured ? configuredMaskValue : "")
 
   return (
     <>
@@ -122,15 +128,12 @@ export default function AdminSettingsSMTPSection({
         <Input
           id="smtp-password"
           type="password"
-          value={smtpPassword}
+          value={smtpPasswordDisplayValue}
+          onFocus={() => setEditingSMTPPassword(true)}
+          onBlur={() => setEditingSMTPPassword(false)}
           onChange={(event) => onSMTPPasswordChange(event.target.value)}
           placeholder={t("admin.settings.smtpPasswordPlaceholder")}
         />
-        <p className="text-xs text-muted-foreground">
-          {smtpPasswordConfigured
-            ? t("admin.settings.smtpPasswordConfigured")
-            : t("admin.settings.smtpPasswordNotConfigured")}
-        </p>
       </div>
 
       <div className="space-y-2">
