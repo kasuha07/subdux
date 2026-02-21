@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -194,7 +195,7 @@ func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, fi
 		ext = ".jpg"
 	}
 
-	iconDir := filepath.Join("data", "assets", "icons")
+	iconDir := filepath.Join(pkg.GetDataPath(), "assets", "icons")
 	if err := os.MkdirAll(iconDir, 0755); err != nil {
 		return "", errors.New("failed to create icon directory")
 	}

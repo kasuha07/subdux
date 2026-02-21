@@ -17,6 +17,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
 )
 
@@ -249,10 +250,7 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 		defer os.RemoveAll(restorePayload.assetsDirPath)
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "data/subdux.db"
-	}
+	dbPath := filepath.Join(pkg.GetDataPath(), "subdux.db")
 
 	sqlDB, err := h.Service.DB.DB()
 	if err != nil {
@@ -407,11 +405,12 @@ func extractAssetsFromZip(entries []*zip.File) (bool, string, error) {
 		return false, "", nil
 	}
 
-	if err := os.MkdirAll("data", 0o755); err != nil {
+	dataDir := pkg.GetDataPath()
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return false, "", err
 	}
 
-	tempAssetsDir, err := os.MkdirTemp("data", ".subdux-restore-assets-*")
+	tempAssetsDir, err := os.MkdirTemp(dataDir, ".subdux-restore-assets-*")
 	if err != nil {
 		return false, "", err
 	}
@@ -519,7 +518,7 @@ func replaceDatabaseFile(sourcePath string, dbPath string) error {
 }
 
 func replaceAssetsDirectory(sourceAssetsDir string) error {
-	dataDir := "data"
+	dataDir := pkg.GetDataPath()
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}

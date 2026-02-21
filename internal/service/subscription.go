@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -442,7 +443,7 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 		ext = ".jpg"
 	}
 
-	iconDir := filepath.Join("data", "assets", "icons")
+	iconDir := filepath.Join(pkg.GetDataPath(), "assets", "icons")
 	if err := os.MkdirAll(iconDir, 0755); err != nil {
 		return "", errors.New("failed to create icon directory")
 	}
@@ -488,7 +489,7 @@ func managedIconFilePath(icon string) (string, bool) {
 		return "", false
 	}
 
-	return filepath.Join("data", "assets", "icons", filename), true
+	return filepath.Join(pkg.GetDataPath(), "assets", "icons", filename), true
 }
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {

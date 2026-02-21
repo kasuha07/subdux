@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -1104,7 +1105,7 @@ func addFileToBackupZip(zipWriter *zip.Writer, sourcePath string, archivePath st
 }
 
 func addAssetsToBackupZip(zipWriter *zip.Writer) error {
-	assetsRoot := filepath.Join("data", "assets")
+	assetsRoot := filepath.Join(pkg.GetDataPath(), "assets")
 	if err := addDirectoryToBackupZip(zipWriter, "assets/"); err != nil {
 		return err
 	}

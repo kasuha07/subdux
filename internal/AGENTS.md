@@ -29,7 +29,7 @@ internal/
 | Add new endpoint | `api/router.go` (add route) | Create handler method → service method |
 | Add model field | `model/model.go` | Add GORM tag + json tag, restart to auto-migrate |
 | Change auth rules | `pkg/jwt.go` (token config) | `service/auth.go` (validation logic) |
-| Change DB config | `pkg/database.go` | Env var: `DB_PATH` |
+| Change DB config | `pkg/database.go` | Env var: `DATA_PATH` |
 
 ## CONVENTIONS
 
@@ -62,7 +62,7 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 ### Database (pkg/)
 - Pure Go SQLite: `github.com/glebarez/sqlite` — CGO_ENABLED=0 safe
 - `AutoMigrate` on every startup — additive only, no rollbacks
-- Default path: `data/subdux.db`, overridden by `DB_PATH` env var
+- Default data directory: `data/`, overridden by `DATA_PATH` env var (db at `$DATA_PATH/subdux.db`, assets at `$DATA_PATH/assets/`)
 - Logger: Silent mode (no SQL logging)
 
 ## ANTI-PATTERNS

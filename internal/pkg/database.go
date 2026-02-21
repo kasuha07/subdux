@@ -11,11 +11,18 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func InitDB() *gorm.DB {
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "data/subdux.db"
+// GetDataPath returns the root data directory from the DATA_PATH environment
+// variable, falling back to "data" when unset. The database, assets, and any
+// other persistent files are stored under this directory.
+func GetDataPath() string {
+	if p := os.Getenv("DATA_PATH"); p != "" {
+		return p
 	}
+	return "data"
+}
+
+func InitDB() *gorm.DB {
+	dbPath := filepath.Join(GetDataPath(), "subdux.db")
 
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {

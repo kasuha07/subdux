@@ -7,7 +7,7 @@ services:
     volumes:
       - subdux-data:/data
     environment:
-      - DB_PATH=/data/subdux.db
+      - DATA_PATH=/data
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - PORT=8080
     restart: unless-stopped
