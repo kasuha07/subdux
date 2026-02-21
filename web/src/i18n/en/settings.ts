@@ -5,7 +5,7 @@ const settings = {
     "title": "Display"
   },
   "payment": {
-    "title": "Payment Methods, Currency & Categories"
+    "title": "Subscription"
   },
   "appearance": {
     "title": "Appearance",

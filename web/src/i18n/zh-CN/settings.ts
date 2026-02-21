@@ -5,7 +5,7 @@ const settings = {
     "title": "显示"
   },
   "payment": {
-    "title": "支付方式、货币与分类"
+    "title": "订阅"
   },
   "appearance": {
     "title": "外观",

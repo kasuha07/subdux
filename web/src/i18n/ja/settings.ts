@@ -5,7 +5,7 @@ const settings = {
     "title": "表示"
   },
   "payment": {
-    "title": "支払い方法、通貨とカテゴリ"
+    "title": "サブスクリプション"
   },
   "appearance": {
     "title": "外観",
