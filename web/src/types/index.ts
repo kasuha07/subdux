@@ -36,6 +36,8 @@ export interface Subscription {
   category: string
   category_id: number | null
   payment_method_id: number | null
+  notify_enabled: boolean | null
+  notify_days_before: number | null
   icon: string
   url: string
   notes: string
@@ -144,6 +146,8 @@ export interface CreateSubscriptionInput {
   category: string
   category_id: number | null
   payment_method_id: number | null
+  notify_enabled: boolean | null
+  notify_days_before: number | null
   icon: string
   url: string
   notes: string
@@ -168,6 +172,8 @@ export interface UpdateSubscriptionInput {
   category?: string
   category_id?: number | null
   payment_method_id?: number | null
+  notify_enabled?: boolean | null
+  notify_days_before?: number | null
   icon?: string
   url?: string
   notes?: string
@@ -371,4 +377,67 @@ export interface ReorderPaymentMethodItem {
 
 export interface UploadIconResponse {
   icon: string
+}
+
+export interface NotificationChannel {
+  id: number
+  type: "smtp" | "resend" | "telegram" | "webhook"
+  enabled: boolean
+  config: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SMTPChannelConfig {
+  to_email?: string
+}
+
+export interface ResendChannelConfig {
+  api_key: string
+  from_email: string
+  to_email: string
+}
+
+export interface TelegramChannelConfig {
+  bot_token: string
+  chat_id: string
+}
+
+export interface WebhookChannelConfig {
+  url: string
+  secret?: string
+  method?: string
+}
+
+export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig
+
+export interface CreateNotificationChannelInput {
+  type: string
+  enabled: boolean
+  config: string
+}
+
+export interface UpdateNotificationChannelInput {
+  enabled?: boolean
+  config?: string
+}
+
+export interface NotificationPolicy {
+  days_before: number
+  notify_on_due_day: boolean
+}
+
+export interface UpdateNotificationPolicyInput {
+  days_before?: number
+  notify_on_due_day?: boolean
+}
+
+export interface NotificationLog {
+  id: number
+  subscription_id: number
+  channel_type: string
+  notify_date: string
+  status: string
+  error: string
+  sent_at: string
 }

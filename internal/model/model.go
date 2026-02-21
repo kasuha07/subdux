@@ -83,6 +83,8 @@ type Subscription struct {
 	Category          string     `gorm:"size:100" json:"category"`
 	CategoryID        *uint      `gorm:"index" json:"category_id"`
 	PaymentMethodID   *uint      `gorm:"index" json:"payment_method_id"`
+	NotifyEnabled     *bool      `json:"notify_enabled"`
+	NotifyDaysBefore  *int       `json:"notify_days_before"`
 	Icon              string     `gorm:"size:500" json:"icon"`
 	URL               string     `json:"url"`
 	Notes             string     `json:"notes"`
@@ -139,4 +141,34 @@ type PaymentMethod struct {
 	SortOrder      int       `gorm:"default:0" json:"sort_order"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type NotificationChannel struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	Type      string    `gorm:"not null;size:20" json:"type"`
+	Enabled   bool      `gorm:"default:false" json:"enabled"`
+	Config    string    `gorm:"type:text" json:"config"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type NotificationPolicy struct {
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	UserID         uint      `gorm:"uniqueIndex;not null" json:"user_id"`
+	DaysBefore     int       `gorm:"default:3" json:"days_before"`
+	NotifyOnDueDay bool      `gorm:"default:true" json:"notify_on_due_day"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type NotificationLog struct {
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	UserID         uint      `gorm:"index;not null" json:"user_id"`
+	SubscriptionID uint      `gorm:"index;not null" json:"subscription_id"`
+	ChannelType    string    `gorm:"not null;size:20" json:"channel_type"`
+	NotifyDate     time.Time `gorm:"not null;index" json:"notify_date"`
+	Status         string    `gorm:"not null;size:20" json:"status"`
+	Error          string    `gorm:"type:text" json:"error"`
+	SentAt         time.Time `json:"sent_at"`
 }

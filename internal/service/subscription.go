@@ -61,6 +61,8 @@ type CreateSubscriptionInput struct {
 	Category          string  `json:"category"`
 	CategoryID        *uint   `json:"category_id"`
 	PaymentMethodID   *uint   `json:"payment_method_id"`
+	NotifyEnabled     *bool   `json:"notify_enabled"`
+	NotifyDaysBefore  *int    `json:"notify_days_before"`
 	Icon              string  `json:"icon"`
 	URL               string  `json:"url"`
 	Notes             string  `json:"notes"`
@@ -85,6 +87,8 @@ type UpdateSubscriptionInput struct {
 	Category          *string  `json:"category"`
 	CategoryID        *uint    `json:"category_id"`
 	PaymentMethodID   *uint    `json:"payment_method_id"`
+	NotifyEnabled     *bool    `json:"notify_enabled"`
+	NotifyDaysBefore  *int     `json:"notify_days_before"`
 	Icon              *string  `json:"icon"`
 	URL               *string  `json:"url"`
 	Notes             *string  `json:"notes"`
@@ -210,6 +214,8 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		Category:          input.Category,
 		CategoryID:        input.CategoryID,
 		PaymentMethodID:   paymentMethodID,
+		NotifyEnabled:     input.NotifyEnabled,
+		NotifyDaysBefore:  input.NotifyDaysBefore,
 		Icon:              input.Icon,
 		URL:               input.URL,
 		Notes:             input.Notes,
@@ -265,6 +271,12 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	}
 	if input.Notes != nil {
 		updates["notes"] = *input.Notes
+	}
+	if input.NotifyEnabled != nil {
+		updates["notify_enabled"] = *input.NotifyEnabled
+	}
+	if input.NotifyDaysBefore != nil {
+		updates["notify_days_before"] = *input.NotifyDaysBefore
 	}
 
 	hasScheduleUpdate := input.BillingType != nil ||

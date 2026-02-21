@@ -31,7 +31,7 @@ func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
+func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *service.NotificationService) {
 	authService := service.NewAuthService(db)
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
@@ -40,6 +40,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	currencyService := service.NewCurrencyService(db)
 	categoryService := service.NewCategoryService(db)
 	paymentMethodService := service.NewPaymentMethodService(db)
+	notificationService := service.NewNotificationService(db)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
@@ -48,6 +49,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	currencyHandler := NewCurrencyHandler(currencyService, erService)
 	categoryHandler := NewCategoryHandler(categoryService)
 	paymentMethodHandler := NewPaymentMethodHandler(paymentMethodService)
+	notificationHandler := NewNotificationHandler(notificationService)
 
 	api := e.Group("/api")
 
@@ -141,9 +143,18 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) *service.ExchangeRateService {
 	protected.DELETE("/payment-methods/:id", paymentMethodHandler.Delete)
 	protected.POST("/payment-methods/:id/icon", paymentMethodHandler.UploadIcon)
 
+	protected.GET("/notifications/channels", notificationHandler.ListChannels)
+	protected.POST("/notifications/channels", notificationHandler.CreateChannel)
+	protected.PUT("/notifications/channels/:id", notificationHandler.UpdateChannel)
+	protected.DELETE("/notifications/channels/:id", notificationHandler.DeleteChannel)
+	protected.POST("/notifications/channels/:id/test", notificationHandler.TestChannel)
+	protected.GET("/notifications/policy", notificationHandler.GetPolicy)
+	protected.PUT("/notifications/policy", notificationHandler.UpdatePolicy)
+	protected.GET("/notifications/logs", notificationHandler.ListLogs)
+
 	seedDefaultSettings(db)
 
-	return erService
+	return erService, notificationService
 }
 
 func seedDefaultSettings(db *gorm.DB) {

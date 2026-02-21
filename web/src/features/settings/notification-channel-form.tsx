@@ -1,0 +1,218 @@
+import { useState, type FormEvent } from "react"
+import { useTranslation } from "react-i18next"
+
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import type { NotificationChannel } from "@/types"
+
+interface Props {
+  channel: NotificationChannel | null
+  onClose: () => void
+  onSave: (type: string, config: string) => void | Promise<void>
+  open: boolean
+  saving: boolean
+}
+
+type ChannelType = "smtp" | "resend" | "telegram" | "webhook"
+
+function parseConfig(raw: string): Record<string, string> {
+  try {
+    return JSON.parse(raw) as Record<string, string>
+  } catch {
+    return {}
+  }
+}
+
+export function NotificationChannelForm({ channel, onClose, onSave, open, saving }: Props) {
+  const { t } = useTranslation()
+  const isEditing = !!channel
+
+  const initCfg = channel ? parseConfig(channel.config) : {}
+  const [type, setType] = useState<ChannelType>(channel?.type ?? "smtp")
+
+  const [smtpHost, setSmtpHost] = useState(initCfg.host ?? "")
+  const [smtpPort, setSmtpPort] = useState(initCfg.port ?? "587")
+  const [smtpUsername, setSmtpUsername] = useState(initCfg.username ?? "")
+  const [smtpPassword, setSmtpPassword] = useState(initCfg.password ?? "")
+  const [smtpFromEmail, setSmtpFromEmail] = useState(initCfg.from_email ?? "")
+  const [smtpFromName, setSmtpFromName] = useState(initCfg.from_name ?? "")
+  const [smtpToEmail, setSmtpToEmail] = useState(initCfg.to_email ?? "")
+  const [smtpEncryption, setSmtpEncryption] = useState(initCfg.encryption ?? "starttls")
+
+  const [apiKey, setApiKey] = useState(initCfg.api_key ?? "")
+  const [fromEmail, setFromEmail] = useState(initCfg.from_email ?? "")
+  const [resendToEmail, setResendToEmail] = useState(initCfg.to_email ?? "")
+  const [botToken, setBotToken] = useState(initCfg.bot_token ?? "")
+  const [chatId, setChatId] = useState(initCfg.chat_id ?? "")
+  const [webhookUrl, setWebhookUrl] = useState(initCfg.url ?? "")
+  const [webhookSecret, setWebhookSecret] = useState(initCfg.secret ?? "")
+
+  function buildConfig(): string {
+    switch (type) {
+      case "smtp":
+        return JSON.stringify({
+          host: smtpHost.trim(),
+          port: parseInt(smtpPort, 10) || 587,
+          username: smtpUsername.trim(),
+          password: smtpPassword,
+          from_email: smtpFromEmail.trim(),
+          from_name: smtpFromName.trim(),
+          to_email: smtpToEmail.trim(),
+          encryption: smtpEncryption,
+        })
+      case "resend":
+        return JSON.stringify({ api_key: apiKey.trim(), from_email: fromEmail.trim(), to_email: resendToEmail.trim() })
+      case "telegram":
+        return JSON.stringify({ bot_token: botToken.trim(), chat_id: chatId.trim() })
+      case "webhook":
+        return JSON.stringify({ url: webhookUrl.trim(), ...(webhookSecret.trim() ? { secret: webhookSecret.trim() } : {}) })
+    }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    void onSave(type, buildConfig())
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {isEditing ? t("settings.notifications.channels.edit") : t("settings.notifications.channels.addButton")}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>{t("settings.notifications.channels.typeLabel")}</Label>
+            <Select value={type} onValueChange={(v) => setType(v as ChannelType)} disabled={isEditing}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="smtp">{t("settings.notifications.channels.type.smtp")}</SelectItem>
+                <SelectItem value="resend">{t("settings.notifications.channels.type.resend")}</SelectItem>
+                <SelectItem value="telegram">{t("settings.notifications.channels.type.telegram")}</SelectItem>
+                <SelectItem value="webhook">{t("settings.notifications.channels.type.webhook")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {type === "smtp" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-host">{t("settings.notifications.channels.configFields.smtpHost")}</Label>
+                  <Input id="smtp-host" placeholder={t("settings.notifications.channels.configFields.smtpHostPlaceholder")} value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-port">{t("settings.notifications.channels.configFields.smtpPort")}</Label>
+                  <Input id="smtp-port" type="number" placeholder="587" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-user">{t("settings.notifications.channels.configFields.smtpUsername")}</Label>
+                  <Input id="smtp-user" placeholder={t("settings.notifications.channels.configFields.smtpUsernamePlaceholder")} value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-pass">{t("settings.notifications.channels.configFields.smtpPassword")}</Label>
+                  <Input id="smtp-pass" type="password" placeholder={t("settings.notifications.channels.configFields.smtpPasswordPlaceholder")} value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-from">{t("settings.notifications.channels.configFields.smtpFromEmail")}</Label>
+                  <Input id="smtp-from" type="email" placeholder={t("settings.notifications.channels.configFields.smtpFromEmailPlaceholder")} value={smtpFromEmail} onChange={(e) => setSmtpFromEmail(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-from-name">{t("settings.notifications.channels.configFields.smtpFromName")}</Label>
+                  <Input id="smtp-from-name" placeholder={t("settings.notifications.channels.configFields.smtpFromNamePlaceholder")} value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-to">{t("settings.notifications.channels.configFields.toEmail")}</Label>
+                <Input id="smtp-to" type="email" placeholder={t("settings.notifications.channels.configFields.toEmailPlaceholder")} value={smtpToEmail} onChange={(e) => setSmtpToEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.notifications.channels.configFields.smtpEncryption")}</Label>
+                <Select value={smtpEncryption} onValueChange={setSmtpEncryption}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="starttls">{t("settings.notifications.channels.configFields.smtpEncryptionStartTLS")}</SelectItem>
+                    <SelectItem value="ssl_tls">{t("settings.notifications.channels.configFields.smtpEncryptionSSLTLS")}</SelectItem>
+                    <SelectItem value="none">{t("settings.notifications.channels.configFields.smtpEncryptionNone")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {type === "resend" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="resend-key">{t("settings.notifications.channels.configFields.apiKey")}</Label>
+                <Input id="resend-key" placeholder={t("settings.notifications.channels.configFields.apiKeyPlaceholder")} value={apiKey} onChange={(e) => setApiKey(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="resend-from">{t("settings.notifications.channels.configFields.fromEmail")}</Label>
+                <Input id="resend-from" type="email" placeholder={t("settings.notifications.channels.configFields.fromEmailPlaceholder")} value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="resend-to">{t("settings.notifications.channels.configFields.toEmail")}</Label>
+                <Input id="resend-to" type="email" placeholder={t("settings.notifications.channels.configFields.toEmailPlaceholder")} value={resendToEmail} onChange={(e) => setResendToEmail(e.target.value)} required />
+              </div>
+            </>
+          )}
+
+          {type === "telegram" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="tg-token">{t("settings.notifications.channels.configFields.botToken")}</Label>
+                <Input id="tg-token" placeholder={t("settings.notifications.channels.configFields.botTokenPlaceholder")} value={botToken} onChange={(e) => setBotToken(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tg-chat">{t("settings.notifications.channels.configFields.chatId")}</Label>
+                <Input id="tg-chat" placeholder={t("settings.notifications.channels.configFields.chatIdPlaceholder")} value={chatId} onChange={(e) => setChatId(e.target.value)} required />
+              </div>
+            </>
+          )}
+
+          {type === "webhook" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="wh-url">{t("settings.notifications.channels.configFields.url")}</Label>
+                <Input id="wh-url" type="url" placeholder={t("settings.notifications.channels.configFields.urlPlaceholder")} value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wh-secret">{t("settings.notifications.channels.configFields.secret")}</Label>
+                <Input id="wh-secret" placeholder={t("settings.notifications.channels.configFields.secretPlaceholder")} value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+              {t("settings.notifications.channels.cancel")}
+            </Button>
+            <Button type="submit" className="flex-1" disabled={saving}>
+              {saving ? t("settings.notifications.channels.adding") : t("settings.notifications.channels.save")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

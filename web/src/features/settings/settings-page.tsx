@@ -45,14 +45,15 @@ import type {
 
 import SettingsAccountTab from "./settings-account-tab"
 import SettingsGeneralTab from "./settings-general-tab"
+import SettingsNotificationTab from "./settings-notification-tab"
 import SettingsPaymentTab from "./settings-payment-tab"
 
 const customCodeOption = "__custom__"
 const currencyPlaceholderFallbackCode = "USD"
-type SettingsTab = "general" | "payment" | "account"
+type SettingsTab = "general" | "payment" | "notification" | "account"
 
 function isSettingsTab(value: string): value is SettingsTab {
-  return value === "general" || value === "payment" || value === "account"
+  return value === "general" || value === "payment" || value === "notification" || value === "account"
 }
 
 function getIntlCurrencySymbolPlaceholder(code: string, locale: string): string | null {
@@ -547,6 +548,7 @@ export default function SettingsPage() {
           <TabsList>
             <TabsTrigger value="general">{t("settings.general.title")}</TabsTrigger>
             <TabsTrigger value="payment">{t("settings.payment.title")}</TabsTrigger>
+            <TabsTrigger value="notification">{t("settings.notifications.title")}</TabsTrigger>
             <TabsTrigger value="account">{t("settings.account.title")}</TabsTrigger>
           </TabsList>
 
@@ -594,6 +596,8 @@ export default function SettingsPage() {
             onCustomCodeChange={setCustomCode}
             onAddCurrency={handleAddCurrency}
           />
+
+          <SettingsNotificationTab />
 
           <SettingsAccountTab
             user={user}

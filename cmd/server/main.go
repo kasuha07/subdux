@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	subdux "github.com/shiroha/subdux"
 	"github.com/shiroha/subdux/internal/api"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/service"
 )
 
 func main() {
@@ -29,10 +31,11 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	erService := api.SetupRoutes(e, db)
+	erService, notificationService := api.SetupRoutes(e, db)
 
 	stop := make(chan struct{})
 	erService.StartBackgroundRefresh(stop)
+	startNotificationChecker(notificationService, stop)
 
 	e.Static("/uploads", "data/assets")
 
@@ -49,6 +52,28 @@ func main() {
 
 	log.Printf("Subdux starting on :%s", port)
 	e.Logger.Fatal(e.Start(":" + port))
+}
+
+func startNotificationChecker(ns *service.NotificationService, stop <-chan struct{}) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		if err := ns.ProcessPendingNotifications(); err != nil {
+			log.Printf("notification check error: %v", err)
+		}
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := ns.ProcessPendingNotifications(); err != nil {
+					log.Printf("notification check error: %v", err)
+				}
+			case <-stop:
+				return
+			}
+		}
+	}()
 }
 
 func setupSPA(e *echo.Echo, fsys fs.FS) {

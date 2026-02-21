@@ -41,6 +41,8 @@ type subscriptionResponse struct {
 	Category          string     `json:"category"`
 	CategoryID        *uint      `json:"category_id"`
 	PaymentMethodID   *uint      `json:"payment_method_id"`
+	NotifyEnabled     *bool      `json:"notify_enabled"`
+	NotifyDaysBefore  *int       `json:"notify_days_before"`
 	Icon              string     `json:"icon"`
 	URL               string     `json:"url"`
 	Notes             string     `json:"notes"`
@@ -69,6 +71,8 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 		Category:          sub.Category,
 		CategoryID:        sub.CategoryID,
 		PaymentMethodID:   sub.PaymentMethodID,
+		NotifyEnabled:     sub.NotifyEnabled,
+		NotifyDaysBefore:  sub.NotifyDaysBefore,
 		Icon:              sub.Icon,
 		URL:               sub.URL,
 		Notes:             sub.Notes,

@@ -86,6 +86,16 @@ export default function SubscriptionForm({
   const [icon, setIcon] = useState(subscription?.icon || "")
   const [url, setUrl] = useState(subscription?.url || "")
   const [notes, setNotes] = useState(subscription?.notes || "")
+  const [notifyEnabled, setNotifyEnabled] = useState<"default" | "enabled" | "disabled">(
+    subscription?.notify_enabled === null
+      ? "default"
+      : subscription?.notify_enabled
+        ? "enabled"
+        : "disabled"
+  )
+  const [notifyDaysBefore, setNotifyDaysBefore] = useState(
+    subscription?.notify_days_before?.toString() || ""
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
@@ -158,6 +168,14 @@ export default function SubscriptionForm({
         setIcon(subscription.icon || "")
         setUrl(subscription.url || "")
         setNotes(subscription.notes || "")
+        setNotifyEnabled(
+          subscription.notify_enabled === null
+            ? "default"
+            : subscription.notify_enabled
+              ? "enabled"
+              : "disabled"
+        )
+        setNotifyDaysBefore(subscription.notify_days_before?.toString() || "")
       } else {
         setName("")
         setAmount("")
@@ -179,6 +197,8 @@ export default function SubscriptionForm({
         setIcon("")
         setUrl("")
         setNotes("")
+        setNotifyEnabled("default")
+        setNotifyDaysBefore("")
       }
     }
 
@@ -261,6 +281,12 @@ export default function SubscriptionForm({
         category: "",
         category_id: categoryId ? parseInt(categoryId, 10) : null,
         payment_method_id: paymentMethodId ? parseInt(paymentMethodId, 10) : null,
+        notify_enabled:
+          notifyEnabled === "default" ? null : notifyEnabled === "enabled",
+        notify_days_before:
+          notifyEnabled === "enabled" && notifyDaysBefore
+            ? parseInt(notifyDaysBefore, 10)
+            : null,
         icon: iconFile && !isEditing ? "" : iconValue,
         url,
         notes,
@@ -430,6 +456,40 @@ export default function SubscriptionForm({
             notes={notes}
             onNotesChange={setNotes}
           />
+
+          <div className="space-y-2">
+            <Label>{t("settings.notifications.subscription.title")}</Label>
+            <Select value={notifyEnabled} onValueChange={(value) => setNotifyEnabled(value as "default" | "enabled" | "disabled")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">
+                  {t("settings.notifications.subscription.useDefault")}
+                </SelectItem>
+                <SelectItem value="enabled">
+                  {t("settings.notifications.subscription.enabled")}
+                </SelectItem>
+                <SelectItem value="disabled">
+                  {t("settings.notifications.subscription.disabled")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {notifyEnabled === "enabled" && (
+            <div className="space-y-2">
+              <Label htmlFor="notify-days">{t("settings.notifications.subscription.daysBeforeOverride")}</Label>
+              <Input
+                id="notify-days"
+                type="number"
+                min="0"
+                placeholder="e.g., 7"
+                value={notifyDaysBefore}
+                onChange={(event) => setNotifyDaysBefore(event.target.value)}
+              />
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <Button

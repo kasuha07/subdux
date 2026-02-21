@@ -42,6 +42,9 @@ func InitDB() *gorm.DB {
 		&model.OIDCConnection{},
 		&model.Category{},
 		&model.PaymentMethod{},
+		&model.NotificationChannel{},
+		&model.NotificationPolicy{},
+		&model.NotificationLog{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
