@@ -367,6 +367,7 @@ const zhCN = {
     account: {
       title: "账户",
       description: "管理您的账户设置",
+      username: "用户名",
       email: "邮箱",
       changeEmail: "修改邮箱",
       newEmail: "新邮箱",

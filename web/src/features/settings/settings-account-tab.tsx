@@ -89,6 +89,13 @@ export default function SettingsAccountTab({
 
         <div>
           <Label className="text-xs text-muted-foreground">
+            {t("settings.account.username")}
+          </Label>
+          <p className="mt-0.5 text-sm">{user?.username ?? "—"}</p>
+        </div>
+
+        <div>
+          <Label className="text-xs text-muted-foreground">
             {t("settings.account.email")}
           </Label>
           <div className="mt-0.5 flex items-center gap-2">

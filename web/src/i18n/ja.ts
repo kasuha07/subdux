@@ -367,6 +367,7 @@ const ja = {
     account: {
       title: "アカウント",
       description: "アカウント設定を管理",
+      username: "ユーザー名",
       email: "メールアドレス",
       changeEmail: "メールアドレス変更",
       newEmail: "新しいメールアドレス",

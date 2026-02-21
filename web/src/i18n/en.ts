@@ -367,6 +367,7 @@ const en = {
     account: {
       title: "Account",
       description: "Manage your account settings",
+      username: "Username",
       email: "Email",
       changeEmail: "Change email",
       newEmail: "New email",

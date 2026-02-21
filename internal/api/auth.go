@@ -28,6 +28,7 @@ func NewAuthHandler(s *service.AuthService, totpSvc *service.TOTPService) *AuthH
 
 type authUserResponse struct {
 	ID          uint   `json:"id"`
+	Username    string `json:"username"`
 	Email       string `json:"email"`
 	Role        string `json:"role"`
 	Status      string `json:"status"`
@@ -49,6 +50,7 @@ type loginResponse struct {
 func mapAuthUserResponse(user model.User) authUserResponse {
 	return authUserResponse{
 		ID:          user.ID,
+		Username:    user.Username,
 		Email:       user.Email,
 		Role:        user.Role,
 		Status:      user.Status,
