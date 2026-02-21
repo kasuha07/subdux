@@ -110,20 +110,21 @@ export default function PasskeySection() {
         </div>
       )}
 
-      <form onSubmit={(e) => void handleRegister(e)} className="space-y-2 max-w-sm">
-        <div className="space-y-1">
-          <Label htmlFor="passkey-name">{t("settings.passkeys.nameLabel")}</Label>
+      <form onSubmit={(e) => void handleRegister(e)} className="space-y-1 max-w-sm">
+        <Label htmlFor="passkey-name">{t("settings.passkeys.nameLabel")}</Label>
+        <div className="flex items-center gap-2">
           <Input
             id="passkey-name"
             placeholder={t("settings.passkeys.namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={255}
+            className="max-w-56"
           />
+          <Button type="submit" size="sm" variant="outline" disabled={registering || !passkeySupported}>
+            {registering ? t("settings.passkeys.registering") : t("settings.passkeys.register")}
+          </Button>
         </div>
-        <Button type="submit" size="sm" variant="outline" disabled={registering || !passkeySupported}>
-          {registering ? t("settings.passkeys.registering") : t("settings.passkeys.register")}
-        </Button>
       </form>
 
       <div className="space-y-2">
