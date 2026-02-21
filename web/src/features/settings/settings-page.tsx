@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Bell, CircleUserRound, CreditCard, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -92,10 +92,22 @@ export default function SettingsPage() {
           className="space-y-6"
         >
           <TabsList>
-            <TabsTrigger value="general">{t("settings.general.title")}</TabsTrigger>
-            <TabsTrigger value="payment">{t("settings.payment.title")}</TabsTrigger>
-            <TabsTrigger value="notification">{t("settings.notifications.title")}</TabsTrigger>
-            <TabsTrigger value="account">{t("settings.account.title")}</TabsTrigger>
+            <TabsTrigger value="general" className="gap-2">
+              <Settings className="size-4" />
+              {t("settings.general.title")}
+            </TabsTrigger>
+            <TabsTrigger value="payment" className="gap-2">
+              <CreditCard className="size-4" />
+              {t("settings.payment.title")}
+            </TabsTrigger>
+            <TabsTrigger value="notification" className="gap-2">
+              <Bell className="size-4" />
+              {t("settings.notifications.title")}
+            </TabsTrigger>
+            <TabsTrigger value="account" className="gap-2">
+              <CircleUserRound className="size-4" />
+              {t("settings.account.title")}
+            </TabsTrigger>
           </TabsList>
 
           <SettingsGeneralTab
