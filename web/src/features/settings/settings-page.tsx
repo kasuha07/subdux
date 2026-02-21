@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Bell, CircleUserRound, CreditCard, Settings } from "lucide-react"
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSettingsAccount } from "@/features/settings/hooks/use-settings-account"
 import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payment"
+import { api } from "@/lib/api"
+import type { VersionInfo } from "@/types"
 import {
   applyTheme,
   applyThemeColorScheme,
@@ -39,9 +41,14 @@ export default function SettingsPage() {
     getCustomThemeColors()
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
 
   const account = useSettingsAccount({ active: activeTab === "account" })
   const payment = useSettingsPayment({ active: activeTab === "payment" })
+
+  useEffect(() => {
+    api.get<VersionInfo>("/version").then(setVersionInfo).catch(() => {})
+  }, [])
 
   function handleTheme(next: Theme) {
     setTheme(next)
@@ -186,6 +193,15 @@ export default function SettingsPage() {
           />
         </Tabs>
       </main>
+
+      {versionInfo && (
+        <footer className="mx-auto max-w-4xl px-4 py-6 text-center text-xs text-muted-foreground">
+          Subdux {versionInfo.version}
+          {versionInfo.commit !== "unknown" && (
+            <span className="ml-1">({versionInfo.commit})</span>
+          )}
+        </footer>
+      )}
     </div>
   )
 }

@@ -9,11 +9,18 @@ RUN bun run build
 # Stage 2: Build Go binary
 FROM golang:1.23-alpine AS backend
 WORKDIR /app
+
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /app/web/dist ./web/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /subdux ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -X github.com/shiroha/subdux/internal/version.Version=${VERSION} -X github.com/shiroha/subdux/internal/version.Commit=${COMMIT} -X github.com/shiroha/subdux/internal/version.BuildDate=${BUILD_DATE}" \
+    -o /subdux ./cmd/server
 
 # Stage 3: Minimal runtime
 FROM gcr.io/distroless/static-debian12:nonroot

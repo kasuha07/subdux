@@ -459,3 +459,10 @@ export interface NotificationLog {
   error: string
   sent_at: string
 }
+
+export interface VersionInfo {
+  version: string
+  commit: string
+  build_date: string
+  go_version: string
+}

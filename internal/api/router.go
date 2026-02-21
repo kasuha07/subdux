@@ -1,12 +1,15 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
+	"github.com/shiroha/subdux/internal/version"
 	"gorm.io/gorm"
 )
 
@@ -52,6 +55,10 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	notificationHandler := NewNotificationHandler(notificationService)
 
 	api := e.Group("/api")
+
+	api.GET("/version", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, version.Get())
+	})
 
 	auth := api.Group("/auth")
 	auth.GET("/register/config", authHandler.GetRegistrationConfig)
