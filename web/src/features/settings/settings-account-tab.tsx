@@ -1,7 +1,14 @@
-import { type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -68,6 +75,7 @@ export default function SettingsAccountTab({
   user,
 }: SettingsAccountTabProps) {
   const { t } = useTranslation()
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
 
   return (
     <TabsContent value="account">
@@ -83,77 +91,96 @@ export default function SettingsAccountTab({
           <Label className="text-xs text-muted-foreground">
             {t("settings.account.email")}
           </Label>
-          <p className="mt-0.5 text-sm">{user?.email ?? "—"}</p>
-        </div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <p className="text-sm">{user?.email ?? "—"}</p>
+            <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="xs" variant="outline">
+                  {t("settings.account.changeEmail")}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{t("settings.account.changeEmail")}</DialogTitle>
+                </DialogHeader>
+                <form
+                  id="send-email-change-code-form"
+                  onSubmit={(event) => void onSendEmailChangeCode(event)}
+                  className="grid gap-3"
+                >
+                  {emailChangeError && (
+                    <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {emailChangeError}
+                    </div>
+                  )}
+                  {emailCodeSent && (
+                    <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+                      {t("settings.account.emailCodeSent")}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="new-email">{t("settings.account.newEmail")}</Label>
+                    <Input
+                      id="new-email"
+                      type="email"
+                      placeholder={t("auth.register.emailPlaceholder")}
+                      value={newEmail}
+                      onChange={(event) => onNewEmailChange(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-change-password">{t("settings.account.currentPassword")}</Label>
+                    <Input
+                      id="email-change-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={emailChangePassword}
+                      onChange={(event) => onEmailChangePasswordChange(event.target.value)}
+                      required
+                    />
+                  </div>
+                </form>
 
-        <Separator />
-
-        <div>
-          <h3 className="text-sm font-medium">{t("settings.account.changeEmail")}</h3>
-          <form onSubmit={(event) => void onSendEmailChangeCode(event)} className="mt-3 grid max-w-sm gap-3">
-            {emailChangeError && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {emailChangeError}
-              </div>
-            )}
-            {emailCodeSent && (
-              <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-                {t("settings.account.emailCodeSent")}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="new-email">{t("settings.account.newEmail")}</Label>
-              <Input
-                id="new-email"
-                type="email"
-                placeholder={t("auth.register.emailPlaceholder")}
-                value={newEmail}
-                onChange={(event) => onNewEmailChange(event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email-change-password">{t("settings.account.currentPassword")}</Label>
-              <Input
-                id="email-change-password"
-                type="password"
-                placeholder="••••••••"
-                value={emailChangePassword}
-                onChange={(event) => onEmailChangePasswordChange(event.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Button size="sm" type="submit" disabled={emailCodeLoading}>
-                {emailCodeLoading
-                  ? t("settings.account.sendingEmailCode")
-                  : t("settings.account.sendEmailCode")}
-              </Button>
-            </div>
-          </form>
-
-          <form onSubmit={(event) => void onConfirmEmailChange(event)} className="mt-3 grid max-w-sm gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="email-verification-code">{t("settings.account.emailVerificationCode")}</Label>
-              <Input
-                id="email-verification-code"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder={t("auth.register.verificationCodePlaceholder")}
-                value={emailVerificationCode}
-                onChange={(event) => onEmailVerificationCodeChange(event.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Button size="sm" type="submit" disabled={emailChangeLoading}>
-                {emailChangeLoading
-                  ? t("settings.account.confirmingEmailChange")
-                  : t("settings.account.confirmEmailChange")}
-              </Button>
-            </div>
-          </form>
+                <form onSubmit={(event) => void onConfirmEmailChange(event)} className="grid gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="email-verification-code">{t("settings.account.emailVerificationCode")}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="email-verification-code"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder={t("auth.register.verificationCodePlaceholder")}
+                        value={emailVerificationCode}
+                        onChange={(event) => onEmailVerificationCodeChange(event.target.value)}
+                        required
+                      />
+                      <Button
+                        size="sm"
+                        type="submit"
+                        form="send-email-change-code-form"
+                        variant="outline"
+                        className="shrink-0"
+                        disabled={emailCodeLoading}
+                      >
+                        {emailCodeLoading
+                          ? t("settings.account.sendingEmailCode")
+                          : t("settings.account.sendEmailCode")}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Button size="sm" type="submit" disabled={emailChangeLoading}>
+                      {emailChangeLoading
+                        ? t("settings.account.confirmingEmailChange")
+                        : t("settings.account.confirmEmailChange")}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Separator />
