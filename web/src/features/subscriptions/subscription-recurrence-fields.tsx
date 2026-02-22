@@ -63,7 +63,7 @@ export default function SubscriptionRecurrenceFields({
   return (
     <>
       <div className="space-y-2">
-        <div className="grid grid-cols-[11rem_minmax(0,1fr)] items-start gap-2">
+        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
           <div className="space-y-1">
             <Label className="flex h-4 items-center text-xs" htmlFor="recurrence-type">
               {t("subscription.form.recurrenceTypeLabel")}
@@ -85,14 +85,14 @@ export default function SubscriptionRecurrenceFields({
           </div>
 
           {recurrenceType === "interval" && (
-            <div className="flex min-w-0 items-start gap-2">
-              <div className="w-24 shrink-0 space-y-1">
+            <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row">
+              <div className="w-full shrink-0 space-y-1 sm:w-24">
                 <Label className="flex h-4 items-center text-xs" htmlFor="interval-count">
                   {t("subscription.form.intervalCountLabel")}
                 </Label>
                 <Input
                   id="interval-count"
-                  className="w-24 shrink-0"
+                  className="w-full shrink-0 sm:w-24"
                   type="number"
                   min="1"
                   step="1"
@@ -101,7 +101,7 @@ export default function SubscriptionRecurrenceFields({
                   required
                 />
               </div>
-              <div className="min-w-[132px] flex-1 space-y-1">
+              <div className="min-w-0 w-full flex-1 space-y-1 sm:min-w-[132px]">
                 <Label className="flex h-4 items-center text-xs" htmlFor="interval-unit">
                   {t("subscription.form.intervalUnitLabel")}
                 </Label>
@@ -121,13 +121,13 @@ export default function SubscriptionRecurrenceFields({
           )}
 
           {recurrenceType === "monthly_date" && (
-            <div className="w-32 space-y-1">
+            <div className="w-full space-y-1 sm:w-32">
               <Label className="flex h-4 items-center text-xs" htmlFor="monthly-day">
                 {t("subscription.form.monthlyDayLabel")}
               </Label>
               <Input
                 id="monthly-day"
-                className="w-32"
+                className="w-full sm:w-32"
                 type="number"
                 min="1"
                 max="31"
@@ -140,14 +140,14 @@ export default function SubscriptionRecurrenceFields({
           )}
 
           {recurrenceType === "yearly_date" && (
-            <div className="flex items-start gap-2">
-              <div className="w-24 space-y-1">
+            <div className="flex w-full flex-col items-start gap-2 sm:flex-row">
+              <div className="w-full space-y-1 sm:w-24">
                 <Label className="flex h-4 items-center text-xs" htmlFor="yearly-month">
                   {t("subscription.form.yearlyMonthLabel")}
                 </Label>
                 <Input
                   id="yearly-month"
-                  className="w-24"
+                  className="w-full sm:w-24"
                   type="number"
                   min="1"
                   max="12"
@@ -157,13 +157,13 @@ export default function SubscriptionRecurrenceFields({
                   required
                 />
               </div>
-              <div className="w-24 space-y-1">
+              <div className="w-full space-y-1 sm:w-24">
                 <Label className="flex h-4 items-center text-xs" htmlFor="yearly-day">
                   {t("subscription.form.yearlyDayLabel")}
                 </Label>
                 <Input
                   id="yearly-day"
-                  className="w-24"
+                  className="w-full sm:w-24"
                   type="number"
                   min="1"
                   max="31"
@@ -189,7 +189,7 @@ export default function SubscriptionRecurrenceFields({
       </div>
 
       {trialEnabled && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="trial-start">{t("subscription.form.trialStartLabel")}</Label>
             <Input
