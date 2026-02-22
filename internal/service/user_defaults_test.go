@@ -24,6 +24,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 		&model.UserCurrency{},
 		&model.Category{},
 		&model.PaymentMethod{},
+		&model.NotificationTemplate{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
@@ -90,6 +91,31 @@ func TestSeedUserDefaultsIsIdempotent(t *testing.T) {
 	}
 	if preference.PreferredCurrency != "USD" {
 		t.Fatalf("preferred currency = %q, want %q", preference.PreferredCurrency, "USD")
+	}
+
+	var templates []model.NotificationTemplate
+	if err := db.Where("user_id = ?", user.ID).Order("id ASC").Find(&templates).Error; err != nil {
+		t.Fatalf("query notification templates failed: %v", err)
+	}
+	if len(templates) != 1 {
+		t.Fatalf("notification template count = %d, want 1", len(templates))
+	}
+	if templates[0].ChannelType != nil {
+		t.Fatal("default notification template channel_type should be nil")
+	}
+	if templates[0].Format != "plaintext" {
+		t.Fatalf("default notification template format = %q, want %q", templates[0].Format, "plaintext")
+	}
+	if templates[0].Template != defaultNotificationTemplate {
+		t.Fatalf("default notification template content mismatch")
+	}
+
+	validator := NewTemplateValidator()
+	if err := validator.ValidateFormat(templates[0].Format); err != nil {
+		t.Fatalf("default notification template format is invalid: %v", err)
+	}
+	if err := validator.ValidateTemplate(templates[0].Template); err != nil {
+		t.Fatalf("default notification template is invalid: %v", err)
 	}
 }
 

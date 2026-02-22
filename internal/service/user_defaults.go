@@ -54,6 +54,8 @@ var defaultCurrencyTemplates = []defaultCurrencyTemplate{
 	{Code: "JPY", Symbol: "¥", SortOrder: 4},
 }
 
+const defaultNotificationTemplate = "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}."
+
 func SeedUserDefaults(tx *gorm.DB, userID uint) error {
 	if err := seedDefaultCategories(tx, userID); err != nil {
 		return err
@@ -62,6 +64,9 @@ func SeedUserDefaults(tx *gorm.DB, userID uint) error {
 		return err
 	}
 	if err := seedDefaultCurrencies(tx, userID); err != nil {
+		return err
+	}
+	if err := seedDefaultNotificationTemplate(tx, userID); err != nil {
 		return err
 	}
 	return seedDefaultPreference(tx, userID)
@@ -131,6 +136,26 @@ func seedDefaultPreference(tx *gorm.DB, userID uint) error {
 		PreferredCurrency: "USD",
 	}
 	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&preference).Error
+}
+
+func seedDefaultNotificationTemplate(tx *gorm.DB, userID uint) error {
+	var count int64
+	if err := tx.Model(&model.NotificationTemplate{}).
+		Where("user_id = ? AND channel_type IS NULL", userID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	tmpl := model.NotificationTemplate{
+		UserID:      userID,
+		Format:      "plaintext",
+		Template:    defaultNotificationTemplate,
+		ChannelType: nil,
+	}
+	return tx.Create(&tmpl).Error
 }
 
 func stringPtr(value string) *string {
