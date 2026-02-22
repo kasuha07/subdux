@@ -10,6 +10,7 @@ const subscription = {
         "month": "Every {{count}} month(s)",
         "year": "Every {{count}} year(s)"
       },
+      "monthlyCost": "month",
       "monthlyDate": "Monthly on day {{day}}",
       "yearlyDate": "Yearly on {{month}}/{{day}}"
     },

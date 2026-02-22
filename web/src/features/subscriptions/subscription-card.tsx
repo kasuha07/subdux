@@ -59,6 +59,7 @@ interface SubscriptionCardProps {
   displayAmount?: number
   displayCurrency?: string
   displayCurrencySymbol?: string
+  showMonthlyAmount?: boolean
   paymentMethodName?: string
   paymentMethodIcon?: string
   onEdit: (sub: Subscription) => void
@@ -125,6 +126,7 @@ export default function SubscriptionCard({
   displayAmount,
   displayCurrency,
   displayCurrencySymbol,
+  showMonthlyAmount = false,
   paymentMethodName,
   paymentMethodIcon,
   onEdit,
@@ -149,6 +151,10 @@ export default function SubscriptionCard({
     && (subscription.billing_type === "one_time" || !subscription.next_billing_date)
 
   function renderBillingLabel(): string {
+    if (showMonthlyAmount && subscription.billing_type === "recurring") {
+      return t("subscription.card.recurrence.monthlyCost")
+    }
+
     if (subscription.billing_type === "one_time") {
       return t("subscription.card.billingType.one_time")
     }

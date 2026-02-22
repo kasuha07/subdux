@@ -10,6 +10,7 @@ const subscription = {
         "month": "每 {{count}} 个月",
         "year": "每 {{count}} 年"
       },
+      "monthlyCost": "月",
       "monthlyDate": "每月 {{day}} 号",
       "yearlyDate": "每年 {{month}}/{{day}}"
     },

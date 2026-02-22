@@ -26,10 +26,12 @@ interface SettingsGeneralTabProps {
   colorScheme: ThemeColorScheme
   customThemeColors: CustomThemeColors
   displayAllAmountsInPrimaryCurrency: boolean
+  displayRecurringAmountsAsMonthlyCost: boolean
   language: string
   onColorSchemeChange: (next: ThemeColorScheme) => void
   onCustomThemeColorChange: (key: keyof CustomThemeColors, value: string) => void
   onDisplayAllAmountsInPrimaryCurrencyChange: (enabled: boolean) => void
+  onDisplayRecurringAmountsAsMonthlyCostChange: (enabled: boolean) => void
   onLanguageChange: (language: string) => void
   onResetCustomThemeColors: () => void
   onThemeChange: (next: Theme) => void
@@ -57,10 +59,12 @@ export default function SettingsGeneralTab({
   colorScheme,
   customThemeColors,
   displayAllAmountsInPrimaryCurrency,
+  displayRecurringAmountsAsMonthlyCost,
   language,
   onColorSchemeChange,
   onCustomThemeColorChange,
   onDisplayAllAmountsInPrimaryCurrencyChange,
+  onDisplayRecurringAmountsAsMonthlyCostChange,
   onLanguageChange,
   onResetCustomThemeColors,
   onThemeChange,
@@ -133,18 +137,33 @@ export default function SettingsGeneralTab({
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.displayAmount.description")}
         </p>
-        <div className="mt-3 flex items-center gap-3">
-          <Switch
-            id="display-all-amounts-in-primary-currency"
-            checked={displayAllAmountsInPrimaryCurrency}
-            onCheckedChange={onDisplayAllAmountsInPrimaryCurrencyChange}
-          />
-          <Label
-            htmlFor="display-all-amounts-in-primary-currency"
-            className="cursor-pointer"
-          >
-            {t("settings.displayAmount.toggle")}
-          </Label>
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="display-all-amounts-in-primary-currency"
+              checked={displayAllAmountsInPrimaryCurrency}
+              onCheckedChange={onDisplayAllAmountsInPrimaryCurrencyChange}
+            />
+            <Label
+              htmlFor="display-all-amounts-in-primary-currency"
+              className="cursor-pointer"
+            >
+              {t("settings.displayAmount.toggle")}
+            </Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="display-recurring-amounts-as-monthly-cost"
+              checked={displayRecurringAmountsAsMonthlyCost}
+              onCheckedChange={onDisplayRecurringAmountsAsMonthlyCostChange}
+            />
+            <Label
+              htmlFor="display-recurring-amounts-as-monthly-cost"
+              className="cursor-pointer"
+            >
+              {t("settings.displayAmount.monthlyCostToggle")}
+            </Label>
+          </div>
         </div>
       </div>
 

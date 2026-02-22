@@ -10,7 +10,9 @@ import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payme
 import { api } from "@/lib/api"
 import {
   getDisplayAllAmountsInPrimaryCurrency,
+  getDisplayRecurringAmountsAsMonthlyCost,
   setDisplayAllAmountsInPrimaryCurrency,
+  setDisplayRecurringAmountsAsMonthlyCost,
 } from "@/lib/display-preferences"
 import type { VersionInfo } from "@/types"
 import {
@@ -47,6 +49,9 @@ export default function SettingsPage() {
   )
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrencyState] = useState(
     getDisplayAllAmountsInPrimaryCurrency()
+  )
+  const [displayRecurringAmountsAsMonthlyCost, setDisplayRecurringAmountsAsMonthlyCostState] = useState(
+    getDisplayRecurringAmountsAsMonthlyCost()
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
@@ -86,6 +91,11 @@ export default function SettingsPage() {
   function handleDisplayAllAmountsInPrimaryCurrency(enabled: boolean) {
     setDisplayAllAmountsInPrimaryCurrencyState(enabled)
     setDisplayAllAmountsInPrimaryCurrency(enabled)
+  }
+
+  function handleDisplayRecurringAmountsAsMonthlyCost(enabled: boolean) {
+    setDisplayRecurringAmountsAsMonthlyCostState(enabled)
+    setDisplayRecurringAmountsAsMonthlyCost(enabled)
   }
 
   return (
@@ -140,6 +150,8 @@ export default function SettingsPage() {
             onResetCustomThemeColors={handleResetCustomThemeColors}
             displayAllAmountsInPrimaryCurrency={displayAllAmountsInPrimaryCurrency}
             onDisplayAllAmountsInPrimaryCurrencyChange={handleDisplayAllAmountsInPrimaryCurrency}
+            displayRecurringAmountsAsMonthlyCost={displayRecurringAmountsAsMonthlyCost}
+            onDisplayRecurringAmountsAsMonthlyCostChange={handleDisplayRecurringAmountsAsMonthlyCost}
             language={i18n.language}
             onLanguageChange={(language) => {
               void i18n.changeLanguage(language)

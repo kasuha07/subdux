@@ -12,7 +12,9 @@ import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-fi
 import { api, isAdmin } from "@/lib/api"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
+  DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY,
   getDisplayAllAmountsInPrimaryCurrency,
+  getDisplayRecurringAmountsAsMonthlyCost,
 } from "@/lib/display-preferences"
 import { getExchangeRatesToTarget } from "@/lib/exchange-rate-cache"
 import { toast } from "sonner"
@@ -22,6 +24,42 @@ import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
+
+function getMonthlyAmountFactor(subscription: Subscription): number | null {
+  if (subscription.billing_type !== "recurring") {
+    return null
+  }
+
+  if (subscription.recurrence_type === "interval") {
+    const intervalCount = subscription.interval_count
+    if (!intervalCount || intervalCount <= 0) {
+      return null
+    }
+
+    switch (subscription.interval_unit) {
+      case "day":
+        return 30.436875 / intervalCount
+      case "week":
+        return 4.348125 / intervalCount
+      case "month":
+        return 1 / intervalCount
+      case "year":
+        return 1 / (12 * intervalCount)
+      default:
+        return null
+    }
+  }
+
+  if (subscription.recurrence_type === "monthly_date") {
+    return 1
+  }
+
+  if (subscription.recurrence_type === "yearly_date") {
+    return 1 / 12
+  }
+
+  return null
+}
 
 function DashboardSkeleton() {
   return (
@@ -72,6 +110,9 @@ export default function DashboardPage() {
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
     getDisplayAllAmountsInPrimaryCurrency()
+  )
+  const [displayRecurringAmountsAsMonthlyCost, setDisplayRecurringAmountsAsMonthlyCost] = useState(
+    getDisplayRecurringAmountsAsMonthlyCost()
   )
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
 
@@ -130,6 +171,9 @@ export default function DashboardPage() {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY) {
         setDisplayAllAmountsInPrimaryCurrency(getDisplayAllAmountsInPrimaryCurrency())
+      }
+      if (event.key === DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY) {
+        setDisplayRecurringAmountsAsMonthlyCost(getDisplayRecurringAmountsAsMonthlyCost())
       }
     }
     window.addEventListener("storage", handleStorage)
@@ -319,6 +363,12 @@ export default function DashboardPage() {
                   const displayCurrencySymbol = displayCurrency
                     ? currencySymbolMap.get(displayCurrency)
                     : undefined
+                  const monthlyFactor = displayRecurringAmountsAsMonthlyCost
+                    ? getMonthlyAmountFactor(sub)
+                    : null
+                  const monthlyDisplayAmount = monthlyFactor
+                    ? (displayAmount ?? sub.amount) * monthlyFactor
+                    : undefined
 
                   return (
                     <SubscriptionCard
@@ -326,9 +376,10 @@ export default function DashboardPage() {
                       subscription={sub}
                       categoryName={getSubscriptionCategoryName(sub)}
                       currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
-                      displayAmount={displayAmount}
+                      displayAmount={monthlyDisplayAmount ?? displayAmount}
                       displayCurrency={displayCurrency}
                       displayCurrencySymbol={displayCurrencySymbol}
+                      showMonthlyAmount={monthlyFactor !== null}
                       paymentMethodName={
                         sub.payment_method_id
                           ? paymentMethodLabelMap.get(sub.payment_method_id)
