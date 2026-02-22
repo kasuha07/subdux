@@ -436,6 +436,7 @@ const settings = {
     templates: {
       title: "通知テンプレート",
       description: "各チャネルの通知メッセージテンプレートをカスタマイズ",
+      empty: "通知テンプレートはまだ設定されていません。",
       addButton: "テンプレートを追加",
       editButton: "編集",
       deleteButton: "削除",

@@ -436,6 +436,7 @@ const settings = {
     templates: {
       title: "通知模板",
       description: "为每个渠道自定义通知消息模板",
+      empty: "尚未配置通知模板。",
       addButton: "添加模板",
       editButton: "编辑",
       deleteButton: "删除",

@@ -436,6 +436,7 @@ const settings = {
     "templates": {
       "title": "Notification Templates",
       "description": "Customize notification message templates for each channel",
+      "empty": "No notification templates configured yet.",
       "addButton": "Add Template",
       "editButton": "Edit",
       "deleteButton": "Delete",

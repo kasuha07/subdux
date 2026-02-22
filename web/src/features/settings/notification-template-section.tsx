@@ -127,35 +127,41 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
       </div>
 
       <div className="space-y-2">
-        {templates.map((template) => (
-          <div
-            key={template.id}
-            className="flex flex-col gap-3 rounded-md border bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium">
-                  {template.channel_type
-                    ? t(`settings.notifications.channels.type.${template.channel_type}`)
-                    : t("settings.notifications.templates.defaultTemplate")}
+        {templates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("settings.notifications.templates.empty")}
+          </p>
+        ) : (
+          templates.map((template) => (
+            <div
+              key={template.id}
+              className="flex flex-col gap-3 rounded-md border bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">
+                    {template.channel_type
+                      ? t(`settings.notifications.channels.type.${template.channel_type}`)
+                      : t("settings.notifications.templates.defaultTemplate")}
+                  </p>
+                  <Badge variant="secondary">{template.format}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-1">
+                  {template.template}
                 </p>
-                <Badge variant="secondary">{template.format}</Badge>
               </div>
-              <p className="text-xs text-muted-foreground line-clamp-1">
-                {template.template}
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => handleEdit(template)}>
-                {t("settings.notifications.templates.editButton")}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => void handleDelete(template)}>
-                {t("settings.notifications.templates.deleteButton")}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleEdit(template)}>
+                  {t("settings.notifications.templates.editButton")}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => void handleDelete(template)}>
+                  {t("settings.notifications.templates.deleteButton")}
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {formOpen && (
