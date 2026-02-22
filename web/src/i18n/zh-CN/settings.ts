@@ -359,6 +359,7 @@ const settings = {
         "ntfyUrlPlaceholder": "https://ntfy.sh",
         "ntfyTopic": "主题",
         "ntfyTopicPlaceholder": "subdux-reminders",
+        "ntfyAdvancedSettings": "更多设置（可选）",
         "ntfyToken": "访问令牌（可选）",
         "ntfyTokenPlaceholder": "tk_...",
         "ntfyPriority": "优先级（可选）",

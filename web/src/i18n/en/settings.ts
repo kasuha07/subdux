@@ -359,6 +359,7 @@ const settings = {
         "ntfyUrlPlaceholder": "https://ntfy.sh",
         "ntfyTopic": "Topic",
         "ntfyTopicPlaceholder": "subdux-reminders",
+        "ntfyAdvancedSettings": "More settings (optional)",
         "ntfyToken": "Access Token (optional)",
         "ntfyTokenPlaceholder": "tk_...",
         "ntfyPriority": "Priority (optional)",

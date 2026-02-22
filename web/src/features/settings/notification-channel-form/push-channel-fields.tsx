@@ -249,76 +249,83 @@ export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfig
           required
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="ntfy-token">{t("settings.notifications.channels.configFields.ntfyToken")}</Label>
-        <Input
-          id="ntfy-token"
-          placeholder={t("settings.notifications.channels.configFields.ntfyTokenPlaceholder")}
-          value={values.ntfyToken}
-          onChange={(e) => onValueChange("ntfyToken", e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>{t("settings.notifications.channels.configFields.ntfyPriority")}</Label>
-        <Select
-          value={values.ntfyPriority || NTFY_PRIORITY_UNSET}
-          onValueChange={(value) => onValueChange("ntfyPriority", value === NTFY_PRIORITY_UNSET ? "" : value)}
-        >
-          <SelectTrigger id="ntfy-priority" className="w-full max-w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {NTFY_PRIORITY_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {t(`settings.notifications.channels.configFields.${option.i18nKey}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="ntfy-tags">{t("settings.notifications.channels.configFields.ntfyTags")}</Label>
-        <Input
-          id="ntfy-tags"
-          placeholder={t("settings.notifications.channels.configFields.ntfyTagsPlaceholder")}
-          value={values.ntfyTags}
-          onChange={(e) => onValueChange("ntfyTags", e.target.value)}
-        />
-        <div className="flex flex-wrap gap-2">
-          {NTFY_TAG_PRESETS.map((tag) => (
-            <Button
-              key={tag}
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              onClick={() => appendNtfyTagPreset(tag)}
+      <details className="rounded-md border border-border px-3 py-2">
+        <summary className="cursor-pointer text-sm font-medium">
+          {t("settings.notifications.channels.configFields.ntfyAdvancedSettings")}
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="ntfy-token">{t("settings.notifications.channels.configFields.ntfyToken")}</Label>
+            <Input
+              id="ntfy-token"
+              placeholder={t("settings.notifications.channels.configFields.ntfyTokenPlaceholder")}
+              value={values.ntfyToken}
+              onChange={(e) => onValueChange("ntfyToken", e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("settings.notifications.channels.configFields.ntfyPriority")}</Label>
+            <Select
+              value={values.ntfyPriority || NTFY_PRIORITY_UNSET}
+              onValueChange={(value) => onValueChange("ntfyPriority", value === NTFY_PRIORITY_UNSET ? "" : value)}
             >
-              :{tag}:
-            </Button>
-          ))}
+              <SelectTrigger id="ntfy-priority" className="w-full max-w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {NTFY_PRIORITY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(`settings.notifications.channels.configFields.${option.i18nKey}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ntfy-tags">{t("settings.notifications.channels.configFields.ntfyTags")}</Label>
+            <Input
+              id="ntfy-tags"
+              placeholder={t("settings.notifications.channels.configFields.ntfyTagsPlaceholder")}
+              value={values.ntfyTags}
+              onChange={(e) => onValueChange("ntfyTags", e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              {NTFY_TAG_PRESETS.map((tag) => (
+                <Button
+                  key={tag}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => appendNtfyTagPreset(tag)}
+                >
+                  :{tag}:
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ntfy-click">{t("settings.notifications.channels.configFields.ntfyClick")}</Label>
+            <Input
+              id="ntfy-click"
+              type="url"
+              placeholder={t("settings.notifications.channels.configFields.ntfyClickPlaceholder")}
+              value={values.ntfyClick}
+              onChange={(e) => onValueChange("ntfyClick", e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ntfy-icon">{t("settings.notifications.channels.configFields.ntfyIcon")}</Label>
+            <Input
+              id="ntfy-icon"
+              type="url"
+              placeholder={t("settings.notifications.channels.configFields.ntfyIconPlaceholder")}
+              value={values.ntfyIcon}
+              onChange={(e) => onValueChange("ntfyIcon", e.target.value)}
+            />
+          </div>
         </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="ntfy-click">{t("settings.notifications.channels.configFields.ntfyClick")}</Label>
-        <Input
-          id="ntfy-click"
-          type="url"
-          placeholder={t("settings.notifications.channels.configFields.ntfyClickPlaceholder")}
-          value={values.ntfyClick}
-          onChange={(e) => onValueChange("ntfyClick", e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="ntfy-icon">{t("settings.notifications.channels.configFields.ntfyIcon")}</Label>
-        <Input
-          id="ntfy-icon"
-          type="url"
-          placeholder={t("settings.notifications.channels.configFields.ntfyIconPlaceholder")}
-          value={values.ntfyIcon}
-          onChange={(e) => onValueChange("ntfyIcon", e.target.value)}
-        />
-      </div>
+      </details>
     </>
   )
 }
