@@ -85,8 +85,8 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
         format,
         template: templateContent,
       }
-      const result = await api.post<{ result: string }>("/notifications/templates/preview", input)
-      setPreviewResult(result.result)
+      const result = await api.post<{ preview: string }>("/notifications/templates/preview", input)
+      setPreviewResult(result.preview)
     } catch {
       void 0
     } finally {
