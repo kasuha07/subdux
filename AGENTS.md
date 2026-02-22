@@ -1,3 +1,126 @@
+# Subdux — Subscription Tracker
+
+**Generated:** 2026-02-22 13:12 UTC
+**Commit:** fdfaf8c
+**Branch:** main
+
+## PROJECT OVERVIEW
+
+Go 1.25 + React 19 monorepo. Single-binary deployment (embedded frontend). Subscription tracking with notifications (email/webhook/push), multi-currency, TOTP/passkey/OIDC auth.
+
+**Stack:** Echo v4 (REST API) + GORM (SQLite) + React 19 (Vite) + Shadcn/UI + Tailwind v4
+
+## STRUCTURE
+
+```
+subdux/
+├── cmd/server/main.go       # Entry point (embeds web/dist/)
+├── internal/                # Go backend (4-layer: api → service → model + pkg)
+│   ├── api/                 # HTTP handlers (12 files) → see internal/api/AGENTS.md
+│   ├── service/             # Business logic (23 files) → see internal/service/AGENTS.md
+│   ├── model/               # GORM structs
+│   └── pkg/                 # Shared infra (DB, JWT)
+├── web/                     # React frontend
+│   └── src/
+│       ├── features/
+│       │   ├── settings/    # 29 files → see web/src/features/settings/AGENTS.md
+│       │   ├── admin/       # 16 files → see web/src/features/admin/AGENTS.md
+│       │   ├── subscriptions/, dashboard/, auth/
+│       ├── components/ui/   # Shadcn (DO NOT EDIT)
+│       └── lib/             # Shared utilities (api.ts, utils.ts)
+├── Makefile                 # Build: frontend → embed → Go binary
+└── frontend.go              # //go:embed all:web/dist
+```
+
+## WHERE TO LOOK
+
+| Task | Location | Notes |
+|------|----------|-------|
+| Add backend endpoint | `internal/api/router.go` → handler → service | See internal/api/AGENTS.md |
+| Add business logic | `internal/service/` | See internal/service/AGENTS.md |
+| Add frontend page | `web/src/features/{domain}/` + route in `App.tsx` | Feature-folder structure |
+| Add settings UI | `web/src/features/settings/` | See web/src/features/settings/AGENTS.md |
+| Add admin UI | `web/src/features/admin/` | See web/src/features/admin/AGENTS.md |
+| Modify auth | `internal/service/auth.go` + `internal/api/auth.go` | JWT + bcrypt |
+| Add notification channel | `internal/service/notification*.go` | 8 files for delivery |
+
+## BUILD & DEPLOYMENT
+
+**Build Sequence:** Frontend-first (Vite) → Go embed → binary
+
+```bash
+make build      # Builds web/dist/ → embeds → compiles Go binary
+make dev        # Runs go run ./cmd/server (expects web/dist/ exists)
+make frontend   # Bun install + build (web/ only)
+make docker     # Multi-stage: Bun → Go → distroless
+```
+
+**Version Injection:** Makefile uses ldflags to inject `VERSION`, `COMMIT`, `BUILD_DATE` into `internal/version/`
+
+**Single Binary:** `subdux` contains both API and SPA. Frontend served at `/`, API at `/api/*`, uploads at `/uploads/*`.
+
+## COMMANDS
+
+**Backend:**
+```bash
+go run ./cmd/server          # Dev mode
+go test ./...                # Run all tests
+go build -o subdux ./cmd/server
+```
+
+**Frontend:**
+```bash
+cd web
+bun dev                      # Vite dev server (proxies /api to :8080)
+bun run build                # tsc + Vite production build
+bun run lint                 # ESLint
+```
+
+## CONVENTIONS
+
+**Backend:**
+- Layered: `api/` (handlers) → `service/` (logic) → `model/` (GORM) + `pkg/` (infra)
+- No raw SQL (GORM only), no service-to-service calls, no middleware beyond router.go
+- Input validation in handlers, business logic in services
+- JWT auth via Echo middleware, bcrypt for passwords
+
+**Frontend:**
+- Feature-folder structure: `features/{domain}/{name}-page.tsx`
+- Pure `useState` (no context, no state libraries)
+- Shadcn/UI primitives (new-york, zinc), Tailwind v4, oklch colors
+- API calls via `lib/api.ts` (auto JWT, 401 redirect)
+- i18n via i18next (en, ja, zh-CN)
+
+## ANTI-PATTERNS
+
+**Backend:**
+- No raw SQL queries
+- No service-to-service calls
+- No middleware beyond router.go
+
+**Frontend:**
+- NEVER edit `src/components/ui/*` (Shadcn auto-generated)
+- NEVER import Radix primitives directly
+- No `useContext` or state libraries
+
+## TESTING
+
+**Backend:** 8 test files (1,042 lines), table-driven, in-memory SQLite
+**Frontend:** No tests configured (no Vitest/Jest)
+
+## NOTES
+
+- **Monorepo but not workspace:** No package.json workspaces, no go.work. Just folder convention.
+- **Data directory:** `data/` at root (SQLite DB + uploaded assets). Override via `DATA_PATH` env var.
+- **Embedded assets:** `frontend.go` embeds `web/dist/` at build time. Frontend must build before Go.
+
+---
+
+# oh-my-codex Agent Orchestration
+
+Below is the OMX framework configuration. For project-specific guidance, see sections above.
+
+
 # oh-my-codex - Intelligent Multi-Agent Orchestration
 
 You are running with oh-my-codex (OMX), a multi-agent orchestration layer for Codex CLI.
