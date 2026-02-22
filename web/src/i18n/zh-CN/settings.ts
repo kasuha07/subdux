@@ -239,7 +239,8 @@ const settings = {
         "serverchan": "Server酱3",
         "feishu": "飞书机器人",
         "wecom": "企业微信机器人",
-        "dingtalk": "钉钉机器人"
+        "dingtalk": "钉钉机器人",
+        "napcat": "NapCat（QQ 机器人）"
       },
       "typeDescription": {
         "smtp": "通过您自己的 SMTP 服务器接收邮件通知",
@@ -254,7 +255,8 @@ const settings = {
         "serverchan": "通过 Server酱3 接收通知",
         "feishu": "通过飞书自定义机器人接收通知",
         "wecom": "通过企业微信群机器人接收通知",
-        "dingtalk": "通过钉钉自定义机器人接收通知"
+        "dingtalk": "通过钉钉自定义机器人接收通知",
+        "napcat": "通过 NapCat QQ 机器人接收通知（OneBot v11）"
       },
       "typeLabel": "渠道类型",
       "configFields": {
@@ -333,7 +335,18 @@ const settings = {
         "dingtalkWebhookUrl": "Webhook 地址",
         "dingtalkWebhookUrlPlaceholder": "https://oapi.dingtalk.com/robot/send?access_token=...",
         "dingtalkSecret": "签名密钥（可选）",
-        "dingtalkSecretPlaceholder": "SEC..."
+        "dingtalkSecretPlaceholder": "SEC...",
+        "napcatUrl": "NapCat 服务器地址",
+        "napcatUrlPlaceholder": "http://127.0.0.1:3000",
+        "napcatAccessToken": "访问令牌（可选）",
+        "napcatAccessTokenPlaceholder": "您的 NapCat 访问令牌",
+        "napcatMessageType": "消息类型",
+        "napcatMessageTypePrivate": "私聊消息",
+        "napcatMessageTypeGroup": "群聊消息",
+        "napcatUserId": "用户 ID（QQ 号）",
+        "napcatUserIdPlaceholder": "10001",
+        "napcatGroupId": "群号",
+        "napcatGroupIdPlaceholder": "123456789"
       },
       "save": "保存",
       "cancel": "取消"

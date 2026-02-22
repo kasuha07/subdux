@@ -239,7 +239,8 @@ const settings = {
         "serverchan": "ServerChan3",
         "feishu": "Feishu Bot",
         "wecom": "WeCom Bot",
-        "dingtalk": "DingTalk Bot"
+        "dingtalk": "DingTalk Bot",
+        "napcat": "NapCat (QQ Bot)"
       },
       "typeDescription": {
         "smtp": "Receive email notifications via your own SMTP server",
@@ -254,7 +255,8 @@ const settings = {
         "serverchan": "Receive notifications via ServerChan3 (Server酱3)",
         "feishu": "Receive notifications via Feishu (Lark) bot",
         "wecom": "Receive notifications via WeCom (企业微信) bot",
-        "dingtalk": "Receive notifications via DingTalk (钉钉) bot"
+        "dingtalk": "Receive notifications via DingTalk (钉钉) bot",
+        "napcat": "Receive notifications via NapCat QQ bot (OneBot v11)"
       },
       "typeLabel": "Channel type",
       "configFields": {
@@ -333,7 +335,18 @@ const settings = {
         "dingtalkWebhookUrl": "Webhook URL",
         "dingtalkWebhookUrlPlaceholder": "https://oapi.dingtalk.com/robot/send?access_token=...",
         "dingtalkSecret": "Signing Secret (optional)",
-        "dingtalkSecretPlaceholder": "SEC..."
+        "dingtalkSecretPlaceholder": "SEC...",
+        "napcatUrl": "NapCat Server URL",
+        "napcatUrlPlaceholder": "http://127.0.0.1:3000",
+        "napcatAccessToken": "Access Token (optional)",
+        "napcatAccessTokenPlaceholder": "Your NapCat access token",
+        "napcatMessageType": "Message Type",
+        "napcatMessageTypePrivate": "Private Message",
+        "napcatMessageTypeGroup": "Group Message",
+        "napcatUserId": "User ID (QQ number)",
+        "napcatUserIdPlaceholder": "10001",
+        "napcatGroupId": "Group ID",
+        "napcatGroupIdPlaceholder": "123456789"
       },
       "save": "Save",
       "cancel": "Cancel"

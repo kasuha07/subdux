@@ -381,7 +381,7 @@ export interface UploadIconResponse {
 
 export interface NotificationChannel {
   id: number
-  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus"
+  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "napcat"
   enabled: boolean
   config: string
   created_at: string
@@ -459,7 +459,15 @@ export interface DingTalkChannelConfig {
   secret?: string
 }
 
-export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | PushDeerChannelConfig | PushplusChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig
+export interface NapCatChannelConfig {
+  url: string
+  access_token?: string
+  message_type?: "private" | "group"
+  user_id?: string
+  group_id?: string
+}
+
+export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | PushDeerChannelConfig | PushplusChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig | NapCatChannelConfig
 
 export interface CreateNotificationChannelInput {
   type: string

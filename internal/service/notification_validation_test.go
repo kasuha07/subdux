@@ -127,6 +127,56 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 			config:      `{"token":"t","endpoint":"ftp://example.com"}`,
 			wantErr:     "pushplus endpoint must start with http:// or https://",
 		},
+		{
+			name:        "valid napcat private message",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","message_type":"private","user_id":"123456789"}`,
+		},
+		{
+			name:        "valid napcat group message",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","message_type":"group","group_id":"987654321"}`,
+		},
+		{
+			name:        "valid napcat with access token",
+			channelType: "napcat",
+			config:      `{"url":"https://napcat.example.com","access_token":"mytoken","message_type":"private","user_id":"123"}`,
+		},
+		{
+			name:        "valid napcat defaults to private",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","user_id":"123456789"}`,
+		},
+		{
+			name:        "reject napcat missing url",
+			channelType: "napcat",
+			config:      `{"message_type":"private","user_id":"123"}`,
+			wantErr:     "napcat channel requires url",
+		},
+		{
+			name:        "reject napcat invalid url scheme",
+			channelType: "napcat",
+			config:      `{"url":"ftp://example.com","user_id":"123"}`,
+			wantErr:     "napcat url must start with http:// or https://",
+		},
+		{
+			name:        "reject napcat invalid message type",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","message_type":"channel","user_id":"123"}`,
+			wantErr:     "napcat message_type must be private or group",
+		},
+		{
+			name:        "reject napcat private missing user_id",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","message_type":"private"}`,
+			wantErr:     "napcat channel requires user_id for private messages",
+		},
+		{
+			name:        "reject napcat group missing group_id",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","message_type":"group"}`,
+			wantErr:     "napcat channel requires group_id for group messages",
+		},
 	}
 
 	for _, tt := range tests {

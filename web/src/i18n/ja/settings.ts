@@ -239,7 +239,8 @@ const settings = {
         "serverchan": "ServerChan3",
         "feishu": "Feishu（飛書）ボット",
         "wecom": "WeCom（企業微信）ボット",
-        "dingtalk": "DingTalk（釘釘）ボット"
+        "dingtalk": "DingTalk（釘釘）ボット",
+        "napcat": "NapCat（QQボット）"
       },
       "typeDescription": {
         "smtp": "独自のSMTPサーバー経由でメール通知を受信",
@@ -254,7 +255,8 @@ const settings = {
         "serverchan": "ServerChan3（Server酱3）経由で通知を受信",
         "feishu": "Feishu（飛書）ボット経由で通知を受信",
         "wecom": "WeCom（企業微信）ボット経由で通知を受信",
-        "dingtalk": "DingTalk（釘釘）ボット経由で通知を受信"
+        "dingtalk": "DingTalk（釘釘）ボット経由で通知を受信",
+        "napcat": "NapCat QQボット経由で通知を受信（OneBot v11）"
       },
       "typeLabel": "チャネルタイプ",
       "configFields": {
@@ -333,7 +335,18 @@ const settings = {
         "dingtalkWebhookUrl": "Webhook URL",
         "dingtalkWebhookUrlPlaceholder": "https://oapi.dingtalk.com/robot/send?access_token=...",
         "dingtalkSecret": "署名シークレット（任意）",
-        "dingtalkSecretPlaceholder": "SEC..."
+        "dingtalkSecretPlaceholder": "SEC...",
+        "napcatUrl": "NapCatサーバーURL",
+        "napcatUrlPlaceholder": "http://127.0.0.1:3000",
+        "napcatAccessToken": "アクセストークン（任意）",
+        "napcatAccessTokenPlaceholder": "NapCatアクセストークン",
+        "napcatMessageType": "メッセージタイプ",
+        "napcatMessageTypePrivate": "プライベートメッセージ",
+        "napcatMessageTypeGroup": "グループメッセージ",
+        "napcatUserId": "ユーザーID（QQ番号）",
+        "napcatUserIdPlaceholder": "10001",
+        "napcatGroupId": "グループID",
+        "napcatGroupIdPlaceholder": "123456789"
       },
       "save": "保存",
       "cancel": "キャンセル"

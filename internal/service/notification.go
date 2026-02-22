@@ -54,7 +54,7 @@ func (s *NotificationService) ListChannels(userID uint) ([]model.NotificationCha
 func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInput) (*model.NotificationChannel, error) {
 	channelType := strings.ToLower(strings.TrimSpace(input.Type))
 	if !isValidChannelType(channelType) {
-		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus")
+		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus, napcat")
 	}
 
 	if err := validateChannelConfig(channelType, input.Config); err != nil {
@@ -161,6 +161,8 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		return s.sendPushDeer(channel, testSubName, testBillingDate)
 	case "pushplus":
 		return s.sendPushplus(channel, testSubName, testBillingDate)
+	case "napcat":
+		return s.sendNapCat(channel, testSubName, testBillingDate)
 	default:
 		return errors.New("unsupported channel type")
 	}
@@ -355,6 +357,8 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				sendErr = s.sendPushDeer(channel, sub.Name, billingDateStr)
 			case "pushplus":
 				sendErr = s.sendPushplus(channel, sub.Name, billingDateStr)
+			case "napcat":
+				sendErr = s.sendNapCat(channel, sub.Name, billingDateStr)
 			}
 
 			logEntry := model.NotificationLog{
@@ -1160,9 +1164,97 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, su
 	return nil
 }
 
+func (s *NotificationService) sendNapCat(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		URL         string `json:"url"`
+		AccessToken string `json:"access_token"`
+		MessageType string `json:"message_type"`
+		UserID      string `json:"user_id"`
+		GroupID     string `json:"group_id"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid napcat config")
+	}
+	if cfg.URL == "" {
+		return errors.New("napcat config requires url")
+	}
+
+	msgType := strings.ToLower(strings.TrimSpace(cfg.MessageType))
+	if msgType == "" {
+		msgType = "private"
+	}
+
+	if msgType == "private" && cfg.UserID == "" {
+		return errors.New("napcat config requires user_id for private messages")
+	}
+	if msgType == "group" && cfg.GroupID == "" {
+		return errors.New("napcat config requires group_id for group messages")
+	}
+
+	text := fmt.Sprintf("📋 Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
+
+	payload := map[string]interface{}{
+		"message_type": msgType,
+		"message":      text,
+	}
+	if msgType == "private" {
+		payload["user_id"] = cfg.UserID
+	} else {
+		payload["group_id"] = cfg.GroupID
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	endpoint := strings.TrimRight(cfg.URL, "/") + "/send_msg"
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if cfg.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.AccessToken)
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("napcat request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("napcat API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var napcatResp struct {
+		Status  string `json:"status"`
+		Retcode int    `json:"retcode"`
+		Message string `json:"message"`
+		Wording string `json:"wording"`
+	}
+	if err := json.Unmarshal(respBody, &napcatResp); err == nil {
+		if napcatResp.Retcode != 0 {
+			errMsg := napcatResp.Message
+			if errMsg == "" {
+				errMsg = napcatResp.Wording
+			}
+			if errMsg == "" {
+				errMsg = string(respBody)
+			}
+			return fmt.Errorf("napcat API error %d: %s", napcatResp.Retcode, errMsg)
+		}
+	}
+
+	return nil
+}
+
 func isValidChannelType(t string) bool {
 	switch t {
-	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk", "pushdeer", "pushplus":
+	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk", "pushdeer", "pushplus", "napcat":
 		return true
 	default:
 		return false
@@ -1407,6 +1499,37 @@ func validateChannelConfig(channelType, config string) error {
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint != "" && !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 			return errors.New("pushplus endpoint must start with http:// or https://")
+		}
+		return nil
+	case "napcat":
+		var cfg struct {
+			URL         string `json:"url"`
+			MessageType string `json:"message_type"`
+			UserID      string `json:"user_id"`
+			GroupID     string `json:"group_id"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid napcat config format")
+		}
+		if strings.TrimSpace(cfg.URL) == "" {
+			return errors.New("napcat channel requires url")
+		}
+		napcatURL := strings.TrimSpace(cfg.URL)
+		if !strings.HasPrefix(napcatURL, "http://") && !strings.HasPrefix(napcatURL, "https://") {
+			return errors.New("napcat url must start with http:// or https://")
+		}
+		msgType := strings.ToLower(strings.TrimSpace(cfg.MessageType))
+		if msgType == "" {
+			msgType = "private"
+		}
+		if msgType != "private" && msgType != "group" {
+			return errors.New("napcat message_type must be private or group")
+		}
+		if msgType == "private" && strings.TrimSpace(cfg.UserID) == "" {
+			return errors.New("napcat channel requires user_id for private messages")
+		}
+		if msgType == "group" && strings.TrimSpace(cfg.GroupID) == "" {
+			return errors.New("napcat channel requires group_id for group messages")
 		}
 		return nil
 	default:

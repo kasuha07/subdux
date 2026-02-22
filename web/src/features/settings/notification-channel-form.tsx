@@ -27,7 +27,7 @@ interface Props {
   saving: boolean
 }
 
-type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus"
+type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "napcat"
 type WebhookMethod = "GET" | "POST" | "PUT"
 
 const WEBHOOK_HEADERS_PARSE_ERROR = "WEBHOOK_HEADERS_PARSE_ERROR"
@@ -145,6 +145,12 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
   const [dingtalkWebhookUrl, setDingtalkWebhookUrl] = useState(initCfg.webhook_url ?? "")
   const [dingtalkSecret, setDingtalkSecret] = useState(initCfg.secret ?? "")
 
+  const [napcatUrl, setNapcatUrl] = useState(initCfg.url ?? "")
+  const [napcatAccessToken, setNapcatAccessToken] = useState(initCfg.access_token ?? "")
+  const [napcatMessageType, setNapcatMessageType] = useState<"private" | "group">((initCfg.message_type as "private" | "group") ?? "private")
+  const [napcatUserId, setNapcatUserId] = useState(initCfg.user_id ?? "")
+  const [napcatGroupId, setNapcatGroupId] = useState(initCfg.group_id ?? "")
+
   function buildConfig(): string {
     switch (type) {
       case "smtp":
@@ -221,6 +227,13 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
           webhook_url: dingtalkWebhookUrl.trim(),
           ...(dingtalkSecret.trim() ? { secret: dingtalkSecret.trim() } : {}),
         })
+      case "napcat":
+        return JSON.stringify({
+          url: napcatUrl.trim(),
+          ...(napcatAccessToken.trim() ? { access_token: napcatAccessToken.trim() } : {}),
+          message_type: napcatMessageType,
+          ...(napcatMessageType === "private" ? { user_id: napcatUserId.trim() } : { group_id: napcatGroupId.trim() }),
+        })
     }
   }
 
@@ -266,6 +279,7 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <SelectItem value="feishu">{t("settings.notifications.channels.type.feishu")}</SelectItem>
                 <SelectItem value="wecom">{t("settings.notifications.channels.type.wecom")}</SelectItem>
                 <SelectItem value="dingtalk">{t("settings.notifications.channels.type.dingtalk")}</SelectItem>
+                <SelectItem value="napcat">{t("settings.notifications.channels.type.napcat")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -511,6 +525,41 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <Label htmlFor="dt-secret">{t("settings.notifications.channels.configFields.dingtalkSecret")}</Label>
                 <Input id="dt-secret" placeholder={t("settings.notifications.channels.configFields.dingtalkSecretPlaceholder")} value={dingtalkSecret} onChange={(e) => setDingtalkSecret(e.target.value)} />
               </div>
+            </>
+          )}
+
+          {type === "napcat" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="nc-url">{t("settings.notifications.channels.configFields.napcatUrl")}</Label>
+                <Input id="nc-url" type="url" placeholder={t("settings.notifications.channels.configFields.napcatUrlPlaceholder")} value={napcatUrl} onChange={(e) => setNapcatUrl(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nc-token">{t("settings.notifications.channels.configFields.napcatAccessToken")}</Label>
+                <Input id="nc-token" placeholder={t("settings.notifications.channels.configFields.napcatAccessTokenPlaceholder")} value={napcatAccessToken} onChange={(e) => setNapcatAccessToken(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.notifications.channels.configFields.napcatMessageType")}</Label>
+                <Select value={napcatMessageType} onValueChange={(v) => setNapcatMessageType(v as "private" | "group")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">{t("settings.notifications.channels.configFields.napcatMessageTypePrivate")}</SelectItem>
+                    <SelectItem value="group">{t("settings.notifications.channels.configFields.napcatMessageTypeGroup")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {napcatMessageType === "private" && (
+                <div className="space-y-2">
+                  <Label htmlFor="nc-userid">{t("settings.notifications.channels.configFields.napcatUserId")}</Label>
+                  <Input id="nc-userid" placeholder={t("settings.notifications.channels.configFields.napcatUserIdPlaceholder")} value={napcatUserId} onChange={(e) => setNapcatUserId(e.target.value)} required />
+                </div>
+              )}
+              {napcatMessageType === "group" && (
+                <div className="space-y-2">
+                  <Label htmlFor="nc-groupid">{t("settings.notifications.channels.configFields.napcatGroupId")}</Label>
+                  <Input id="nc-groupid" placeholder={t("settings.notifications.channels.configFields.napcatGroupIdPlaceholder")} value={napcatGroupId} onChange={(e) => setNapcatGroupId(e.target.value)} required />
+                </div>
+              )}
             </>
           )}
 
