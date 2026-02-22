@@ -16,6 +16,7 @@ const subscription = {
     "dueIn": "Due in {{count}}d",
     "overdue": "Overdue",
     "noNextBilling": "No next billing date",
+    "holdingCost": "{{amount}}/day",
     "trial": {
       "startsIn": "Trial starts in {{count}}d",
       "active": "Trial active",

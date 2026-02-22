@@ -16,6 +16,7 @@ const subscription = {
     "dueIn": "{{count}}天后到期",
     "overdue": "已逾期",
     "noNextBilling": "无下次计费日",
+    "holdingCost": "{{amount}}/日",
     "trial": {
       "startsIn": "试用将在 {{count}} 天后开始",
       "active": "试用中",

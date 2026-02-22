@@ -207,6 +207,31 @@ export default function SubscriptionCard({
     : isOverdue
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
+  const holdingDays = subscription.billing_type === "one_time" && subscription.billing_anchor_date
+    ? (() => {
+      const anchorDate = new Date(subscription.billing_anchor_date)
+      if (Number.isNaN(anchorDate.getTime())) {
+        return null
+      }
+      return Math.max(1, -daysUntil(subscription.billing_anchor_date))
+    })()
+    : null
+  const holdingCostText = holdingDays
+    ? t("subscription.card.holdingCost", {
+      amount: formatCurrencyWithSymbol(
+        subscription.amount / holdingDays,
+        subscription.currency,
+        currencySymbol,
+        i18n.language
+      ),
+    })
+    : null
+  const showHoldingCostBadge = subscription.billing_type === "one_time" && Boolean(holdingCostText)
+  const secondaryBadgeText = showHoldingCostBadge && holdingCostText ? holdingCostText : dueText
+  const secondaryBadgeClass = showHoldingCostBadge
+    ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
+    : dueBadgeClass
+  const secondaryBadgeTitle = secondaryBadgeText
   const anchorDateText = showAnchorDate && subscription.billing_anchor_date
     ? t("subscription.card.anchorDate", {
       date: formatDate(subscription.billing_anchor_date, i18n.language),
@@ -297,10 +322,10 @@ export default function SubscriptionCard({
           <div className="mt-0.5 flex max-w-[14rem] justify-end">
             <Badge
               variant="outline"
-              className={`max-w-[12rem] truncate ${dueBadgeClass}`}
-              title={dueText}
+              className={`max-w-[12rem] truncate ${secondaryBadgeClass}`}
+              title={secondaryBadgeTitle}
             >
-              {dueText}
+              {secondaryBadgeText}
             </Badge>
           </div>
           <div className="flex max-w-[14rem] flex-wrap justify-end gap-1">
