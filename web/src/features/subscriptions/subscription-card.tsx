@@ -310,7 +310,7 @@ export default function SubscriptionCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex self-center flex-col items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <Button variant="ghost" size="icon-sm" onClick={() => onEdit(subscription)}>
             <Pencil className="size-3.5" />
           </Button>
