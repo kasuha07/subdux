@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"gorm.io/gorm"
@@ -169,8 +170,8 @@ func (s *NotificationTemplateService) GetTemplateForChannel(userID uint, channel
 	return &tmpl, nil
 }
 
-// PreviewTemplate renders a template with sample data
-func (s *NotificationTemplateService) PreviewTemplate(input CreateTemplateInput) (string, error) {
+// PreviewTemplate renders a template with user's first subscription data when available.
+func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateTemplateInput) (string, error) {
 	format := strings.ToLower(strings.TrimSpace(input.Format))
 	if err := s.validator.ValidateFormat(format); err != nil {
 		return "", err
@@ -180,7 +181,7 @@ func (s *NotificationTemplateService) PreviewTemplate(input CreateTemplateInput)
 	}
 
 	renderer := NewTemplateRenderer(s.validator)
-	sampleData := TemplateData{
+	templateData := TemplateData{
 		SubscriptionName: "Netflix Premium",
 		BillingDate:      "2026-03-15",
 		Amount:           15.99,
@@ -193,5 +194,53 @@ func (s *NotificationTemplateService) PreviewTemplate(input CreateTemplateInput)
 		UserEmail:        "user@example.com",
 	}
 
-	return renderer.RenderTemplate(input.Template, sampleData)
+	var sub model.Subscription
+	if err := s.DB.Where("user_id = ?", userID).Order("id ASC").First(&sub).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", err
+		}
+		return renderer.RenderTemplate(input.Template, templateData)
+	}
+
+	templateData.SubscriptionName = sub.Name
+	templateData.Amount = sub.Amount
+	templateData.Currency = sub.Currency
+	templateData.URL = sub.URL
+	templateData.Remark = sub.Notes
+	templateData.Category = sub.Category
+
+	if sub.NextBillingDate != nil {
+		billingDate := time.Date(
+			sub.NextBillingDate.Year(),
+			sub.NextBillingDate.Month(),
+			sub.NextBillingDate.Day(),
+			0, 0, 0, 0,
+			sub.NextBillingDate.Location(),
+		)
+		templateData.BillingDate = billingDate.Format("2006-01-02")
+		now := time.Now().In(billingDate.Location())
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, billingDate.Location())
+		templateData.DaysUntil = int(billingDate.Sub(today).Hours() / 24)
+	}
+
+	if sub.CategoryID != nil && strings.TrimSpace(templateData.Category) == "" {
+		var category model.Category
+		if err := s.DB.Select("name").Where("id = ? AND user_id = ?", *sub.CategoryID, userID).First(&category).Error; err == nil {
+			templateData.Category = category.Name
+		}
+	}
+
+	if sub.PaymentMethodID != nil {
+		var paymentMethod model.PaymentMethod
+		if err := s.DB.Select("name").Where("id = ? AND user_id = ?", *sub.PaymentMethodID, userID).First(&paymentMethod).Error; err == nil {
+			templateData.PaymentMethod = paymentMethod.Name
+		}
+	}
+
+	var user model.User
+	if err := s.DB.Select("email").Where("id = ?", userID).First(&user).Error; err == nil {
+		templateData.UserEmail = user.Email
+	}
+
+	return renderer.RenderTemplate(input.Template, templateData)
 }

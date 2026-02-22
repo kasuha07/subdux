@@ -95,12 +95,13 @@ func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 }
 
 func (h *NotificationTemplateHandler) PreviewTemplate(c echo.Context) error {
+	userID := getUserID(c)
 	var input service.CreateTemplateInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	preview, err := h.Service.PreviewTemplate(input)
+	preview, err := h.Service.PreviewTemplate(userID, input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
