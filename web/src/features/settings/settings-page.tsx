@@ -27,6 +27,7 @@ import SettingsNotificationTab from "./settings-notification-tab"
 import SettingsPaymentTab from "./settings-payment-tab"
 
 type SettingsTab = "general" | "payment" | "notification" | "account"
+const githubRepoURL = "https://github.com/kasuha07/subdux"
 
 function isSettingsTab(value: string): value is SettingsTab {
   return value === "general" || value === "payment" || value === "notification" || value === "account"
@@ -200,6 +201,15 @@ export default function SettingsPage() {
           {versionInfo.commit !== "unknown" && (
             <span className="ml-1">({versionInfo.commit})</span>
           )}
+          <span className="mx-1">·</span>
+          <a
+            href={githubRepoURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            GitHub
+          </a>
         </footer>
       )}
     </div>
