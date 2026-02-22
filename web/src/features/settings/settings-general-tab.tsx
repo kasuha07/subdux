@@ -75,6 +75,43 @@ export default function SettingsGeneralTab({
   return (
     <TabsContent value="general" className="space-y-6">
       <div>
+        <h2 className="text-base font-semibold tracking-tight">{t("settings.displayAmount.title")}</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {t("settings.displayAmount.description")}
+        </p>
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="display-all-amounts-in-primary-currency"
+              checked={displayAllAmountsInPrimaryCurrency}
+              onCheckedChange={onDisplayAllAmountsInPrimaryCurrencyChange}
+            />
+            <Label
+              htmlFor="display-all-amounts-in-primary-currency"
+              className="cursor-pointer"
+            >
+              {t("settings.displayAmount.toggle")}
+            </Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="display-recurring-amounts-as-monthly-cost"
+              checked={displayRecurringAmountsAsMonthlyCost}
+              onCheckedChange={onDisplayRecurringAmountsAsMonthlyCostChange}
+            />
+            <Label
+              htmlFor="display-recurring-amounts-as-monthly-cost"
+              className="cursor-pointer"
+            >
+              {t("settings.displayAmount.monthlyCostToggle")}
+            </Label>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div>
         <h2 className="text-base font-semibold tracking-tight">{t("settings.appearance.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.appearance.description")}
@@ -127,43 +164,6 @@ export default function SettingsGeneralTab({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">{t("settings.displayAmount.title")}</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {t("settings.displayAmount.description")}
-        </p>
-        <div className="mt-3 space-y-3">
-          <div className="flex items-center gap-3">
-            <Switch
-              id="display-all-amounts-in-primary-currency"
-              checked={displayAllAmountsInPrimaryCurrency}
-              onCheckedChange={onDisplayAllAmountsInPrimaryCurrencyChange}
-            />
-            <Label
-              htmlFor="display-all-amounts-in-primary-currency"
-              className="cursor-pointer"
-            >
-              {t("settings.displayAmount.toggle")}
-            </Label>
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="display-recurring-amounts-as-monthly-cost"
-              checked={displayRecurringAmountsAsMonthlyCost}
-              onCheckedChange={onDisplayRecurringAmountsAsMonthlyCostChange}
-            />
-            <Label
-              htmlFor="display-recurring-amounts-as-monthly-cost"
-              className="cursor-pointer"
-            >
-              {t("settings.displayAmount.monthlyCostToggle")}
-            </Label>
-          </div>
         </div>
       </div>
 
