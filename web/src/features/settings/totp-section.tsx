@@ -61,7 +61,7 @@ export default function TotpSection({ user, onUserChange }: Props) {
       <div className="space-y-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium">{t("settings.twoFactor.title")}</h3>
+            <h3 className="text-base font-semibold tracking-tight">{t("settings.twoFactor.title")}</h3>
             <Badge variant={totpEnabled ? "default" : "secondary"} className="text-xs">
               {totpEnabled ? t("settings.twoFactor.enabled") : t("settings.twoFactor.disabled")}
             </Badge>

@@ -92,7 +92,7 @@ export default function PasskeySection() {
     <div className="space-y-3">
       <div>
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium">{t("settings.passkeys.title")}</h3>
+          <h3 className="text-base font-semibold tracking-tight">{t("settings.passkeys.title")}</h3>
           <Badge variant="secondary" className="text-xs">{passkeys.length}</Badge>
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">{t("settings.passkeys.description")}</p>

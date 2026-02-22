@@ -4,7 +4,6 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import type {
   CreateTemplateInput,
@@ -114,72 +113,70 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
   }
 
   return (
-    <Card>
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-medium">{t("settings.notifications.templates.title")}</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {t("settings.notifications.templates.description")}
-            </p>
-          </div>
-          <Button size="sm" onClick={handleAdd}>
-            {t("settings.notifications.templates.addButton")}
-          </Button>
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold tracking-tight">{t("settings.notifications.templates.title")}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("settings.notifications.templates.description")}
+          </p>
         </div>
+        <Button size="sm" onClick={handleAdd}>
+          {t("settings.notifications.templates.addButton")}
+        </Button>
+      </div>
 
-        <div className="space-y-2">
-          {templates.map((template) => (
-            <div
-              key={template.id}
-              className="flex flex-col gap-3 rounded-md border bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">
-                    {template.channel_type
-                      ? t(`settings.notifications.channels.type.${template.channel_type}`)
-                      : t("settings.notifications.templates.defaultTemplate")}
-                  </p>
-                  <Badge variant="secondary">{template.format}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground line-clamp-1">
-                  {template.template}
+      <div className="space-y-2">
+        {templates.map((template) => (
+          <div
+            key={template.id}
+            className="flex flex-col gap-3 rounded-md border bg-card/70 p-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">
+                  {template.channel_type
+                    ? t(`settings.notifications.channels.type.${template.channel_type}`)
+                    : t("settings.notifications.templates.defaultTemplate")}
                 </p>
+                <Badge variant="secondary">{template.format}</Badge>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleEdit(template)}>
-                  {t("settings.notifications.templates.editButton")}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => void handleDelete(template)}>
-                  {t("settings.notifications.templates.deleteButton")}
-                </Button>
-              </div>
+              <p className="text-xs text-muted-foreground line-clamp-1">
+                {template.template}
+              </p>
             </div>
-          ))}
-        </div>
 
-        {formOpen && (
-          <NotificationTemplateFormDialog
-            channelType={channelType}
-            editingTemplate={editingTemplate}
-            formOpen={formOpen}
-            format={format}
-            onChannelTypeChange={setChannelType}
-            onClose={() => setFormOpen(false)}
-            onFormatChange={setFormat}
-            onPreview={() => void handlePreview()}
-            onSubmit={(e) => void handleSubmit(e)}
-            onTemplateContentChange={setTemplateContent}
-            previewResult={previewResult}
-            previewing={previewing}
-            saving={saving}
-            t={t}
-            templateContent={templateContent}
-          />
-        )}
-      </CardContent>
-    </Card>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => handleEdit(template)}>
+                {t("settings.notifications.templates.editButton")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void handleDelete(template)}>
+                {t("settings.notifications.templates.deleteButton")}
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {formOpen && (
+        <NotificationTemplateFormDialog
+          channelType={channelType}
+          editingTemplate={editingTemplate}
+          formOpen={formOpen}
+          format={format}
+          onChannelTypeChange={setChannelType}
+          onClose={() => setFormOpen(false)}
+          onFormatChange={setFormat}
+          onPreview={() => void handlePreview()}
+          onSubmit={(e) => void handleSubmit(e)}
+          onTemplateContentChange={setTemplateContent}
+          previewResult={previewResult}
+          previewing={previewing}
+          saving={saving}
+          t={t}
+          templateContent={templateContent}
+        />
+      )}
+    </div>
   )
 }

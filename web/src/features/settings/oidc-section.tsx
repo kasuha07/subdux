@@ -110,7 +110,7 @@ export default function OIDCSection() {
     <div className="space-y-3">
       <div>
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium">{t("settings.oidc.title")}</h3>
+          <h3 className="text-base font-semibold tracking-tight">{t("settings.oidc.title")}</h3>
           <Badge variant="secondary" className="text-xs">{connections.length}</Badge>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{t("settings.oidc.description")}</p>

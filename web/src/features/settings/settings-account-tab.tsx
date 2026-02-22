@@ -81,7 +81,7 @@ export default function SettingsAccountTab({
     <TabsContent value="account">
       <div className="space-y-4">
         <div>
-          <h2 className="text-sm font-medium">{t("settings.account.title")}</h2>
+          <h2 className="text-base font-semibold tracking-tight">{t("settings.account.title")}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {t("settings.account.description")}
           </p>
@@ -219,7 +219,7 @@ export default function SettingsAccountTab({
         <Separator />
 
         <div>
-          <h3 className="text-sm font-medium">{t("settings.account.changePassword")}</h3>
+          <h3 className="text-base font-semibold tracking-tight">{t("settings.account.changePassword")}</h3>
           <form onSubmit={(event) => void onChangePassword(event)} className="mt-3 grid max-w-sm gap-3">
             {passwordError && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

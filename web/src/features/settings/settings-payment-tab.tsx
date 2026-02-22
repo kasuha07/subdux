@@ -85,7 +85,7 @@ export default function SettingsPaymentTab({
   return (
     <TabsContent value="payment" className="space-y-6">
       <div>
-        <h2 className="text-sm font-medium">{t("settings.currency.title")}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("settings.currency.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.currency.description")}
         </p>
@@ -108,7 +108,7 @@ export default function SettingsPaymentTab({
       <Separator />
 
       <div>
-        <h2 className="text-sm font-medium">{t("settings.currencyManagement.title")}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("settings.currencyManagement.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.currencyManagement.description")}
         </p>

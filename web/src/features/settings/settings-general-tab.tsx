@@ -66,7 +66,7 @@ export default function SettingsGeneralTab({
   return (
     <TabsContent value="general" className="space-y-6">
       <div>
-        <h2 className="text-sm font-medium">{t("settings.appearance.title")}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("settings.appearance.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.appearance.description")}
         </p>
@@ -101,7 +101,7 @@ export default function SettingsGeneralTab({
       <Separator />
 
       <div>
-        <h2 className="text-sm font-medium">{t("settings.language.title")}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("settings.language.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.language.description")}
         </p>
@@ -124,7 +124,7 @@ export default function SettingsGeneralTab({
       <Separator />
 
       <div>
-        <h2 className="text-sm font-medium">{t("settings.appearance.colorSchemeTitle")}</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("settings.appearance.colorSchemeTitle")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.appearance.colorSchemeDescription")}
         </p>

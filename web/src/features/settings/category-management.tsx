@@ -152,7 +152,7 @@ export default function CategoryManagement() {
 
   return (
     <div>
-      <h2 className="text-sm font-medium">
+      <h2 className="text-base font-semibold tracking-tight">
         {t("settings.categoryManagement.title")}
       </h2>
       <p className="text-sm text-muted-foreground mt-0.5">

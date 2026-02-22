@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 import { api } from "@/lib/api"
 import type {
@@ -145,17 +146,21 @@ export default function SettingsNotificationTab() {
   }
 
   return (
-    <TabsContent value="notification" className="space-y-4">
+    <TabsContent value="notification" className="space-y-6">
       <NotificationPolicySection
         policy={policy}
         onSave={handleSavePolicy}
         saving={policySaving}
       />
 
+      <Separator />
+
       <NotificationTemplateSection
         templates={templates}
         onTemplatesChange={setTemplates}
       />
+
+      <Separator />
 
       <NotificationChannelList
         channels={channels}
@@ -177,6 +182,8 @@ export default function SettingsNotificationTab() {
           saving={formSaving}
         />
       )}
+
+      <Separator />
 
       <NotificationLogList logs={logs} />
     </TabsContent>
