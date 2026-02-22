@@ -381,7 +381,7 @@ export interface UploadIconResponse {
 
 export interface NotificationChannel {
   id: number
-  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk"
+  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus"
   enabled: boolean
   config: string
   created_at: string
@@ -406,7 +406,21 @@ export interface TelegramChannelConfig {
 export interface WebhookChannelConfig {
   url: string
   secret?: string
-  method?: string
+  method?: "GET" | "POST" | "PUT"
+  headers?: Record<string, string>
+}
+
+export interface PushDeerChannelConfig {
+  push_key: string
+  server_url?: string
+}
+
+export interface PushplusChannelConfig {
+  token: string
+  endpoint?: string
+  template?: string
+  channel?: string
+  topic?: string
 }
 
 export interface GotifyChannelConfig {
@@ -445,7 +459,7 @@ export interface DingTalkChannelConfig {
   secret?: string
 }
 
-export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig
+export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | PushDeerChannelConfig | PushplusChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig
 
 export interface CreateNotificationChannelInput {
   type: string

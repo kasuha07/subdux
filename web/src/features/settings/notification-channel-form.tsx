@@ -27,7 +27,10 @@ interface Props {
   saving: boolean
 }
 
-type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk"
+type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus"
+type WebhookMethod = "GET" | "POST" | "PUT"
+
+const WEBHOOK_HEADERS_PARSE_ERROR = "WEBHOOK_HEADERS_PARSE_ERROR"
 
 function parseConfig(raw: string): Record<string, string> {
   try {
@@ -35,6 +38,56 @@ function parseConfig(raw: string): Record<string, string> {
   } catch {
     return {}
   }
+}
+
+function parseWebhookMethod(raw: string): WebhookMethod {
+  const method = raw.trim().toUpperCase()
+  if (method === "GET" || method === "PUT") {
+    return method
+  }
+  return "POST"
+}
+
+function parseWebhookHeadersDisplay(rawConfig: string): string {
+  try {
+    const parsed = JSON.parse(rawConfig) as { headers?: unknown }
+    if (!parsed.headers || typeof parsed.headers !== "object" || Array.isArray(parsed.headers)) {
+      return ""
+    }
+
+    const normalized: Record<string, string> = {}
+    for (const [key, value] of Object.entries(parsed.headers as Record<string, unknown>)) {
+      if (typeof value === "string") {
+        normalized[key] = value
+      }
+    }
+
+    if (Object.keys(normalized).length === 0) {
+      return ""
+    }
+
+    return JSON.stringify(normalized, null, 2)
+  } catch {
+    return ""
+  }
+}
+
+function parseWebhookHeadersInput(raw: string): Record<string, string> {
+  const parsed = JSON.parse(raw) as unknown
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(WEBHOOK_HEADERS_PARSE_ERROR)
+  }
+
+  const headers: Record<string, string> = {}
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const trimmedKey = key.trim()
+    if (trimmedKey === "" || typeof value !== "string") {
+      throw new Error(WEBHOOK_HEADERS_PARSE_ERROR)
+    }
+    headers[trimmedKey] = value
+  }
+
+  return headers
 }
 
 export function NotificationChannelForm({ channel, onClose, onSave, open, saving }: Props) {
@@ -60,6 +113,17 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
   const [chatId, setChatId] = useState(initCfg.chat_id ?? "")
   const [webhookUrl, setWebhookUrl] = useState(initCfg.url ?? "")
   const [webhookSecret, setWebhookSecret] = useState(initCfg.secret ?? "")
+  const [webhookMethod, setWebhookMethod] = useState<WebhookMethod>(parseWebhookMethod(initCfg.method ?? ""))
+  const [webhookHeaders, setWebhookHeaders] = useState(channel ? parseWebhookHeadersDisplay(channel.config) : "")
+
+  const [pushdeerPushKey, setPushdeerPushKey] = useState(initCfg.push_key ?? "")
+  const [pushdeerServerUrl, setPushdeerServerUrl] = useState(initCfg.server_url ?? "")
+
+  const [pushplusToken, setPushplusToken] = useState(initCfg.token ?? "")
+  const [pushplusTopic, setPushplusTopic] = useState(initCfg.topic ?? "")
+  const [pushplusEndpoint, setPushplusEndpoint] = useState(initCfg.endpoint ?? "")
+  const [pushplusTemplate, setPushplusTemplate] = useState(initCfg.template ?? "markdown")
+  const [pushplusChannel, setPushplusChannel] = useState(initCfg.channel ?? "")
 
   const [gotifyUrl, setGotifyUrl] = useState(initCfg.url ?? "")
   const [gotifyToken, setGotifyToken] = useState(initCfg.token ?? "")
@@ -99,7 +163,37 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
       case "telegram":
         return JSON.stringify({ bot_token: botToken.trim(), chat_id: chatId.trim() })
       case "webhook":
-        return JSON.stringify({ url: webhookUrl.trim(), ...(webhookSecret.trim() ? { secret: webhookSecret.trim() } : {}) })
+        {
+          const webhookConfig: Record<string, unknown> = {
+            url: webhookUrl.trim(),
+            method: webhookMethod,
+          }
+          if (webhookSecret.trim()) {
+            webhookConfig.secret = webhookSecret.trim()
+          }
+
+          if (webhookHeaders.trim()) {
+            const headers = parseWebhookHeadersInput(webhookHeaders)
+            if (Object.keys(headers).length > 0) {
+              webhookConfig.headers = headers
+            }
+          }
+
+          return JSON.stringify(webhookConfig)
+        }
+      case "pushdeer":
+        return JSON.stringify({
+          push_key: pushdeerPushKey.trim(),
+          ...(pushdeerServerUrl.trim() ? { server_url: pushdeerServerUrl.trim() } : {}),
+        })
+      case "pushplus":
+        return JSON.stringify({
+          token: pushplusToken.trim(),
+          ...(pushplusTopic.trim() ? { topic: pushplusTopic.trim() } : {}),
+          ...(pushplusEndpoint.trim() ? { endpoint: pushplusEndpoint.trim() } : {}),
+          ...(pushplusTemplate.trim() ? { template: pushplusTemplate.trim() } : {}),
+          ...(pushplusChannel.trim() ? { channel: pushplusChannel.trim() } : {}),
+        })
       case "gotify":
         return JSON.stringify({ url: gotifyUrl.trim(), token: gotifyToken.trim() })
       case "ntfy":
@@ -132,7 +226,17 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    void onSave(type, buildConfig())
+
+    try {
+      const config = buildConfig()
+      void onSave(type, config)
+    } catch (error) {
+      if (error instanceof Error && error.message === WEBHOOK_HEADERS_PARSE_ERROR) {
+        window.alert(t("settings.notifications.channels.configFields.headersInvalid"))
+        return
+      }
+      window.alert(t("settings.notifications.channels.configFields.headersInvalid"))
+    }
   }
 
   return (
@@ -153,6 +257,8 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <SelectItem value="resend">{t("settings.notifications.channels.type.resend")}</SelectItem>
                 <SelectItem value="telegram">{t("settings.notifications.channels.type.telegram")}</SelectItem>
                 <SelectItem value="webhook">{t("settings.notifications.channels.type.webhook")}</SelectItem>
+                <SelectItem value="pushdeer">{t("settings.notifications.channels.type.pushdeer")}</SelectItem>
+                <SelectItem value="pushplus">{t("settings.notifications.channels.type.pushplus")}</SelectItem>
                 <SelectItem value="gotify">{t("settings.notifications.channels.type.gotify")}</SelectItem>
                 <SelectItem value="ntfy">{t("settings.notifications.channels.type.ntfy")}</SelectItem>
                 <SelectItem value="bark">{t("settings.notifications.channels.type.bark")}</SelectItem>
@@ -251,8 +357,76 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <Input id="wh-url" type="url" placeholder={t("settings.notifications.channels.configFields.urlPlaceholder")} value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} required />
               </div>
               <div className="space-y-2">
+                <Label>{t("settings.notifications.channels.configFields.method")}</Label>
+                <Select value={webhookMethod} onValueChange={(value) => setWebhookMethod(parseWebhookMethod(value))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="POST">{t("settings.notifications.channels.configFields.methodPost")}</SelectItem>
+                    <SelectItem value="PUT">{t("settings.notifications.channels.configFields.methodPut")}</SelectItem>
+                    <SelectItem value="GET">{t("settings.notifications.channels.configFields.methodGet")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="wh-secret">{t("settings.notifications.channels.configFields.secret")}</Label>
                 <Input id="wh-secret" placeholder={t("settings.notifications.channels.configFields.secretPlaceholder")} value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wh-headers">{t("settings.notifications.channels.configFields.headers")}</Label>
+                <textarea
+                  id="wh-headers"
+                  className="flex min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder={t("settings.notifications.channels.configFields.headersPlaceholder")}
+                  value={webhookHeaders}
+                  onChange={(e) => setWebhookHeaders(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t("settings.notifications.channels.configFields.headersHint")}</p>
+              </div>
+            </>
+          )}
+
+          {type === "pushdeer" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="pd-key">{t("settings.notifications.channels.configFields.pushdeerPushKey")}</Label>
+                <Input id="pd-key" placeholder={t("settings.notifications.channels.configFields.pushdeerPushKeyPlaceholder")} value={pushdeerPushKey} onChange={(e) => setPushdeerPushKey(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pd-server-url">{t("settings.notifications.channels.configFields.pushdeerServerUrl")}</Label>
+                <Input id="pd-server-url" type="url" placeholder={t("settings.notifications.channels.configFields.pushdeerServerUrlPlaceholder")} value={pushdeerServerUrl} onChange={(e) => setPushdeerServerUrl(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {type === "pushplus" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="pp-token">{t("settings.notifications.channels.configFields.pushplusToken")}</Label>
+                <Input id="pp-token" placeholder={t("settings.notifications.channels.configFields.pushplusTokenPlaceholder")} value={pushplusToken} onChange={(e) => setPushplusToken(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pp-topic">{t("settings.notifications.channels.configFields.pushplusTopic")}</Label>
+                <Input id="pp-topic" placeholder={t("settings.notifications.channels.configFields.pushplusTopicPlaceholder")} value={pushplusTopic} onChange={(e) => setPushplusTopic(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pp-endpoint">{t("settings.notifications.channels.configFields.pushplusEndpoint")}</Label>
+                <Input id="pp-endpoint" type="url" placeholder={t("settings.notifications.channels.configFields.pushplusEndpointPlaceholder")} value={pushplusEndpoint} onChange={(e) => setPushplusEndpoint(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("settings.notifications.channels.configFields.pushplusTemplate")}</Label>
+                <Select value={pushplusTemplate} onValueChange={setPushplusTemplate}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="markdown">Markdown</SelectItem>
+                    <SelectItem value="html">HTML</SelectItem>
+                    <SelectItem value="txt">Text</SelectItem>
+                    <SelectItem value="json">JSON</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pp-channel">{t("settings.notifications.channels.configFields.pushplusChannel")}</Label>
+                <Input id="pp-channel" placeholder={t("settings.notifications.channels.configFields.pushplusChannelPlaceholder")} value={pushplusChannel} onChange={(e) => setPushplusChannel(e.target.value)} />
               </div>
             </>
           )}

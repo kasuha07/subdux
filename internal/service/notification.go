@@ -54,7 +54,7 @@ func (s *NotificationService) ListChannels(userID uint) ([]model.NotificationCha
 func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInput) (*model.NotificationChannel, error) {
 	channelType := strings.ToLower(strings.TrimSpace(input.Type))
 	if !isValidChannelType(channelType) {
-		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk")
+		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus")
 	}
 
 	if err := validateChannelConfig(channelType, input.Config); err != nil {
@@ -157,6 +157,10 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		return s.sendWeCom(channel, testSubName, testBillingDate)
 	case "dingtalk":
 		return s.sendDingTalk(channel, testSubName, testBillingDate)
+	case "pushdeer":
+		return s.sendPushDeer(channel, testSubName, testBillingDate)
+	case "pushplus":
+		return s.sendPushplus(channel, testSubName, testBillingDate)
 	default:
 		return errors.New("unsupported channel type")
 	}
@@ -347,6 +351,10 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				sendErr = s.sendWeCom(channel, sub.Name, billingDateStr)
 			case "dingtalk":
 				sendErr = s.sendDingTalk(channel, sub.Name, billingDateStr)
+			case "pushdeer":
+				sendErr = s.sendPushDeer(channel, sub.Name, billingDateStr)
+			case "pushplus":
+				sendErr = s.sendPushplus(channel, sub.Name, billingDateStr)
 			}
 
 			logEntry := model.NotificationLog{
@@ -530,9 +538,10 @@ func (s *NotificationService) sendTelegram(channel model.NotificationChannel, su
 
 func (s *NotificationService) sendWebhook(channel model.NotificationChannel, subName, billingDate string) error {
 	var cfg struct {
-		URL    string `json:"url"`
-		Secret string `json:"secret"`
-		Method string `json:"method"`
+		URL     string            `json:"url"`
+		Secret  string            `json:"secret"`
+		Method  string            `json:"method"`
+		Headers map[string]string `json:"headers"`
 	}
 	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
 		return errors.New("invalid webhook config")
@@ -541,16 +550,24 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, sub
 		return errors.New("webhook config requires url")
 	}
 
-	method := strings.ToUpper(strings.TrimSpace(cfg.Method))
-	if method == "" {
-		method = http.MethodPost
+	method, err := normalizeWebhookMethod(cfg.Method)
+	if err != nil {
+		return err
+	}
+	if method == http.MethodGet && strings.TrimSpace(cfg.Secret) != "" {
+		return errors.New("webhook secret is not supported when method is GET")
+	}
+	normalizedHeaders, err := normalizeWebhookHeaders(cfg.Headers)
+	if err != nil {
+		return err
 	}
 
+	sentAt := time.Now().UTC().Format(time.RFC3339)
 	payload := map[string]interface{}{
 		"event":        "subscription.reminder",
 		"subscription": subName,
 		"billing_date": billingDate,
-		"sent_at":      time.Now().UTC().Format(time.RFC3339),
+		"sent_at":      sentAt,
 	}
 
 	body, err := json.Marshal(payload)
@@ -558,11 +575,34 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, sub
 		return err
 	}
 
-	req, err := http.NewRequest(method, cfg.URL, bytes.NewReader(body))
+	requestURL := cfg.URL
+	var requestBody io.Reader
+	if method == http.MethodGet {
+		parsedURL, err := url.Parse(cfg.URL)
+		if err != nil {
+			return fmt.Errorf("invalid webhook url: %w", err)
+		}
+		query := parsedURL.Query()
+		query.Set("event", "subscription.reminder")
+		query.Set("subscription", subName)
+		query.Set("billing_date", billingDate)
+		query.Set("sent_at", sentAt)
+		parsedURL.RawQuery = query.Encode()
+		requestURL = parsedURL.String()
+	} else {
+		requestBody = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequest(method, requestURL, requestBody)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if method != http.MethodGet {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range normalizedHeaders {
+		req.Header.Set(key, value)
+	}
 
 	if cfg.Secret != "" {
 		mac := hmac.New(sha256.New, []byte(cfg.Secret))
@@ -584,6 +624,66 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, sub
 	}
 
 	return nil
+}
+
+func normalizeWebhookMethod(method string) (string, error) {
+	normalized := strings.ToUpper(strings.TrimSpace(method))
+	if normalized == "" {
+		return http.MethodPost, nil
+	}
+
+	switch normalized {
+	case http.MethodGet, http.MethodPost, http.MethodPut:
+		return normalized, nil
+	default:
+		return "", errors.New("webhook method must be one of: GET, POST, PUT")
+	}
+}
+
+func normalizeWebhookHeaders(headers map[string]string) (map[string]string, error) {
+	normalized := make(map[string]string, len(headers))
+
+	for key, value := range headers {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			return nil, errors.New("webhook headers cannot contain empty key")
+		}
+		if trimmedKey != key {
+			return nil, errors.New("webhook header name must not contain leading or trailing spaces")
+		}
+		if !isValidHTTPHeaderName(trimmedKey) {
+			return nil, errors.New("webhook header name contains invalid characters")
+		}
+		if strings.ContainsAny(trimmedKey, "\r\n") {
+			return nil, errors.New("webhook header name contains invalid newline characters")
+		}
+		if strings.ContainsAny(value, "\r\n") {
+			return nil, errors.New("webhook header value contains invalid newline characters")
+		}
+
+		normalized[trimmedKey] = value
+	}
+
+	return normalized, nil
+}
+
+func isValidHTTPHeaderName(name string) bool {
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') {
+			continue
+		}
+
+		switch r {
+		case '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~':
+			continue
+		default:
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *NotificationService) sendGotify(channel model.NotificationChannel, subName, billingDate string) error {
@@ -937,9 +1037,132 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, su
 	return nil
 }
 
+func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		PushKey   string `json:"push_key"`
+		ServerURL string `json:"server_url"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid pushdeer config")
+	}
+	if cfg.PushKey == "" {
+		return errors.New("pushdeer config requires push_key")
+	}
+
+	serverURL := strings.TrimSpace(cfg.ServerURL)
+	if serverURL == "" {
+		serverURL = "https://api2.pushdeer.com"
+	}
+
+	payload := url.Values{}
+	payload.Set("pushkey", cfg.PushKey)
+	payload.Set("text", fmt.Sprintf("Subscription Reminder: %s", subName))
+	payload.Set("desp", fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate))
+	payload.Set("type", "markdown")
+
+	endpoint := strings.TrimRight(serverURL, "/") + "/message/push"
+	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(payload.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("pushdeer request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("pushdeer API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (s *NotificationService) sendPushplus(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		Token    string `json:"token"`
+		Endpoint string `json:"endpoint"`
+		Template string `json:"template"`
+		Channel  string `json:"channel"`
+		Topic    string `json:"topic"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid pushplus config")
+	}
+	if cfg.Token == "" {
+		return errors.New("pushplus config requires token")
+	}
+
+	endpoint := strings.TrimSpace(cfg.Endpoint)
+	if endpoint == "" {
+		endpoint = "https://www.pushplus.plus/send"
+	}
+
+	template := strings.TrimSpace(cfg.Template)
+	if template == "" {
+		template = "markdown"
+	}
+
+	payload := map[string]string{
+		"token":    cfg.Token,
+		"title":    fmt.Sprintf("Subscription Reminder: %s", subName),
+		"content":  fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate),
+		"template": template,
+	}
+	if strings.TrimSpace(cfg.Channel) != "" {
+		payload["channel"] = strings.TrimSpace(cfg.Channel)
+	}
+	if strings.TrimSpace(cfg.Topic) != "" {
+		payload["topic"] = strings.TrimSpace(cfg.Topic)
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("pushplus request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("pushplus API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var pushplusResp struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
+	if err := json.Unmarshal(respBody, &pushplusResp); err == nil {
+		if pushplusResp.Code != 0 && pushplusResp.Code != 200 {
+			errMsg := pushplusResp.Msg
+			if errMsg == "" {
+				errMsg = string(respBody)
+			}
+			return fmt.Errorf("pushplus API error %d: %s", pushplusResp.Code, errMsg)
+		}
+	}
+
+	return nil
+}
+
 func isValidChannelType(t string) bool {
 	switch t {
-	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk":
+	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk", "pushdeer", "pushplus":
 		return true
 	default:
 		return false
@@ -1028,7 +1251,10 @@ func validateChannelConfig(channelType, config string) error {
 		return nil
 	case "webhook":
 		var cfg struct {
-			URL string `json:"url"`
+			URL     string            `json:"url"`
+			Secret  string            `json:"secret"`
+			Method  string            `json:"method"`
+			Headers map[string]string `json:"headers"`
 		}
 		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
 			return errors.New("invalid webhook config format")
@@ -1038,6 +1264,16 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		if !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
 			return errors.New("webhook url must start with http:// or https://")
+		}
+		method, err := normalizeWebhookMethod(cfg.Method)
+		if err != nil {
+			return err
+		}
+		if method == http.MethodGet && strings.TrimSpace(cfg.Secret) != "" {
+			return errors.New("webhook secret is not supported when method is GET")
+		}
+		if _, err := normalizeWebhookHeaders(cfg.Headers); err != nil {
+			return err
 		}
 		return nil
 	case "gotify":
@@ -1139,6 +1375,38 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
 			return errors.New("dingtalk webhook_url must start with https://")
+		}
+		return nil
+	case "pushdeer":
+		var cfg struct {
+			PushKey   string `json:"push_key"`
+			ServerURL string `json:"server_url"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid pushdeer config format")
+		}
+		if strings.TrimSpace(cfg.PushKey) == "" {
+			return errors.New("pushdeer channel requires push_key")
+		}
+		serverURL := strings.TrimSpace(cfg.ServerURL)
+		if serverURL != "" && !strings.HasPrefix(serverURL, "http://") && !strings.HasPrefix(serverURL, "https://") {
+			return errors.New("pushdeer server_url must start with http:// or https://")
+		}
+		return nil
+	case "pushplus":
+		var cfg struct {
+			Token    string `json:"token"`
+			Endpoint string `json:"endpoint"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid pushplus config format")
+		}
+		if strings.TrimSpace(cfg.Token) == "" {
+			return errors.New("pushplus channel requires token")
+		}
+		endpoint := strings.TrimSpace(cfg.Endpoint)
+		if endpoint != "" && !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+			return errors.New("pushplus endpoint must start with http:// or https://")
 		}
 		return nil
 	default:
