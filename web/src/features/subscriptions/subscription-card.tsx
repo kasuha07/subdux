@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
-import { Pencil, Trash2, ExternalLink } from "lucide-react"
+import { Pencil, Trash2, ExternalLink, BellOff } from "lucide-react"
 import { getBrandIcon } from "@/lib/brand-icons"
 
 function renderIcon(icon: string, name: string): ReactNode {
@@ -126,7 +126,7 @@ export default function SubscriptionCard({
 }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
-  const isUpcoming = days !== null && days >= 0 && days <= 3
+  const isUpcoming = days !== null && days >= 0 && days < 7
   const trialDays = subscription.trial_enabled && subscription.trial_end_date
     ? daysUntil(subscription.trial_end_date)
     : null
@@ -207,9 +207,6 @@ export default function SubscriptionCard({
     : isOverdue
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
-  const reminderBadgeClass = subscription.notify_enabled
-    ? "bg-violet-500/10 text-violet-700 border-violet-200"
-    : "bg-zinc-500/10 text-zinc-500 border-zinc-200"
   const anchorDateText = showAnchorDate && subscription.billing_anchor_date
     ? t("subscription.card.anchorDate", {
       date: formatDate(subscription.billing_anchor_date, i18n.language),
@@ -252,16 +249,21 @@ export default function SubscriptionCard({
                 <span className="truncate">{paymentMethodName}</span>
               </span>
             )}
+            {reminderDisabledText && (categoryLabel || paymentMethodName) && <span>·</span>}
+            {reminderDisabledText && (
+              <span
+                className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground"
+                title={reminderDisabledText}
+                aria-label={reminderDisabledText}
+              >
+                <BellOff className="size-3.5" />
+              </span>
+            )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {trialText && (
               <Badge variant="outline" className="bg-sky-500/10 text-sky-700 border-sky-200">
                 {trialText}
-              </Badge>
-            )}
-            {reminderDisabledText && (
-              <Badge variant="outline" className={reminderBadgeClass}>
-                {reminderDisabledText}
               </Badge>
             )}
             {anchorDateText && (
@@ -278,18 +280,21 @@ export default function SubscriptionCard({
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <p className="font-semibold tabular-nums">
-            {formatCurrencyWithSymbol(
-              subscription.amount,
-              subscription.currency,
-              currencySymbol,
-              i18n.language
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {renderBillingLabel()}
-          </p>
-          <div className="mt-0.5 flex max-w-[14rem] flex-wrap justify-end gap-1">
+          <div className="flex max-w-[14rem] items-baseline gap-1 text-right">
+            <p className="font-semibold tabular-nums whitespace-nowrap">
+              {formatCurrencyWithSymbol(
+                subscription.amount,
+                subscription.currency,
+                currencySymbol,
+                i18n.language
+              )}
+            </p>
+            <span className="text-xs text-muted-foreground">/</span>
+            <p className="truncate text-xs text-muted-foreground" title={renderBillingLabel()}>
+              {renderBillingLabel()}
+            </p>
+          </div>
+          <div className="mt-0.5 flex max-w-[14rem] justify-end">
             <Badge
               variant="outline"
               className={`max-w-[12rem] truncate ${dueBadgeClass}`}
@@ -297,6 +302,8 @@ export default function SubscriptionCard({
             >
               {dueText}
             </Badge>
+          </div>
+          <div className="flex max-w-[14rem] flex-wrap justify-end gap-1">
             <Badge variant="outline" className={statusStyles[subscription.enabled ? "enabled" : "disabled"] || ""}>
               {t(`subscription.card.status.${subscription.enabled ? "enabled" : "disabled"}`)}
             </Badge>
