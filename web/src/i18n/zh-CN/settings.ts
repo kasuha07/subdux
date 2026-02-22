@@ -138,7 +138,7 @@ const settings = {
     "title": "两步验证",
     "description": "为您的账户增加额外的安全保障",
     "status": "状态",
-    "enabled": "已启用",
+    "enabled": "启用",
     "disabled": "未启用",
     "enable": "启用两步验证",
     "disable": "禁用两步验证",
@@ -164,7 +164,7 @@ const settings = {
     "codeLabel": "验证码或备用恢复码",
     "disabling": "禁用中...",
     "disableButton": "禁用两步验证",
-    "enableSuccess": "两步验证已启用",
+    "enableSuccess": "两步验证启用成功",
     "disableSuccess": "两步验证已禁用",
     "verifyError": "验证码无效，请重试。"
   },

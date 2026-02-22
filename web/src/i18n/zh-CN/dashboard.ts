@@ -5,7 +5,7 @@ const dashboard = {
   "stats": {
     "monthly": "月度",
     "yearly": "年度",
-    "enabled": "已启用",
+    "enabled": "启用",
     "upcoming": "即将到期"
   },
   "empty": {

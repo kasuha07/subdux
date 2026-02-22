@@ -29,8 +29,8 @@ const subscription = {
     "anchorDate": "锚点日 {{date}}",
     "notes": "备注：{{content}}",
     "status": {
-      "enabled": "已启用",
-      "disabled": "已停用"
+      "enabled": "启用",
+      "disabled": "停用"
     }
   },
   "form": {
@@ -47,8 +47,8 @@ const subscription = {
       "one_time": "买断制"
     },
     "enabledLabel": "启用状态",
-    "enabled": "已启用",
-    "disabled": "已停用",
+    "enabled": "启用",
+    "disabled": "停用",
     "purchaseDateLabel": "购买日期",
     "anchorDateLabel": "计费锚点日期",
     "recurrenceTypeLabel": "重复规则",
