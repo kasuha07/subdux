@@ -16,6 +16,17 @@ const subscription = {
     "dueIn": "{{count}}天后到期",
     "overdue": "已逾期",
     "noNextBilling": "无下次计费日",
+    "trial": {
+      "active": "试用中",
+      "endsIn": "试用剩余 {{count}} 天",
+      "endedOn": "试用于 {{date}} 结束"
+    },
+    "reminder": {
+      "on": "提前 {{days}} 天提醒",
+      "off": "提醒已关闭"
+    },
+    "anchorDate": "锚点日 {{date}}",
+    "notes": "备注：{{content}}",
     "status": {
       "enabled": "已启用",
       "disabled": "已停用"

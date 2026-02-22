@@ -57,6 +57,7 @@ interface SubscriptionCardProps {
   categoryName?: string
   currencySymbol?: string
   paymentMethodName?: string
+  paymentMethodIcon?: string
   onEdit: (sub: Subscription) => void
   onDelete: (id: number) => void
 }
@@ -66,11 +67,74 @@ const statusStyles: Record<string, string> = {
   disabled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
 }
 
-export default function SubscriptionCard({ subscription, categoryName, currencySymbol, paymentMethodName, onEdit, onDelete }: SubscriptionCardProps) {
+const NOTE_PREVIEW_MAX_LENGTH = 56
+
+function truncateWithEllipsis(value: string, maxLength = NOTE_PREVIEW_MAX_LENGTH): string {
+  if (value.length <= maxLength) {
+    return value
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}…`
+}
+
+function renderInlineIcon(icon: string, name: string): ReactNode {
+  if (!icon) {
+    return null
+  }
+
+  if (icon.startsWith("si:")) {
+    const brand = getBrandIcon(icon.slice(3))
+    if (brand) {
+      const { Icon } = brand
+      return <Icon size={12} color="default" />
+    }
+    return <span className="text-[10px] leading-none">{name.charAt(0).toUpperCase()}</span>
+  }
+
+  if (icon.startsWith("http://") || icon.startsWith("https://")) {
+    return (
+      <img
+        src={icon}
+        alt={name}
+        className="h-3.5 w-3.5 object-contain"
+      />
+    )
+  }
+
+  if (icon.startsWith("assets/")) {
+    const assetPath = icon.slice("assets/".length)
+    return (
+      <img
+        src={`/uploads/${assetPath}`}
+        alt={name}
+        className="h-3.5 w-3.5 object-contain"
+      />
+    )
+  }
+
+  return <span className="text-[10px] leading-none">{icon}</span>
+}
+
+export default function SubscriptionCard({
+  subscription,
+  categoryName,
+  currencySymbol,
+  paymentMethodName,
+  paymentMethodIcon,
+  onEdit,
+  onDelete,
+}: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days <= 3
+  const trialDays = subscription.trial_enabled && subscription.trial_end_date
+    ? daysUntil(subscription.trial_end_date)
+    : null
   const categoryLabel = categoryName?.trim() || subscription.category
+  const rawNotes = subscription.notes.trim()
+  const notesPreview = rawNotes ? truncateWithEllipsis(rawNotes) : ""
+  const showAnchorDate = Boolean(subscription.billing_anchor_date)
+    && (subscription.billing_type === "one_time" || !subscription.next_billing_date)
 
   function renderBillingLabel(): string {
     if (subscription.billing_type === "one_time") {
@@ -104,9 +168,51 @@ export default function SubscriptionCard({ subscription, categoryName, currencyS
     return formatDate(subscription.next_billing_date, i18n.language)
   }
 
+  function renderTrialText(): string | null {
+    if (!subscription.trial_enabled) {
+      return null
+    }
+    if (!subscription.trial_end_date) {
+      return t("subscription.card.trial.active")
+    }
+    if ((trialDays ?? 0) >= 0) {
+      return t("subscription.card.trial.endsIn", { count: trialDays ?? 0 })
+    }
+    return t("subscription.card.trial.endedOn", {
+      date: formatDate(subscription.trial_end_date, i18n.language),
+    })
+  }
+
+  function renderReminderText(): string {
+    if (!subscription.notify_enabled) {
+      return t("subscription.card.reminder.off")
+    }
+    return t("subscription.card.reminder.on", {
+      days: subscription.notify_days_before ?? 0,
+    })
+  }
+
+  const trialText = renderTrialText()
+  const reminderDisabledText = subscription.notify_enabled === false ? renderReminderText() : null
+  const dueText = renderDueText()
+  const isOverdue = (days ?? 0) < 0
+  const dueBadgeClass = isUpcoming
+    ? "bg-amber-500/10 text-amber-700 border-amber-200"
+    : isOverdue
+      ? "bg-destructive/10 text-destructive border-destructive/30"
+      : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
+  const reminderBadgeClass = subscription.notify_enabled
+    ? "bg-violet-500/10 text-violet-700 border-violet-200"
+    : "bg-zinc-500/10 text-zinc-500 border-zinc-200"
+  const anchorDateText = showAnchorDate && subscription.billing_anchor_date
+    ? t("subscription.card.anchorDate", {
+      date: formatDate(subscription.billing_anchor_date, i18n.language),
+    })
+    : null
+
   return (
     <Card className="group transition-all hover:shadow-md">
-      <CardContent className="flex items-center gap-4 p-4">
+      <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
           className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
         >
@@ -127,40 +233,68 @@ export default function SubscriptionCard({ subscription, categoryName, currencyS
               </a>
             )}
           </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
             {categoryLabel && <span>{categoryLabel}</span>}
             {categoryLabel && paymentMethodName && <span>·</span>}
-            {paymentMethodName && <span>{paymentMethodName}</span>}
-            {(categoryLabel || paymentMethodName) && <span>·</span>}
-            <span>
-              {isUpcoming ? (
-                <span className="text-amber-600 font-medium">{renderDueText()}</span>
-              ) : (days ?? 0) < 0 ? (
-                <span className="text-destructive font-medium">{renderDueText()}</span>
-              ) : (
-                renderDueText()
-              )}
-            </span>
+            {paymentMethodName && (
+              <span className="inline-flex items-center gap-1 min-w-0">
+                {paymentMethodIcon && (
+                  <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted/50">
+                    {renderInlineIcon(paymentMethodIcon, paymentMethodName)}
+                  </span>
+                )}
+                <span className="truncate">{paymentMethodName}</span>
+              </span>
+            )}
           </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {trialText && (
+              <Badge variant="outline" className="bg-sky-500/10 text-sky-700 border-sky-200">
+                {trialText}
+              </Badge>
+            )}
+            {reminderDisabledText && (
+              <Badge variant="outline" className={reminderBadgeClass}>
+                {reminderDisabledText}
+              </Badge>
+            )}
+            {anchorDateText && (
+              <Badge variant="outline" className="bg-zinc-500/10 text-zinc-600 border-zinc-200">
+                {anchorDateText}
+              </Badge>
+            )}
+          </div>
+          {notesPreview && (
+            <p className="mt-1 truncate text-xs text-muted-foreground" title={rawNotes}>
+              {t("subscription.card.notes", { content: notesPreview })}
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right">
-            <p className="font-semibold tabular-nums">
-              {formatCurrencyWithSymbol(
-                subscription.amount,
-                subscription.currency,
-                currencySymbol,
-                i18n.language
-              )}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {renderBillingLabel()}
-            </p>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <p className="font-semibold tabular-nums">
+            {formatCurrencyWithSymbol(
+              subscription.amount,
+              subscription.currency,
+              currencySymbol,
+              i18n.language
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {renderBillingLabel()}
+          </p>
+          <div className="mt-0.5 flex max-w-[14rem] flex-wrap justify-end gap-1">
+            <Badge
+              variant="outline"
+              className={`max-w-[12rem] truncate ${dueBadgeClass}`}
+              title={dueText}
+            >
+              {dueText}
+            </Badge>
+            <Badge variant="outline" className={statusStyles[subscription.enabled ? "enabled" : "disabled"] || ""}>
+              {t(`subscription.card.status.${subscription.enabled ? "enabled" : "disabled"}`)}
+            </Badge>
           </div>
-          <Badge variant="outline" className={statusStyles[subscription.enabled ? "enabled" : "disabled"] || ""}>
-            {t(`subscription.card.status.${subscription.enabled ? "enabled" : "disabled"}`)}
-          </Badge>
         </div>
 
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

@@ -16,6 +16,17 @@ const subscription = {
     "dueIn": "Due in {{count}}d",
     "overdue": "Overdue",
     "noNextBilling": "No next billing date",
+    "trial": {
+      "active": "Trial active",
+      "endsIn": "Trial ends in {{count}}d",
+      "endedOn": "Trial ended on {{date}}"
+    },
+    "reminder": {
+      "on": "Reminder {{days}}d before",
+      "off": "Reminder off"
+    },
+    "anchorDate": "Anchor {{date}}",
+    "notes": "Note: {{content}}",
     "status": {
       "enabled": "enabled",
       "disabled": "disabled"

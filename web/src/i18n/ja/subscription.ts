@@ -16,6 +16,17 @@ const subscription = {
     "dueIn": "{{count}}日後に更新",
     "overdue": "期限超過",
     "noNextBilling": "次回請求日なし",
+    "trial": {
+      "active": "トライアル中",
+      "endsIn": "トライアル終了まで{{count}}日",
+      "endedOn": "トライアル終了日: {{date}}"
+    },
+    "reminder": {
+      "on": "{{days}}日前にリマインド",
+      "off": "リマインドオフ"
+    },
+    "anchorDate": "起点日 {{date}}",
+    "notes": "メモ: {{content}}",
     "status": {
       "enabled": "有効",
       "disabled": "無効"

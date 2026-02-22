@@ -112,6 +112,10 @@ export default function DashboardPage() {
     () => new Map(userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)),
     [userCurrencies]
   )
+  const paymentMethodIconMap = useMemo(
+    () => new Map(paymentMethods.map((item) => [item.id, item.icon] as const)),
+    [paymentMethods]
+  )
 
   function handleEdit(sub: Subscription) {
     setEditingSub(sub)
@@ -221,7 +225,7 @@ export default function DashboardPage() {
               onToggleNoPaymentMethod={onToggleNoPaymentMethod}
             />
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               {subscriptions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="mb-4 rounded-full bg-muted p-4">
@@ -253,6 +257,11 @@ export default function DashboardPage() {
                     paymentMethodName={
                       sub.payment_method_id
                         ? paymentMethodLabelMap.get(sub.payment_method_id)
+                        : undefined
+                    }
+                    paymentMethodIcon={
+                      sub.payment_method_id
+                        ? paymentMethodIconMap.get(sub.payment_method_id)
                         : undefined
                     }
                     onEdit={handleEdit}
