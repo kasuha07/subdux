@@ -15,6 +15,7 @@ const subscription = {
       "yearlyDate": "Yearly on {{month}}/{{day}}"
     },
     "dueIn": "Due in {{count}}d",
+    "dueToday": "Due today",
     "overdue": "Overdue",
     "noNextBilling": "No next billing date",
     "holdingCost": "{{amount}}/day",

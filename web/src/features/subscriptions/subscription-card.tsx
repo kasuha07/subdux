@@ -177,6 +177,9 @@ export default function SubscriptionCard({
     if (!subscription.next_billing_date) {
       return t("subscription.card.noNextBilling")
     }
+    if (days === 0) {
+      return t("subscription.card.dueToday")
+    }
     if (isUpcoming) {
       return t("subscription.card.dueIn", { count: days ?? 0 })
     }

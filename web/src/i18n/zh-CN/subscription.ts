@@ -15,6 +15,7 @@ const subscription = {
       "yearlyDate": "每年 {{month}}/{{day}}"
     },
     "dueIn": "{{count}}天后到期",
+    "dueToday": "今天到期",
     "overdue": "已逾期",
     "noNextBilling": "无下次计费日",
     "holdingCost": "{{amount}}/日",
