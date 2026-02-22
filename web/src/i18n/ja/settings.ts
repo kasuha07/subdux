@@ -446,6 +446,7 @@ const settings = {
       template: "テンプレート",
       defaultTemplate: "デフォルトテンプレート",
       channelOverride: "チャネル上書き",
+      templateTips: "変数リファレンスと例",
       availableVariables: "利用可能な変数",
       variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
       addSuccess: "テンプレートを追加しました",

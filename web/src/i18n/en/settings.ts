@@ -446,6 +446,7 @@ const settings = {
       "template": "Template",
       "defaultTemplate": "Default Template",
       "channelOverride": "Channel Override",
+      "templateTips": "Variable Reference & Example",
       "availableVariables": "Available Variables",
       "variablesList": "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
       "addSuccess": "Template added",

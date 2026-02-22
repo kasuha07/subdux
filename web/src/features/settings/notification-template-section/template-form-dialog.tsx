@@ -116,24 +116,29 @@ export function NotificationTemplateFormDialog({
                 maxLength={2000}
                 required
               />
-              <div className="space-y-2 rounded-md border bg-muted/50 p-3 text-xs">
-                <p className="font-medium">{t("settings.notifications.templates.availableVariables")}:</p>
-                <div className="grid grid-cols-1 gap-1.5 font-mono">
-                  {TEMPLATE_VARIABLES.map((item) => (
-                    <div key={item.name}>
-                      <span className="text-primary">{item.name}</span>
-                      {" - "}
-                      {t(`settings.notifications.templates.${item.key}`)}
-                    </div>
-                  ))}
+              <details className="rounded-md border bg-muted/50 p-3 text-xs">
+                <summary className="cursor-pointer font-medium">
+                  {t("settings.notifications.templates.templateTips")}
+                </summary>
+                <div className="mt-3 space-y-2">
+                  <p className="font-medium">{t("settings.notifications.templates.availableVariables")}:</p>
+                  <div className="grid grid-cols-1 gap-1.5 font-mono">
+                    {TEMPLATE_VARIABLES.map((item) => (
+                      <div key={item.name}>
+                        <span className="text-primary">{item.name}</span>
+                        {" - "}
+                        {t(`settings.notifications.templates.${item.key}`)}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t pt-2">
+                    <p className="mb-1 font-medium">{t("settings.notifications.templates.exampleTitle")}:</p>
+                    <p className="font-mono text-muted-foreground">
+                      {t("settings.notifications.templates.exampleTemplate")}
+                    </p>
+                  </div>
                 </div>
-                <div className="border-t pt-2">
-                  <p className="mb-1 font-medium">{t("settings.notifications.templates.exampleTitle")}:</p>
-                  <p className="font-mono text-muted-foreground">
-                    {t("settings.notifications.templates.exampleTemplate")}
-                  </p>
-                </div>
-              </div>
+              </details>
             </div>
 
             {previewResult && (

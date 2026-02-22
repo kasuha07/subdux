@@ -446,6 +446,7 @@ const settings = {
       template: "模板",
       defaultTemplate: "默认模板",
       channelOverride: "渠道覆盖",
+      templateTips: "变量说明与示例",
       availableVariables: "可用变量",
       variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
       addSuccess: "模板已添加",
