@@ -27,10 +27,37 @@ interface Props {
   saving: boolean
 }
 
-type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "napcat"
+type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "pushover" | "napcat"
 type WebhookMethod = "GET" | "POST" | "PUT"
 
 const WEBHOOK_HEADERS_PARSE_ERROR = "WEBHOOK_HEADERS_PARSE_ERROR"
+const PUSHOVER_SOUND_DEVICE_DEFAULT = "__device_default__"
+const PUSHOVER_SOUND_OPTIONS: Array<{ value: string; i18nKey: string }> = [
+  { value: PUSHOVER_SOUND_DEVICE_DEFAULT, i18nKey: "pushoverSoundOptionDeviceDefault" },
+  { value: "pushover", i18nKey: "pushoverSoundOptionPushover" },
+  { value: "vibrate", i18nKey: "pushoverSoundOptionVibrate" },
+  { value: "none", i18nKey: "pushoverSoundOptionNone" },
+  { value: "bike", i18nKey: "pushoverSoundOptionBike" },
+  { value: "bugle", i18nKey: "pushoverSoundOptionBugle" },
+  { value: "cashregister", i18nKey: "pushoverSoundOptionCashregister" },
+  { value: "classical", i18nKey: "pushoverSoundOptionClassical" },
+  { value: "cosmic", i18nKey: "pushoverSoundOptionCosmic" },
+  { value: "falling", i18nKey: "pushoverSoundOptionFalling" },
+  { value: "gamelan", i18nKey: "pushoverSoundOptionGamelan" },
+  { value: "incoming", i18nKey: "pushoverSoundOptionIncoming" },
+  { value: "intermission", i18nKey: "pushoverSoundOptionIntermission" },
+  { value: "magic", i18nKey: "pushoverSoundOptionMagic" },
+  { value: "mechanical", i18nKey: "pushoverSoundOptionMechanical" },
+  { value: "pianobar", i18nKey: "pushoverSoundOptionPianobar" },
+  { value: "siren", i18nKey: "pushoverSoundOptionSiren" },
+  { value: "spacealarm", i18nKey: "pushoverSoundOptionSpacealarm" },
+  { value: "tugboat", i18nKey: "pushoverSoundOptionTugboat" },
+  { value: "alien", i18nKey: "pushoverSoundOptionAlien" },
+  { value: "climb", i18nKey: "pushoverSoundOptionClimb" },
+  { value: "persistent", i18nKey: "pushoverSoundOptionPersistent" },
+  { value: "echo", i18nKey: "pushoverSoundOptionEcho" },
+  { value: "updown", i18nKey: "pushoverSoundOptionUpdown" },
+]
 
 function parseConfig(raw: string): Record<string, string> {
   try {
@@ -124,6 +151,12 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
   const [pushplusEndpoint, setPushplusEndpoint] = useState(initCfg.endpoint ?? "")
   const [pushplusTemplate, setPushplusTemplate] = useState(initCfg.template ?? "markdown")
   const [pushplusChannel, setPushplusChannel] = useState(initCfg.channel ?? "")
+  const [pushoverToken, setPushoverToken] = useState(initCfg.token ?? "")
+  const [pushoverUser, setPushoverUser] = useState(initCfg.user ?? "")
+  const [pushoverDevice, setPushoverDevice] = useState(initCfg.device ?? "")
+  const [pushoverPriority, setPushoverPriority] = useState(initCfg.priority != null ? String(initCfg.priority) : "0")
+  const [pushoverSound, setPushoverSound] = useState(initCfg.sound ?? "")
+  const [pushoverEndpoint, setPushoverEndpoint] = useState(initCfg.endpoint ?? "")
 
   const [gotifyUrl, setGotifyUrl] = useState(initCfg.url ?? "")
   const [gotifyToken, setGotifyToken] = useState(initCfg.token ?? "")
@@ -200,6 +233,15 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
           ...(pushplusTemplate.trim() ? { template: pushplusTemplate.trim() } : {}),
           ...(pushplusChannel.trim() ? { channel: pushplusChannel.trim() } : {}),
         })
+      case "pushover":
+        return JSON.stringify({
+          token: pushoverToken.trim(),
+          user: pushoverUser.trim(),
+          ...(pushoverDevice.trim() ? { device: pushoverDevice.trim() } : {}),
+          priority: parseInt(pushoverPriority, 10) || 0,
+          ...(pushoverSound.trim() ? { sound: pushoverSound.trim() } : {}),
+          ...(pushoverEndpoint.trim() ? { endpoint: pushoverEndpoint.trim() } : {}),
+        })
       case "gotify":
         return JSON.stringify({ url: gotifyUrl.trim(), token: gotifyToken.trim() })
       case "ntfy":
@@ -272,6 +314,7 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <SelectItem value="webhook">{t("settings.notifications.channels.type.webhook")}</SelectItem>
                 <SelectItem value="pushdeer">{t("settings.notifications.channels.type.pushdeer")}</SelectItem>
                 <SelectItem value="pushplus">{t("settings.notifications.channels.type.pushplus")}</SelectItem>
+                <SelectItem value="pushover">{t("settings.notifications.channels.type.pushover")}</SelectItem>
                 <SelectItem value="gotify">{t("settings.notifications.channels.type.gotify")}</SelectItem>
                 <SelectItem value="ntfy">{t("settings.notifications.channels.type.ntfy")}</SelectItem>
                 <SelectItem value="bark">{t("settings.notifications.channels.type.bark")}</SelectItem>
@@ -441,6 +484,62 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
               <div className="space-y-2">
                 <Label htmlFor="pp-channel">{t("settings.notifications.channels.configFields.pushplusChannel")}</Label>
                 <Input id="pp-channel" placeholder={t("settings.notifications.channels.configFields.pushplusChannelPlaceholder")} value={pushplusChannel} onChange={(e) => setPushplusChannel(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {type === "pushover" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="po-token">{t("settings.notifications.channels.configFields.pushoverToken")}</Label>
+                <Input id="po-token" placeholder={t("settings.notifications.channels.configFields.pushoverTokenPlaceholder")} value={pushoverToken} onChange={(e) => setPushoverToken(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="po-user">{t("settings.notifications.channels.configFields.pushoverUser")}</Label>
+                <Input id="po-user" placeholder={t("settings.notifications.channels.configFields.pushoverUserPlaceholder")} value={pushoverUser} onChange={(e) => setPushoverUser(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="po-device">{t("settings.notifications.channels.configFields.pushoverDevice")}</Label>
+                <Input id="po-device" placeholder={t("settings.notifications.channels.configFields.pushoverDevicePlaceholder")} value={pushoverDevice} onChange={(e) => setPushoverDevice(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>{t("settings.notifications.channels.configFields.pushoverPriority")}</Label>
+                  <Select value={pushoverPriority} onValueChange={setPushoverPriority}>
+                    <SelectTrigger id="po-priority" className="w-full max-w-full">
+                      <SelectValue className="max-w-[20ch] truncate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="-2">{t("settings.notifications.channels.configFields.pushoverPriorityOptionLowest")}</SelectItem>
+                      <SelectItem value="-1">{t("settings.notifications.channels.configFields.pushoverPriorityOptionLow")}</SelectItem>
+                      <SelectItem value="0">{t("settings.notifications.channels.configFields.pushoverPriorityOptionNormal")}</SelectItem>
+                      <SelectItem value="1">{t("settings.notifications.channels.configFields.pushoverPriorityOptionHigh")}</SelectItem>
+                      <SelectItem value="2">{t("settings.notifications.channels.configFields.pushoverPriorityOptionEmergency")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("settings.notifications.channels.configFields.pushoverSound")}</Label>
+                  <Select
+                    value={pushoverSound || PUSHOVER_SOUND_DEVICE_DEFAULT}
+                    onValueChange={(value) => setPushoverSound(value === PUSHOVER_SOUND_DEVICE_DEFAULT ? "" : value)}
+                  >
+                    <SelectTrigger id="po-sound" className="w-full max-w-full">
+                      <SelectValue className="max-w-[20ch] truncate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PUSHOVER_SOUND_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {t(`settings.notifications.channels.configFields.${option.i18nKey}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="po-endpoint">{t("settings.notifications.channels.configFields.pushoverEndpoint")}</Label>
+                <Input id="po-endpoint" type="url" placeholder={t("settings.notifications.channels.configFields.pushoverEndpointPlaceholder")} value={pushoverEndpoint} onChange={(e) => setPushoverEndpoint(e.target.value)} />
               </div>
             </>
           )}

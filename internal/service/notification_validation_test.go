@@ -128,6 +128,34 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 			wantErr:     "pushplus endpoint must start with http:// or https://",
 		},
 		{
+			name:        "valid pushover minimal config",
+			channelType: "pushover",
+			config:      `{"token":"a1b2c3d4e5f6","user":"u1v2w3x4y5z6"}`,
+		},
+		{
+			name:        "valid pushover with endpoint",
+			channelType: "pushover",
+			config:      `{"token":"a1b2c3d4e5f6","user":"u1v2w3x4y5z6","endpoint":"https://api.pushover.net/1/messages.json"}`,
+		},
+		{
+			name:        "reject pushover missing token",
+			channelType: "pushover",
+			config:      `{"user":"u1v2w3x4y5z6"}`,
+			wantErr:     "pushover channel requires token",
+		},
+		{
+			name:        "reject pushover missing user",
+			channelType: "pushover",
+			config:      `{"token":"a1b2c3d4e5f6"}`,
+			wantErr:     "pushover channel requires user",
+		},
+		{
+			name:        "reject pushover invalid endpoint",
+			channelType: "pushover",
+			config:      `{"token":"a1b2c3d4e5f6","user":"u1v2w3x4y5z6","endpoint":"ftp://example.com"}`,
+			wantErr:     "pushover endpoint must start with http:// or https://",
+		},
+		{
 			name:        "valid napcat private message",
 			channelType: "napcat",
 			config:      `{"url":"http://127.0.0.1:3000","message_type":"private","user_id":"123456789"}`,

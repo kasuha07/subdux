@@ -381,7 +381,7 @@ export interface UploadIconResponse {
 
 export interface NotificationChannel {
   id: number
-  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "napcat"
+  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "pushover" | "napcat"
   enabled: boolean
   config: string
   created_at: string
@@ -421,6 +421,15 @@ export interface PushplusChannelConfig {
   template?: string
   channel?: string
   topic?: string
+}
+
+export interface PushoverChannelConfig {
+  token: string
+  user: string
+  device?: string
+  priority?: number
+  sound?: string
+  endpoint?: string
 }
 
 export interface GotifyChannelConfig {
@@ -467,7 +476,7 @@ export interface NapCatChannelConfig {
   group_id?: string
 }
 
-export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | PushDeerChannelConfig | PushplusChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig | NapCatChannelConfig
+export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | PushDeerChannelConfig | PushplusChannelConfig | PushoverChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig | NapCatChannelConfig
 
 export interface CreateNotificationChannelInput {
   type: string

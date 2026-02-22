@@ -54,7 +54,7 @@ func (s *NotificationService) ListChannels(userID uint) ([]model.NotificationCha
 func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInput) (*model.NotificationChannel, error) {
 	channelType := strings.ToLower(strings.TrimSpace(input.Type))
 	if !isValidChannelType(channelType) {
-		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus, napcat")
+		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus, pushover, napcat")
 	}
 
 	if err := validateChannelConfig(channelType, input.Config); err != nil {
@@ -161,6 +161,8 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		return s.sendPushDeer(channel, testSubName, testBillingDate)
 	case "pushplus":
 		return s.sendPushplus(channel, testSubName, testBillingDate)
+	case "pushover":
+		return s.sendPushover(channel, testSubName, testBillingDate)
 	case "napcat":
 		return s.sendNapCat(channel, testSubName, testBillingDate)
 	default:
@@ -357,6 +359,8 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				sendErr = s.sendPushDeer(channel, sub.Name, billingDateStr)
 			case "pushplus":
 				sendErr = s.sendPushplus(channel, sub.Name, billingDateStr)
+			case "pushover":
+				sendErr = s.sendPushover(channel, sub.Name, billingDateStr)
 			case "napcat":
 				sendErr = s.sendNapCat(channel, sub.Name, billingDateStr)
 			}
@@ -1164,6 +1168,80 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, su
 	return nil
 }
 
+func (s *NotificationService) sendPushover(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		Token    string `json:"token"`
+		User     string `json:"user"`
+		Device   string `json:"device"`
+		Priority *int   `json:"priority"`
+		Sound    string `json:"sound"`
+		Endpoint string `json:"endpoint"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid pushover config")
+	}
+	if strings.TrimSpace(cfg.Token) == "" {
+		return errors.New("pushover config requires token")
+	}
+	if strings.TrimSpace(cfg.User) == "" {
+		return errors.New("pushover config requires user")
+	}
+
+	endpoint := strings.TrimSpace(cfg.Endpoint)
+	if endpoint == "" {
+		endpoint = "https://api.pushover.net/1/messages.json"
+	}
+
+	payload := url.Values{}
+	payload.Set("token", strings.TrimSpace(cfg.Token))
+	payload.Set("user", strings.TrimSpace(cfg.User))
+	payload.Set("title", fmt.Sprintf("Subscription Reminder: %s", subName))
+	payload.Set("message", fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate))
+	if strings.TrimSpace(cfg.Device) != "" {
+		payload.Set("device", strings.TrimSpace(cfg.Device))
+	}
+	if cfg.Priority != nil {
+		payload.Set("priority", strconv.Itoa(*cfg.Priority))
+	}
+	if strings.TrimSpace(cfg.Sound) != "" {
+		payload.Set("sound", strings.TrimSpace(cfg.Sound))
+	}
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(payload.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("pushover request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("pushover API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var pushoverResp struct {
+		Status int      `json:"status"`
+		Errors []string `json:"errors"`
+	}
+	if err := json.Unmarshal(respBody, &pushoverResp); err == nil {
+		if pushoverResp.Status != 1 {
+			errMsg := strings.TrimSpace(strings.Join(pushoverResp.Errors, ", "))
+			if errMsg == "" {
+				errMsg = string(respBody)
+			}
+			return fmt.Errorf("pushover API error: %s", errMsg)
+		}
+	}
+
+	return nil
+}
+
 func (s *NotificationService) sendNapCat(channel model.NotificationChannel, subName, billingDate string) error {
 	var cfg struct {
 		URL         string `json:"url"`
@@ -1254,7 +1332,7 @@ func (s *NotificationService) sendNapCat(channel model.NotificationChannel, subN
 
 func isValidChannelType(t string) bool {
 	switch t {
-	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk", "pushdeer", "pushplus", "napcat":
+	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk", "pushdeer", "pushplus", "pushover", "napcat":
 		return true
 	default:
 		return false
@@ -1499,6 +1577,26 @@ func validateChannelConfig(channelType, config string) error {
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint != "" && !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 			return errors.New("pushplus endpoint must start with http:// or https://")
+		}
+		return nil
+	case "pushover":
+		var cfg struct {
+			Token    string `json:"token"`
+			User     string `json:"user"`
+			Endpoint string `json:"endpoint"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid pushover config format")
+		}
+		if strings.TrimSpace(cfg.Token) == "" {
+			return errors.New("pushover channel requires token")
+		}
+		if strings.TrimSpace(cfg.User) == "" {
+			return errors.New("pushover channel requires user")
+		}
+		endpoint := strings.TrimSpace(cfg.Endpoint)
+		if endpoint != "" && !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+			return errors.New("pushover endpoint must start with http:// or https://")
 		}
 		return nil
 	case "napcat":
