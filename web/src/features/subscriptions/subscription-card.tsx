@@ -214,7 +214,7 @@ export default function SubscriptionCard({
     : null
 
   return (
-    <Card className="group transition-all hover:shadow-md">
+    <Card className="group py-3 transition-all hover:shadow-md">
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
           className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
