@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/mail"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -865,7 +866,7 @@ func (s *NotificationService) sendServerChan(channel model.NotificationChannel, 
 		return err
 	}
 
-	endpoint := fmt.Sprintf("https://sc3.ft07.com/%s.send", cfg.SendKey)
+	endpoint := buildServerChanEndpoint(cfg.SendKey)
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -879,12 +880,54 @@ func (s *NotificationService) sendServerChan(channel model.NotificationChannel, 
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("serverchan API error %d: %s", resp.StatusCode, string(respBody))
+	}
+	if err := validateServerChanBusinessResponse(respBody); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+var serverChanUIDPattern = regexp.MustCompile(`^sctp(\d+)t`)
+
+func buildServerChanEndpoint(sendKey string) string {
+	sendKey = strings.TrimSpace(sendKey)
+	if m := serverChanUIDPattern.FindStringSubmatch(sendKey); len(m) == 2 {
+		return fmt.Sprintf("https://%s.push.ft07.com/send/%s.send", m[1], sendKey)
+	}
+	return fmt.Sprintf("https://sctapi.ftqq.com/%s.send", sendKey)
+}
+
+func validateServerChanBusinessResponse(body []byte) error {
+	var resp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Info    string `json:"info"`
+		Error   string `json:"error"`
+	}
+
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("invalid serverchan response: %w", err)
+	}
+	if resp.Code == 0 {
+		return nil
+	}
+
+	message := strings.TrimSpace(resp.Message)
+	if message == "" {
+		message = strings.TrimSpace(resp.Info)
+	}
+	if message == "" {
+		message = strings.TrimSpace(resp.Error)
+	}
+	if message == "" {
+		message = "unknown error"
+	}
+
+	return fmt.Errorf("serverchan business error code %d: %s", resp.Code, message)
 }
 
 func (s *NotificationService) sendFeishu(channel model.NotificationChannel, subName, billingDate string) error {
