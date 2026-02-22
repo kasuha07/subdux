@@ -448,7 +448,7 @@ const settings = {
       channelOverride: "渠道覆盖",
       templateTips: "变量说明与示例",
       availableVariables: "可用变量",
-      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
+      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
       addSuccess: "模板已添加",
       updateSuccess: "模板已更新",
       deleteSuccess: "模板已删除",
@@ -461,9 +461,12 @@ const settings = {
       varCurrency: "货币代码",
       varDaysUntil: "距离账单天数",
       varCategory: "订阅分类",
+      varPaymentMethod: "支付方式名称",
+      varURL: "订阅网址",
+      varRemark: "备注/说明",
       varUserEmail: "您的邮箱地址",
       exampleTitle: "示例",
-      exampleTemplate: "您的订阅 {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) 将在 {{.DaysUntil}} 天后的 {{.BillingDate}} 扣费。"
+      exampleTemplate: "您的订阅 {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) 将在 {{.DaysUntil}} 天后的 {{.BillingDate}} 扣费。支付方式：{{.PaymentMethod}}。网址：{{.URL}}。备注：{{.Remark}}。"
     },
   }
 } as const

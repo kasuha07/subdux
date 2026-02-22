@@ -448,7 +448,7 @@ const settings = {
       "channelOverride": "Channel Override",
       "templateTips": "Variable Reference & Example",
       "availableVariables": "Available Variables",
-      "variablesList": "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
+      "variablesList": "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
       "addSuccess": "Template added",
       "updateSuccess": "Template updated",
       "deleteSuccess": "Template deleted",
@@ -461,9 +461,12 @@ const settings = {
       "varCurrency": "Currency code",
       "varDaysUntil": "Days until billing",
       "varCategory": "Subscription category",
+      "varPaymentMethod": "Payment method name",
+      "varURL": "Subscription URL",
+      "varRemark": "Subscription remark/notes",
       "varUserEmail": "Your email address",
       "exampleTitle": "Example",
-      "exampleTemplate": "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}."
+      "exampleTemplate": "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}. Payment method: {{.PaymentMethod}}. URL: {{.URL}}. Remark: {{.Remark}}."
     }
   }
 } as const

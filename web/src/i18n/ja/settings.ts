@@ -448,7 +448,7 @@ const settings = {
       channelOverride: "チャネル上書き",
       templateTips: "変数リファレンスと例",
       availableVariables: "利用可能な変数",
-      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
+      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
       addSuccess: "テンプレートを追加しました",
       updateSuccess: "テンプレートを更新しました",
       deleteSuccess: "テンプレートを削除しました",
@@ -461,9 +461,12 @@ const settings = {
       varCurrency: "通貨コード",
       varDaysUntil: "請求までの日数",
       varCategory: "サブスクリプションカテゴリ",
+      varPaymentMethod: "支払い方法名",
+      varURL: "サブスクリプションURL",
+      varRemark: "備考/メモ",
       varUserEmail: "メールアドレス",
       exampleTitle: "例",
-      exampleTemplate: "サブスクリプション {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) は {{.DaysUntil}} 日後の {{.BillingDate}} に請求されます。"
+      exampleTemplate: "サブスクリプション {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) は {{.DaysUntil}} 日後の {{.BillingDate}} に請求されます。支払い方法: {{.PaymentMethod}}。URL: {{.URL}}。備考: {{.Remark}}。"
     },
   }
 } as const

@@ -25,5 +25,8 @@ export const TEMPLATE_VARIABLES = [
   { name: "{{.Currency}}", key: "varCurrency" },
   { name: "{{.DaysUntil}}", key: "varDaysUntil" },
   { name: "{{.Category}}", key: "varCategory" },
+  { name: "{{.PaymentMethod}}", key: "varPaymentMethod" },
+  { name: "{{.URL}}", key: "varURL" },
+  { name: "{{.Remark}}", key: "varRemark" },
   { name: "{{.UserEmail}}", key: "varUserEmail" },
 ] as const
