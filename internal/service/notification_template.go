@@ -187,6 +187,9 @@ func (s *NotificationTemplateService) PreviewTemplate(input CreateTemplateInput)
 		Currency:         "USD",
 		DaysUntil:        3,
 		Category:         "Entertainment",
+		PaymentMethod:    "Credit Card",
+		URL:              "https://www.netflix.com",
+		Remark:           "Family plan",
 		UserEmail:        "user@example.com",
 	}
 
