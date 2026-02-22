@@ -138,9 +138,27 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		return errors.New("failed to load user")
 	}
 
+	// Build template data for test notification
 	testSubName := "Test Subscription"
-	testBillingDate := time.Now().AddDate(0, 0, 3).Format("2006-01-02")
-	message := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", testSubName, testBillingDate)
+	testBillingDate := time.Now().AddDate(0, 0, 3)
+
+	templateData := s.buildTemplateData(
+		&model.Subscription{
+			Name:     testSubName,
+			Amount:   9.99,
+			Currency: "USD",
+			Category: "Entertainment",
+		},
+		&user,
+		testBillingDate,
+		3,
+	)
+
+	// Render message from template
+	message, err := s.renderNotificationMessage(userID, channel.Type, templateData)
+	if err != nil {
+		return fmt.Errorf("failed to render notification message: %w", err)
+	}
 
 	switch channel.Type {
 	case "smtp":
@@ -351,7 +369,7 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 			continue
 		}
 
-		billingDateStr := billingDate.Format("2006-01-02")
+
 
 		for _, channel := range enabledChannels {
 			var count int64
@@ -363,7 +381,13 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				continue
 			}
 
-			message := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", sub.Name, billingDateStr)
+			// Build template data and render message
+			templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling)
+			message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
+			if renderErr != nil {
+				fmt.Printf("failed to render template for user %d channel %s: %v\n", userID, channel.Type, renderErr)
+				continue
+			}
 			var sendErr error
 			switch channel.Type {
 			case "smtp":
