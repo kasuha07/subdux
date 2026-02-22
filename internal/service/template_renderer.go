@@ -24,6 +24,9 @@ type TemplateData struct {
 	Currency         string
 	DaysUntil        int
 	Category         string
+	PaymentMethod    string
+	URL              string
+	Remark           string
 	UserEmail        string
 }
 

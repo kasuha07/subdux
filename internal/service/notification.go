@@ -23,9 +23,9 @@ import (
 )
 
 type NotificationService struct {
-	DB                *gorm.DB
-	templateService   *NotificationTemplateService
-	templateRenderer  *TemplateRenderer
+	DB               *gorm.DB
+	templateService  *NotificationTemplateService
+	templateRenderer *TemplateRenderer
 }
 
 func NewNotificationService(db *gorm.DB, templateService *NotificationTemplateService, templateRenderer *TemplateRenderer) *NotificationService {
@@ -148,6 +148,8 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 			Amount:   9.99,
 			Currency: "USD",
 			Category: "Entertainment",
+			URL:      "https://example.com/subscription",
+			Notes:    "Test notification",
 		},
 		&user,
 		testBillingDate,
@@ -262,10 +264,27 @@ func (s *NotificationService) ListLogs(userID uint, limit int) ([]model.Notifica
 }
 
 func (s *NotificationService) buildTemplateData(sub *model.Subscription, user *model.User, billingDate time.Time, daysUntil int) TemplateData {
+	paymentMethodName := ""
+	if sub.PaymentMethodID != nil {
+		var paymentMethod model.PaymentMethod
+		err := s.DB.Select("name").
+			Where("id = ? AND user_id = ?", *sub.PaymentMethodID, sub.UserID).
+			First(&paymentMethod).Error
+		if err == nil {
+			paymentMethodName = paymentMethod.Name
+		}
+	}
+
 	return TemplateData{
 		SubscriptionName: sub.Name,
 		BillingDate:      billingDate.Format("2006-01-02"),
+		Amount:           sub.Amount,
+		Currency:         sub.Currency,
 		DaysUntil:        daysUntil,
+		Category:         sub.Category,
+		PaymentMethod:    paymentMethodName,
+		URL:              sub.URL,
+		Remark:           sub.Notes,
 		UserEmail:        user.Email,
 	}
 }
@@ -368,8 +387,6 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 		if !shouldNotify {
 			continue
 		}
-
-
 
 		for _, channel := range enabledChannels {
 			var count int64
@@ -806,17 +823,17 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 		priority = "default"
 	}
 	req.Header.Set("Priority", priority)
-	
+
 	tags := strings.TrimSpace(cfg.Tags)
 	if tags == "" {
 		tags = "calendar"
 	}
 	req.Header.Set("Tags", tags)
-	
+
 	if click := strings.TrimSpace(cfg.Click); click != "" {
 		req.Header.Set("Click", click)
 	}
-	
+
 	if icon := strings.TrimSpace(cfg.Icon); icon != "" {
 		req.Header.Set("Icon", icon)
 	}
