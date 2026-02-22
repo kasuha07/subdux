@@ -2,6 +2,7 @@ import type { ChannelType } from "./types"
 
 export const WEBHOOK_HEADERS_PARSE_ERROR = "WEBHOOK_HEADERS_PARSE_ERROR"
 export const PUSHOVER_SOUND_DEVICE_DEFAULT = "__device_default__"
+export const NTFY_PRIORITY_UNSET = "__unset__"
 
 export const CHANNEL_TYPE_OPTIONS: ChannelType[] = [
   "smtp",
@@ -47,3 +48,25 @@ export const PUSHOVER_SOUND_OPTIONS: Array<{ value: string; i18nKey: string }> =
   { value: "echo", i18nKey: "pushoverSoundOptionEcho" },
   { value: "updown", i18nKey: "pushoverSoundOptionUpdown" },
 ]
+
+export const NTFY_PRIORITY_OPTIONS: Array<{ value: string; i18nKey: string }> = [
+  { value: NTFY_PRIORITY_UNSET, i18nKey: "ntfyPriorityOptionUnset" },
+  { value: "5", i18nKey: "ntfyPriorityOptionUrgent" },
+  { value: "4", i18nKey: "ntfyPriorityOptionHigh" },
+  { value: "3", i18nKey: "ntfyPriorityOptionDefault" },
+  { value: "2", i18nKey: "ntfyPriorityOptionLow" },
+  { value: "1", i18nKey: "ntfyPriorityOptionMin" },
+]
+
+export const NTFY_TAG_PRESETS = [
+  "warning",
+  "rotating_light",
+  "triangular_flag_on_post",
+  "heavy_check_mark",
+  "loudspeaker",
+  "tada",
+  "partying_face",
+  "skull",
+  "no_entry",
+  "computer",
+] as const

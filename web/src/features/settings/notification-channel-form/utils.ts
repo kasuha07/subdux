@@ -3,6 +3,39 @@ import type { NotificationChannel } from "@/types"
 import { WEBHOOK_HEADERS_PARSE_ERROR } from "./constants"
 import type { ChannelType, NotificationChannelFormValues, WebhookMethod } from "./types"
 
+function normalizeNtfyPriority(raw: unknown): string {
+  if (raw == null) {
+    return ""
+  }
+
+  const normalized = String(raw).trim().toLowerCase()
+  if (normalized === "") {
+    return ""
+  }
+
+  if (normalized === "1" || normalized === "2" || normalized === "3" || normalized === "4" || normalized === "5") {
+    return normalized
+  }
+
+  if (normalized === "min") {
+    return "1"
+  }
+  if (normalized === "low") {
+    return "2"
+  }
+  if (normalized === "default") {
+    return "3"
+  }
+  if (normalized === "high") {
+    return "4"
+  }
+  if (normalized === "max" || normalized === "urgent") {
+    return "5"
+  }
+
+  return ""
+}
+
 function parseConfig(raw: string): Record<string, string> {
   try {
     return JSON.parse(raw) as Record<string, string>
@@ -108,7 +141,7 @@ export function createInitialValues(channel: NotificationChannel | null): Notifi
     ntfyUrl: initCfg.url ?? "",
     ntfyTopic: initCfg.topic ?? "",
     ntfyToken: initCfg.token ?? "",
-    ntfyPriority: initCfg.priority ?? "",
+    ntfyPriority: normalizeNtfyPriority(initCfg.priority),
     ntfyTags: initCfg.tags ?? "",
     ntfyClick: initCfg.click ?? "",
     ntfyIcon: initCfg.icon ?? "",

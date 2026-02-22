@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -9,6 +10,9 @@ import {
 } from "@/components/ui/select"
 
 import {
+  NTFY_PRIORITY_OPTIONS,
+  NTFY_PRIORITY_UNSET,
+  NTFY_TAG_PRESETS,
   PUSHOVER_SOUND_DEVICE_DEFAULT,
   PUSHOVER_SOUND_OPTIONS,
 } from "./constants"
@@ -210,6 +214,19 @@ export function GotifyConfigFields({ onValueChange, t, values }: BaseChannelConf
 }
 
 export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+  const appendNtfyTagPreset = (tag: string) => {
+    const currentTags = values.ntfyTags
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+
+    if (currentTags.includes(tag)) {
+      return
+    }
+
+    onValueChange("ntfyTags", [...currentTags, tag].join(","))
+  }
+
   return (
     <>
       <div className="space-y-2">
@@ -242,13 +259,22 @@ export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfig
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="ntfy-priority">{t("settings.notifications.channels.configFields.ntfyPriority")}</Label>
-        <Input
-          id="ntfy-priority"
-          placeholder={t("settings.notifications.channels.configFields.ntfyPriorityPlaceholder")}
-          value={values.ntfyPriority}
-          onChange={(e) => onValueChange("ntfyPriority", e.target.value)}
-        />
+        <Label>{t("settings.notifications.channels.configFields.ntfyPriority")}</Label>
+        <Select
+          value={values.ntfyPriority || NTFY_PRIORITY_UNSET}
+          onValueChange={(value) => onValueChange("ntfyPriority", value === NTFY_PRIORITY_UNSET ? "" : value)}
+        >
+          <SelectTrigger id="ntfy-priority" className="w-full max-w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {NTFY_PRIORITY_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {t(`settings.notifications.channels.configFields.${option.i18nKey}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label htmlFor="ntfy-tags">{t("settings.notifications.channels.configFields.ntfyTags")}</Label>
@@ -258,6 +284,20 @@ export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfig
           value={values.ntfyTags}
           onChange={(e) => onValueChange("ntfyTags", e.target.value)}
         />
+        <div className="flex flex-wrap gap-2">
+          {NTFY_TAG_PRESETS.map((tag) => (
+            <Button
+              key={tag}
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={() => appendNtfyTagPreset(tag)}
+            >
+              :{tag}:
+            </Button>
+          ))}
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="ntfy-click">{t("settings.notifications.channels.configFields.ntfyClick")}</Label>
