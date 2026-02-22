@@ -21,8 +21,8 @@ interface ThemeColorPreset {
 }
 
 const THEME_KEY = "theme"
-const THEME_COLOR_SCHEME_KEY = "theme_color_scheme"
-const THEME_CUSTOM_COLORS_KEY = "theme_custom_colors"
+const THEME_COLOR_SCHEME_KEY = "themeColorScheme"
+const THEME_CUSTOM_COLORS_KEY = "themeCustomColors"
 const HEX_COLOR_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
 
 const DEFAULT_CUSTOM_THEME_COLORS: CustomThemeColors = {
