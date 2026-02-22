@@ -381,7 +381,7 @@ export interface UploadIconResponse {
 
 export interface NotificationChannel {
   id: number
-  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark"
+  type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk"
   enabled: boolean
   config: string
   created_at: string
@@ -427,7 +427,25 @@ export interface BarkChannelConfig {
   device_key: string
 }
 
-export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig
+export interface ServerChanChannelConfig {
+  send_key: string
+}
+
+export interface FeishuChannelConfig {
+  webhook_url: string
+  secret?: string
+}
+
+export interface WeComChannelConfig {
+  webhook_url: string
+}
+
+export interface DingTalkChannelConfig {
+  webhook_url: string
+  secret?: string
+}
+
+export type ChannelConfig = SMTPChannelConfig | ResendChannelConfig | TelegramChannelConfig | WebhookChannelConfig | GotifyChannelConfig | NtfyChannelConfig | BarkChannelConfig | ServerChanChannelConfig | FeishuChannelConfig | WeComChannelConfig | DingTalkChannelConfig
 
 export interface CreateNotificationChannelInput {
   type: string

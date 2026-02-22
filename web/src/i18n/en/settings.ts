@@ -233,7 +233,11 @@ const settings = {
         "webhook": "Webhook",
         "gotify": "Gotify",
         "ntfy": "Ntfy",
-        "bark": "Bark"
+        "bark": "Bark",
+        "serverchan": "ServerChan3",
+        "feishu": "Feishu Bot",
+        "wecom": "WeCom Bot",
+        "dingtalk": "DingTalk Bot"
       },
       "typeDescription": {
         "smtp": "Receive email notifications via your own SMTP server",
@@ -242,7 +246,11 @@ const settings = {
         "webhook": "Send notifications to a custom webhook URL",
         "gotify": "Receive notifications via your Gotify server",
         "ntfy": "Receive notifications via ntfy pub/sub service",
-        "bark": "Receive push notifications on iOS via Bark"
+        "bark": "Receive push notifications on iOS via Bark",
+        "serverchan": "Receive notifications via ServerChan3 (Server酱3)",
+        "feishu": "Receive notifications via Feishu (Lark) bot",
+        "wecom": "Receive notifications via WeCom (企业微信) bot",
+        "dingtalk": "Receive notifications via DingTalk (钉钉) bot"
       },
       "typeLabel": "Channel type",
       "configFields": {
@@ -288,7 +296,19 @@ const settings = {
         "barkUrl": "Server URL (optional)",
         "barkUrlPlaceholder": "https://api.day.app",
         "barkDeviceKey": "Device Key",
-        "barkDeviceKeyPlaceholder": "Your Bark device key"
+        "barkDeviceKeyPlaceholder": "Your Bark device key",
+        "serverChanSendKey": "SendKey",
+        "serverChanSendKeyPlaceholder": "Your ServerChan3 SendKey",
+        "feishuWebhookUrl": "Webhook URL",
+        "feishuWebhookUrlPlaceholder": "https://open.feishu.cn/open-apis/bot/v2/hook/...",
+        "feishuSecret": "Signing Secret (optional)",
+        "feishuSecretPlaceholder": "Signing verification secret",
+        "wecomWebhookUrl": "Webhook URL",
+        "wecomWebhookUrlPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...",
+        "dingtalkWebhookUrl": "Webhook URL",
+        "dingtalkWebhookUrlPlaceholder": "https://oapi.dingtalk.com/robot/send?access_token=...",
+        "dingtalkSecret": "Signing Secret (optional)",
+        "dingtalkSecretPlaceholder": "SEC..."
       },
       "save": "Save",
       "cancel": "Cancel"

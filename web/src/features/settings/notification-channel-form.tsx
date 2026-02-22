@@ -27,7 +27,7 @@ interface Props {
   saving: boolean
 }
 
-type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark"
+type ChannelType = "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk"
 
 function parseConfig(raw: string): Record<string, string> {
   try {
@@ -71,6 +71,16 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
   const [barkUrl, setBarkUrl] = useState(initCfg.url ?? "")
   const [barkDeviceKey, setBarkDeviceKey] = useState(initCfg.device_key ?? "")
 
+  const [serverChanSendKey, setServerChanSendKey] = useState(initCfg.send_key ?? "")
+
+  const [feishuWebhookUrl, setFeishuWebhookUrl] = useState(initCfg.webhook_url ?? "")
+  const [feishuSecret, setFeishuSecret] = useState(initCfg.secret ?? "")
+
+  const [wecomWebhookUrl, setWecomWebhookUrl] = useState(initCfg.webhook_url ?? "")
+
+  const [dingtalkWebhookUrl, setDingtalkWebhookUrl] = useState(initCfg.webhook_url ?? "")
+  const [dingtalkSecret, setDingtalkSecret] = useState(initCfg.secret ?? "")
+
   function buildConfig(): string {
     switch (type) {
       case "smtp":
@@ -103,6 +113,20 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
           ...(barkUrl.trim() ? { url: barkUrl.trim() } : {}),
           device_key: barkDeviceKey.trim(),
         })
+      case "serverchan":
+        return JSON.stringify({ send_key: serverChanSendKey.trim() })
+      case "feishu":
+        return JSON.stringify({
+          webhook_url: feishuWebhookUrl.trim(),
+          ...(feishuSecret.trim() ? { secret: feishuSecret.trim() } : {}),
+        })
+      case "wecom":
+        return JSON.stringify({ webhook_url: wecomWebhookUrl.trim() })
+      case "dingtalk":
+        return JSON.stringify({
+          webhook_url: dingtalkWebhookUrl.trim(),
+          ...(dingtalkSecret.trim() ? { secret: dingtalkSecret.trim() } : {}),
+        })
     }
   }
 
@@ -132,6 +156,10 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
                 <SelectItem value="gotify">{t("settings.notifications.channels.type.gotify")}</SelectItem>
                 <SelectItem value="ntfy">{t("settings.notifications.channels.type.ntfy")}</SelectItem>
                 <SelectItem value="bark">{t("settings.notifications.channels.type.bark")}</SelectItem>
+                <SelectItem value="serverchan">{t("settings.notifications.channels.type.serverchan")}</SelectItem>
+                <SelectItem value="feishu">{t("settings.notifications.channels.type.feishu")}</SelectItem>
+                <SelectItem value="wecom">{t("settings.notifications.channels.type.wecom")}</SelectItem>
+                <SelectItem value="dingtalk">{t("settings.notifications.channels.type.dingtalk")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -268,6 +296,46 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
               <div className="space-y-2">
                 <Label htmlFor="bark-key">{t("settings.notifications.channels.configFields.barkDeviceKey")}</Label>
                 <Input id="bark-key" placeholder={t("settings.notifications.channels.configFields.barkDeviceKeyPlaceholder")} value={barkDeviceKey} onChange={(e) => setBarkDeviceKey(e.target.value)} required />
+              </div>
+            </>
+          )}
+
+          {type === "serverchan" && (
+            <div className="space-y-2">
+              <Label htmlFor="sc-key">{t("settings.notifications.channels.configFields.serverChanSendKey")}</Label>
+              <Input id="sc-key" placeholder={t("settings.notifications.channels.configFields.serverChanSendKeyPlaceholder")} value={serverChanSendKey} onChange={(e) => setServerChanSendKey(e.target.value)} required />
+            </div>
+          )}
+
+          {type === "feishu" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="feishu-url">{t("settings.notifications.channels.configFields.feishuWebhookUrl")}</Label>
+                <Input id="feishu-url" type="url" placeholder={t("settings.notifications.channels.configFields.feishuWebhookUrlPlaceholder")} value={feishuWebhookUrl} onChange={(e) => setFeishuWebhookUrl(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="feishu-secret">{t("settings.notifications.channels.configFields.feishuSecret")}</Label>
+                <Input id="feishu-secret" placeholder={t("settings.notifications.channels.configFields.feishuSecretPlaceholder")} value={feishuSecret} onChange={(e) => setFeishuSecret(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {type === "wecom" && (
+            <div className="space-y-2">
+              <Label htmlFor="wecom-url">{t("settings.notifications.channels.configFields.wecomWebhookUrl")}</Label>
+              <Input id="wecom-url" type="url" placeholder={t("settings.notifications.channels.configFields.wecomWebhookUrlPlaceholder")} value={wecomWebhookUrl} onChange={(e) => setWecomWebhookUrl(e.target.value)} required />
+            </div>
+          )}
+
+          {type === "dingtalk" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="dt-url">{t("settings.notifications.channels.configFields.dingtalkWebhookUrl")}</Label>
+                <Input id="dt-url" type="url" placeholder={t("settings.notifications.channels.configFields.dingtalkWebhookUrlPlaceholder")} value={dingtalkWebhookUrl} onChange={(e) => setDingtalkWebhookUrl(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dt-secret">{t("settings.notifications.channels.configFields.dingtalkSecret")}</Label>
+                <Input id="dt-secret" placeholder={t("settings.notifications.channels.configFields.dingtalkSecretPlaceholder")} value={dingtalkSecret} onChange={(e) => setDingtalkSecret(e.target.value)} />
               </div>
             </>
           )}

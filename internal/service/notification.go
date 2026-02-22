@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"net/mail"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,7 +54,7 @@ func (s *NotificationService) ListChannels(userID uint) ([]model.NotificationCha
 func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInput) (*model.NotificationChannel, error) {
 	channelType := strings.ToLower(strings.TrimSpace(input.Type))
 	if !isValidChannelType(channelType) {
-		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook")
+		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk")
 	}
 
 	if err := validateChannelConfig(channelType, input.Config); err != nil {
@@ -146,6 +149,14 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		return s.sendNtfy(channel, testSubName, testBillingDate)
 	case "bark":
 		return s.sendBark(channel, testSubName, testBillingDate)
+	case "serverchan":
+		return s.sendServerChan(channel, testSubName, testBillingDate)
+	case "feishu":
+		return s.sendFeishu(channel, testSubName, testBillingDate)
+	case "wecom":
+		return s.sendWeCom(channel, testSubName, testBillingDate)
+	case "dingtalk":
+		return s.sendDingTalk(channel, testSubName, testBillingDate)
 	default:
 		return errors.New("unsupported channel type")
 	}
@@ -328,6 +339,14 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				sendErr = s.sendNtfy(channel, sub.Name, billingDateStr)
 			case "bark":
 				sendErr = s.sendBark(channel, sub.Name, billingDateStr)
+			case "serverchan":
+				sendErr = s.sendServerChan(channel, sub.Name, billingDateStr)
+			case "feishu":
+				sendErr = s.sendFeishu(channel, sub.Name, billingDateStr)
+			case "wecom":
+				sendErr = s.sendWeCom(channel, sub.Name, billingDateStr)
+			case "dingtalk":
+				sendErr = s.sendDingTalk(channel, sub.Name, billingDateStr)
 			}
 
 			logEntry := model.NotificationLog{
@@ -716,9 +735,211 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, subNam
 	return nil
 }
 
+func (s *NotificationService) sendServerChan(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		SendKey string `json:"send_key"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid serverchan config")
+	}
+	if cfg.SendKey == "" {
+		return errors.New("serverchan config requires send_key")
+	}
+
+	title := fmt.Sprintf("Subscription Reminder: %s", subName)
+	desp := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate)
+	payload := map[string]string{
+		"title": title,
+		"desp":  desp,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	endpoint := fmt.Sprintf("https://sc3.ft07.com/%s.send", cfg.SendKey)
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("serverchan request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("serverchan API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (s *NotificationService) sendFeishu(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		WebhookURL string `json:"webhook_url"`
+		Secret     string `json:"secret"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid feishu config")
+	}
+	if cfg.WebhookURL == "" {
+		return errors.New("feishu config requires webhook_url")
+	}
+
+	msg := fmt.Sprintf("Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
+	payload := map[string]interface{}{
+		"msg_type": "text",
+		"content": map[string]string{
+			"text": msg,
+		},
+	}
+
+	if cfg.Secret != "" {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		stringToSign := timestamp + "\n" + cfg.Secret
+		h := hmac.New(sha256.New, []byte(cfg.Secret))
+		h.Write([]byte(stringToSign))
+		sign := base64.StdEncoding.EncodeToString(h.Sum(nil))
+		payload["timestamp"] = timestamp
+		payload["sign"] = sign
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, cfg.WebhookURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("feishu request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("feishu API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (s *NotificationService) sendWeCom(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		WebhookURL string `json:"webhook_url"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid wecom config")
+	}
+	if cfg.WebhookURL == "" {
+		return errors.New("wecom config requires webhook_url")
+	}
+
+	msg := fmt.Sprintf("Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
+	payload := map[string]interface{}{
+		"msgtype": "text",
+		"text": map[string]string{
+			"content": msg,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, cfg.WebhookURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("wecom request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("wecom API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, subName, billingDate string) error {
+	var cfg struct {
+		WebhookURL string `json:"webhook_url"`
+		Secret     string `json:"secret"`
+	}
+	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
+		return errors.New("invalid dingtalk config")
+	}
+	if cfg.WebhookURL == "" {
+		return errors.New("dingtalk config requires webhook_url")
+	}
+
+	msg := fmt.Sprintf("Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
+	webhookURL := cfg.WebhookURL
+	if cfg.Secret != "" {
+		timestampMs := time.Now().UnixMilli()
+		timestamp := strconv.FormatInt(timestampMs, 10)
+		stringToSign := timestamp + "\n" + cfg.Secret
+		h := hmac.New(sha256.New, []byte(cfg.Secret))
+		h.Write([]byte(stringToSign))
+		sign := url.QueryEscape(base64.StdEncoding.EncodeToString(h.Sum(nil)))
+		webhookURL = fmt.Sprintf("%s&timestamp=%s&sign=%s", webhookURL, timestamp, sign)
+	}
+
+	payload := map[string]interface{}{
+		"msgtype": "text",
+		"text": map[string]string{
+			"content": msg,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, webhookURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("dingtalk request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("dingtalk API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
 func isValidChannelType(t string) bool {
 	switch t {
-	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark":
+	case "smtp", "resend", "telegram", "webhook", "gotify", "ntfy", "bark", "serverchan", "feishu", "wecom", "dingtalk":
 		return true
 	default:
 		return false
@@ -865,6 +1086,59 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		if cfg.URL != "" && !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
 			return errors.New("bark url must start with http:// or https://")
+		}
+		return nil
+	case "serverchan":
+		var cfg struct {
+			SendKey string `json:"send_key"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid serverchan config format")
+		}
+		if cfg.SendKey == "" {
+			return errors.New("serverchan channel requires send_key")
+		}
+		return nil
+	case "feishu":
+		var cfg struct {
+			WebhookURL string `json:"webhook_url"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid feishu config format")
+		}
+		if cfg.WebhookURL == "" {
+			return errors.New("feishu channel requires webhook_url")
+		}
+		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
+			return errors.New("feishu webhook_url must start with https://")
+		}
+		return nil
+	case "wecom":
+		var cfg struct {
+			WebhookURL string `json:"webhook_url"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid wecom config format")
+		}
+		if cfg.WebhookURL == "" {
+			return errors.New("wecom channel requires webhook_url")
+		}
+		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
+			return errors.New("wecom webhook_url must start with https://")
+		}
+		return nil
+	case "dingtalk":
+		var cfg struct {
+			WebhookURL string `json:"webhook_url"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return errors.New("invalid dingtalk config format")
+		}
+		if cfg.WebhookURL == "" {
+			return errors.New("dingtalk channel requires webhook_url")
+		}
+		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
+			return errors.New("dingtalk webhook_url must start with https://")
 		}
 		return nil
 	default:

@@ -233,7 +233,11 @@ const settings = {
         "webhook": "Webhook",
         "gotify": "Gotify",
         "ntfy": "Ntfy",
-        "bark": "Bark"
+        "bark": "Bark",
+        "serverchan": "ServerChan3",
+        "feishu": "Feishu（飛書）ボット",
+        "wecom": "WeCom（企業微信）ボット",
+        "dingtalk": "DingTalk（釘釘）ボット"
       },
       "typeDescription": {
         "smtp": "独自のSMTPサーバー経由でメール通知を受信",
@@ -242,7 +246,11 @@ const settings = {
         "webhook": "カスタムWebhook URLに通知を送信",
         "gotify": "Gotifyサーバー経由で通知を受信",
         "ntfy": "ntfyパブ/サブサービス経由で通知を受信",
-        "bark": "Bark経由でiOSにプッシュ通知を受信"
+        "bark": "Bark経由でiOSにプッシュ通知を受信",
+        "serverchan": "ServerChan3（Server酱3）経由で通知を受信",
+        "feishu": "Feishu（飛書）ボット経由で通知を受信",
+        "wecom": "WeCom（企業微信）ボット経由で通知を受信",
+        "dingtalk": "DingTalk（釘釘）ボット経由で通知を受信"
       },
       "typeLabel": "チャネルタイプ",
       "configFields": {
@@ -288,7 +296,19 @@ const settings = {
         "barkUrl": "サーバーURL（任意）",
         "barkUrlPlaceholder": "https://api.day.app",
         "barkDeviceKey": "デバイスキー",
-        "barkDeviceKeyPlaceholder": "Barkデバイスキー"
+        "barkDeviceKeyPlaceholder": "Barkデバイスキー",
+        "serverChanSendKey": "SendKey",
+        "serverChanSendKeyPlaceholder": "ServerChan3のSendKey",
+        "feishuWebhookUrl": "Webhook URL",
+        "feishuWebhookUrlPlaceholder": "https://open.feishu.cn/open-apis/bot/v2/hook/...",
+        "feishuSecret": "署名シークレット（任意）",
+        "feishuSecretPlaceholder": "署名検証シークレット",
+        "wecomWebhookUrl": "Webhook URL",
+        "wecomWebhookUrlPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...",
+        "dingtalkWebhookUrl": "Webhook URL",
+        "dingtalkWebhookUrlPlaceholder": "https://oapi.dingtalk.com/robot/send?access_token=...",
+        "dingtalkSecret": "署名シークレット（任意）",
+        "dingtalkSecretPlaceholder": "SEC..."
       },
       "save": "保存",
       "cancel": "キャンセル"

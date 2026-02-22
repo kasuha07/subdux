@@ -233,7 +233,11 @@ const settings = {
         "webhook": "Webhook",
         "gotify": "Gotify",
         "ntfy": "Ntfy",
-        "bark": "Bark"
+        "bark": "Bark",
+        "serverchan": "Server酱3",
+        "feishu": "飞书机器人",
+        "wecom": "企业微信机器人",
+        "dingtalk": "钉钉机器人"
       },
       "typeDescription": {
         "smtp": "通过您自己的 SMTP 服务器接收邮件通知",
@@ -242,7 +246,11 @@ const settings = {
         "webhook": "向自定义 Webhook URL 发送通知",
         "gotify": "通过您的 Gotify 服务器接收通知",
         "ntfy": "通过 ntfy 发布/订阅服务接收通知",
-        "bark": "通过 Bark 在 iOS 上接收推送通知"
+        "bark": "通过 Bark 在 iOS 上接收推送通知",
+        "serverchan": "通过 Server酱3 接收通知",
+        "feishu": "通过飞书自定义机器人接收通知",
+        "wecom": "通过企业微信群机器人接收通知",
+        "dingtalk": "通过钉钉自定义机器人接收通知"
       },
       "typeLabel": "渠道类型",
       "configFields": {
@@ -288,7 +296,19 @@ const settings = {
         "barkUrl": "服务器地址（可选）",
         "barkUrlPlaceholder": "https://api.day.app",
         "barkDeviceKey": "设备密钥",
-        "barkDeviceKeyPlaceholder": "您的 Bark 设备密钥"
+        "barkDeviceKeyPlaceholder": "您的 Bark 设备密钥",
+        "serverChanSendKey": "SendKey",
+        "serverChanSendKeyPlaceholder": "您的 Server酱3 SendKey",
+        "feishuWebhookUrl": "Webhook 地址",
+        "feishuWebhookUrlPlaceholder": "https://open.feishu.cn/open-apis/bot/v2/hook/...",
+        "feishuSecret": "签名密钥（可选）",
+        "feishuSecretPlaceholder": "签名校验密钥",
+        "wecomWebhookUrl": "Webhook 地址",
+        "wecomWebhookUrlPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...",
+        "dingtalkWebhookUrl": "Webhook 地址",
+        "dingtalkWebhookUrlPlaceholder": "https://oapi.dingtalk.com/robot/send?access_token=...",
+        "dingtalkSecret": "签名密钥（可选）",
+        "dingtalkSecretPlaceholder": "SEC..."
       },
       "save": "保存",
       "cancel": "取消"
