@@ -296,13 +296,14 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+        <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
           <DialogTitle>
             {isEditing ? t("settings.notifications.channels.edit") : t("settings.notifications.channels.addButton")}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
           <div className="space-y-2">
             <Label>{t("settings.notifications.channels.typeLabel")}</Label>
             <Select value={type} onValueChange={(v) => setType(v as ChannelType)} disabled={isEditing}>
@@ -662,13 +663,17 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
             </>
           )}
 
-          <div className="flex gap-2 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-              {t("settings.notifications.channels.cancel")}
-            </Button>
-            <Button type="submit" className="flex-1" disabled={saving}>
-              {saving ? t("settings.notifications.channels.adding") : t("settings.notifications.channels.save")}
-            </Button>
+          </div>
+
+          <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+                {t("settings.notifications.channels.cancel")}
+              </Button>
+              <Button type="submit" className="flex-1" disabled={saving}>
+                {saving ? t("settings.notifications.channels.adding") : t("settings.notifications.channels.save")}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

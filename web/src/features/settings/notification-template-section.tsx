@@ -175,101 +175,105 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
 
         {formOpen && (
           <Dialog open={formOpen} onOpenChange={(v) => { if (!v) setFormOpen(false) }}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
+            <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+              <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
                 <DialogTitle>
                   {editingTemplate
                     ? t("settings.notifications.templates.editButton")
                     : t("settings.notifications.templates.addButton")}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t("settings.notifications.templates.channelType")}</Label>
+                      <Select value={channelType} onValueChange={setChannelType} disabled={!!editingTemplate}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">{t("settings.notifications.templates.defaultTemplate")}</SelectItem>
+                          {CHANNEL_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {t(`settings.notifications.channels.type.${type}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t("settings.notifications.templates.format")}</Label>
+                      <Select value={format} onValueChange={(v) => setFormat(v as any)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="plaintext">Plaintext</SelectItem>
+                          <SelectItem value="markdown">Markdown</SelectItem>
+                          <SelectItem value="html">HTML</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label>{t("settings.notifications.templates.channelType")}</Label>
-                    <Select value={channelType} onValueChange={setChannelType} disabled={!!editingTemplate}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">{t("settings.notifications.templates.defaultTemplate")}</SelectItem>
-                        {CHANNEL_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {t(`settings.notifications.channels.type.${type}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("settings.notifications.templates.format")}</Label>
-                    <Select value={format} onValueChange={(v) => setFormat(v as any)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="plaintext">Plaintext</SelectItem>
-                        <SelectItem value="markdown">Markdown</SelectItem>
-                        <SelectItem value="html">HTML</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>{t("settings.notifications.templates.template")}</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {templateContent.length} / 2000
-                    </span>
-                  </div>
-                  <Textarea
-                    className="min-h-[200px] font-mono text-sm"
-                    value={templateContent}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTemplateContent(e.target.value)}
-                    maxLength={2000}
-                    required
-                  />
-                  <div className="space-y-2 rounded-md border p-3 bg-muted/50 text-xs">
-                    <p className="font-medium">{t("settings.notifications.templates.availableVariables")}:</p>
-                    <div className="grid grid-cols-1 gap-1.5 font-mono">
-                      <div><span className="text-primary">{"{{.SubscriptionName}}"}</span> - {t("settings.notifications.templates.varSubscriptionName")}</div>
-                      <div><span className="text-primary">{"{{.BillingDate}}"}</span> - {t("settings.notifications.templates.varBillingDate")}</div>
-                      <div><span className="text-primary">{"{{.Amount}}"}</span> - {t("settings.notifications.templates.varAmount")}</div>
-                      <div><span className="text-primary">{"{{.Currency}}"}</span> - {t("settings.notifications.templates.varCurrency")}</div>
-                      <div><span className="text-primary">{"{{.DaysUntil}}"}</span> - {t("settings.notifications.templates.varDaysUntil")}</div>
-                      <div><span className="text-primary">{"{{.Category}}"}</span> - {t("settings.notifications.templates.varCategory")}</div>
-                      <div><span className="text-primary">{"{{.UserEmail}}"}</span> - {t("settings.notifications.templates.varUserEmail")}</div>
+                    <div className="flex items-center justify-between">
+                      <Label>{t("settings.notifications.templates.template")}</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {templateContent.length} / 2000
+                      </span>
                     </div>
-                    <div className="pt-2 border-t">
-                      <p className="font-medium mb-1">{t("settings.notifications.templates.exampleTitle")}:</p>
-                      <p className="font-mono text-muted-foreground">
-                        {t("settings.notifications.templates.exampleTemplate")}
-                      </p>
-                    </div>
-                </div>
-                </div>
-
-                {previewResult && (
-                  <div className="space-y-2 rounded-md border p-3 bg-muted/50">
-                    <Label>{t("settings.notifications.templates.previewResult")}</Label>
-                    <div className="text-sm whitespace-pre-wrap font-mono">
-                      {previewResult}
+                    <Textarea
+                      className="min-h-[200px] font-mono text-sm"
+                      value={templateContent}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTemplateContent(e.target.value)}
+                      maxLength={2000}
+                      required
+                    />
+                    <div className="space-y-2 rounded-md border bg-muted/50 p-3 text-xs">
+                      <p className="font-medium">{t("settings.notifications.templates.availableVariables")}:</p>
+                      <div className="grid grid-cols-1 gap-1.5 font-mono">
+                        <div><span className="text-primary">{"{{.SubscriptionName}}"}</span> - {t("settings.notifications.templates.varSubscriptionName")}</div>
+                        <div><span className="text-primary">{"{{.BillingDate}}"}</span> - {t("settings.notifications.templates.varBillingDate")}</div>
+                        <div><span className="text-primary">{"{{.Amount}}"}</span> - {t("settings.notifications.templates.varAmount")}</div>
+                        <div><span className="text-primary">{"{{.Currency}}"}</span> - {t("settings.notifications.templates.varCurrency")}</div>
+                        <div><span className="text-primary">{"{{.DaysUntil}}"}</span> - {t("settings.notifications.templates.varDaysUntil")}</div>
+                        <div><span className="text-primary">{"{{.Category}}"}</span> - {t("settings.notifications.templates.varCategory")}</div>
+                        <div><span className="text-primary">{"{{.UserEmail}}"}</span> - {t("settings.notifications.templates.varUserEmail")}</div>
+                      </div>
+                      <div className="border-t pt-2">
+                        <p className="mb-1 font-medium">{t("settings.notifications.templates.exampleTitle")}:</p>
+                        <p className="font-mono text-muted-foreground">
+                          {t("settings.notifications.templates.exampleTemplate")}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                <div className="flex gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={handlePreview} disabled={previewing || !templateContent.trim()}>
-                    {t("settings.notifications.templates.previewButton")}
-                  </Button>
-                  <div className="flex-1" />
-                  <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
-                    {t("settings.notifications.channels.cancel")}
-                  </Button>
-                  <Button type="submit" disabled={saving || !templateContent.trim()}>
-                    {saving ? t("settings.notifications.channels.adding") : t("settings.notifications.channels.save")}
-                  </Button>
+                  {previewResult && (
+                    <div className="space-y-2 rounded-md border bg-muted/50 p-3">
+                      <Label>{t("settings.notifications.templates.previewResult")}</Label>
+                      <div className="whitespace-pre-wrap font-mono text-sm">
+                        {previewResult}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={handlePreview} disabled={previewing || !templateContent.trim()}>
+                      {t("settings.notifications.templates.previewButton")}
+                    </Button>
+                    <div className="flex-1" />
+                    <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+                      {t("settings.notifications.channels.cancel")}
+                    </Button>
+                    <Button type="submit" disabled={saving || !templateContent.trim()}>
+                      {saving ? t("settings.notifications.channels.adding") : t("settings.notifications.channels.save")}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </DialogContent>

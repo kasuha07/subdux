@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -79,66 +78,72 @@ export default function AdminUsersTab({
               {t("admin.users.createUser")}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
+          <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-[425px] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+            <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
               <DialogTitle>{t("admin.users.createUser")}</DialogTitle>
               <DialogDescription>{t("admin.users.createUserDescription")}</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="username">{t("admin.users.username")}</Label>
-                <Input
-                  id="username"
-                  value={newUsername}
-                  onChange={(event) => onNewUsernameChange(event.target.value)}
-                  placeholder="johndoe"
-                />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="username">{t("admin.users.username")}</Label>
+                    <Input
+                      id="username"
+                      value={newUsername}
+                      onChange={(event) => onNewUsernameChange(event.target.value)}
+                      placeholder="johndoe"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">{t("admin.users.email")}</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newEmail}
+                      onChange={(event) => onNewEmailChange(event.target.value)}
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="password">{t("admin.users.password")}</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) => onNewPasswordChange(event.target.value)}
+                      placeholder="••••••"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("admin.users.passwordMinLength")}
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="role">{t("admin.users.role")}</Label>
+                    <select
+                      id="role"
+                      value={newRole}
+                      onChange={(event) => onNewRoleChange(event.target.value as "user" | "admin")}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="user">{t("admin.users.roleUser")}</option>
+                      <option value="admin">{t("admin.users.roleAdmin")}</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">{t("admin.users.email")}</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newEmail}
-                  onChange={(event) => onNewEmailChange(event.target.value)}
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">{t("admin.users.password")}</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(event) => onNewPasswordChange(event.target.value)}
-                  placeholder="••••••"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("admin.users.passwordMinLength")}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">{t("admin.users.role")}</Label>
-                <select
-                  id="role"
-                  value={newRole}
-                  onChange={(event) => onNewRoleChange(event.target.value as "user" | "admin")}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="user">{t("admin.users.roleUser")}</option>
-                  <option value="admin">{t("admin.users.roleAdmin")}</option>
-                </select>
+              <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    onClick={() => void onCreateUser()}
+                    disabled={!newUsername || !newEmail || !newPassword || newPassword.length < 6}
+                  >
+                    {t("admin.users.create")}
+                  </Button>
+                </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button
-                type="submit"
-                onClick={() => void onCreateUser()}
-                disabled={!newUsername || !newEmail || !newPassword || newPassword.length < 6}
-              >
-                {t("admin.users.create")}
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
