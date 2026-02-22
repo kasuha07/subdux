@@ -232,7 +232,7 @@ export default function SubscriptionCard({
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground"
               >
-                <ExternalLink className="size-3" />
+                <ExternalLink className="size-4" />
               </a>
             )}
           </div>
