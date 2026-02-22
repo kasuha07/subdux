@@ -138,17 +138,9 @@ export default function SubscriptionCard({
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days < 7
-  const trialDays = subscription.trial_enabled && subscription.trial_end_date
-    ? daysUntil(subscription.trial_end_date)
-    : null
-  const trialStartDays = subscription.trial_enabled && subscription.trial_start_date
-    ? daysUntil(subscription.trial_start_date)
-    : null
   const categoryLabel = categoryName?.trim() || subscription.category
   const rawNotes = subscription.notes.trim()
   const notesPreview = rawNotes ? truncateWithEllipsis(rawNotes) : ""
-  const showAnchorDate = Boolean(subscription.billing_anchor_date)
-    && (subscription.billing_type === "one_time" || !subscription.next_billing_date)
 
   function renderBillingLabel(): string {
     if (showMonthlyAmount && subscription.billing_type === "recurring") {
@@ -189,24 +181,6 @@ export default function SubscriptionCard({
     return formatDate(subscription.next_billing_date, i18n.language)
   }
 
-  function renderTrialText(): string | null {
-    if (!subscription.trial_enabled) {
-      return null
-    }
-    if ((trialStartDays ?? 0) > 0) {
-      return t("subscription.card.trial.startsIn", { count: trialStartDays ?? 0 })
-    }
-    if (!subscription.trial_end_date) {
-      return t("subscription.card.trial.active")
-    }
-    if ((trialDays ?? 0) >= 0) {
-      return t("subscription.card.trial.endsIn", { count: trialDays ?? 0 })
-    }
-    return t("subscription.card.trial.endedOn", {
-      date: formatDate(subscription.trial_end_date, i18n.language),
-    })
-  }
-
   function renderReminderText(): string {
     if (!subscription.notify_enabled) {
       return t("subscription.card.reminder.off")
@@ -216,7 +190,6 @@ export default function SubscriptionCard({
     })
   }
 
-  const trialText = renderTrialText()
   const reminderDisabledText = subscription.notify_enabled === false ? renderReminderText() : null
   const dueText = renderDueText()
   const isOverdue = (days ?? 0) < 0
@@ -225,13 +198,13 @@ export default function SubscriptionCard({
     : isOverdue
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
-  const holdingDays = subscription.billing_type === "one_time" && subscription.billing_anchor_date
+  const holdingDays = subscription.billing_type === "one_time" && subscription.next_billing_date
     ? (() => {
-      const anchorDate = new Date(subscription.billing_anchor_date)
-      if (Number.isNaN(anchorDate.getTime())) {
+      const nextBillingDate = new Date(subscription.next_billing_date)
+      if (Number.isNaN(nextBillingDate.getTime())) {
         return null
       }
-      return Math.max(1, -daysUntil(subscription.billing_anchor_date))
+      return Math.max(1, -daysUntil(subscription.next_billing_date))
     })()
     : null
   const holdingCostText = holdingDays
@@ -250,11 +223,6 @@ export default function SubscriptionCard({
     ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
     : dueBadgeClass
   const secondaryBadgeTitle = secondaryBadgeText
-  const anchorDateText = showAnchorDate && subscription.billing_anchor_date
-    ? t("subscription.card.anchorDate", {
-      date: formatDate(subscription.billing_anchor_date, i18n.language),
-    })
-    : null
 
   return (
     <Card className="group py-3 transition-all hover:shadow-md">
@@ -301,18 +269,6 @@ export default function SubscriptionCard({
               >
                 <BellOff className="size-3.5" />
               </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            {trialText && (
-              <Badge variant="outline" className="bg-sky-500/10 text-sky-700 border-sky-200">
-                {trialText}
-              </Badge>
-            )}
-            {anchorDateText && (
-              <Badge variant="outline" className="bg-zinc-500/10 text-zinc-600 border-zinc-200">
-                {anchorDateText}
-              </Badge>
             )}
           </div>
           {notesPreview && (

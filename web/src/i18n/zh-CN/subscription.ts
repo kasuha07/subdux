@@ -19,17 +19,10 @@ const subscription = {
     "overdue": "已逾期",
     "noNextBilling": "无下次计费日",
     "holdingCost": "{{amount}}/日",
-    "trial": {
-      "startsIn": "试用将在 {{count}} 天后开始",
-      "active": "试用中",
-      "endsIn": "试用剩余 {{count}} 天",
-      "endedOn": "试用于 {{date}} 结束"
-    },
     "reminder": {
       "on": "提前 {{days}} 天提醒",
       "off": "提醒已关闭"
     },
-    "anchorDate": "锚点日 {{date}}",
     "notes": "备注：{{content}}",
     "status": {
       "enabled": "启用",
@@ -53,7 +46,7 @@ const subscription = {
     "enabled": "启用",
     "disabled": "停用",
     "purchaseDateLabel": "购买日期",
-    "anchorDateLabel": "计费锚点日期",
+    "nextBillingDateLabel": "下次计费日期",
     "recurrenceTypeLabel": "重复规则",
     "recurrenceDetailLabel": "具体内容",
     "recurrenceType": {
@@ -72,9 +65,6 @@ const subscription = {
     "monthlyDayLabel": "每月日期",
     "yearlyMonthLabel": "月份",
     "yearlyDayLabel": "日期",
-    "trialLabel": "试用期",
-    "trialStartLabel": "试用开始",
-    "trialEndLabel": "试用结束",
     "categoryLabel": "分类",
     "categoryPlaceholder": "选择...",
     "paymentMethodLabel": "支付方式",

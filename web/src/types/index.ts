@@ -25,14 +25,10 @@ export interface Subscription {
   recurrence_type: "interval" | "monthly_date" | "yearly_date" | ""
   interval_count: number | null
   interval_unit: "day" | "week" | "month" | "year" | ""
-  billing_anchor_date: string | null
   monthly_day: number | null
   yearly_month: number | null
   yearly_day: number | null
-  trial_enabled: boolean
-  trial_start_date: string | null
-  trial_end_date: string | null
-  next_billing_date: string | null
+  next_billing_date: string
   category: string
   category_id: number | null
   payment_method_id: number | null
@@ -136,13 +132,10 @@ export interface CreateSubscriptionInput {
   recurrence_type: string
   interval_count: number | null
   interval_unit: string
-  billing_anchor_date: string
+  next_billing_date: string
   monthly_day: number | null
   yearly_month: number | null
   yearly_day: number | null
-  trial_enabled: boolean
-  trial_start_date: string
-  trial_end_date: string
   category: string
   category_id: number | null
   payment_method_id: number | null
@@ -162,13 +155,10 @@ export interface UpdateSubscriptionInput {
   recurrence_type?: string
   interval_count?: number | null
   interval_unit?: string
-  billing_anchor_date?: string
+  next_billing_date?: string
   monthly_day?: number | null
   yearly_month?: number | null
   yearly_day?: number | null
-  trial_enabled?: boolean
-  trial_start_date?: string
-  trial_end_date?: string
   category?: string
   category_id?: number | null
   payment_method_id?: number | null

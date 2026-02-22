@@ -19,17 +19,10 @@ const subscription = {
     "overdue": "期限超過",
     "noNextBilling": "次回請求日なし",
     "holdingCost": "{{amount}}/日",
-    "trial": {
-      "startsIn": "トライアル開始まで{{count}}日",
-      "active": "トライアル中",
-      "endsIn": "トライアル終了まで{{count}}日",
-      "endedOn": "トライアル終了日: {{date}}"
-    },
     "reminder": {
       "on": "{{days}}日前にリマインド",
       "off": "リマインドオフ"
     },
-    "anchorDate": "起点日 {{date}}",
     "notes": "メモ: {{content}}",
     "status": {
       "enabled": "有効",
@@ -53,7 +46,7 @@ const subscription = {
     "enabled": "有効",
     "disabled": "無効",
     "purchaseDateLabel": "購入日",
-    "anchorDateLabel": "課金起点日",
+    "nextBillingDateLabel": "次回請求日",
     "recurrenceTypeLabel": "繰り返しルール",
     "recurrenceDetailLabel": "詳細",
     "recurrenceType": {
@@ -72,9 +65,6 @@ const subscription = {
     "monthlyDayLabel": "毎月の日付",
     "yearlyMonthLabel": "月",
     "yearlyDayLabel": "日",
-    "trialLabel": "トライアル期間",
-    "trialStartLabel": "トライアル開始",
-    "trialEndLabel": "トライアル終了",
     "categoryLabel": "カテゴリ",
     "categoryPlaceholder": "選択...",
     "paymentMethodLabel": "支払い方法",

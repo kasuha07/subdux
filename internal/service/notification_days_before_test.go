@@ -66,11 +66,11 @@ func TestCreateSubscriptionRejectsNotifyDaysBeforeAboveMax(t *testing.T) {
 	invalid := maxNotificationDaysBefore + 1
 
 	_, err := service.Create(user.ID, CreateSubscriptionInput{
-		Name:              "Example subscription",
-		Amount:            9.99,
-		BillingType:       billingTypeOneTime,
-		BillingAnchorDate: "2025-01-01",
-		NotifyDaysBefore:  &invalid,
+		Name:             "Example subscription",
+		Amount:           9.99,
+		BillingType:      billingTypeOneTime,
+		NextBillingDate:  "2025-01-01",
+		NotifyDaysBefore: &invalid,
 	})
 	if err == nil {
 		t.Fatal("Create() error = nil, want validation error")
@@ -87,11 +87,11 @@ func TestUpdateSubscriptionRejectsNotifyDaysBeforeAboveMax(t *testing.T) {
 	initialNotifyDaysBefore := 3
 
 	sub, err := service.Create(user.ID, CreateSubscriptionInput{
-		Name:              "Example subscription",
-		Amount:            9.99,
-		BillingType:       billingTypeOneTime,
-		BillingAnchorDate: "2025-01-01",
-		NotifyDaysBefore:  &initialNotifyDaysBefore,
+		Name:             "Example subscription",
+		Amount:           9.99,
+		BillingType:      billingTypeOneTime,
+		NextBillingDate:  "2025-01-01",
+		NotifyDaysBefore: &initialNotifyDaysBefore,
 	})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)

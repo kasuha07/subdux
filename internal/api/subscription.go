@@ -21,62 +21,54 @@ func NewSubscriptionHandler(s *service.SubscriptionService, er *service.Exchange
 }
 
 type subscriptionResponse struct {
-	ID                uint       `json:"id"`
-	Name              string     `json:"name"`
-	Amount            float64    `json:"amount"`
-	Currency          string     `json:"currency"`
-	Enabled           bool       `json:"enabled"`
-	BillingType       string     `json:"billing_type"`
-	RecurrenceType    string     `json:"recurrence_type"`
-	IntervalCount     *int       `json:"interval_count"`
-	IntervalUnit      string     `json:"interval_unit"`
-	BillingAnchorDate *time.Time `json:"billing_anchor_date"`
-	MonthlyDay        *int       `json:"monthly_day"`
-	YearlyMonth       *int       `json:"yearly_month"`
-	YearlyDay         *int       `json:"yearly_day"`
-	TrialEnabled      bool       `json:"trial_enabled"`
-	TrialStartDate    *time.Time `json:"trial_start_date"`
-	TrialEndDate      *time.Time `json:"trial_end_date"`
-	NextBillingDate   *time.Time `json:"next_billing_date"`
-	Category          string     `json:"category"`
-	CategoryID        *uint      `json:"category_id"`
-	PaymentMethodID   *uint      `json:"payment_method_id"`
-	NotifyEnabled     *bool      `json:"notify_enabled"`
-	NotifyDaysBefore  *int       `json:"notify_days_before"`
-	Icon              string     `json:"icon"`
-	URL               string     `json:"url"`
-	Notes             string     `json:"notes"`
-	CreatedAt         time.Time  `json:"created_at"`
+	ID               uint       `json:"id"`
+	Name             string     `json:"name"`
+	Amount           float64    `json:"amount"`
+	Currency         string     `json:"currency"`
+	Enabled          bool       `json:"enabled"`
+	BillingType      string     `json:"billing_type"`
+	RecurrenceType   string     `json:"recurrence_type"`
+	IntervalCount    *int       `json:"interval_count"`
+	IntervalUnit     string     `json:"interval_unit"`
+	MonthlyDay       *int       `json:"monthly_day"`
+	YearlyMonth      *int       `json:"yearly_month"`
+	YearlyDay        *int       `json:"yearly_day"`
+	NextBillingDate  *time.Time `json:"next_billing_date"`
+	Category         string     `json:"category"`
+	CategoryID       *uint      `json:"category_id"`
+	PaymentMethodID  *uint      `json:"payment_method_id"`
+	NotifyEnabled    *bool      `json:"notify_enabled"`
+	NotifyDaysBefore *int       `json:"notify_days_before"`
+	Icon             string     `json:"icon"`
+	URL              string     `json:"url"`
+	Notes            string     `json:"notes"`
+	CreatedAt        time.Time  `json:"created_at"`
 }
 
 func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 	return subscriptionResponse{
-		ID:                sub.ID,
-		Name:              sub.Name,
-		Amount:            sub.Amount,
-		Currency:          sub.Currency,
-		Enabled:           sub.Enabled,
-		BillingType:       sub.BillingType,
-		RecurrenceType:    sub.RecurrenceType,
-		IntervalCount:     sub.IntervalCount,
-		IntervalUnit:      sub.IntervalUnit,
-		BillingAnchorDate: sub.BillingAnchorDate,
-		MonthlyDay:        sub.MonthlyDay,
-		YearlyMonth:       sub.YearlyMonth,
-		YearlyDay:         sub.YearlyDay,
-		TrialEnabled:      sub.TrialEnabled,
-		TrialStartDate:    sub.TrialStartDate,
-		TrialEndDate:      sub.TrialEndDate,
-		NextBillingDate:   sub.NextBillingDate,
-		Category:          sub.Category,
-		CategoryID:        sub.CategoryID,
-		PaymentMethodID:   sub.PaymentMethodID,
-		NotifyEnabled:     sub.NotifyEnabled,
-		NotifyDaysBefore:  sub.NotifyDaysBefore,
-		Icon:              sub.Icon,
-		URL:               sub.URL,
-		Notes:             sub.Notes,
-		CreatedAt:         sub.CreatedAt,
+		ID:               sub.ID,
+		Name:             sub.Name,
+		Amount:           sub.Amount,
+		Currency:         sub.Currency,
+		Enabled:          sub.Enabled,
+		BillingType:      sub.BillingType,
+		RecurrenceType:   sub.RecurrenceType,
+		IntervalCount:    sub.IntervalCount,
+		IntervalUnit:     sub.IntervalUnit,
+		MonthlyDay:       sub.MonthlyDay,
+		YearlyMonth:      sub.YearlyMonth,
+		YearlyDay:        sub.YearlyDay,
+		NextBillingDate:  sub.NextBillingDate,
+		Category:         sub.Category,
+		CategoryID:       sub.CategoryID,
+		PaymentMethodID:  sub.PaymentMethodID,
+		NotifyEnabled:    sub.NotifyEnabled,
+		NotifyDaysBefore: sub.NotifyDaysBefore,
+		Icon:             sub.Icon,
+		URL:              sub.URL,
+		Notes:            sub.Notes,
+		CreatedAt:        sub.CreatedAt,
 	}
 }
 

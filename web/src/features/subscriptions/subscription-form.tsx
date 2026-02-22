@@ -58,7 +58,6 @@ export default function SubscriptionForm({
     handleSubmit,
     isEditing,
     loading,
-    needsAnchorDate,
     setField,
     values,
   } = useSubscriptionFormState({
@@ -184,22 +183,20 @@ export default function SubscriptionForm({
               </div>
             </div>
 
-            {needsAnchorDate && (
-              <div className="space-y-2">
-                <Label htmlFor="anchor-date">
-                  {values.billingType === "one_time"
-                    ? t("subscription.form.purchaseDateLabel")
-                    : t("subscription.form.anchorDateLabel")}
-                </Label>
-                <Input
-                  id="anchor-date"
-                  type="date"
-                  value={values.billingAnchorDate}
-                  onChange={(event) => setField("billingAnchorDate", event.target.value)}
-                  required={needsAnchorDate}
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="next-billing-date">
+                {values.billingType === "one_time"
+                  ? t("subscription.form.purchaseDateLabel")
+                  : t("subscription.form.nextBillingDateLabel")}
+              </Label>
+              <Input
+                id="next-billing-date"
+                type="date"
+                value={values.nextBillingDate}
+                onChange={(event) => setField("nextBillingDate", event.target.value)}
+                required
+              />
+            </div>
 
             <SubscriptionRecurrenceFields
               billingType={values.billingType}
@@ -215,12 +212,6 @@ export default function SubscriptionForm({
               onYearlyMonthChange={(value) => setField("yearlyMonth", value)}
               yearlyDay={values.yearlyDay}
               onYearlyDayChange={(value) => setField("yearlyDay", value)}
-              trialEnabled={values.trialEnabled}
-              onTrialEnabledChange={(enabled) => setField("trialEnabled", enabled)}
-              trialStartDate={values.trialStartDate}
-              onTrialStartDateChange={(value) => setField("trialStartDate", value)}
-              trialEndDate={values.trialEndDate}
-              onTrialEndDateChange={(value) => setField("trialEndDate", value)}
             />
 
             <SubscriptionMetadataFields

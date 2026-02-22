@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 
 interface SubscriptionRecurrenceFieldsProps {
   billingType: string
@@ -20,15 +19,9 @@ interface SubscriptionRecurrenceFieldsProps {
   onIntervalUnitChange: (value: string) => void
   onMonthlyDayChange: (value: string) => void
   onRecurrenceTypeChange: (value: string) => void
-  onTrialEnabledChange: (value: boolean) => void
-  onTrialEndDateChange: (value: string) => void
-  onTrialStartDateChange: (value: string) => void
   onYearlyDayChange: (value: string) => void
   onYearlyMonthChange: (value: string) => void
   recurrenceType: string
-  trialEnabled: boolean
-  trialEndDate: string
-  trialStartDate: string
   yearlyDay: string
   yearlyMonth: string
 }
@@ -42,15 +35,9 @@ export default function SubscriptionRecurrenceFields({
   onIntervalUnitChange,
   onMonthlyDayChange,
   onRecurrenceTypeChange,
-  onTrialEnabledChange,
-  onTrialEndDateChange,
-  onTrialStartDateChange,
   onYearlyDayChange,
   onYearlyMonthChange,
   recurrenceType,
-  trialEnabled,
-  trialEndDate,
-  trialStartDate,
   yearlyDay,
   yearlyMonth,
 }: SubscriptionRecurrenceFieldsProps) {
@@ -177,41 +164,6 @@ export default function SubscriptionRecurrenceFields({
           )}
         </div>
       </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="trial-enabled">{t("subscription.form.trialLabel")}</Label>
-        <div className="inline-flex h-9 w-fit items-center rounded-md border px-3">
-          <Switch id="trial-enabled" checked={trialEnabled} onCheckedChange={onTrialEnabledChange} />
-          <span className="ml-2 text-sm text-muted-foreground">
-            {trialEnabled ? t("subscription.form.enabled") : t("subscription.form.disabled")}
-          </span>
-        </div>
-      </div>
-
-      {trialEnabled && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="trial-start">{t("subscription.form.trialStartLabel")}</Label>
-            <Input
-              id="trial-start"
-              type="date"
-              value={trialStartDate}
-              onChange={(event) => onTrialStartDateChange(event.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="trial-end">{t("subscription.form.trialEndLabel")}</Label>
-            <Input
-              id="trial-end"
-              type="date"
-              value={trialEndDate}
-              onChange={(event) => onTrialEndDateChange(event.target.value)}
-              required
-            />
-          </div>
-        </div>
-      )}
     </>
   )
 }

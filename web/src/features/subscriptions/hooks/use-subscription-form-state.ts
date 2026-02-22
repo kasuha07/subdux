@@ -14,7 +14,7 @@ export type SubscriptionNotifySetting = "default" | "enabled" | "disabled"
 
 interface SubscriptionFormValues {
   amount: string
-  billingAnchorDate: string
+  nextBillingDate: string
   billingType: string
   categoryId: string
   currency: string
@@ -29,9 +29,6 @@ interface SubscriptionFormValues {
   notifyEnabled: SubscriptionNotifySetting
   paymentMethodId: string
   recurrenceType: string
-  trialEnabled: boolean
-  trialEndDate: string
-  trialStartDate: string
   url: string
   yearlyDay: string
   yearlyMonth: string
@@ -57,7 +54,6 @@ interface UseSubscriptionFormStateResult {
   iconFile: File | null
   isEditing: boolean
   loading: boolean
-  needsAnchorDate: boolean
   setField: <K extends keyof SubscriptionFormValues>(
     field: K,
     value: SubscriptionFormValues[K]
@@ -84,7 +80,7 @@ function buildInitialValues(
   if (subscription) {
     return {
       amount: subscription.amount.toString(),
-      billingAnchorDate: formatDateInput(subscription.billing_anchor_date),
+      nextBillingDate: formatDateInput(subscription.next_billing_date),
       billingType: subscription.billing_type || "recurring",
       categoryId: subscription.category_id?.toString() || "",
       currency: subscription.currency || fallbackCurrencyCode,
@@ -104,9 +100,6 @@ function buildInitialValues(
             : "disabled",
       paymentMethodId: subscription.payment_method_id?.toString() || "",
       recurrenceType: subscription.recurrence_type || "interval",
-      trialEnabled: subscription.trial_enabled,
-      trialEndDate: formatDateInput(subscription.trial_end_date),
-      trialStartDate: formatDateInput(subscription.trial_start_date),
       url: subscription.url || "",
       yearlyDay: (subscription.yearly_day ?? today.getDate()).toString(),
       yearlyMonth: (subscription.yearly_month ?? today.getMonth() + 1).toString(),
@@ -115,7 +108,7 @@ function buildInitialValues(
 
   return {
     amount: "",
-    billingAnchorDate: todayDate,
+    nextBillingDate: todayDate,
     billingType: "recurring",
     categoryId: "",
     currency: fallbackCurrencyCode,
@@ -130,9 +123,6 @@ function buildInitialValues(
     notifyEnabled: "default",
     paymentMethodId: "",
     recurrenceType: "interval",
-    trialEnabled: false,
-    trialEndDate: todayDate,
-    trialStartDate: todayDate,
     url: "",
     yearlyDay: today.getDate().toString(),
     yearlyMonth: (today.getMonth() + 1).toString(),
@@ -233,8 +223,6 @@ export function useSubscriptionFormState({
     }
   }, [open, paymentMethods, setField, values.paymentMethodId])
 
-  const needsAnchorDate = values.billingType === "recurring" || values.billingType === "one_time"
-
   const handleSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault()
     setError("")
@@ -270,7 +258,7 @@ export function useSubscriptionFormState({
           values.billingType === "recurring" && values.recurrenceType === "interval"
             ? values.intervalUnit
             : "",
-        billing_anchor_date: values.billingAnchorDate,
+        next_billing_date: values.nextBillingDate,
         monthly_day:
           values.billingType === "recurring" && values.recurrenceType === "monthly_date"
             ? parseInt(values.monthlyDay, 10)
@@ -283,11 +271,6 @@ export function useSubscriptionFormState({
           values.billingType === "recurring" && values.recurrenceType === "yearly_date"
             ? parseInt(values.yearlyDay, 10)
             : null,
-        trial_enabled: values.billingType === "recurring" ? values.trialEnabled : false,
-        trial_start_date:
-          values.billingType === "recurring" && values.trialEnabled ? values.trialStartDate : "",
-        trial_end_date:
-          values.billingType === "recurring" && values.trialEnabled ? values.trialEndDate : "",
         category: "",
         category_id: values.categoryId ? parseInt(values.categoryId, 10) : null,
         payment_method_id: values.paymentMethodId ? parseInt(values.paymentMethodId, 10) : null,
@@ -334,7 +317,6 @@ export function useSubscriptionFormState({
     iconFile,
     isEditing,
     loading,
-    needsAnchorDate,
     setField,
     values,
   }

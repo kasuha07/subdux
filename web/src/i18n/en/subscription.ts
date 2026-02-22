@@ -19,17 +19,10 @@ const subscription = {
     "overdue": "Overdue",
     "noNextBilling": "No next billing date",
     "holdingCost": "{{amount}}/day",
-    "trial": {
-      "startsIn": "Trial starts in {{count}}d",
-      "active": "Trial active",
-      "endsIn": "Trial ends in {{count}}d",
-      "endedOn": "Trial ended on {{date}}"
-    },
     "reminder": {
       "on": "Reminder {{days}}d before",
       "off": "Reminder off"
     },
-    "anchorDate": "Anchor {{date}}",
     "notes": "Note: {{content}}",
     "status": {
       "enabled": "enabled",
@@ -53,7 +46,7 @@ const subscription = {
     "enabled": "Enabled",
     "disabled": "Disabled",
     "purchaseDateLabel": "Purchase date",
-    "anchorDateLabel": "Billing anchor date",
+    "nextBillingDateLabel": "Next billing date",
     "recurrenceTypeLabel": "Recurrence rule",
     "recurrenceDetailLabel": "Rule details",
     "recurrenceType": {
@@ -72,9 +65,6 @@ const subscription = {
     "monthlyDayLabel": "Day of month",
     "yearlyMonthLabel": "Month",
     "yearlyDayLabel": "Day",
-    "trialLabel": "Trial period",
-    "trialStartLabel": "Trial start",
-    "trialEndLabel": "Trial end",
     "categoryLabel": "Category",
     "categoryPlaceholder": "Select...",
     "paymentMethodLabel": "Payment method",

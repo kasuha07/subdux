@@ -62,34 +62,30 @@ type SystemSetting struct {
 }
 
 type Subscription struct {
-	ID                uint       `gorm:"primaryKey" json:"id"`
-	UserID            uint       `gorm:"index;not null" json:"user_id"`
-	Name              string     `gorm:"not null;size:255" json:"name"`
-	Amount            float64    `gorm:"not null" json:"amount"`
-	Currency          string     `gorm:"not null;size:10;default:'USD'" json:"currency"`
-	Enabled           bool       `gorm:"default:true" json:"enabled"`
-	BillingType       string     `gorm:"not null;size:30;default:'recurring'" json:"billing_type"` // recurring, one_time
-	RecurrenceType    string     `gorm:"size:30" json:"recurrence_type"`                           // interval, monthly_date, yearly_date
-	IntervalCount     *int       `json:"interval_count"`
-	IntervalUnit      string     `gorm:"size:10" json:"interval_unit"` // day, week, month, year
-	BillingAnchorDate *time.Time `json:"billing_anchor_date"`
-	MonthlyDay        *int       `json:"monthly_day"`
-	YearlyMonth       *int       `json:"yearly_month"`
-	YearlyDay         *int       `json:"yearly_day"`
-	TrialEnabled      bool       `gorm:"default:false" json:"trial_enabled"`
-	TrialStartDate    *time.Time `json:"trial_start_date"`
-	TrialEndDate      *time.Time `json:"trial_end_date"`
-	NextBillingDate   *time.Time `json:"next_billing_date"`
-	Category          string     `gorm:"size:100" json:"category"`
-	CategoryID        *uint      `gorm:"index" json:"category_id"`
-	PaymentMethodID   *uint      `gorm:"index" json:"payment_method_id"`
-	NotifyEnabled     *bool      `json:"notify_enabled"`
-	NotifyDaysBefore  *int       `json:"notify_days_before"`
-	Icon              string     `gorm:"size:500" json:"icon"`
-	URL               string     `json:"url"`
-	Notes             string     `json:"notes"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID               uint       `gorm:"primaryKey" json:"id"`
+	UserID           uint       `gorm:"index;not null" json:"user_id"`
+	Name             string     `gorm:"not null;size:255" json:"name"`
+	Amount           float64    `gorm:"not null" json:"amount"`
+	Currency         string     `gorm:"not null;size:10;default:'USD'" json:"currency"`
+	Enabled          bool       `gorm:"default:true" json:"enabled"`
+	BillingType      string     `gorm:"not null;size:30;default:'recurring'" json:"billing_type"` // recurring, one_time
+	RecurrenceType   string     `gorm:"size:30" json:"recurrence_type"`                           // interval, monthly_date, yearly_date
+	IntervalCount    *int       `json:"interval_count"`
+	IntervalUnit     string     `gorm:"size:10" json:"interval_unit"` // day, week, month, year
+	MonthlyDay       *int       `json:"monthly_day"`
+	YearlyMonth      *int       `json:"yearly_month"`
+	YearlyDay        *int       `json:"yearly_day"`
+	NextBillingDate  *time.Time `json:"next_billing_date"`
+	Category         string     `gorm:"size:100" json:"category"`
+	CategoryID       *uint      `gorm:"index" json:"category_id"`
+	PaymentMethodID  *uint      `gorm:"index" json:"payment_method_id"`
+	NotifyEnabled    *bool      `json:"notify_enabled"`
+	NotifyDaysBefore *int       `json:"notify_days_before"`
+	Icon             string     `gorm:"size:500" json:"icon"`
+	URL              string     `json:"url"`
+	Notes            string     `json:"notes"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 type ExchangeRate struct {

@@ -327,6 +327,10 @@ func (s *NotificationService) ProcessPendingNotifications() error {
 }
 
 func (s *NotificationService) processUserNotifications(userID uint) error {
+	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, time.Now().UTC()); err != nil {
+		return err
+	}
+
 	policy, err := s.GetPolicy(userID)
 	if err != nil {
 		return err

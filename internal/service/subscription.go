@@ -44,55 +44,49 @@ func NewSubscriptionService(db *gorm.DB) *SubscriptionService {
 }
 
 type CreateSubscriptionInput struct {
-	Name              string  `json:"name"`
-	Amount            float64 `json:"amount"`
-	Currency          string  `json:"currency"`
-	Enabled           *bool   `json:"enabled"`
-	BillingType       string  `json:"billing_type"`
-	RecurrenceType    string  `json:"recurrence_type"`
-	IntervalCount     *int    `json:"interval_count"`
-	IntervalUnit      string  `json:"interval_unit"`
-	BillingAnchorDate string  `json:"billing_anchor_date"`
-	MonthlyDay        *int    `json:"monthly_day"`
-	YearlyMonth       *int    `json:"yearly_month"`
-	YearlyDay         *int    `json:"yearly_day"`
-	TrialEnabled      bool    `json:"trial_enabled"`
-	TrialStartDate    string  `json:"trial_start_date"`
-	TrialEndDate      string  `json:"trial_end_date"`
-	Category          string  `json:"category"`
-	CategoryID        *uint   `json:"category_id"`
-	PaymentMethodID   *uint   `json:"payment_method_id"`
-	NotifyEnabled     *bool   `json:"notify_enabled"`
-	NotifyDaysBefore  *int    `json:"notify_days_before"`
-	Icon              string  `json:"icon"`
-	URL               string  `json:"url"`
-	Notes             string  `json:"notes"`
+	Name             string  `json:"name"`
+	Amount           float64 `json:"amount"`
+	Currency         string  `json:"currency"`
+	Enabled          *bool   `json:"enabled"`
+	BillingType      string  `json:"billing_type"`
+	RecurrenceType   string  `json:"recurrence_type"`
+	IntervalCount    *int    `json:"interval_count"`
+	IntervalUnit     string  `json:"interval_unit"`
+	NextBillingDate  string  `json:"next_billing_date"`
+	MonthlyDay       *int    `json:"monthly_day"`
+	YearlyMonth      *int    `json:"yearly_month"`
+	YearlyDay        *int    `json:"yearly_day"`
+	Category         string  `json:"category"`
+	CategoryID       *uint   `json:"category_id"`
+	PaymentMethodID  *uint   `json:"payment_method_id"`
+	NotifyEnabled    *bool   `json:"notify_enabled"`
+	NotifyDaysBefore *int    `json:"notify_days_before"`
+	Icon             string  `json:"icon"`
+	URL              string  `json:"url"`
+	Notes            string  `json:"notes"`
 }
 
 type UpdateSubscriptionInput struct {
-	Name              *string  `json:"name"`
-	Amount            *float64 `json:"amount"`
-	Currency          *string  `json:"currency"`
-	Enabled           *bool    `json:"enabled"`
-	BillingType       *string  `json:"billing_type"`
-	RecurrenceType    *string  `json:"recurrence_type"`
-	IntervalCount     *int     `json:"interval_count"`
-	IntervalUnit      *string  `json:"interval_unit"`
-	BillingAnchorDate *string  `json:"billing_anchor_date"`
-	MonthlyDay        *int     `json:"monthly_day"`
-	YearlyMonth       *int     `json:"yearly_month"`
-	YearlyDay         *int     `json:"yearly_day"`
-	TrialEnabled      *bool    `json:"trial_enabled"`
-	TrialStartDate    *string  `json:"trial_start_date"`
-	TrialEndDate      *string  `json:"trial_end_date"`
-	Category          *string  `json:"category"`
-	CategoryID        *uint    `json:"category_id"`
-	PaymentMethodID   *uint    `json:"payment_method_id"`
-	NotifyEnabled     *bool    `json:"notify_enabled"`
-	NotifyDaysBefore  *int     `json:"notify_days_before"`
-	Icon              *string  `json:"icon"`
-	URL               *string  `json:"url"`
-	Notes             *string  `json:"notes"`
+	Name             *string  `json:"name"`
+	Amount           *float64 `json:"amount"`
+	Currency         *string  `json:"currency"`
+	Enabled          *bool    `json:"enabled"`
+	BillingType      *string  `json:"billing_type"`
+	RecurrenceType   *string  `json:"recurrence_type"`
+	IntervalCount    *int     `json:"interval_count"`
+	IntervalUnit     *string  `json:"interval_unit"`
+	NextBillingDate  *string  `json:"next_billing_date"`
+	MonthlyDay       *int     `json:"monthly_day"`
+	YearlyMonth      *int     `json:"yearly_month"`
+	YearlyDay        *int     `json:"yearly_day"`
+	Category         *string  `json:"category"`
+	CategoryID       *uint    `json:"category_id"`
+	PaymentMethodID  *uint    `json:"payment_method_id"`
+	NotifyEnabled    *bool    `json:"notify_enabled"`
+	NotifyDaysBefore *int     `json:"notify_days_before"`
+	Icon             *string  `json:"icon"`
+	URL              *string  `json:"url"`
+	Notes            *string  `json:"notes"`
 }
 
 type DashboardSummary struct {
@@ -104,17 +98,14 @@ type DashboardSummary struct {
 }
 
 type billingDraft struct {
-	BillingType       string
-	RecurrenceType    string
-	IntervalCount     *int
-	IntervalUnit      string
-	BillingAnchorDate *time.Time
-	MonthlyDay        *int
-	YearlyMonth       *int
-	YearlyDay         *int
-	TrialEnabled      bool
-	TrialStartDate    *time.Time
-	TrialEndDate      *time.Time
+	BillingType     string
+	RecurrenceType  string
+	IntervalCount   *int
+	IntervalUnit    string
+	NextBillingDate *time.Time
+	MonthlyDay      *int
+	YearlyMonth     *int
+	YearlyDay       *int
 }
 
 func validateNotifyDaysBefore(value int) error {
@@ -125,6 +116,10 @@ func validateNotifyDaysBefore(value int) error {
 }
 
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
+	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, time.Now().UTC()); err != nil {
+		return nil, err
+	}
+
 	var subs []model.Subscription
 	err := s.DB.Where("user_id = ?", userID).
 		Order("next_billing_date IS NULL ASC").
@@ -161,34 +156,23 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		enabled = *input.Enabled
 	}
 
-	anchorDate, err := parseOptionalDateString(input.BillingAnchorDate)
-	if err != nil {
-		return nil, err
-	}
-	trialStartDate, err := parseOptionalDateString(input.TrialStartDate)
-	if err != nil {
-		return nil, err
-	}
-	trialEndDate, err := parseOptionalDateString(input.TrialEndDate)
+	nextBillingDate, err := parseOptionalDateString(input.NextBillingDate)
 	if err != nil {
 		return nil, err
 	}
 
 	draft := billingDraft{
-		BillingType:       input.BillingType,
-		RecurrenceType:    input.RecurrenceType,
-		IntervalCount:     copyIntPointer(input.IntervalCount),
-		IntervalUnit:      input.IntervalUnit,
-		BillingAnchorDate: anchorDate,
-		MonthlyDay:        copyIntPointer(input.MonthlyDay),
-		YearlyMonth:       copyIntPointer(input.YearlyMonth),
-		YearlyDay:         copyIntPointer(input.YearlyDay),
-		TrialEnabled:      input.TrialEnabled,
-		TrialStartDate:    trialStartDate,
-		TrialEndDate:      trialEndDate,
+		BillingType:     input.BillingType,
+		RecurrenceType:  input.RecurrenceType,
+		IntervalCount:   copyIntPointer(input.IntervalCount),
+		IntervalUnit:    input.IntervalUnit,
+		NextBillingDate: nextBillingDate,
+		MonthlyDay:      copyIntPointer(input.MonthlyDay),
+		YearlyMonth:     copyIntPointer(input.YearlyMonth),
+		YearlyDay:       copyIntPointer(input.YearlyDay),
 	}
 
-	normalizedDraft, nextBillingDate, err := normalizeBillingDraft(draft, time.Now().UTC())
+	normalizedDraft, nextBillingDate, err := normalizeBillingDraft(draft)
 	if err != nil {
 		return nil, err
 	}
@@ -207,31 +191,27 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 	}
 
 	sub := model.Subscription{
-		UserID:            userID,
-		Name:              input.Name,
-		Amount:            input.Amount,
-		Currency:          currency,
-		Enabled:           enabled,
-		BillingType:       normalizedDraft.BillingType,
-		RecurrenceType:    normalizedDraft.RecurrenceType,
-		IntervalCount:     copyIntPointer(normalizedDraft.IntervalCount),
-		IntervalUnit:      normalizedDraft.IntervalUnit,
-		BillingAnchorDate: copyTimePointer(normalizedDraft.BillingAnchorDate),
-		MonthlyDay:        copyIntPointer(normalizedDraft.MonthlyDay),
-		YearlyMonth:       copyIntPointer(normalizedDraft.YearlyMonth),
-		YearlyDay:         copyIntPointer(normalizedDraft.YearlyDay),
-		TrialEnabled:      normalizedDraft.TrialEnabled,
-		TrialStartDate:    copyTimePointer(normalizedDraft.TrialStartDate),
-		TrialEndDate:      copyTimePointer(normalizedDraft.TrialEndDate),
-		NextBillingDate:   copyTimePointer(nextBillingDate),
-		Category:          input.Category,
-		CategoryID:        input.CategoryID,
-		PaymentMethodID:   paymentMethodID,
-		NotifyEnabled:     input.NotifyEnabled,
-		NotifyDaysBefore:  input.NotifyDaysBefore,
-		Icon:              input.Icon,
-		URL:               input.URL,
-		Notes:             input.Notes,
+		UserID:           userID,
+		Name:             input.Name,
+		Amount:           input.Amount,
+		Currency:         currency,
+		Enabled:          enabled,
+		BillingType:      normalizedDraft.BillingType,
+		RecurrenceType:   normalizedDraft.RecurrenceType,
+		IntervalCount:    copyIntPointer(normalizedDraft.IntervalCount),
+		IntervalUnit:     normalizedDraft.IntervalUnit,
+		MonthlyDay:       copyIntPointer(normalizedDraft.MonthlyDay),
+		YearlyMonth:      copyIntPointer(normalizedDraft.YearlyMonth),
+		YearlyDay:        copyIntPointer(normalizedDraft.YearlyDay),
+		NextBillingDate:  copyTimePointer(nextBillingDate),
+		Category:         input.Category,
+		CategoryID:       input.CategoryID,
+		PaymentMethodID:  paymentMethodID,
+		NotifyEnabled:    input.NotifyEnabled,
+		NotifyDaysBefore: input.NotifyDaysBefore,
+		Icon:             input.Icon,
+		URL:              input.URL,
+		Notes:            input.Notes,
 	}
 
 	if err := s.DB.Create(&sub).Error; err != nil {
@@ -299,27 +279,21 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		input.RecurrenceType != nil ||
 		input.IntervalCount != nil ||
 		input.IntervalUnit != nil ||
-		input.BillingAnchorDate != nil ||
+		input.NextBillingDate != nil ||
 		input.MonthlyDay != nil ||
 		input.YearlyMonth != nil ||
-		input.YearlyDay != nil ||
-		input.TrialEnabled != nil ||
-		input.TrialStartDate != nil ||
-		input.TrialEndDate != nil
+		input.YearlyDay != nil
 
 	if hasScheduleUpdate {
 		draft := billingDraft{
-			BillingType:       sub.BillingType,
-			RecurrenceType:    sub.RecurrenceType,
-			IntervalCount:     copyIntPointer(sub.IntervalCount),
-			IntervalUnit:      sub.IntervalUnit,
-			BillingAnchorDate: copyTimePointer(sub.BillingAnchorDate),
-			MonthlyDay:        copyIntPointer(sub.MonthlyDay),
-			YearlyMonth:       copyIntPointer(sub.YearlyMonth),
-			YearlyDay:         copyIntPointer(sub.YearlyDay),
-			TrialEnabled:      sub.TrialEnabled,
-			TrialStartDate:    copyTimePointer(sub.TrialStartDate),
-			TrialEndDate:      copyTimePointer(sub.TrialEndDate),
+			BillingType:     sub.BillingType,
+			RecurrenceType:  sub.RecurrenceType,
+			IntervalCount:   copyIntPointer(sub.IntervalCount),
+			IntervalUnit:    sub.IntervalUnit,
+			NextBillingDate: copyTimePointer(sub.NextBillingDate),
+			MonthlyDay:      copyIntPointer(sub.MonthlyDay),
+			YearlyMonth:     copyIntPointer(sub.YearlyMonth),
+			YearlyDay:       copyIntPointer(sub.YearlyDay),
 		}
 
 		if input.BillingType != nil {
@@ -334,12 +308,12 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		if input.IntervalUnit != nil {
 			draft.IntervalUnit = *input.IntervalUnit
 		}
-		if input.BillingAnchorDate != nil {
-			parsed, err := parseOptionalDateString(*input.BillingAnchorDate)
+		if input.NextBillingDate != nil {
+			parsed, err := parseOptionalDateString(*input.NextBillingDate)
 			if err != nil {
 				return nil, err
 			}
-			draft.BillingAnchorDate = parsed
+			draft.NextBillingDate = parsed
 		}
 		if input.MonthlyDay != nil {
 			draft.MonthlyDay = copyIntPointer(input.MonthlyDay)
@@ -350,25 +324,7 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		if input.YearlyDay != nil {
 			draft.YearlyDay = copyIntPointer(input.YearlyDay)
 		}
-		if input.TrialEnabled != nil {
-			draft.TrialEnabled = *input.TrialEnabled
-		}
-		if input.TrialStartDate != nil {
-			parsed, err := parseOptionalDateString(*input.TrialStartDate)
-			if err != nil {
-				return nil, err
-			}
-			draft.TrialStartDate = parsed
-		}
-		if input.TrialEndDate != nil {
-			parsed, err := parseOptionalDateString(*input.TrialEndDate)
-			if err != nil {
-				return nil, err
-			}
-			draft.TrialEndDate = parsed
-		}
-
-		normalizedDraft, nextBillingDate, err := normalizeBillingDraft(draft, time.Now().UTC())
+		normalizedDraft, nextBillingDate, err := normalizeBillingDraft(draft)
 		if err != nil {
 			return nil, err
 		}
@@ -377,13 +333,9 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		updates["recurrence_type"] = normalizedDraft.RecurrenceType
 		updates["interval_count"] = copyIntPointer(normalizedDraft.IntervalCount)
 		updates["interval_unit"] = normalizedDraft.IntervalUnit
-		updates["billing_anchor_date"] = copyTimePointer(normalizedDraft.BillingAnchorDate)
 		updates["monthly_day"] = copyIntPointer(normalizedDraft.MonthlyDay)
 		updates["yearly_month"] = copyIntPointer(normalizedDraft.YearlyMonth)
 		updates["yearly_day"] = copyIntPointer(normalizedDraft.YearlyDay)
-		updates["trial_enabled"] = normalizedDraft.TrialEnabled
-		updates["trial_start_date"] = copyTimePointer(normalizedDraft.TrialStartDate)
-		updates["trial_end_date"] = copyTimePointer(normalizedDraft.TrialEndDate)
 		updates["next_billing_date"] = copyTimePointer(nextBillingDate)
 	}
 
@@ -508,6 +460,10 @@ func managedIconFilePath(icon string) (string, bool) {
 }
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
+	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, time.Now().UTC()); err != nil {
+		return nil, err
+	}
+
 	var subs []model.Subscription
 	if err := s.DB.Where("user_id = ? AND enabled = ?", userID, true).Find(&subs).Error; err != nil {
 		return nil, err
@@ -554,15 +510,20 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 	}, nil
 }
 
-func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *time.Time, error) {
+func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error) {
 	draft.BillingType = normalizeBillingType(draft.BillingType)
 	if draft.BillingType == "" {
 		draft.BillingType = billingTypeRecurring
 	}
 
-	referenceDate := normalizeDateUTC(now)
-	var trialStartDate time.Time
-	var trialEndDate time.Time
+	if draft.NextBillingDate == nil {
+		switch draft.BillingType {
+		case billingTypeRecurring:
+			return draft, nil, errors.New("next_billing_date is required for recurring subscriptions")
+		case billingTypeOneTime:
+			return draft, nil, errors.New("next_billing_date is required for one-time subscriptions")
+		}
+	}
 
 	switch draft.BillingType {
 	case billingTypeRecurring:
@@ -571,35 +532,8 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.RecurrenceType = recurrenceTypeInterval
 		}
 
-		if draft.BillingAnchorDate == nil {
-			return draft, nil, errors.New("billing_anchor_date is required for recurring subscriptions")
-		}
-		anchorDate := normalizeDateUTC(*draft.BillingAnchorDate)
-		draft.BillingAnchorDate = &anchorDate
-
-		if referenceDate.Before(anchorDate) {
-			referenceDate = anchorDate
-		}
-
-		if draft.TrialEnabled {
-			if draft.TrialStartDate == nil || draft.TrialEndDate == nil {
-				return draft, nil, errors.New("trial_start_date and trial_end_date are required when trial is enabled")
-			}
-			trialStartDate = normalizeDateUTC(*draft.TrialStartDate)
-			trialEndDate = normalizeDateUTC(*draft.TrialEndDate)
-			if trialEndDate.Before(trialStartDate) {
-				return draft, nil, errors.New("trial_end_date must be on or after trial_start_date")
-			}
-
-			draft.TrialStartDate = &trialStartDate
-			draft.TrialEndDate = &trialEndDate
-			if !referenceDate.Before(trialStartDate) && referenceDate.Before(trialEndDate) {
-				referenceDate = trialEndDate
-			}
-		} else {
-			draft.TrialStartDate = nil
-			draft.TrialEndDate = nil
-		}
+		nextBillingDate := normalizeDateUTC(*draft.NextBillingDate)
+		draft.NextBillingDate = &nextBillingDate
 
 		switch draft.RecurrenceType {
 		case recurrenceTypeInterval:
@@ -618,11 +552,7 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.YearlyMonth = nil
 			draft.YearlyDay = nil
 
-			next := nextIntervalOccurrence(anchorDate, referenceDate, intervalCount, draft.IntervalUnit)
-			if draft.TrialEnabled && referenceDate.Before(trialStartDate) && !next.Before(trialStartDate) {
-				next = nextIntervalOccurrence(anchorDate, trialEndDate, intervalCount, draft.IntervalUnit)
-			}
-			return draft, &next, nil
+			return draft, &nextBillingDate, nil
 		case recurrenceTypeMonthlyDate:
 			if draft.MonthlyDay == nil || *draft.MonthlyDay < 1 || *draft.MonthlyDay > 31 {
 				return draft, nil, errors.New("monthly_day must be between 1 and 31 for monthly date recurrence")
@@ -634,11 +564,7 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.YearlyMonth = nil
 			draft.YearlyDay = nil
 
-			next := nextMonthlyDayOccurrence(referenceDate, monthlyDay)
-			if draft.TrialEnabled && referenceDate.Before(trialStartDate) && !next.Before(trialStartDate) {
-				next = nextMonthlyDayOccurrence(trialEndDate, monthlyDay)
-			}
-			return draft, &next, nil
+			return draft, &nextBillingDate, nil
 		case recurrenceTypeYearlyDate:
 			if draft.YearlyMonth == nil || *draft.YearlyMonth < 1 || *draft.YearlyMonth > 12 {
 				return draft, nil, errors.New("yearly_month must be between 1 and 12 for yearly date recurrence")
@@ -655,30 +581,20 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.IntervalUnit = ""
 			draft.MonthlyDay = nil
 
-			next := nextYearlyDateOccurrence(referenceDate, yearlyMonth, yearlyDay)
-			if draft.TrialEnabled && referenceDate.Before(trialStartDate) && !next.Before(trialStartDate) {
-				next = nextYearlyDateOccurrence(trialEndDate, yearlyMonth, yearlyDay)
-			}
-			return draft, &next, nil
+			return draft, &nextBillingDate, nil
 		default:
 			return draft, nil, errors.New("recurrence_type must be one of: interval, monthly_date, yearly_date")
 		}
 	case billingTypeOneTime:
-		if draft.BillingAnchorDate == nil {
-			return draft, nil, errors.New("billing_anchor_date is required for one-time subscriptions")
-		}
-		purchaseDate := normalizeDateUTC(*draft.BillingAnchorDate)
-		draft.BillingAnchorDate = &purchaseDate
+		nextBillingDate := normalizeDateUTC(*draft.NextBillingDate)
+		draft.NextBillingDate = &nextBillingDate
 		draft.RecurrenceType = ""
 		draft.IntervalCount = nil
 		draft.IntervalUnit = ""
 		draft.MonthlyDay = nil
 		draft.YearlyMonth = nil
 		draft.YearlyDay = nil
-		draft.TrialEnabled = false
-		draft.TrialStartDate = nil
-		draft.TrialEndDate = nil
-		return draft, nil, nil
+		return draft, &nextBillingDate, nil
 	default:
 		return draft, nil, errors.New("billing_type must be one of: recurring, one_time")
 	}
@@ -774,6 +690,75 @@ func subscriptionMonthlyFactor(sub model.Subscription) float64 {
 	default:
 		return 0
 	}
+}
+
+func autoAdvanceRecurringNextBillingDatesForUser(db *gorm.DB, userID uint, referenceDate time.Time) error {
+	today := normalizeDateUTC(referenceDate.UTC())
+
+	var subs []model.Subscription
+	if err := db.Where(
+		"user_id = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date < ?",
+		userID,
+		billingTypeRecurring,
+		today,
+	).Find(&subs).Error; err != nil {
+		return err
+	}
+
+	for i := range subs {
+		sub := &subs[i]
+		nextBillingDate, changed := nextRecurringBillingDateOnOrAfter(sub, today)
+		if !changed || nextBillingDate == nil {
+			continue
+		}
+		if err := db.Model(&model.Subscription{}).
+			Where("id = ? AND user_id = ?", sub.ID, userID).
+			Update("next_billing_date", *nextBillingDate).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func nextRecurringBillingDateOnOrAfter(sub *model.Subscription, referenceDate time.Time) (*time.Time, bool) {
+	if sub == nil || sub.BillingType != billingTypeRecurring || sub.NextBillingDate == nil {
+		return nil, false
+	}
+
+	today := normalizeDateUTC(referenceDate.UTC())
+	current := normalizeDateUTC(*sub.NextBillingDate)
+	if !current.Before(today) {
+		return nil, false
+	}
+
+	var next time.Time
+	switch sub.RecurrenceType {
+	case recurrenceTypeInterval:
+		if sub.IntervalCount == nil || *sub.IntervalCount < 1 || !isValidIntervalUnit(sub.IntervalUnit) {
+			return nil, false
+		}
+		next = nextIntervalOccurrence(current, today, *sub.IntervalCount, sub.IntervalUnit)
+	case recurrenceTypeMonthlyDate:
+		if sub.MonthlyDay == nil || *sub.MonthlyDay < 1 || *sub.MonthlyDay > 31 {
+			return nil, false
+		}
+		next = nextMonthlyDayOccurrence(today, *sub.MonthlyDay)
+	case recurrenceTypeYearlyDate:
+		if sub.YearlyMonth == nil || *sub.YearlyMonth < 1 || *sub.YearlyMonth > 12 || sub.YearlyDay == nil || *sub.YearlyDay < 1 || *sub.YearlyDay > 31 {
+			return nil, false
+		}
+		next = nextYearlyDateOccurrence(today, *sub.YearlyMonth, *sub.YearlyDay)
+	default:
+		return nil, false
+	}
+
+	next = normalizeDateUTC(next)
+	if !next.After(current) {
+		return nil, false
+	}
+
+	return &next, true
 }
 
 func nextIntervalOccurrence(anchor, from time.Time, intervalCount int, intervalUnit string) time.Time {
