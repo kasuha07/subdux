@@ -143,16 +143,17 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 	// Build template data for test notification
 	testSubName := "Test Subscription"
 	testBillingDate := time.Now().AddDate(0, 0, 3)
+	testSubscription := &model.Subscription{
+		Name:     testSubName,
+		Amount:   9.99,
+		Currency: "USD",
+		Category: "Entertainment",
+		URL:      "https://example.com/subscription",
+		Notes:    "Test notification",
+	}
 
 	templateData := s.buildTemplateData(
-		&model.Subscription{
-			Name:     testSubName,
-			Amount:   9.99,
-			Currency: "USD",
-			Category: "Entertainment",
-			URL:      "https://example.com/subscription",
-			Notes:    "Test notification",
-		},
+		testSubscription,
 		&user,
 		testBillingDate,
 		3,
@@ -176,7 +177,7 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 	case "gotify":
 		return s.sendGotify(channel, message)
 	case "ntfy":
-		return s.sendNtfy(channel, message)
+		return s.sendNtfy(channel, message, testSubscription.URL)
 	case "bark":
 		return s.sendBark(channel, message)
 	case "serverchan":
@@ -420,7 +421,7 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 			case "gotify":
 				sendErr = s.sendGotify(channel, message)
 			case "ntfy":
-				sendErr = s.sendNtfy(channel, message)
+				sendErr = s.sendNtfy(channel, message, sub.URL)
 			case "bark":
 				sendErr = s.sendBark(channel, message)
 			case "serverchan":
@@ -788,7 +789,7 @@ func (s *NotificationService) sendGotify(channel model.NotificationChannel, mess
 	return nil
 }
 
-func (s *NotificationService) sendNtfy(channel model.NotificationChannel, message string) error {
+func (s *NotificationService) sendNtfy(channel model.NotificationChannel, message, subscriptionURL string) error {
 	var cfg struct {
 		URL      string `json:"url"`
 		Topic    string `json:"topic"`
@@ -832,8 +833,13 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 	}
 	req.Header.Set("Tags", tags)
 
-	if click := strings.TrimSpace(cfg.Click); click != "" {
+	click := strings.TrimSpace(subscriptionURL)
+	if click == "" {
+		click = strings.TrimSpace(cfg.Click)
+	}
+	if click != "" {
 		req.Header.Set("Click", click)
+		req.Header.Set("X-Click", click)
 	}
 
 	if icon := strings.TrimSpace(cfg.Icon); icon != "" {
