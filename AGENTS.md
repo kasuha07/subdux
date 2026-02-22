@@ -278,6 +278,27 @@ Sizing guidance:
 Verification loop: identify what proves the claim, run the verification, read the output, then report with evidence. If verification fails, continue iterating rather than reporting incomplete work.
 </verification>
 
+<release_requirements>
+Early-stage lightweight policy:
+- `patch` releases may be tag-only (GitHub Release optional) when changes are small and there are no breaking changes.
+- `minor`/`major` releases must publish a GitHub Release with release notes.
+- Any release with breaking changes must publish a GitHub Release.
+
+When GitHub Release notes are provided, default structure should follow this order:
+1. `Highlights`
+2. `Features`
+3. `Fixes`
+
+Use concise bullet points under each section.
+
+If the release contains any breaking changes, the release notes MUST include a dedicated `Breaking Changes` section that clearly describes:
+- what changed and why it is breaking,
+- user impact scope,
+- required migration steps.
+
+When present, `Breaking Changes` should appear near the top of the release notes (before `Highlights`).
+</release_requirements>
+
 <execution_protocols>
 Broad Request Detection:
   A request is broad when it uses vague verbs without targets, names no specific file or function, touches 3+ areas, or is a single sentence without a clear deliverable. When detected: explore first, optionally consult architect, then plan.
