@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { RefreshCw } from "lucide-react"
 
+import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -40,7 +41,7 @@ export default function AdminExchangeRatesTab({
   rateStatus,
   refreshing,
 }: AdminExchangeRatesTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [editingCurrencyApiKey, setEditingCurrencyApiKey] = useState(false)
   const configuredMaskValue = "••••••••"
   const currencyApiKeyDisplayValue = editingCurrencyApiKey
@@ -101,7 +102,7 @@ export default function AdminExchangeRatesTab({
                 <p className="text-sm font-medium leading-none">{t("admin.exchangeRates.lastFetched")}</p>
                 <p className="text-sm text-muted-foreground">
                   {rateStatus?.last_fetched_at
-                    ? new Date(rateStatus.last_fetched_at).toLocaleString()
+                    ? formatDate(rateStatus.last_fetched_at, i18n.language)
                     : t("admin.exchangeRates.never")}
                 </p>
               </div>

@@ -46,9 +46,9 @@ export function formatDate(date: string, locale: string = "en-US"): string {
 export function daysUntil(date: string): number {
   const target = new Date(date)
   const now = new Date()
-  // Normalize to start of day (00:00:00) for date-only comparison
-  target.setHours(0, 0, 0, 0)
-  now.setHours(0, 0, 0, 0)
-  const diff = target.getTime() - now.getTime()
+  // Use UTC dates for consistent calculation regardless of local timezone
+  const targetUTC = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate())
+  const nowUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const diff = targetUTC - nowUTC
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }

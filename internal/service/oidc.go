@@ -263,7 +263,7 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 		UserID:       userID,
 		CodeVerifier: codeVerifier,
 		Nonce:        nonce,
-		ExpiresAt:    time.Now().Add(oidcStateSessionTTL),
+		ExpiresAt:    time.Now().UTC().Add(oidcStateSessionTTL),
 	})
 
 	authOptions := []oauth2.AuthCodeOption{
@@ -668,7 +668,7 @@ func (s *AuthService) takeOIDCStateSession(state string) (oidcStateSession, erro
 	}
 	delete(s.oidcStateSessions, state)
 
-	if time.Now().After(session.ExpiresAt) {
+	if time.Now().UTC().After(session.ExpiresAt) {
 		return oidcStateSession{}, errors.New("oidc session expired")
 	}
 
@@ -684,7 +684,7 @@ func (s *AuthService) storeOIDCResultSession(result OIDCSessionResult) string {
 	sessionID := uuid.NewString()
 	s.oidcResultSessions[sessionID] = oidcResultSession{
 		Result:    result,
-		ExpiresAt: time.Now().Add(oidcResultSessionTTL),
+		ExpiresAt: time.Now().UTC().Add(oidcResultSessionTTL),
 	}
 
 	return sessionID
@@ -702,7 +702,7 @@ func (s *AuthService) takeOIDCResultSession(sessionID string) (OIDCSessionResult
 	}
 	delete(s.oidcResultSessions, sessionID)
 
-	if time.Now().After(session.ExpiresAt) {
+	if time.Now().UTC().After(session.ExpiresAt) {
 		return OIDCSessionResult{}, errors.New("oidc result session expired")
 	}
 
@@ -710,7 +710,7 @@ func (s *AuthService) takeOIDCResultSession(sessionID string) (OIDCSessionResult
 }
 
 func (s *AuthService) cleanupOIDCSessionsLocked() {
-	now := time.Now()
+	now := time.Now().UTC()
 
 	for state, session := range s.oidcStateSessions {
 		if now.After(session.ExpiresAt) {

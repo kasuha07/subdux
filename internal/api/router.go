@@ -111,8 +111,8 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	protected.GET("/auth/oidc/connections", authHandler.ListOIDCConnections)
 	protected.POST("/auth/oidc/connect/start", authHandler.BeginOIDCConnect)
 	protected.DELETE("/auth/oidc/connections/:id", authHandler.DeleteOIDCConnection)
-
 	admin := api.Group("/admin")
+
 	admin.Use(echojwt.WithConfig(jwtConfig))
 	admin.Use(AdminMiddleware)
 

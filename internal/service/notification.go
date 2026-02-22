@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -308,8 +309,6 @@ func (s *NotificationService) renderNotificationMessage(userID uint, channelType
 }
 
 func (s *NotificationService) ProcessPendingNotifications() error {
-	today := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.UTC)
-
 	var channelUserIDs []uint
 	if err := s.DB.Model(&model.NotificationChannel{}).
 		Where("enabled = ?", true).
@@ -319,7 +318,7 @@ func (s *NotificationService) ProcessPendingNotifications() error {
 	}
 
 	for _, userID := range channelUserIDs {
-		if err := s.processUserNotifications(userID, today); err != nil {
+		if err := s.processUserNotifications(userID); err != nil {
 			fmt.Printf("notification error for user %d: %v\n", userID, err)
 		}
 	}
@@ -327,7 +326,7 @@ func (s *NotificationService) ProcessPendingNotifications() error {
 	return nil
 }
 
-func (s *NotificationService) processUserNotifications(userID uint, today time.Time) error {
+func (s *NotificationService) processUserNotifications(userID uint) error {
 	policy, err := s.GetPolicy(userID)
 	if err != nil {
 		return err
@@ -353,6 +352,9 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 		return err
 	}
 
+	// Use system timezone
+	systemLoc := pkg.GetSystemTimezone()
+
 	for _, sub := range subs {
 		if sub.NextBillingDate == nil {
 			continue
@@ -372,13 +374,10 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 			daysBefore = *sub.NotifyDaysBefore
 		}
 
-		billingDate := time.Date(
-			sub.NextBillingDate.Year(), sub.NextBillingDate.Month(), sub.NextBillingDate.Day(),
-			0, 0, 0, 0, time.UTC,
-		)
+		billingDate := pkg.NormalizeDateInTimezone(*sub.NextBillingDate, systemLoc)
 
 		shouldNotify := false
-		daysUntilBilling := int(billingDate.Sub(today).Hours() / 24)
+		daysUntilBilling := pkg.DaysUntil(*sub.NextBillingDate, systemLoc)
 
 		if daysUntilBilling == daysBefore && daysBefore > 0 {
 			shouldNotify = true

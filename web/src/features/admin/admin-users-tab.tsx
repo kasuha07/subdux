@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { MoreHorizontal, Plus } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -66,7 +67,7 @@ export default function AdminUsersTab({
   onToggleStatus,
   users,
 }: AdminUsersTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   return (
     <TabsContent value="users">
@@ -172,7 +173,7 @@ export default function AdminUsersTab({
                     {user.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                <TableCell>{formatDate(user.created_at, i18n.language)}</TableCell>
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

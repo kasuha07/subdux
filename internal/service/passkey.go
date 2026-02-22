@@ -130,7 +130,7 @@ func (s *AuthService) BeginPasskeyRegistration(userID uint, name string, origin 
 		UserID:    userID,
 		Name:      label,
 		Data:      *sessionData,
-		ExpiresAt: time.Now().Add(passkeySessionTTL),
+		ExpiresAt: time.Now().UTC().Add(passkeySessionTTL),
 	})
 
 	return &PasskeyBeginResult{
@@ -211,7 +211,7 @@ func (s *AuthService) BeginPasskeyLogin(origin string, host string, scheme strin
 	sessionID := s.storePasskeySession(passkeySession{
 		Kind:      passkeySessionKindLogin,
 		Data:      *sessionData,
-		ExpiresAt: time.Now().Add(passkeySessionTTL),
+		ExpiresAt: time.Now().UTC().Add(passkeySessionTTL),
 	})
 
 	return &PasskeyBeginResult{
@@ -242,7 +242,7 @@ func (s *AuthService) FinishPasskeyLogin(sessionID string, parsedResponse *proto
 	}
 	user := resolved.account
 
-	now := time.Now()
+	now := time.Now().UTC()
 	payload, marshalErr := json.Marshal(credential)
 	if marshalErr == nil {
 		_ = s.DB.Model(&model.PasskeyCredential{}).
@@ -495,7 +495,7 @@ func (s *AuthService) takePasskeySession(sessionID string, expected passkeySessi
 		return passkeySession{}, errors.New("invalid passkey session")
 	}
 
-	if time.Now().After(session.ExpiresAt) {
+	if time.Now().UTC().After(session.ExpiresAt) {
 		return passkeySession{}, errors.New("passkey session expired")
 	}
 
@@ -503,7 +503,7 @@ func (s *AuthService) takePasskeySession(sessionID string, expected passkeySessi
 }
 
 func (s *AuthService) cleanupPasskeySessionsLocked() {
-	now := time.Now()
+	now := time.Now().UTC()
 	for sessionID, session := range s.passkeySessions {
 		if now.After(session.ExpiresAt) {
 			delete(s.passkeySessions, sessionID)

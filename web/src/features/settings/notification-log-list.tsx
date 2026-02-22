@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
+import { formatDate } from "@/lib/utils"
 import type { NotificationLog } from "@/types"
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
 }
 
 export function NotificationLogList({ logs }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   return (
     <div className="space-y-3">
@@ -36,7 +37,7 @@ export function NotificationLogList({ logs }: Props) {
               {logs.map((log) => (
                 <tr key={log.id} className="border-b last:border-0">
                   <td className="py-2 pr-3">{log.channel_type}</td>
-                  <td className="py-2 pr-3">{new Date(log.notify_date).toLocaleDateString()}</td>
+                  <td className="py-2 pr-3">{formatDate(log.notify_date, i18n.language)}</td>
                   <td className="py-2 pr-3">
                     <Badge variant={log.status === "sent" ? "default" : "destructive"}>
                       {log.status === "sent"
@@ -44,7 +45,7 @@ export function NotificationLogList({ logs }: Props) {
                         : t("settings.notifications.logs.statusFailed")}
                     </Badge>
                   </td>
-                  <td className="py-2">{new Date(log.sent_at).toLocaleString()}</td>
+                  <td className="py-2">{formatDate(log.sent_at, i18n.language)}</td>
                 </tr>
               ))}
             </tbody>

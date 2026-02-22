@@ -114,6 +114,7 @@ bun run lint                 # ESLint
 - **Data directory:** `data/` at root (SQLite DB + uploaded assets). Override via `DATA_PATH` env var.
 - **Embedded assets:** `frontend.go` embeds `web/dist/` at build time. Frontend must build before Go.
 
+ **Timezone support:** System timezone only, via `TZ` env var (Docker) or OS default. No per-user timezone.
 ---
 
 # oh-my-codex Agent Orchestration

@@ -137,7 +137,7 @@ func (s *AuthService) ResetPassword(email string, verificationCode string, newPa
 		return err
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.User{}).Where("id = ?", user.ID).Update("password", string(hash)).Error; err != nil {
 			return err
@@ -211,7 +211,7 @@ func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificat
 		return nil, err
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("email", normalizedEmail).Error; err != nil {
 			return err
@@ -285,7 +285,7 @@ func (s *AuthService) issueVerificationCode(userID *uint, email string, purpose 
 		return err
 	}
 
-	expiresAt := time.Now().Add(verificationCodeTTL)
+	expiresAt := time.Now().UTC().Add(verificationCodeTTL)
 	verification := model.EmailVerificationCode{
 		UserID:    userID,
 		Email:     email,
@@ -323,7 +323,7 @@ func (s *AuthService) ensureVerificationCodeCooldown(userID *uint, email string,
 		return err
 	}
 
-	if latest.CreatedAt.After(time.Now().Add(-verificationCodeRequestDelay)) {
+	if latest.CreatedAt.After(time.Now().UTC().Add(-verificationCodeRequestDelay)) {
 		return ErrVerificationCodeTooFrequent
 	}
 	return nil
@@ -340,7 +340,7 @@ func (s *AuthService) consumeVerificationCode(userID *uint, email string, purpos
 		}
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	query := s.DB.Where("email = ? AND purpose = ? AND consumed_at IS NULL AND expires_at > ?", email, purpose, now)
 	if userID == nil {
 		query = query.Where("user_id IS NULL")
@@ -411,7 +411,7 @@ func (s *AuthService) sendVerificationCodeEmail(recipient string, purpose string
 }
 
 func (s *AuthService) cleanupVerificationCodes(email string, purpose string) {
-	threshold := time.Now().Add(-24 * time.Hour)
+	threshold := time.Now().UTC().Add(-24 * time.Hour)
 	_ = s.DB.Where("email = ? AND purpose = ? AND (consumed_at IS NOT NULL OR expires_at < ?)", email, purpose, threshold).
 		Delete(&model.EmailVerificationCode{}).Error
 }
