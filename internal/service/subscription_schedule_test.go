@@ -137,6 +137,34 @@ func TestNormalizeBillingDraft_TrialThenRecurring(t *testing.T) {
 	}
 }
 
+func TestNormalizeBillingDraft_FutureTrialPreservesPreTrialBilling(t *testing.T) {
+	anchor := mustDate(t, "2025-01-01")
+	trialStart := mustDate(t, "2025-01-20")
+	trialEnd := mustDate(t, "2025-01-27")
+	count := 1
+	draft := billingDraft{
+		BillingType:       billingTypeRecurring,
+		RecurrenceType:    recurrenceTypeInterval,
+		IntervalCount:     &count,
+		IntervalUnit:      intervalUnitWeek,
+		BillingAnchorDate: &anchor,
+		TrialEnabled:      true,
+		TrialStartDate:    &trialStart,
+		TrialEndDate:      &trialEnd,
+	}
+
+	_, next, err := normalizeBillingDraft(draft, mustDate(t, "2025-01-10"))
+	if err != nil {
+		t.Fatalf("normalizeBillingDraft() error = %v", err)
+	}
+	if next == nil {
+		t.Fatal("next billing date should not be nil")
+	}
+	if got, want := next.Format("2006-01-02"), "2025-01-15"; got != want {
+		t.Fatalf("next billing date = %s, want %s", got, want)
+	}
+}
+
 func TestNormalizeBillingDraft_OneTimeAndLifetimeBehaveSame(t *testing.T) {
 	purchaseDate := mustDate(t, "2025-02-20")
 

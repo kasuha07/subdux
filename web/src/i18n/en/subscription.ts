@@ -17,6 +17,7 @@ const subscription = {
     "overdue": "Overdue",
     "noNextBilling": "No next billing date",
     "trial": {
+      "startsIn": "Trial starts in {{count}}d",
       "active": "Trial active",
       "endsIn": "Trial ends in {{count}}d",
       "endedOn": "Trial ended on {{date}}"

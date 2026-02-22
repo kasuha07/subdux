@@ -17,6 +17,7 @@ const subscription = {
     "overdue": "已逾期",
     "noNextBilling": "无下次计费日",
     "trial": {
+      "startsIn": "试用将在 {{count}} 天后开始",
       "active": "试用中",
       "endsIn": "试用剩余 {{count}} 天",
       "endedOn": "试用于 {{date}} 结束"

@@ -130,6 +130,9 @@ export default function SubscriptionCard({
   const trialDays = subscription.trial_enabled && subscription.trial_end_date
     ? daysUntil(subscription.trial_end_date)
     : null
+  const trialStartDays = subscription.trial_enabled && subscription.trial_start_date
+    ? daysUntil(subscription.trial_start_date)
+    : null
   const categoryLabel = categoryName?.trim() || subscription.category
   const rawNotes = subscription.notes.trim()
   const notesPreview = rawNotes ? truncateWithEllipsis(rawNotes) : ""
@@ -171,6 +174,9 @@ export default function SubscriptionCard({
   function renderTrialText(): string | null {
     if (!subscription.trial_enabled) {
       return null
+    }
+    if ((trialStartDays ?? 0) > 0) {
+      return t("subscription.card.trial.startsIn", { count: trialStartDays ?? 0 })
     }
     if (!subscription.trial_end_date) {
       return t("subscription.card.trial.active")

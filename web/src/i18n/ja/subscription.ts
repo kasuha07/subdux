@@ -17,6 +17,7 @@ const subscription = {
     "overdue": "期限超過",
     "noNextBilling": "次回請求日なし",
     "trial": {
+      "startsIn": "トライアル開始まで{{count}}日",
       "active": "トライアル中",
       "endsIn": "トライアル終了まで{{count}}日",
       "endedOn": "トライアル終了日: {{date}}"

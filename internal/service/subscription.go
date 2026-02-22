@@ -561,6 +561,8 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 	}
 
 	referenceDate := normalizeDateUTC(now)
+	var trialStartDate time.Time
+	var trialEndDate time.Time
 
 	switch draft.BillingType {
 	case billingTypeRecurring:
@@ -583,15 +585,15 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			if draft.TrialStartDate == nil || draft.TrialEndDate == nil {
 				return draft, nil, errors.New("trial_start_date and trial_end_date are required when trial is enabled")
 			}
-			trialStartDate := normalizeDateUTC(*draft.TrialStartDate)
-			trialEndDate := normalizeDateUTC(*draft.TrialEndDate)
+			trialStartDate = normalizeDateUTC(*draft.TrialStartDate)
+			trialEndDate = normalizeDateUTC(*draft.TrialEndDate)
 			if trialEndDate.Before(trialStartDate) {
 				return draft, nil, errors.New("trial_end_date must be on or after trial_start_date")
 			}
 
 			draft.TrialStartDate = &trialStartDate
 			draft.TrialEndDate = &trialEndDate
-			if referenceDate.Before(trialEndDate) {
+			if !referenceDate.Before(trialStartDate) && referenceDate.Before(trialEndDate) {
 				referenceDate = trialEndDate
 			}
 		} else {
@@ -617,6 +619,9 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.YearlyDay = nil
 
 			next := nextIntervalOccurrence(anchorDate, referenceDate, intervalCount, draft.IntervalUnit)
+			if draft.TrialEnabled && referenceDate.Before(trialStartDate) && !next.Before(trialStartDate) {
+				next = nextIntervalOccurrence(anchorDate, trialEndDate, intervalCount, draft.IntervalUnit)
+			}
 			return draft, &next, nil
 		case recurrenceTypeMonthlyDate:
 			if draft.MonthlyDay == nil || *draft.MonthlyDay < 1 || *draft.MonthlyDay > 31 {
@@ -630,6 +635,9 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.YearlyDay = nil
 
 			next := nextMonthlyDayOccurrence(referenceDate, monthlyDay)
+			if draft.TrialEnabled && referenceDate.Before(trialStartDate) && !next.Before(trialStartDate) {
+				next = nextMonthlyDayOccurrence(trialEndDate, monthlyDay)
+			}
 			return draft, &next, nil
 		case recurrenceTypeYearlyDate:
 			if draft.YearlyMonth == nil || *draft.YearlyMonth < 1 || *draft.YearlyMonth > 12 {
@@ -648,6 +656,9 @@ func normalizeBillingDraft(draft billingDraft, now time.Time) (billingDraft, *ti
 			draft.MonthlyDay = nil
 
 			next := nextYearlyDateOccurrence(referenceDate, yearlyMonth, yearlyDay)
+			if draft.TrialEnabled && referenceDate.Before(trialStartDate) && !next.Before(trialStartDate) {
+				next = nextYearlyDateOccurrence(trialEndDate, yearlyMonth, yearlyDay)
+			}
 			return draft, &next, nil
 		default:
 			return draft, nil, errors.New("recurrence_type must be one of: interval, monthly_date, yearly_date")
