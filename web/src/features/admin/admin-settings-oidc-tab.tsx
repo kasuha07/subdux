@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 
@@ -43,46 +42,42 @@ export default function AdminSettingsOIDCTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="auth">
-      <Card>
-        <CardContent className="space-y-6 p-6">
-          <AdminSettingsOIDCSection
-            onOIDCAutoCreateUserChange={onOIDCAutoCreateUserChange}
-            onOIDCAudienceChange={onOIDCAudienceChange}
-            onOIDCAuthorizationEndpointChange={onOIDCAuthorizationEndpointChange}
-            onOIDCClientIDChange={onOIDCClientIDChange}
-            onOIDCClientSecretChange={onOIDCClientSecretChange}
-            onOIDCEnabledChange={onOIDCEnabledChange}
-            onOIDCExtraAuthParamsChange={onOIDCExtraAuthParamsChange}
-            onOIDCIssuerURLChange={onOIDCIssuerURLChange}
-            onOIDCProviderNameChange={onOIDCProviderNameChange}
-            onOIDCRedirectURLChange={onOIDCRedirectURLChange}
-            onOIDCResourceChange={onOIDCResourceChange}
-            onOIDCScopesChange={onOIDCScopesChange}
-            onOIDCTokenEndpointChange={onOIDCTokenEndpointChange}
-            onOIDCUserinfoEndpointChange={onOIDCUserinfoEndpointChange}
-            oidcAutoCreateUser={oidcAutoCreateUser}
-            oidcAudience={oidcAudience}
-            oidcAuthorizationEndpoint={oidcAuthorizationEndpoint}
-            oidcClientID={oidcClientID}
-            oidcClientSecret={oidcClientSecret}
-            oidcClientSecretConfigured={oidcClientSecretConfigured}
-            oidcEnabled={oidcEnabled}
-            oidcExtraAuthParams={oidcExtraAuthParams}
-            oidcIssuerURL={oidcIssuerURL}
-            oidcProviderName={oidcProviderName}
-            oidcRedirectURL={oidcRedirectURL}
-            oidcResource={oidcResource}
-            oidcScopes={oidcScopes}
-            oidcTokenEndpoint={oidcTokenEndpoint}
-            oidcUserinfoEndpoint={oidcUserinfoEndpoint}
-          />
+    <TabsContent value="auth" className="space-y-6">
+      <AdminSettingsOIDCSection
+        onOIDCAutoCreateUserChange={onOIDCAutoCreateUserChange}
+        onOIDCAudienceChange={onOIDCAudienceChange}
+        onOIDCAuthorizationEndpointChange={onOIDCAuthorizationEndpointChange}
+        onOIDCClientIDChange={onOIDCClientIDChange}
+        onOIDCClientSecretChange={onOIDCClientSecretChange}
+        onOIDCEnabledChange={onOIDCEnabledChange}
+        onOIDCExtraAuthParamsChange={onOIDCExtraAuthParamsChange}
+        onOIDCIssuerURLChange={onOIDCIssuerURLChange}
+        onOIDCProviderNameChange={onOIDCProviderNameChange}
+        onOIDCRedirectURLChange={onOIDCRedirectURLChange}
+        onOIDCResourceChange={onOIDCResourceChange}
+        onOIDCScopesChange={onOIDCScopesChange}
+        onOIDCTokenEndpointChange={onOIDCTokenEndpointChange}
+        onOIDCUserinfoEndpointChange={onOIDCUserinfoEndpointChange}
+        oidcAutoCreateUser={oidcAutoCreateUser}
+        oidcAudience={oidcAudience}
+        oidcAuthorizationEndpoint={oidcAuthorizationEndpoint}
+        oidcClientID={oidcClientID}
+        oidcClientSecret={oidcClientSecret}
+        oidcClientSecretConfigured={oidcClientSecretConfigured}
+        oidcEnabled={oidcEnabled}
+        oidcExtraAuthParams={oidcExtraAuthParams}
+        oidcIssuerURL={oidcIssuerURL}
+        oidcProviderName={oidcProviderName}
+        oidcRedirectURL={oidcRedirectURL}
+        oidcResource={oidcResource}
+        oidcScopes={oidcScopes}
+        oidcTokenEndpoint={oidcTokenEndpoint}
+        oidcUserinfoEndpoint={oidcUserinfoEndpoint}
+      />
 
-          <Separator />
+      <Separator />
 
-          <Button onClick={() => void onSave()}>{t("admin.settings.save")}</Button>
-        </CardContent>
-      </Card>
+      <Button onClick={() => void onSave()}>{t("admin.settings.save")}</Button>
     </TabsContent>
   )
 }

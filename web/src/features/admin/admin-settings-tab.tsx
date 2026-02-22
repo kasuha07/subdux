@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 
@@ -24,27 +23,23 @@ export default function AdminSettingsTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="settings">
-      <Card>
-        <CardContent className="space-y-6 p-6">
-          <AdminSettingsGeneralSection
-            maxIconFileSize={maxIconFileSize}
-            onMaxIconFileSizeChange={onMaxIconFileSizeChange}
-            onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
-            onRegistrationEnabledChange={onRegistrationEnabledChange}
-            onSiteNameChange={onSiteNameChange}
-            onSiteUrlChange={onSiteUrlChange}
-            registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
-            registrationEnabled={registrationEnabled}
-            siteName={siteName}
-            siteUrl={siteUrl}
-          />
+    <TabsContent value="settings" className="space-y-6">
+      <AdminSettingsGeneralSection
+        maxIconFileSize={maxIconFileSize}
+        onMaxIconFileSizeChange={onMaxIconFileSizeChange}
+        onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
+        onRegistrationEnabledChange={onRegistrationEnabledChange}
+        onSiteNameChange={onSiteNameChange}
+        onSiteUrlChange={onSiteUrlChange}
+        registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
+        registrationEnabled={registrationEnabled}
+        siteName={siteName}
+        siteUrl={siteUrl}
+      />
 
-          <Separator />
+      <Separator />
 
-          <Button onClick={() => void onSave()}>{t("admin.settings.save")}</Button>
-        </CardContent>
-      </Card>
+      <Button onClick={() => void onSave()}>{t("admin.settings.save")}</Button>
     </TabsContent>
   )
 }

@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 
@@ -43,46 +42,42 @@ export default function AdminSettingsSMTPTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="smtp">
-      <Card>
-        <CardContent className="space-y-6 p-6">
-          <AdminSettingsSMTPSection
-            onSMTPAuthMethodChange={onSMTPAuthMethodChange}
-            onSMTPEnabledChange={onSMTPEnabledChange}
-            onSMTPEncryptionChange={onSMTPEncryptionChange}
-            onSMTPFromEmailChange={onSMTPFromEmailChange}
-            onSMTPFromNameChange={onSMTPFromNameChange}
-            onSMTPHeloNameChange={onSMTPHeloNameChange}
-            onSMTPHostChange={onSMTPHostChange}
-            onSMTPPasswordChange={onSMTPPasswordChange}
-            onSMTPSkipTLSVerifyChange={onSMTPSkipTLSVerifyChange}
-            onSMTPPortChange={onSMTPPortChange}
-            onSMTPTestRecipientChange={onSMTPTestRecipientChange}
-            onSMTPTest={onSMTPTest}
-            onSMTPTimeoutSecondsChange={onSMTPTimeoutSecondsChange}
-            onSMTPUsernameChange={onSMTPUsernameChange}
-            smtpAuthMethod={smtpAuthMethod}
-            smtpEnabled={smtpEnabled}
-            smtpEncryption={smtpEncryption}
-            smtpFromEmail={smtpFromEmail}
-            smtpFromName={smtpFromName}
-            smtpHeloName={smtpHeloName}
-            smtpHost={smtpHost}
-            smtpPassword={smtpPassword}
-            smtpPasswordConfigured={smtpPasswordConfigured}
-            smtpPort={smtpPort}
-            smtpSkipTLSVerify={smtpSkipTLSVerify}
-            smtpTestRecipient={smtpTestRecipient}
-            smtpTesting={smtpTesting}
-            smtpTimeoutSeconds={smtpTimeoutSeconds}
-            smtpUsername={smtpUsername}
-          />
+    <TabsContent value="smtp" className="space-y-6">
+      <AdminSettingsSMTPSection
+        onSMTPAuthMethodChange={onSMTPAuthMethodChange}
+        onSMTPEnabledChange={onSMTPEnabledChange}
+        onSMTPEncryptionChange={onSMTPEncryptionChange}
+        onSMTPFromEmailChange={onSMTPFromEmailChange}
+        onSMTPFromNameChange={onSMTPFromNameChange}
+        onSMTPHeloNameChange={onSMTPHeloNameChange}
+        onSMTPHostChange={onSMTPHostChange}
+        onSMTPPasswordChange={onSMTPPasswordChange}
+        onSMTPSkipTLSVerifyChange={onSMTPSkipTLSVerifyChange}
+        onSMTPPortChange={onSMTPPortChange}
+        onSMTPTestRecipientChange={onSMTPTestRecipientChange}
+        onSMTPTest={onSMTPTest}
+        onSMTPTimeoutSecondsChange={onSMTPTimeoutSecondsChange}
+        onSMTPUsernameChange={onSMTPUsernameChange}
+        smtpAuthMethod={smtpAuthMethod}
+        smtpEnabled={smtpEnabled}
+        smtpEncryption={smtpEncryption}
+        smtpFromEmail={smtpFromEmail}
+        smtpFromName={smtpFromName}
+        smtpHeloName={smtpHeloName}
+        smtpHost={smtpHost}
+        smtpPassword={smtpPassword}
+        smtpPasswordConfigured={smtpPasswordConfigured}
+        smtpPort={smtpPort}
+        smtpSkipTLSVerify={smtpSkipTLSVerify}
+        smtpTestRecipient={smtpTestRecipient}
+        smtpTesting={smtpTesting}
+        smtpTimeoutSeconds={smtpTimeoutSeconds}
+        smtpUsername={smtpUsername}
+      />
 
-          <Separator />
+      <Separator />
 
-          <Button onClick={() => void onSave()}>{t("admin.settings.save")}</Button>
-        </CardContent>
-      </Card>
+      <Button onClick={() => void onSave()}>{t("admin.settings.save")}</Button>
     </TabsContent>
   )
 }
