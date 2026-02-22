@@ -418,6 +418,36 @@ const settings = {
       "enabled": "Notify for this subscription",
       "disabled": "Do not notify",
       "daysBeforeOverride": "Custom days before"
+    },
+    "templates": {
+      "title": "Notification Templates",
+      "description": "Customize notification message templates for each channel",
+      "addButton": "Add Template",
+      "editButton": "Edit",
+      "deleteButton": "Delete",
+      "previewButton": "Preview",
+      "channelType": "Channel Type",
+      "format": "Format",
+      "template": "Template",
+      "defaultTemplate": "Default Template",
+      "channelOverride": "Channel Override",
+      "availableVariables": "Available Variables",
+      "variablesList": "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
+      "addSuccess": "Template added",
+      "updateSuccess": "Template updated",
+      "deleteSuccess": "Template deleted",
+      "deleteConfirm": "Delete this template?",
+      "previewTitle": "Preview Template",
+      "previewResult": "Preview Result",
+      "varSubscriptionName": "Subscription name",
+      "varBillingDate": "Next billing date (YYYY-MM-DD)",
+      "varAmount": "Subscription amount",
+      "varCurrency": "Currency code",
+      "varDaysUntil": "Days until billing",
+      "varCategory": "Subscription category",
+      "varUserEmail": "Your email address",
+      "exampleTitle": "Example",
+      "exampleTemplate": "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}."
     }
   }
 } as const

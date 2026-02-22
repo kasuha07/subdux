@@ -23,11 +23,17 @@ import (
 )
 
 type NotificationService struct {
-	DB *gorm.DB
+	DB                *gorm.DB
+	templateService   *NotificationTemplateService
+	templateRenderer  *TemplateRenderer
 }
 
-func NewNotificationService(db *gorm.DB) *NotificationService {
-	return &NotificationService{DB: db}
+func NewNotificationService(db *gorm.DB, templateService *NotificationTemplateService, templateRenderer *TemplateRenderer) *NotificationService {
+	return &NotificationService{
+		DB:               db,
+		templateService:  templateService,
+		templateRenderer: templateRenderer,
+	}
 }
 
 type CreateChannelInput struct {
@@ -134,38 +140,39 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 
 	testSubName := "Test Subscription"
 	testBillingDate := time.Now().AddDate(0, 0, 3).Format("2006-01-02")
+	message := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", testSubName, testBillingDate)
 
 	switch channel.Type {
 	case "smtp":
-		return s.sendSMTP(channel, user.Email, testSubName, testBillingDate)
+		return s.sendSMTP(channel, user.Email, message)
 	case "resend":
-		return s.sendResend(channel, testSubName, testBillingDate)
+		return s.sendResend(channel, message)
 	case "telegram":
-		return s.sendTelegram(channel, testSubName, testBillingDate)
+		return s.sendTelegram(channel, message)
 	case "webhook":
-		return s.sendWebhook(channel, testSubName, testBillingDate)
+		return s.sendWebhook(channel, message)
 	case "gotify":
-		return s.sendGotify(channel, testSubName, testBillingDate)
+		return s.sendGotify(channel, message)
 	case "ntfy":
-		return s.sendNtfy(channel, testSubName, testBillingDate)
+		return s.sendNtfy(channel, message)
 	case "bark":
-		return s.sendBark(channel, testSubName, testBillingDate)
+		return s.sendBark(channel, message)
 	case "serverchan":
-		return s.sendServerChan(channel, testSubName, testBillingDate)
+		return s.sendServerChan(channel, message)
 	case "feishu":
-		return s.sendFeishu(channel, testSubName, testBillingDate)
+		return s.sendFeishu(channel, message)
 	case "wecom":
-		return s.sendWeCom(channel, testSubName, testBillingDate)
+		return s.sendWeCom(channel, message)
 	case "dingtalk":
-		return s.sendDingTalk(channel, testSubName, testBillingDate)
+		return s.sendDingTalk(channel, message)
 	case "pushdeer":
-		return s.sendPushDeer(channel, testSubName, testBillingDate)
+		return s.sendPushDeer(channel, message)
 	case "pushplus":
-		return s.sendPushplus(channel, testSubName, testBillingDate)
+		return s.sendPushplus(channel, message)
 	case "pushover":
-		return s.sendPushover(channel, testSubName, testBillingDate)
+		return s.sendPushover(channel, message)
 	case "napcat":
-		return s.sendNapCat(channel, testSubName, testBillingDate)
+		return s.sendNapCat(channel, message)
 	default:
 		return errors.New("unsupported channel type")
 	}
@@ -234,6 +241,30 @@ func (s *NotificationService) ListLogs(userID uint, limit int) ([]model.Notifica
 		Limit(limit).
 		Find(&logs).Error
 	return logs, err
+}
+
+func (s *NotificationService) buildTemplateData(sub *model.Subscription, user *model.User, billingDate time.Time, daysUntil int) TemplateData {
+	return TemplateData{
+		SubscriptionName: sub.Name,
+		BillingDate:      billingDate.Format("2006-01-02"),
+		DaysUntil:        daysUntil,
+		UserEmail:        user.Email,
+	}
+}
+
+func (s *NotificationService) renderNotificationMessage(userID uint, channelType string, templateData TemplateData) (string, error) {
+	template, err := s.templateService.GetTemplateForChannel(userID, channelType)
+	if err != nil {
+		return "", fmt.Errorf("failed to get template: %w", err)
+	}
+	if template == nil {
+		return "", errors.New("no template found for channel")
+	}
+	message, err := s.templateRenderer.RenderTemplate(template.Template, templateData)
+	if err != nil {
+		return "", fmt.Errorf("failed to render template: %w", err)
+	}
+	return message, nil
 }
 
 func (s *NotificationService) ProcessPendingNotifications() error {
@@ -332,38 +363,39 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 				continue
 			}
 
+			message := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", sub.Name, billingDateStr)
 			var sendErr error
 			switch channel.Type {
 			case "smtp":
-				sendErr = s.sendSMTP(channel, user.Email, sub.Name, billingDateStr)
+				sendErr = s.sendSMTP(channel, user.Email, message)
 			case "resend":
-				sendErr = s.sendResend(channel, sub.Name, billingDateStr)
+				sendErr = s.sendResend(channel, message)
 			case "telegram":
-				sendErr = s.sendTelegram(channel, sub.Name, billingDateStr)
+				sendErr = s.sendTelegram(channel, message)
 			case "webhook":
-				sendErr = s.sendWebhook(channel, sub.Name, billingDateStr)
+				sendErr = s.sendWebhook(channel, message)
 			case "gotify":
-				sendErr = s.sendGotify(channel, sub.Name, billingDateStr)
+				sendErr = s.sendGotify(channel, message)
 			case "ntfy":
-				sendErr = s.sendNtfy(channel, sub.Name, billingDateStr)
+				sendErr = s.sendNtfy(channel, message)
 			case "bark":
-				sendErr = s.sendBark(channel, sub.Name, billingDateStr)
+				sendErr = s.sendBark(channel, message)
 			case "serverchan":
-				sendErr = s.sendServerChan(channel, sub.Name, billingDateStr)
+				sendErr = s.sendServerChan(channel, message)
 			case "feishu":
-				sendErr = s.sendFeishu(channel, sub.Name, billingDateStr)
+				sendErr = s.sendFeishu(channel, message)
 			case "wecom":
-				sendErr = s.sendWeCom(channel, sub.Name, billingDateStr)
+				sendErr = s.sendWeCom(channel, message)
 			case "dingtalk":
-				sendErr = s.sendDingTalk(channel, sub.Name, billingDateStr)
+				sendErr = s.sendDingTalk(channel, message)
 			case "pushdeer":
-				sendErr = s.sendPushDeer(channel, sub.Name, billingDateStr)
+				sendErr = s.sendPushDeer(channel, message)
 			case "pushplus":
-				sendErr = s.sendPushplus(channel, sub.Name, billingDateStr)
+				sendErr = s.sendPushplus(channel, message)
 			case "pushover":
-				sendErr = s.sendPushover(channel, sub.Name, billingDateStr)
+				sendErr = s.sendPushover(channel, message)
 			case "napcat":
-				sendErr = s.sendNapCat(channel, sub.Name, billingDateStr)
+				sendErr = s.sendNapCat(channel, message)
 			}
 
 			logEntry := model.NotificationLog{
@@ -388,7 +420,7 @@ func (s *NotificationService) processUserNotifications(userID uint, today time.T
 	return nil
 }
 
-func (s *NotificationService) sendSMTP(channel model.NotificationChannel, _, subName, billingDate string) error {
+func (s *NotificationService) sendSMTP(channel model.NotificationChannel, toEmail, message string) error {
 	var cfg struct {
 		Host          string `json:"host"`
 		Port          int64  `json:"port"`
@@ -412,7 +444,6 @@ func (s *NotificationService) sendSMTP(channel model.NotificationChannel, _, sub
 	if cfg.ToEmail == "" {
 		return errors.New("smtp config requires to_email")
 	}
-
 	port := cfg.Port
 	if port <= 0 || port > 65535 {
 		port = 587
@@ -421,7 +452,6 @@ func (s *NotificationService) sendSMTP(channel model.NotificationChannel, _, sub
 	if encryption == "" {
 		encryption = "starttls"
 	}
-
 	rtCfg := smtpRuntimeConfig{
 		Host:           cfg.Host,
 		Port:           port,
@@ -435,17 +465,14 @@ func (s *NotificationService) sendSMTP(channel model.NotificationChannel, _, sub
 		SkipTLSVerify:  cfg.SkipTLSVerify,
 	}
 
-	subject := fmt.Sprintf("Subscription Reminder: %s", subName)
-	body := fmt.Sprintf(
-		"This is a reminder that your subscription \"%s\" is due on %s.\r\n\r\nSent by Subdux.",
-		subName, billingDate,
-	)
-	message := buildSMTPMessage(rtCfg.FromEmail, rtCfg.FromName, cfg.ToEmail, subject, body)
+	subject := "Subscription Reminder"
+	body := message
+	smtpMessage := buildSMTPMessage(rtCfg.FromEmail, rtCfg.FromName, cfg.ToEmail, subject, body)
 
-	return sendSMTPMessage(rtCfg, cfg.ToEmail, message)
+	return sendSMTPMessage(rtCfg, cfg.ToEmail, smtpMessage)
 }
 
-func (s *NotificationService) sendResend(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendResend(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		APIKey    string `json:"api_key"`
 		FromEmail string `json:"from_email"`
@@ -457,45 +484,36 @@ func (s *NotificationService) sendResend(channel model.NotificationChannel, subN
 	if cfg.APIKey == "" || cfg.FromEmail == "" || cfg.ToEmail == "" {
 		return errors.New("resend config requires api_key, from_email, and to_email")
 	}
-
 	payload := map[string]interface{}{
 		"from":    cfg.FromEmail,
 		"to":      []string{cfg.ToEmail},
-		"subject": fmt.Sprintf("Subscription Reminder: %s", subName),
-		"text": fmt.Sprintf(
-			"This is a reminder that your subscription \"%s\" is due on %s.\n\nSent by Subdux.",
-			subName, billingDate,
-		),
+		"subject": "Subscription Reminder",
+		"text":    message,
 	}
-
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-
 	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("resend request failed: %w", err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("resend API error %d: %s", resp.StatusCode, string(respBody))
 	}
-
 	return nil
 }
 
-func (s *NotificationService) sendTelegram(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendTelegram(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		BotToken string `json:"bot_token"`
 		ChatID   string `json:"chat_id"`
@@ -506,46 +524,35 @@ func (s *NotificationService) sendTelegram(channel model.NotificationChannel, su
 	if cfg.BotToken == "" || cfg.ChatID == "" {
 		return errors.New("telegram config requires bot_token and chat_id")
 	}
-
-	text := fmt.Sprintf(
-		"📋 *Subscription Reminder*\n\n*%s* is due on *%s*\n\n_Sent by Subdux_",
-		subName, billingDate,
-	)
-
 	payload := map[string]interface{}{
 		"chat_id":    cfg.ChatID,
-		"text":       text,
+		"text":       message,
 		"parse_mode": "Markdown",
 	}
-
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", cfg.BotToken)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("telegram request failed: %w", err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("telegram API error %d: %s", resp.StatusCode, string(respBody))
 	}
-
 	return nil
 }
 
-func (s *NotificationService) sendWebhook(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendWebhook(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		URL     string            `json:"url"`
 		Secret  string            `json:"secret"`
@@ -573,10 +580,9 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, sub
 
 	sentAt := time.Now().UTC().Format(time.RFC3339)
 	payload := map[string]interface{}{
-		"event":        "subscription.reminder",
-		"subscription": subName,
-		"billing_date": billingDate,
-		"sent_at":      sentAt,
+		"event":   "subscription.reminder",
+		"message": message,
+		"sent_at": sentAt,
 	}
 
 	body, err := json.Marshal(payload)
@@ -593,8 +599,7 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, sub
 		}
 		query := parsedURL.Query()
 		query.Set("event", "subscription.reminder")
-		query.Set("subscription", subName)
-		query.Set("billing_date", billingDate)
+		query.Set("message", message)
 		query.Set("sent_at", sentAt)
 		parsedURL.RawQuery = query.Encode()
 		requestURL = parsedURL.String()
@@ -695,7 +700,7 @@ func isValidHTTPHeaderName(name string) bool {
 	return true
 }
 
-func (s *NotificationService) sendGotify(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendGotify(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		URL   string `json:"url"`
 		Token string `json:"token"`
@@ -708,8 +713,8 @@ func (s *NotificationService) sendGotify(channel model.NotificationChannel, subN
 	}
 
 	payload := map[string]interface{}{
-		"title":    fmt.Sprintf("Subscription Reminder: %s", subName),
-		"message":  fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate),
+		"title":    "Subscription Reminder",
+		"message":  message,
 		"priority": 5,
 	}
 
@@ -740,7 +745,7 @@ func (s *NotificationService) sendGotify(channel model.NotificationChannel, subN
 	return nil
 }
 
-func (s *NotificationService) sendNtfy(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendNtfy(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		URL      string `json:"url"`
 		Topic    string `json:"topic"`
@@ -762,13 +767,12 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, subNam
 	}
 
 	endpoint := strings.TrimRight(serverURL, "/") + "/" + cfg.Topic
-	message := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate)
 
 	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(message))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Title", fmt.Sprintf("Subscription Reminder: %s", subName))
+	req.Header.Set("Title", "Subscription Reminder")
 	req.Header.Set("Priority", "default")
 	req.Header.Set("Tags", "calendar")
 
@@ -793,7 +797,7 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, subNam
 	return nil
 }
 
-func (s *NotificationService) sendBark(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendBark(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		URL       string `json:"url"`
 		DeviceKey string `json:"device_key"`
@@ -812,8 +816,8 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, subNam
 	}
 
 	payload := map[string]interface{}{
-		"title": fmt.Sprintf("Subscription Reminder: %s", subName),
-		"body":  fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate),
+		"title": "Subscription Reminder",
+		"body":  message,
 		"group": "Subdux",
 	}
 
@@ -844,7 +848,7 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, subNam
 	return nil
 }
 
-func (s *NotificationService) sendServerChan(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendServerChan(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		SendKey string `json:"send_key"`
 	}
@@ -855,11 +859,9 @@ func (s *NotificationService) sendServerChan(channel model.NotificationChannel, 
 		return errors.New("serverchan config requires send_key")
 	}
 
-	title := fmt.Sprintf("Subscription Reminder: %s", subName)
-	desp := fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate)
 	payload := map[string]string{
-		"title": title,
-		"desp":  desp,
+		"title": "Subscription Reminder",
+		"desp":  message,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -930,7 +932,7 @@ func validateServerChanBusinessResponse(body []byte) error {
 	return fmt.Errorf("serverchan business error code %d: %s", resp.Code, message)
 }
 
-func (s *NotificationService) sendFeishu(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendFeishu(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		WebhookURL string `json:"webhook_url"`
 		Secret     string `json:"secret"`
@@ -942,11 +944,10 @@ func (s *NotificationService) sendFeishu(channel model.NotificationChannel, subN
 		return errors.New("feishu config requires webhook_url")
 	}
 
-	msg := fmt.Sprintf("Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
 	payload := map[string]interface{}{
 		"msg_type": "text",
 		"content": map[string]string{
-			"text": msg,
+			"text": message,
 		},
 	}
 
@@ -986,7 +987,7 @@ func (s *NotificationService) sendFeishu(channel model.NotificationChannel, subN
 	return nil
 }
 
-func (s *NotificationService) sendWeCom(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendWeCom(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		WebhookURL string `json:"webhook_url"`
 	}
@@ -997,11 +998,10 @@ func (s *NotificationService) sendWeCom(channel model.NotificationChannel, subNa
 		return errors.New("wecom config requires webhook_url")
 	}
 
-	msg := fmt.Sprintf("Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
 	payload := map[string]interface{}{
 		"msgtype": "text",
 		"text": map[string]string{
-			"content": msg,
+			"content": message,
 		},
 	}
 
@@ -1031,7 +1031,7 @@ func (s *NotificationService) sendWeCom(channel model.NotificationChannel, subNa
 	return nil
 }
 
-func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		WebhookURL string `json:"webhook_url"`
 		Secret     string `json:"secret"`
@@ -1043,7 +1043,6 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, su
 		return errors.New("dingtalk config requires webhook_url")
 	}
 
-	msg := fmt.Sprintf("Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
 	webhookURL := cfg.WebhookURL
 	if cfg.Secret != "" {
 		timestampMs := time.Now().UnixMilli()
@@ -1058,7 +1057,7 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, su
 	payload := map[string]interface{}{
 		"msgtype": "text",
 		"text": map[string]string{
-			"content": msg,
+			"content": message,
 		},
 	}
 
@@ -1088,7 +1087,7 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, su
 	return nil
 }
 
-func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		PushKey   string `json:"push_key"`
 		ServerURL string `json:"server_url"`
@@ -1107,8 +1106,8 @@ func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, su
 
 	payload := url.Values{}
 	payload.Set("pushkey", cfg.PushKey)
-	payload.Set("text", fmt.Sprintf("Subscription Reminder: %s", subName))
-	payload.Set("desp", fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate))
+	payload.Set("text", "Subscription Reminder")
+	payload.Set("desp", message)
 	payload.Set("type", "markdown")
 
 	endpoint := strings.TrimRight(serverURL, "/") + "/message/push"
@@ -1133,7 +1132,7 @@ func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, su
 	return nil
 }
 
-func (s *NotificationService) sendPushplus(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendPushplus(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		Token    string `json:"token"`
 		Endpoint string `json:"endpoint"`
@@ -1160,8 +1159,8 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, su
 
 	payload := map[string]string{
 		"token":    cfg.Token,
-		"title":    fmt.Sprintf("Subscription Reminder: %s", subName),
-		"content":  fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate),
+		"title":    "Subscription Reminder",
+		"content":  message,
 		"template": template,
 	}
 	if strings.TrimSpace(cfg.Channel) != "" {
@@ -1211,7 +1210,7 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, su
 	return nil
 }
 
-func (s *NotificationService) sendPushover(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendPushover(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		Token    string `json:"token"`
 		User     string `json:"user"`
@@ -1238,8 +1237,8 @@ func (s *NotificationService) sendPushover(channel model.NotificationChannel, su
 	payload := url.Values{}
 	payload.Set("token", strings.TrimSpace(cfg.Token))
 	payload.Set("user", strings.TrimSpace(cfg.User))
-	payload.Set("title", fmt.Sprintf("Subscription Reminder: %s", subName))
-	payload.Set("message", fmt.Sprintf("Your subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, billingDate))
+	payload.Set("title", "Subscription Reminder")
+	payload.Set("message", message)
 	if strings.TrimSpace(cfg.Device) != "" {
 		payload.Set("device", strings.TrimSpace(cfg.Device))
 	}
@@ -1285,7 +1284,7 @@ func (s *NotificationService) sendPushover(channel model.NotificationChannel, su
 	return nil
 }
 
-func (s *NotificationService) sendNapCat(channel model.NotificationChannel, subName, billingDate string) error {
+func (s *NotificationService) sendNapCat(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		URL         string `json:"url"`
 		AccessToken string `json:"access_token"`
@@ -1312,11 +1311,9 @@ func (s *NotificationService) sendNapCat(channel model.NotificationChannel, subN
 		return errors.New("napcat config requires group_id for group messages")
 	}
 
-	text := fmt.Sprintf("📋 Subscription Reminder: %s\nYour subscription \"%s\" is due on %s.\n\nSent by Subdux.", subName, subName, billingDate)
-
 	payload := map[string]interface{}{
 		"message_type": msgType,
-		"message":      text,
+		"message":      message,
 	}
 	if msgType == "private" {
 		payload["user_id"] = cfg.UserID

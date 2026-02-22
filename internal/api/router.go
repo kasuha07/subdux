@@ -43,7 +43,10 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	currencyService := service.NewCurrencyService(db)
 	categoryService := service.NewCategoryService(db)
 	paymentMethodService := service.NewPaymentMethodService(db)
-	notificationService := service.NewNotificationService(db)
+	validator := service.NewTemplateValidator()
+	renderer := service.NewTemplateRenderer(validator)
+	templateService := service.NewNotificationTemplateService(db, validator)
+	notificationService := service.NewNotificationService(db, templateService, renderer)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
@@ -53,6 +56,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	categoryHandler := NewCategoryHandler(categoryService)
 	paymentMethodHandler := NewPaymentMethodHandler(paymentMethodService)
 	notificationHandler := NewNotificationHandler(notificationService)
+	templateHandler := NewNotificationTemplateHandler(templateService)
 
 	api := e.Group("/api")
 
@@ -158,6 +162,12 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	protected.GET("/notifications/policy", notificationHandler.GetPolicy)
 	protected.PUT("/notifications/policy", notificationHandler.UpdatePolicy)
 	protected.GET("/notifications/logs", notificationHandler.ListLogs)
+	protected.GET("/notifications/templates", templateHandler.ListTemplates)
+	protected.GET("/notifications/templates/:id", templateHandler.GetTemplate)
+	protected.POST("/notifications/templates", templateHandler.CreateTemplate)
+	protected.PUT("/notifications/templates/:id", templateHandler.UpdateTemplate)
+	protected.DELETE("/notifications/templates/:id", templateHandler.DeleteTemplate)
+	protected.POST("/notifications/templates/preview", templateHandler.PreviewTemplate)
 
 	seedDefaultSettings(db)
 

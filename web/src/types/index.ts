@@ -509,6 +509,32 @@ export interface NotificationLog {
   sent_at: string
 }
 
+export interface NotificationTemplate {
+  id: number
+  user_id: number
+  channel_type: string | null
+  format: string
+  template: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTemplateInput {
+  channel_type?: string | null
+  format: string
+  template: string
+}
+
+export interface UpdateTemplateInput {
+  format?: string
+  template?: string
+}
+
+export interface PreviewTemplateInput {
+  format: string
+  template: string
+}
+
 export interface VersionInfo {
   version: string
   commit: string

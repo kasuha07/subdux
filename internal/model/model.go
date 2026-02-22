@@ -172,3 +172,14 @@ type NotificationLog struct {
 	Error          string    `gorm:"type:text" json:"error"`
 	SentAt         time.Time `json:"sent_at"`
 }
+
+// NotificationTemplate stores user-customizable notification message templates
+type NotificationTemplate struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	UserID      uint      `gorm:"index;not null" json:"user_id"`
+	ChannelType *string   `gorm:"size:20;index" json:"channel_type"`
+	Format      string    `gorm:"size:20;not null;default:'plaintext'" json:"format"`
+	Template    string    `gorm:"type:text;not null" json:"template"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}

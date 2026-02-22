@@ -418,7 +418,37 @@ const settings = {
       "enabled": "为此订阅发送通知",
       "disabled": "不发送通知",
       "daysBeforeOverride": "自定义提前天数"
-    }
+    },
+    templates: {
+      title: "通知模板",
+      description: "为每个渠道自定义通知消息模板",
+      addButton: "添加模板",
+      editButton: "编辑",
+      deleteButton: "删除",
+      previewButton: "预览",
+      channelType: "渠道类型",
+      format: "格式",
+      template: "模板",
+      defaultTemplate: "默认模板",
+      channelOverride: "渠道覆盖",
+      availableVariables: "可用变量",
+      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
+      addSuccess: "模板已添加",
+      updateSuccess: "模板已更新",
+      deleteSuccess: "模板已删除",
+      deleteConfirm: "删除此模板？",
+      previewTitle: "预览模板",
+      previewResult: "预览结果",
+      varSubscriptionName: "订阅名称",
+      varBillingDate: "下次账单日期 (YYYY-MM-DD)",
+      varAmount: "订阅金额",
+      varCurrency: "货币代码",
+      varDaysUntil: "距离账单天数",
+      varCategory: "订阅分类",
+      varUserEmail: "您的邮箱地址",
+      exampleTitle: "示例",
+      exampleTemplate: "您的订阅 {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) 将在 {{.DaysUntil}} 天后的 {{.BillingDate}} 扣费。"
+    },
   }
 } as const
 

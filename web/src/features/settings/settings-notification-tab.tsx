@@ -10,12 +10,14 @@ import type {
   NotificationLog,
   NotificationPolicy,
   UpdateNotificationPolicyInput,
+  NotificationTemplate,
 } from "@/types"
 
 import { NotificationChannelForm } from "./notification-channel-form"
 import { NotificationChannelList } from "./notification-channel-list"
 import { NotificationLogList } from "./notification-log-list"
 import { NotificationPolicySection } from "./notification-policy-section"
+import { NotificationTemplateSection } from "./notification-template-section"
 
 export default function SettingsNotificationTab() {
   const { t } = useTranslation()
@@ -23,6 +25,7 @@ export default function SettingsNotificationTab() {
   const [channels, setChannels] = useState<NotificationChannel[]>([])
   const [policy, setPolicy] = useState<NotificationPolicy>({ days_before: 3, notify_on_due_day: true })
   const [logs, setLogs] = useState<NotificationLog[]>([])
+  const [templates, setTemplates] = useState<NotificationTemplate[]>([])
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null)
@@ -47,6 +50,10 @@ export default function SettingsNotificationTab() {
 
     api.get<NotificationLog[]>("/notifications/logs")
       .then((data) => setLogs(data ?? []))
+      .catch(() => void 0)
+
+    api.get<NotificationTemplate[]>("/notifications/templates")
+      .then((data) => setTemplates(data ?? []))
       .catch(() => void 0)
   }, [])
 
@@ -144,6 +151,13 @@ export default function SettingsNotificationTab() {
         policy={policy}
         onSave={handleSavePolicy}
         saving={policySaving}
+      />
+
+      <Separator />
+
+      <NotificationTemplateSection
+        templates={templates}
+        onTemplatesChange={setTemplates}
       />
 
       <Separator />

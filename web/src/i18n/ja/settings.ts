@@ -418,7 +418,37 @@ const settings = {
       "enabled": "このサブスクリプションを通知する",
       "disabled": "通知しない",
       "daysBeforeOverride": "カスタム事前日数"
-    }
+    },
+    templates: {
+      title: "通知テンプレート",
+      description: "各チャネルの通知メッセージテンプレートをカスタマイズ",
+      addButton: "テンプレートを追加",
+      editButton: "編集",
+      deleteButton: "削除",
+      previewButton: "プレビュー",
+      channelType: "チャネルタイプ",
+      format: "フォーマット",
+      template: "テンプレート",
+      defaultTemplate: "デフォルトテンプレート",
+      channelOverride: "チャネル上書き",
+      availableVariables: "利用可能な変数",
+      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.UserEmail}}",
+      addSuccess: "テンプレートを追加しました",
+      updateSuccess: "テンプレートを更新しました",
+      deleteSuccess: "テンプレートを削除しました",
+      deleteConfirm: "このテンプレートを削除しますか？",
+      previewTitle: "テンプレートプレビュー",
+      previewResult: "プレビュー結果",
+      varSubscriptionName: "サブスクリプション名",
+      varBillingDate: "次回請求日 (YYYY-MM-DD)",
+      varAmount: "サブスクリプション金額",
+      varCurrency: "通貨コード",
+      varDaysUntil: "請求までの日数",
+      varCategory: "サブスクリプションカテゴリ",
+      varUserEmail: "メールアドレス",
+      exampleTitle: "例",
+      exampleTemplate: "サブスクリプション {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) は {{.DaysUntil}} 日後の {{.BillingDate}} に請求されます。"
+    },
   }
 } as const
 
