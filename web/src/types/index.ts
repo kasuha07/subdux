@@ -443,6 +443,10 @@ export interface NtfyChannelConfig {
   token?: string
   username?: string
   password?: string
+  priority?: string
+  tags?: string
+  click?: string
+  icon?: string
 }
 
 export interface BarkChannelConfig {

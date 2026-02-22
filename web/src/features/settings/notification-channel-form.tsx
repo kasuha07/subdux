@@ -164,6 +164,10 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
   const [ntfyUrl, setNtfyUrl] = useState(initCfg.url ?? "")
   const [ntfyTopic, setNtfyTopic] = useState(initCfg.topic ?? "")
   const [ntfyToken, setNtfyToken] = useState(initCfg.token ?? "")
+  const [ntfyPriority, setNtfyPriority] = useState(initCfg.priority ?? "")
+  const [ntfyTags, setNtfyTags] = useState(initCfg.tags ?? "")
+  const [ntfyClick, setNtfyClick] = useState(initCfg.click ?? "")
+  const [ntfyIcon, setNtfyIcon] = useState(initCfg.icon ?? "")
 
   const [barkUrl, setBarkUrl] = useState(initCfg.url ?? "")
   const [barkDeviceKey, setBarkDeviceKey] = useState(initCfg.device_key ?? "")
@@ -249,6 +253,10 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
           ...(ntfyUrl.trim() ? { url: ntfyUrl.trim() } : {}),
           topic: ntfyTopic.trim(),
           ...(ntfyToken.trim() ? { token: ntfyToken.trim() } : {}),
+          ...(ntfyPriority.trim() ? { priority: ntfyPriority.trim() } : {}),
+          ...(ntfyTags.trim() ? { tags: ntfyTags.trim() } : {}),
+          ...(ntfyClick.trim() ? { click: ntfyClick.trim() } : {}),
+          ...(ntfyIcon.trim() ? { icon: ntfyIcon.trim() } : {}),
         })
       case "bark":
         return JSON.stringify({
@@ -571,6 +579,22 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
               <div className="space-y-2">
                 <Label htmlFor="ntfy-token">{t("settings.notifications.channels.configFields.ntfyToken")}</Label>
                 <Input id="ntfy-token" placeholder={t("settings.notifications.channels.configFields.ntfyTokenPlaceholder")} value={ntfyToken} onChange={(e) => setNtfyToken(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-priority">{t("settings.notifications.channels.configFields.ntfyPriority")}</Label>
+                <Input id="ntfy-priority" placeholder={t("settings.notifications.channels.configFields.ntfyPriorityPlaceholder")} value={ntfyPriority} onChange={(e) => setNtfyPriority(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-tags">{t("settings.notifications.channels.configFields.ntfyTags")}</Label>
+                <Input id="ntfy-tags" placeholder={t("settings.notifications.channels.configFields.ntfyTagsPlaceholder")} value={ntfyTags} onChange={(e) => setNtfyTags(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-click">{t("settings.notifications.channels.configFields.ntfyClick")}</Label>
+                <Input id="ntfy-click" type="url" placeholder={t("settings.notifications.channels.configFields.ntfyClickPlaceholder")} value={ntfyClick} onChange={(e) => setNtfyClick(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ntfy-icon">{t("settings.notifications.channels.configFields.ntfyIcon")}</Label>
+                <Input id="ntfy-icon" type="url" placeholder={t("settings.notifications.channels.configFields.ntfyIconPlaceholder")} value={ntfyIcon} onChange={(e) => setNtfyIcon(e.target.value)} />
               </div>
             </>
           )}

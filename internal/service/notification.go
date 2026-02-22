@@ -776,6 +776,10 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 		Token    string `json:"token"`
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Priority string `json:"priority"`
+		Tags     string `json:"tags"`
+		Click    string `json:"click"`
+		Icon     string `json:"icon"`
 	}
 	if err := json.Unmarshal([]byte(channel.Config), &cfg); err != nil {
 		return errors.New("invalid ntfy config")
@@ -797,8 +801,25 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 		return err
 	}
 	req.Header.Set("Title", "Subscription Reminder")
-	req.Header.Set("Priority", "default")
-	req.Header.Set("Tags", "calendar")
+	priority := strings.TrimSpace(cfg.Priority)
+	if priority == "" {
+		priority = "default"
+	}
+	req.Header.Set("Priority", priority)
+	
+	tags := strings.TrimSpace(cfg.Tags)
+	if tags == "" {
+		tags = "calendar"
+	}
+	req.Header.Set("Tags", tags)
+	
+	if click := strings.TrimSpace(cfg.Click); click != "" {
+		req.Header.Set("Click", click)
+	}
+	
+	if icon := strings.TrimSpace(cfg.Icon); icon != "" {
+		req.Header.Set("Icon", icon)
+	}
 
 	if cfg.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+cfg.Token)
