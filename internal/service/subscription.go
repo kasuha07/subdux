@@ -117,6 +117,13 @@ type billingDraft struct {
 	TrialEndDate      *time.Time
 }
 
+func validateNotifyDaysBefore(value int) error {
+	if value < 0 || value > maxNotificationDaysBefore {
+		return fmt.Errorf("notify_days_before must be between 0 and %d", maxNotificationDaysBefore)
+	}
+	return nil
+}
+
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
 	var subs []model.Subscription
 	err := s.DB.Where("user_id = ?", userID).
@@ -192,6 +199,11 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 			return nil, err
 		}
 		paymentMethodID = input.PaymentMethodID
+	}
+	if input.NotifyDaysBefore != nil {
+		if err := validateNotifyDaysBefore(*input.NotifyDaysBefore); err != nil {
+			return nil, err
+		}
 	}
 
 	sub := model.Subscription{
@@ -277,6 +289,9 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		updates["notify_enabled"] = *input.NotifyEnabled
 	}
 	if input.NotifyDaysBefore != nil {
+		if err := validateNotifyDaysBefore(*input.NotifyDaysBefore); err != nil {
+			return nil, err
+		}
 		updates["notify_days_before"] = *input.NotifyDaysBefore
 	}
 

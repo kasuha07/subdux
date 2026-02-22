@@ -28,6 +28,8 @@ type NotificationService struct {
 	templateRenderer *TemplateRenderer
 }
 
+const maxNotificationDaysBefore = 10
+
 func NewNotificationService(db *gorm.DB, templateService *NotificationTemplateService, templateRenderer *TemplateRenderer) *NotificationService {
 	return &NotificationService{
 		DB:               db,
@@ -229,8 +231,8 @@ func (s *NotificationService) UpdatePolicy(userID uint, input UpdatePolicyInput)
 	}
 
 	if input.DaysBefore != nil {
-		if *input.DaysBefore < 0 || *input.DaysBefore > 90 {
-			return nil, errors.New("days_before must be between 0 and 90")
+		if *input.DaysBefore < 0 || *input.DaysBefore > maxNotificationDaysBefore {
+			return nil, fmt.Errorf("days_before must be between 0 and %d", maxNotificationDaysBefore)
 		}
 		policy.DaysBefore = *input.DaysBefore
 	}

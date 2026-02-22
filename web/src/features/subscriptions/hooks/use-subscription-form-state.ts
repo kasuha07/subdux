@@ -65,6 +65,8 @@ interface UseSubscriptionFormStateResult {
   values: SubscriptionFormValues
 }
 
+const MAX_NOTIFICATION_DAYS_BEFORE = 10
+
 function formatDateInput(value: string | null | undefined): string {
   if (!value) {
     return new Date().toISOString().split("T")[0]
@@ -252,6 +254,7 @@ export function useSubscriptionFormState({
       }
 
       const normalizedRecurrenceType = values.billingType === "recurring" ? values.recurrenceType : ""
+      const parsedNotifyDaysBefore = parseInt(values.notifyDaysBefore, 10)
       const payload: CreateSubscriptionInput = {
         name: values.name,
         amount: parseFloat(values.amount),
@@ -291,7 +294,9 @@ export function useSubscriptionFormState({
         notify_enabled: values.notifyEnabled === "default" ? null : values.notifyEnabled === "enabled",
         notify_days_before:
           values.notifyEnabled === "enabled" && values.notifyDaysBefore
-            ? parseInt(values.notifyDaysBefore, 10)
+            ? Number.isNaN(parsedNotifyDaysBefore)
+              ? 0
+              : Math.min(MAX_NOTIFICATION_DAYS_BEFORE, Math.max(0, parsedNotifyDaysBefore))
             : null,
         icon: iconFile && !isEditing ? "" : iconValue,
         url: values.url,

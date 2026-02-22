@@ -19,6 +19,8 @@ interface SubscriptionNotificationFieldsProps {
   onNotifyEnabledChange: (value: SubscriptionNotifySetting) => void
 }
 
+const MAX_NOTIFICATION_DAYS_BEFORE = 10
+
 export default function SubscriptionNotificationFields({
   notifyDaysBefore,
   notifyEnabled,
@@ -56,6 +58,7 @@ export default function SubscriptionNotificationFields({
             id="notify-days"
             type="number"
             min="0"
+            max={MAX_NOTIFICATION_DAYS_BEFORE}
             placeholder="e.g., 7"
             value={notifyDaysBefore}
             onChange={(event) => onNotifyDaysBeforeChange(event.target.value)}

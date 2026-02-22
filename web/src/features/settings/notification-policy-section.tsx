@@ -13,6 +13,8 @@ interface Props {
   saving: boolean
 }
 
+const MAX_NOTIFICATION_DAYS_BEFORE = 10
+
 export function NotificationPolicySection({ onSave, policy, saving }: Props) {
   const { t } = useTranslation()
   const [daysBefore, setDaysBefore] = useState(policy.days_before.toString())
@@ -21,8 +23,9 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const parsed = parseInt(daysBefore, 10)
+    const normalized = isNaN(parsed) ? 3 : Math.min(MAX_NOTIFICATION_DAYS_BEFORE, Math.max(0, parsed))
     void onSave({
-      days_before: isNaN(parsed) ? 3 : parsed,
+      days_before: normalized,
       notify_on_due_day: notifyOnDueDay,
     })
   }
@@ -42,7 +45,7 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
           id="days-before"
           type="number"
           min="0"
-          max="90"
+          max={MAX_NOTIFICATION_DAYS_BEFORE}
           value={daysBefore}
           onChange={(e) => setDaysBefore(e.target.value)}
         />
