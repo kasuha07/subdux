@@ -38,6 +38,11 @@ const settings = {
     "title": "基準通貨",
     "description": "他の通貨のサブスクリプションはこの通貨に換算されて集計されます"
   },
+  "displayAmount": {
+    "title": "金額表示",
+    "description": "サブスクリプションカードの金額表示方法を設定します",
+    "toggle": "すべての金額を基準通貨で表示する"
+  },
   "currencyManagement": {
     "title": "通貨管理",
     "description": "サブスクリプションフォームで使用できる通貨を追加・削除・並べ替え",

@@ -38,6 +38,11 @@ const settings = {
     "title": "主货币",
     "description": "其他货币的订阅将按汇率转换为此货币进行统计"
   },
+  "displayAmount": {
+    "title": "金额显示",
+    "description": "控制订阅卡片上的金额显示方式",
+    "toggle": "将所有金额显示为主货币"
+  },
   "currencyManagement": {
     "title": "货币管理",
     "description": "添加、删除和重新排序订阅表单中可用的货币",

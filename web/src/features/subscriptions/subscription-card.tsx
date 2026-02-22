@@ -56,6 +56,9 @@ interface SubscriptionCardProps {
   subscription: Subscription
   categoryName?: string
   currencySymbol?: string
+  displayAmount?: number
+  displayCurrency?: string
+  displayCurrencySymbol?: string
   paymentMethodName?: string
   paymentMethodIcon?: string
   onEdit: (sub: Subscription) => void
@@ -119,12 +122,18 @@ export default function SubscriptionCard({
   subscription,
   categoryName,
   currencySymbol,
+  displayAmount,
+  displayCurrency,
+  displayCurrencySymbol,
   paymentMethodName,
   paymentMethodIcon,
   onEdit,
   onDelete,
 }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
+  const amountToDisplay = displayAmount ?? subscription.amount
+  const currencyToDisplay = displayCurrency ?? subscription.currency
+  const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days < 7
   const trialDays = subscription.trial_enabled && subscription.trial_end_date
@@ -219,9 +228,9 @@ export default function SubscriptionCard({
   const holdingCostText = holdingDays
     ? t("subscription.card.holdingCost", {
       amount: formatCurrencyWithSymbol(
-        subscription.amount / holdingDays,
-        subscription.currency,
-        currencySymbol,
+        amountToDisplay / holdingDays,
+        currencyToDisplay,
+        symbolToDisplay,
         i18n.language
       ),
     })
@@ -308,9 +317,9 @@ export default function SubscriptionCard({
           <div className="flex max-w-[14rem] items-baseline gap-1 text-right">
             <p className="font-semibold tabular-nums whitespace-nowrap">
               {formatCurrencyWithSymbol(
-                subscription.amount,
-                subscription.currency,
-                currencySymbol,
+                amountToDisplay,
+                currencyToDisplay,
+                symbolToDisplay,
                 i18n.language
               )}
             </p>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Settings, Shield } from "lucide-react"
@@ -10,6 +10,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { api, isAdmin } from "@/lib/api"
+import {
+  DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
+  getDisplayAllAmountsInPrimaryCurrency,
+} from "@/lib/display-preferences"
+import { getExchangeRatesToTarget } from "@/lib/exchange-rate-cache"
 import { toast } from "sonner"
 import type { CreateSubscriptionInput, Subscription } from "@/types"
 
@@ -65,6 +70,10 @@ export default function DashboardPage() {
   const { t, i18n } = useTranslation()
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
+  const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
+    getDisplayAllAmountsInPrimaryCurrency()
+  )
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
 
   const {
     categories,
@@ -116,6 +125,55 @@ export default function DashboardPage() {
     () => new Map(paymentMethods.map((item) => [item.id, item.icon] as const)),
     [paymentMethods]
   )
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY) {
+        setDisplayAllAmountsInPrimaryCurrency(getDisplayAllAmountsInPrimaryCurrency())
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [])
+
+  useEffect(() => {
+    if (!displayAllAmountsInPrimaryCurrency) {
+      return
+    }
+
+    const targetCurrency = preferredCurrency.toUpperCase()
+    const sourceCurrencies = Array.from(
+      new Set(
+        subscriptions
+          .map((sub) => sub.currency.toUpperCase())
+          .filter((currency) => currency && currency !== targetCurrency)
+      )
+    )
+
+    if (sourceCurrencies.length === 0) {
+      return
+    }
+
+    let active = true
+    getExchangeRatesToTarget(sourceCurrencies, targetCurrency)
+      .then((ratesBySource) => {
+        if (!active) {
+          return
+        }
+        const nextRates: Record<string, number> = {}
+        for (const [sourceCurrency, rate] of Object.entries(ratesBySource)) {
+          nextRates[`${sourceCurrency}->${targetCurrency}`] = rate
+        }
+        setExchangeRates((prev) => ({ ...prev, ...nextRates }))
+      })
+      .catch(() => {
+        void 0
+      })
+
+    return () => {
+      active = false
+    }
+  }, [displayAllAmountsInPrimaryCurrency, preferredCurrency, subscriptions])
 
   function handleEdit(sub: Subscription) {
     setEditingSub(sub)
@@ -248,26 +306,44 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ) : (
-                filteredSubscriptions.map((sub) => (
-                  <SubscriptionCard
-                    key={sub.id}
-                    subscription={sub}
-                    categoryName={getSubscriptionCategoryName(sub)}
-                    currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
-                    paymentMethodName={
-                      sub.payment_method_id
-                        ? paymentMethodLabelMap.get(sub.payment_method_id)
-                        : undefined
-                    }
-                    paymentMethodIcon={
-                      sub.payment_method_id
-                        ? paymentMethodIconMap.get(sub.payment_method_id)
-                        : undefined
-                    }
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                ))
+                filteredSubscriptions.map((sub) => {
+                  const targetCurrency = preferredCurrency.toUpperCase()
+                  const sourceCurrency = sub.currency.toUpperCase()
+                  const shouldConvert =
+                    displayAllAmountsInPrimaryCurrency && sourceCurrency !== targetCurrency
+                  const conversionRate = shouldConvert
+                    ? exchangeRates[`${sourceCurrency}->${targetCurrency}`]
+                    : undefined
+                  const displayAmount = conversionRate ? sub.amount * conversionRate : undefined
+                  const displayCurrency = conversionRate ? targetCurrency : undefined
+                  const displayCurrencySymbol = displayCurrency
+                    ? currencySymbolMap.get(displayCurrency)
+                    : undefined
+
+                  return (
+                    <SubscriptionCard
+                      key={sub.id}
+                      subscription={sub}
+                      categoryName={getSubscriptionCategoryName(sub)}
+                      currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
+                      displayAmount={displayAmount}
+                      displayCurrency={displayCurrency}
+                      displayCurrencySymbol={displayCurrencySymbol}
+                      paymentMethodName={
+                        sub.payment_method_id
+                          ? paymentMethodLabelMap.get(sub.payment_method_id)
+                          : undefined
+                      }
+                      paymentMethodIcon={
+                        sub.payment_method_id
+                          ? paymentMethodIconMap.get(sub.payment_method_id)
+                          : undefined
+                      }
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
+                  )
+                })
               )}
             </div>
           </>

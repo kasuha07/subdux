@@ -38,6 +38,11 @@ const settings = {
     "title": "Primary Currency",
     "description": "Subscriptions in other currencies will be converted to this currency for totals"
   },
+  "displayAmount": {
+    "title": "Amount Display",
+    "description": "Control how amounts are shown on subscription cards",
+    "toggle": "Display all amounts in primary currency"
+  },
   "currencyManagement": {
     "title": "Currency Management",
     "description": "Add, remove, and reorder currencies available in your subscription forms",

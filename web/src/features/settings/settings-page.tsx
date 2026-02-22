@@ -8,6 +8,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSettingsAccount } from "@/features/settings/hooks/use-settings-account"
 import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payment"
 import { api } from "@/lib/api"
+import {
+  getDisplayAllAmountsInPrimaryCurrency,
+  setDisplayAllAmountsInPrimaryCurrency,
+} from "@/lib/display-preferences"
 import type { VersionInfo } from "@/types"
 import {
   applyTheme,
@@ -40,6 +44,9 @@ export default function SettingsPage() {
   const [themeColorScheme, setThemeColorScheme] = useState<ThemeColorScheme>(getThemeColorScheme())
   const [customThemeColors, setCustomThemeColors] = useState<CustomThemeColors>(
     getCustomThemeColors()
+  )
+  const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrencyState] = useState(
+    getDisplayAllAmountsInPrimaryCurrency()
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
@@ -74,6 +81,11 @@ export default function SettingsPage() {
     const defaultColors = getDefaultCustomThemeColors()
     setCustomThemeColors(defaultColors)
     applyThemeColorScheme(themeColorScheme, defaultColors)
+  }
+
+  function handleDisplayAllAmountsInPrimaryCurrency(enabled: boolean) {
+    setDisplayAllAmountsInPrimaryCurrencyState(enabled)
+    setDisplayAllAmountsInPrimaryCurrency(enabled)
   }
 
   return (
@@ -126,6 +138,8 @@ export default function SettingsPage() {
             customThemeColors={customThemeColors}
             onCustomThemeColorChange={handleCustomThemeColorChange}
             onResetCustomThemeColors={handleResetCustomThemeColors}
+            displayAllAmountsInPrimaryCurrency={displayAllAmountsInPrimaryCurrency}
+            onDisplayAllAmountsInPrimaryCurrencyChange={handleDisplayAllAmountsInPrimaryCurrency}
             language={i18n.language}
             onLanguageChange={(language) => {
               void i18n.changeLanguage(language)
