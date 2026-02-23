@@ -1,5 +1,20 @@
 import { SXBilibili } from "../custom/bilibili"
+import { SXChinaBroadcast } from "../custom/chinabroadcast"
+import { SXChinaMobile } from "../custom/chinamobile"
+import { SXChinaTelecom } from "../custom/chinatelecom"
+import { SXChinaUnicom } from "../custom/chinaunicom"
+import { SXEmby } from "../custom/emby"
+import { SXInfuse } from "../custom/infuse"
+import { SXIqiyi } from "../custom/iqiyi"
+import { SXJellyfin } from "../custom/jellyfin"
+import { SXKugouMusic } from "../custom/kugoumusic"
 import { SXNeteaseCloudMusic } from "../custom/neteasecloudmusic"
+import { SXNeteaseUu } from "../custom/neteaseuu"
+import { SXNintendo } from "../custom/nintendo"
+import { SXQq } from "../custom/qq"
+import { SXQqMusic } from "../custom/qqmusic"
+import { SXTencentVideo } from "../custom/tencentvideo"
+import { SXYoutubeMusic } from "../custom/youtubemusic"
 
 import type { BrandIconSpec } from "../types"
 
@@ -101,12 +116,44 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/si/esm/SIMega").then((module) => module.SIMega),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "nintendo",
     title: "Nintendo",
     hex: "#E60012",
     keywords: ["gaming", "console", "switch"],
-    loadIcon: () => import("@icongo/si/esm/SINintendo").then((module) => module.SINintendo),
+    loadIcon: () => Promise.resolve(SXNintendo),
+  },
+  {
+    prefix: "custom",
+    slug: "chinamobile",
+    title: "China Mobile",
+    hex: "#0080CB",
+    keywords: ["中国移动", "telecom", "carrier"],
+    loadIcon: () => Promise.resolve(SXChinaMobile),
+  },
+  {
+    prefix: "custom",
+    slug: "chinatelecom",
+    title: "China Telecom",
+    hex: "#005CA1",
+    keywords: ["中国电信", "telecom", "carrier"],
+    loadIcon: () => Promise.resolve(SXChinaTelecom),
+  },
+  {
+    prefix: "custom",
+    slug: "chinaunicom",
+    title: "China Unicom",
+    hex: "#E90003",
+    keywords: ["中国联通", "telecom", "carrier"],
+    loadIcon: () => Promise.resolve(SXChinaUnicom),
+  },
+  {
+    prefix: "custom",
+    slug: "chinabroadcast",
+    title: "China Broadnet",
+    hex: "#205686",
+    keywords: ["中国广电", "telecom", "carrier"],
+    loadIcon: () => Promise.resolve(SXChinaBroadcast),
   },
   {
     prefix: "lg",
@@ -165,6 +212,14 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/si/esm/SIUbisoft").then((module) => module.SIUbisoft),
   },
   {
+    prefix: "custom",
+    slug: "neteaseuu",
+    title: "NetEase UU Booster",
+    hex: "#36ECD4",
+    keywords: ["网易UU加速器", "gaming", "booster"],
+    loadIcon: () => Promise.resolve(SXNeteaseUu),
+  },
+  {
     prefix: "lg",
     slug: "unsplash",
     title: "Unsplash",
@@ -195,6 +250,14 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     hex: "#1296DB",
     keywords: ["b站", "哔哩哔哩", "anime", "video", "streaming"],
     loadIcon: () => Promise.resolve(SXBilibili),
+  },
+  {
+    prefix: "custom",
+    slug: "iqiyi",
+    title: "iQIYI",
+    hex: "#42BD56",
+    keywords: ["爱奇艺", "video", "streaming"],
+    loadIcon: () => Promise.resolve(SXIqiyi),
   },
   {
     prefix: "lg",
@@ -261,36 +324,36 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGApple").then((module) => module.LGApple),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "youtubemusic",
     title: "YouTube Music",
     hex: "#FF0000",
     keywords: ["youtube", "music", "streaming"],
-    loadIcon: () => import("@icongo/lg/esm/LGYoutubeIcon").then((module) => module.LGYoutubeIcon),
+    loadIcon: () => Promise.resolve(SXYoutubeMusic),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "qqmusic",
     title: "QQ Music",
     hex: "#31C27C",
     keywords: ["qq", "qq音乐", "music", "腾讯音乐"],
-    loadIcon: () => import("@icongo/vl/esm/VLTencent").then((module) => module.VLTencent),
+    loadIcon: () => Promise.resolve(SXQqMusic),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
+    slug: "qq",
+    title: "QQ",
+    hex: "#000000",
+    keywords: ["qq", "messaging", "腾讯"],
+    loadIcon: () => Promise.resolve(SXQq),
+  },
+  {
+    prefix: "custom",
     slug: "kugoumusic",
     title: "Kugou Music",
     hex: "#2C78FF",
     keywords: ["酷狗音乐", "kugou", "music", "腾讯音乐"],
-    loadIcon: () => import("@icongo/vl/esm/VLTencent").then((module) => module.VLTencent),
-  },
-  {
-    prefix: "lg",
-    slug: "kuwomusic",
-    title: "Kuwo Music",
-    hex: "#F6D128",
-    keywords: ["酷我音乐", "kuwo", "music", "腾讯音乐"],
-    loadIcon: () => import("@icongo/vl/esm/VLTencent").then((module) => module.VLTencent),
+    loadIcon: () => Promise.resolve(SXKugouMusic),
   },
   {
     prefix: "lg",
@@ -333,6 +396,30 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/vl/esm/VLPlextv").then((module) => module.VLPlextv),
   },
   {
+    prefix: "custom",
+    slug: "infuse",
+    title: "Infuse",
+    hex: "#111111",
+    keywords: ["media player", "video", "streaming"],
+    loadIcon: () => Promise.resolve(SXInfuse),
+  },
+  {
+    prefix: "custom",
+    slug: "emby",
+    title: "Emby",
+    hex: "#06B831",
+    keywords: ["media server", "streaming", "video"],
+    loadIcon: () => Promise.resolve(SXEmby),
+  },
+  {
+    prefix: "custom",
+    slug: "jellyfin",
+    title: "Jellyfin",
+    hex: "#00A4DC",
+    keywords: ["media server", "streaming", "video"],
+    loadIcon: () => Promise.resolve(SXJellyfin),
+  },
+  {
     prefix: "lg",
     slug: "vlc",
     title: "VLC",
@@ -341,12 +428,12 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/vl/esm/VLVideolanVlc").then((module) => module.VLVideolanVlc),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "tencentvideo",
     title: "Tencent Video",
     hex: "#0052D9",
     keywords: ["tencent", "qq video", "腾讯视频", "视频", "流媒体"],
-    loadIcon: () => import("@icongo/vl/esm/VLTencent").then((module) => module.VLTencent),
+    loadIcon: () => Promise.resolve(SXTencentVideo),
   },
   {
     prefix: "lg",

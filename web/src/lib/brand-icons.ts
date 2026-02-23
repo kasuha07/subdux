@@ -17,7 +17,21 @@ export const brandIcons: BrandIcon[] = brandSpecs.map((spec) => ({
 const brandIconMap = new Map(brandIcons.map((icon) => [icon.slug, icon] as const))
 const brandIconValueMap = new Map(brandIcons.map((icon) => [icon.value, icon] as const))
 const legacyIconValueAliases = new Map<string, string>([
+  ["lg:adobecreativecloud", "custom:adobecreativecloud"],
   ["lg:bilibili", "custom:bilibili"],
+  ["lg:bitwarden", "custom:bitwarden"],
+  ["lg:chatgpt", "lg:openai"],
+  ["lg:coinbase", "custom:coinbase"],
+  ["lg:godaddy", "custom:godaddy"],
+  ["lg:kugoumusic", "custom:kugoumusic"],
+  ["lg:kuwomusic", "custom:qqmusic"],
+  ["lg:nintendo", "custom:nintendo"],
+  ["lg:qqmusic", "custom:qqmusic"],
+  ["lg:tencentvideo", "custom:tencentvideo"],
+  ["lg:times", "lg:nytimes"],
+  ["lg:x", "custom:x"],
+  ["lg:xpremium", "custom:x"],
+  ["lg:youtubemusic", "custom:youtubemusic"],
   ["sx:neteasecloudmusic", "custom:neteasecloudmusic"],
 ])
 

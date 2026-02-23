@@ -1,3 +1,14 @@
+import { SXAdobeCreativeCloud } from "../custom/adobecreativecloud"
+import { SXBitwarden } from "../custom/bitwarden"
+import { SXCoinbase } from "../custom/coinbase"
+import { SXFeiniu } from "../custom/feiniu"
+import { SXFeishu } from "../custom/feishu"
+import { SXGodaddy } from "../custom/godaddy"
+import { SXJd } from "../custom/jd"
+import { SXPinduoduo } from "../custom/pinduoduo"
+import { SXTaobao } from "../custom/taobao"
+import { SXX } from "../custom/x"
+
 import type { BrandIconSpec } from "../types"
 
 export const serviceBrandSpecs: BrandIconSpec[] = [
@@ -18,12 +29,12 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/vl/esm/VLAdidas").then((module) => module.VLAdidas),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "adobecreativecloud",
     title: "Adobe Creative Cloud",
     hex: "#DA1F26",
     keywords: ["adobe", "creative", "design", "创意云"],
-    loadIcon: () => import("@icongo/vl/esm/VLAdobe").then((module) => module.VLAdobe),
+    loadIcon: () => Promise.resolve(SXAdobeCreativeCloud),
   },
   {
     prefix: "lg",
@@ -119,15 +130,15 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     title: "Behance",
     hex: "#1769FF",
     keywords: ["design", "portfolio"],
-    loadIcon: () => import("@icongo/lg/esm/LGBehance").then((module) => module.LGBehance),
+    loadIcon: () => import("@icongo/vl/esm/VLBehance").then((module) => module.VLBehance),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "bitwarden",
     title: "Bitwarden",
     hex: "#175DDC",
     keywords: ["password manager", "security", "密码管理"],
-    loadIcon: () => import("@icongo/vl/esm/VLBitwarden").then((module) => module.VLBitwarden),
+    loadIcon: () => Promise.resolve(SXBitwarden),
   },
   {
     prefix: "lg",
@@ -146,20 +157,12 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/vl/esm/VLCanva").then((module) => module.VLCanva),
   },
   {
-    prefix: "lg",
-    slug: "chatgpt",
-    title: "ChatGPT",
-    hex: "#10A37F",
-    keywords: ["openai", "gpt", "ai", "chatbot"],
-    loadIcon: () => import("@icongo/lg/esm/LGOpenaiIcon").then((module) => module.LGOpenaiIcon),
-  },
-  {
-    prefix: "lg",
+    prefix: "custom",
     slug: "coinbase",
     title: "Coinbase",
     hex: "#0052FF",
     keywords: ["crypto", "exchange", "coin"],
-    loadIcon: () => import("@icongo/vl/esm/VLCoinbase").then((module) => module.VLCoinbase),
+    loadIcon: () => Promise.resolve(SXCoinbase),
   },
   {
     prefix: "lg",
@@ -183,7 +186,7 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     title: "ExpressVPN",
     hex: "#DA3940",
     keywords: ["vpn", "privacy", "security"],
-    loadIcon: () => import("@icongo/lg/esm/LGExpress").then((module) => module.LGExpress),
+    loadIcon: () => import("@icongo/si/esm/SIExpressvpn").then((module) => module.SIExpressvpn),
   },
   {
     prefix: "lg",
@@ -194,6 +197,22 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/vl/esm/VLFeedly").then((module) => module.VLFeedly),
   },
   {
+    prefix: "custom",
+    slug: "feishu",
+    title: "Feishu",
+    hex: "#296DFF",
+    keywords: ["lark", "im", "collaboration", "飞书"],
+    loadIcon: () => Promise.resolve(SXFeishu),
+  },
+  {
+    prefix: "custom",
+    slug: "feiniu",
+    title: "Feiniu",
+    hex: "#2668ED",
+    keywords: ["fnos", "nas", "飞牛"],
+    loadIcon: () => Promise.resolve(SXFeiniu),
+  },
+  {
     prefix: "lg",
     slug: "fontawesome",
     title: "Font Awesome",
@@ -202,12 +221,12 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGFontAwesome").then((module) => module.LGFontAwesome),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "godaddy",
     title: "GoDaddy",
     hex: "#1BDBDB",
     keywords: ["domain", "hosting"],
-    loadIcon: () => import("@icongo/vl/esm/VLGodaddy").then((module) => module.VLGodaddy),
+    loadIcon: () => Promise.resolve(SXGodaddy),
   },
   {
     prefix: "lg",
@@ -279,7 +298,7 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     title: "Meta",
     hex: "#0866FF",
     keywords: ["facebook", "social", "meta"],
-    loadIcon: () => import("@icongo/lg/esm/LGFacebook").then((module) => module.LGFacebook),
+    loadIcon: () => import("@icongo/si/esm/SIMeta").then((module) => module.SIMeta),
   },
   {
     prefix: "lg",
@@ -287,14 +306,6 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     title: "New York Times",
     hex: "#000000",
     keywords: ["news", "times", "newspaper"],
-    loadIcon: () => import("@icongo/vl/esm/VLNytimes").then((module) => module.VLNytimes),
-  },
-  {
-    prefix: "lg",
-    slug: "times",
-    title: "Times",
-    hex: "#000000",
-    keywords: ["nytimes", "times", "news", "newspaper"],
     loadIcon: () => import("@icongo/vl/esm/VLNytimes").then((module) => module.VLNytimes),
   },
   {
@@ -332,26 +343,18 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
   {
     prefix: "lg",
     slug: "twitter",
-    title: "Twitter / X",
-    hex: "#000000",
-    keywords: ["twitter", "x", "social", "x premium"],
-    loadIcon: () => import("@icongo/lg/esm/LGTwitter").then((module) => module.LGTwitter),
-  },
-  {
-    prefix: "lg",
-    slug: "x",
-    title: "X",
+    title: "Twitter",
     hex: "#000000",
     keywords: ["twitter", "x", "social"],
     loadIcon: () => import("@icongo/lg/esm/LGTwitter").then((module) => module.LGTwitter),
   },
   {
-    prefix: "lg",
-    slug: "xpremium",
-    title: "X Premium",
+    prefix: "custom",
+    slug: "x",
+    title: "X",
     hex: "#000000",
-    keywords: ["x", "twitter", "subscription", "premium"],
-    loadIcon: () => import("@icongo/lg/esm/LGTwitter").then((module) => module.LGTwitter),
+    keywords: ["twitter", "x", "social"],
+    loadIcon: () => Promise.resolve(SXX),
   },
   {
     prefix: "lg",
@@ -359,7 +362,7 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     title: "Uber",
     hex: "#000000",
     keywords: ["ride", "transport", "travel"],
-    loadIcon: () => import("@icongo/vl/esm/VLUberLudwig").then((module) => module.VLUberLudwig),
+    loadIcon: () => import("@icongo/si/esm/SIUber").then((module) => module.SIUber),
   },
   {
     prefix: "lg",
@@ -370,10 +373,34 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/vl/esm/VLWalmart").then((module) => module.VLWalmart),
   },
   {
+    prefix: "custom",
+    slug: "pinduoduo",
+    title: "Pinduoduo",
+    hex: "#D81E06",
+    keywords: ["拼多多", "shopping", "ecommerce"],
+    loadIcon: () => Promise.resolve(SXPinduoduo),
+  },
+  {
+    prefix: "custom",
+    slug: "taobao",
+    title: "Taobao",
+    hex: "#FC8848",
+    keywords: ["淘宝", "shopping", "ecommerce"],
+    loadIcon: () => Promise.resolve(SXTaobao),
+  },
+  {
+    prefix: "custom",
+    slug: "jd",
+    title: "JD.com",
+    hex: "#D81E06",
+    keywords: ["京东", "shopping", "ecommerce"],
+    loadIcon: () => Promise.resolve(SXJd),
+  },
+  {
     prefix: "lg",
     slug: "wise",
     title: "Wise",
-    hex: "#00B9FF",
+    hex: "#9fe970",
     keywords: ["transferwise", "payment", "money transfer"],
     loadIcon: () => import("@icongo/vl/esm/VLTransferwise").then((module) => module.VLTransferwise),
   },

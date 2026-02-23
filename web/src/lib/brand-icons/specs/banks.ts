@@ -15,7 +15,7 @@ export const bankBrandSpecs: BrandIconSpec[] = [
     title: "HSBC",
     hex: "#DB0011",
     keywords: ["bank"],
-    loadIcon: () => import("@icongo/bl/esm/BLHsbcRect").then((module) => module.BLHsbcRect),
+    loadIcon: () => import("@icongo/vl/esm/VLHsbc").then((module) => module.VLHsbc),
   },
   {
     prefix: "bl",
