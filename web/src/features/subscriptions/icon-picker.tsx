@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
-import { brandIcons, getBrandIcon } from "@/lib/brand-icons"
+import { brandIcons, getBrandIconFromValue } from "@/lib/brand-icons"
 import { emojiCategories } from "@/lib/emoji-data"
 
 interface IconPickerProps {
@@ -16,6 +16,7 @@ interface IconPickerProps {
   onFileSelected: (file: File) => void
   maxFileSizeKB?: number
   triggerSize?: "sm" | "md"
+  allowImageUrl?: boolean
 }
 
 function renderPreview(value: string): ReactNode {
@@ -23,28 +24,40 @@ function renderPreview(value: string): ReactNode {
     return <ImageIcon className="size-5 text-muted-foreground" />
   }
 
-  if (value.startsWith("si:")) {
-    const brand = getBrandIcon(value.slice(3))
-    if (brand) {
-      return <brand.Icon size={20} color="default" />
-    }
-    return <ImageIcon className="size-5 text-muted-foreground" />
+  const brand = getBrandIconFromValue(value)
+  if (brand) {
+    return <brand.Icon size={20} color="default" />
   }
 
   if (value.startsWith("http://") || value.startsWith("https://")) {
     return <img src={value} alt="" className="h-6 w-6 object-contain rounded" />
   }
 
-  if (value.startsWith("assets/")) {
-    const assetPath = value.slice("assets/".length)
-    return <img src={`/uploads/${assetPath}`} alt="" className="h-6 w-6 object-contain rounded" />
+  if (value.startsWith("file:")) {
+    const filename = value.slice("file:".length)
+    if (filename && !filename.includes("/") && !filename.includes("\\")) {
+      return <img src={`/uploads/icons/${filename}`} alt="" className="h-6 w-6 object-contain rounded" />
+    }
+  }
+
+  if (value.includes(":")) {
+    return <ImageIcon className="size-5 text-muted-foreground" />
   }
 
   return <span className="text-lg leading-none">{value}</span>
 }
 
 function isNonEmojiValue(v: string) {
-  return v.startsWith("si:") || v.startsWith("http") || v.startsWith("assets/")
+  return (
+    v.startsWith("http://") ||
+    v.startsWith("https://") ||
+    v.startsWith("file:") ||
+    Boolean(getBrandIconFromValue(v))
+  )
+}
+
+function isImageURLValue(value: string): boolean {
+  return value.startsWith("http://") || value.startsWith("https://")
 }
 
 export default function IconPicker({
@@ -53,6 +66,7 @@ export default function IconPicker({
   onFileSelected,
   maxFileSizeKB = 64,
   triggerSize = "md",
+  allowImageUrl = false,
 }: IconPickerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -67,7 +81,9 @@ export default function IconPicker({
     if (!brandSearch.trim()) return brandIcons
     const term = brandSearch.toLowerCase()
     return brandIcons.filter((icon) =>
-      icon.title.toLowerCase().includes(term) || icon.slug.includes(term)
+      icon.title.toLowerCase().includes(term) ||
+      icon.slug.includes(term) ||
+      icon.keywords.some((keyword) => keyword.toLowerCase().includes(term))
     )
   }, [brandSearch])
 
@@ -100,24 +116,36 @@ export default function IconPicker({
 
   function handleImageUrlSubmit() {
     const trimmed = imageUrl.trim()
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    if (isImageURLValue(trimmed)) {
+      setFilePreview(null)
+      setFileError("")
       onChange(trimmed)
       setOpen(false)
     }
   }
 
-  function handleImageUrlKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
+  function handleImageUrlKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault()
       handleImageUrlSubmit()
     }
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen)
+
+    if (!nextOpen || !allowImageUrl) {
+      return
+    }
+
+    setImageUrl(isImageURLValue(value) ? value : "")
   }
 
   const emojiValue = isNonEmojiValue(value) ? "" : value
   const currentEmojis = emojiCategories[emojiCategory]?.emojis ?? []
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -254,17 +282,17 @@ export default function IconPicker({
                 ) : (
                   <div className="grid grid-cols-6 gap-1 p-2">
                     {filteredIcons.map((brand) => {
-                      const isSelected = value === `si:${brand.slug}`
+                      const isSelected = value === brand.value
                       return (
                         <button
-                          key={brand.slug}
+                          key={brand.value}
                           type="button"
                           title={brand.title}
                           className={`flex items-center justify-center rounded-md p-1.5 h-11 w-11 cursor-pointer transition-colors hover:bg-accent ${
                             isSelected ? "bg-accent ring-2 ring-primary" : ""
                           }`}
                           onClick={() => {
-                            onChange(`si:${brand.slug}`)
+                            onChange(brand.value)
                             setOpen(false)
                           }}
                         >
@@ -280,24 +308,30 @@ export default function IconPicker({
 
           {/* ── Image tab ── */}
           <TabsContent value="image" className="p-3 space-y-3">
-            <div className="space-y-2">
-              <Label className="text-xs">{t("subscription.form.iconPicker.urlLabel")}</Label>
-              <Input
-                type="url"
-                placeholder={t("subscription.form.iconPicker.urlPlaceholder")}
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                onBlur={handleImageUrlSubmit}
-                onKeyDown={handleImageUrlKeyDown}
-                className="h-8 text-sm"
-              />
-            </div>
+            {allowImageUrl && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-xs">{t("subscription.form.iconPicker.urlLabel")}</Label>
+                  <Input
+                    type="url"
+                    placeholder={t("subscription.form.iconPicker.urlPlaceholder")}
+                    value={imageUrl}
+                    onChange={(event) => setImageUrl(event.target.value)}
+                    onBlur={handleImageUrlSubmit}
+                    onKeyDown={handleImageUrlKeyDown}
+                    className="h-8 text-sm"
+                  />
+                </div>
 
-            <div className="relative flex items-center gap-2">
-              <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground px-1">or</span>
-              <Separator className="flex-1" />
-            </div>
+                <div className="relative flex items-center gap-2">
+                  <Separator className="flex-1" />
+                  <span className="text-xs text-muted-foreground px-1">or</span>
+                  <Separator className="flex-1" />
+                </div>
+              </>
+            )}
+
+            <Label className="text-xs">{t("subscription.form.iconPicker.uploadLabel")}</Label>
 
             {filePreview ? (
               <div className="flex items-center gap-3 rounded-lg border p-3">

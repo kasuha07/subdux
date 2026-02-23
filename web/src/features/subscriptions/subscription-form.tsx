@@ -79,6 +79,7 @@ export default function SubscriptionForm({
         onFileSelected={handleIconFileSelected}
         maxFileSizeKB={64}
         triggerSize="sm"
+        allowImageUrl
       />
     ),
     [handleIconChange, handleIconFileSelected, values.icon]

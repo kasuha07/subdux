@@ -120,7 +120,7 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if input.Amount <= 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must be positive"})
 	}
-	if !validateIcon(input.Icon) {
+	if !validateSubscriptionIcon(input.Icon) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
 	}
 
@@ -149,7 +149,7 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 	if input.Amount != nil && *input.Amount <= 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must be positive"})
 	}
-	if input.Icon != nil && !validateIcon(*input.Icon) {
+	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
 	}
 

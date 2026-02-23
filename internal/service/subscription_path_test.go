@@ -14,39 +14,44 @@ func TestManagedIconFilePath(t *testing.T) {
 	}{
 		{
 			name:     "valid png icon path",
-			icon:     "assets/icons/1_2_3.png",
+			icon:     "file:1_2_3.png",
 			wantPath: filepath.Join("data", "assets", "icons", "1_2_3.png"),
 			wantOK:   true,
 		},
 		{
 			name:     "valid jpg icon path",
-			icon:     "assets/icons/9_8_7.jpg",
+			icon:     "file:9_8_7.jpg",
 			wantPath: filepath.Join("data", "assets", "icons", "9_8_7.jpg"),
 			wantOK:   true,
 		},
 		{
 			name:   "reject traversal outside data directory",
-			icon:   "assets/../../data/subdux.db",
+			icon:   "file:../../data/subdux.db",
 			wantOK: false,
 		},
 		{
 			name:   "reject traversal under icons prefix",
-			icon:   "assets/icons/../../../data/subdux.db",
+			icon:   "file:../../../data/subdux.db",
 			wantOK: false,
 		},
 		{
 			name:   "reject nested path",
-			icon:   "assets/icons/nested/icon.png",
+			icon:   "file:nested/icon.png",
 			wantOK: false,
 		},
 		{
 			name:   "reject windows separator",
-			icon:   `assets/icons/..\..\data\subdux.db`,
+			icon:   `file:..\..\data\subdux.db`,
 			wantOK: false,
 		},
 		{
 			name:   "reject empty filename",
-			icon:   "assets/icons/",
+			icon:   "file:",
+			wantOK: false,
+		},
+		{
+			name:   "reject non-image extension",
+			icon:   "file:icon.svg",
 			wantOK: false,
 		},
 	}

@@ -10,7 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@icons-pack/react-simple-icons": "^13.11.2",
+    "@icongo/bl": "^1.2.0",
+    "@icongo/lg": "^1.2.0",
     "@tailwindcss/vite": "^4.1.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

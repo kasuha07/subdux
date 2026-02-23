@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff } from "lucide-react"
-import { getBrandIcon } from "@/lib/brand-icons"
+import { getBrandIconFromValue } from "@/lib/brand-icons"
 
 function renderIcon(icon: string, name: string): ReactNode {
   const fallbackInitial = (
@@ -19,13 +19,10 @@ function renderIcon(icon: string, name: string): ReactNode {
     return fallbackInitial
   }
 
-  if (icon.startsWith("si:")) {
-    const brand = getBrandIcon(icon.slice(3))
-    if (brand) {
-      const { Icon } = brand
-      return <Icon size={20} color="default" />
-    }
-    return fallbackInitial
+  const brand = getBrandIconFromValue(icon)
+  if (brand) {
+    const { Icon } = brand
+    return <Icon size={20} color="default" />
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://")) {
@@ -38,15 +35,21 @@ function renderIcon(icon: string, name: string): ReactNode {
     )
   }
 
-  if (icon.startsWith("assets/")) {
-    const assetPath = icon.slice("assets/".length)
-    return (
-      <img
-        src={`/uploads/${assetPath}`}
-        alt={name}
-        className="h-6 w-6 object-contain"
-      />
-    )
+  if (icon.startsWith("file:")) {
+    const filename = icon.slice("file:".length)
+    if (filename && !filename.includes("/") && !filename.includes("\\")) {
+      return (
+        <img
+          src={`/uploads/icons/${filename}`}
+          alt={name}
+          className="h-6 w-6 object-contain"
+        />
+      )
+    }
+  }
+
+  if (icon.includes(":")) {
+    return fallbackInitial
   }
 
   return <span className="text-lg leading-none">{icon}</span>
@@ -86,13 +89,10 @@ function renderInlineIcon(icon: string, name: string): ReactNode {
     return null
   }
 
-  if (icon.startsWith("si:")) {
-    const brand = getBrandIcon(icon.slice(3))
-    if (brand) {
-      const { Icon } = brand
-      return <Icon size={12} color="default" />
-    }
-    return <span className="text-[10px] leading-none">{name.charAt(0).toUpperCase()}</span>
+  const brand = getBrandIconFromValue(icon)
+  if (brand) {
+    const { Icon } = brand
+    return <Icon size={12} color="default" />
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://")) {
@@ -105,15 +105,21 @@ function renderInlineIcon(icon: string, name: string): ReactNode {
     )
   }
 
-  if (icon.startsWith("assets/")) {
-    const assetPath = icon.slice("assets/".length)
-    return (
-      <img
-        src={`/uploads/${assetPath}`}
-        alt={name}
-        className="h-3.5 w-3.5 object-contain"
-      />
-    )
+  if (icon.startsWith("file:")) {
+    const filename = icon.slice("file:".length)
+    if (filename && !filename.includes("/") && !filename.includes("\\")) {
+      return (
+        <img
+          src={`/uploads/icons/${filename}`}
+          alt={name}
+          className="h-3.5 w-3.5 object-contain"
+        />
+      )
+    }
+  }
+
+  if (icon.includes(":")) {
+    return <span className="text-[10px] leading-none">{name.charAt(0).toUpperCase()}</span>
   }
 
   return <span className="text-[10px] leading-none">{icon}</span>

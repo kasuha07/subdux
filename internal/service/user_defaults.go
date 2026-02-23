@@ -41,7 +41,7 @@ var defaultCategoryTemplates = []defaultCategoryTemplate{
 var defaultPaymentMethodTemplates = []defaultPaymentMethodTemplate{
 	{SystemKey: "credit_card", CanonicalName: "Credit Card", Icon: "💳", SortOrder: 0},
 	{SystemKey: "debit_card", CanonicalName: "Debit Card", Icon: "💳", SortOrder: 1},
-	{SystemKey: "paypal", CanonicalName: "PayPal", Icon: "si:paypal", SortOrder: 2},
+	{SystemKey: "paypal", CanonicalName: "PayPal", Icon: "lg:paypal", SortOrder: 2},
 	{SystemKey: "bank_transfer", CanonicalName: "Bank Transfer", Icon: "🏦", SortOrder: 3},
 	{SystemKey: "cash", CanonicalName: "Cash", Icon: "💵", SortOrder: 4},
 }

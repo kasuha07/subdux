@@ -210,7 +210,7 @@ func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, fi
 		return "", errors.New("failed to save icon file")
 	}
 
-	iconValue := "assets/icons/" + newFilename
+	iconValue := "file:" + newFilename
 	if err := s.DB.Model(&model.PaymentMethod{}).
 		Where("id = ? AND user_id = ?", methodID, userID).
 		Update("icon", iconValue).Error; err != nil {

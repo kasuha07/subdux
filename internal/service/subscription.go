@@ -424,7 +424,7 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 
 	s.removeManagedIconFile(sub.Icon)
 
-	iconValue := "assets/icons/" + newFilename
+	iconValue := "file:" + newFilename
 	if err := s.DB.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", subID, userID).Update("icon", iconValue).Error; err != nil {
 		os.Remove(destPath)
 		return "", err
@@ -440,7 +440,7 @@ func (s *SubscriptionService) removeManagedIconFile(icon string) {
 }
 
 func managedIconFilePath(icon string) (string, bool) {
-	const iconPrefix = "assets/icons/"
+	const iconPrefix = "file:"
 	if !strings.HasPrefix(icon, iconPrefix) {
 		return "", false
 	}
@@ -453,6 +453,10 @@ func managedIconFilePath(icon string) (string, bool) {
 		return "", false
 	}
 	if filepath.Base(filename) != filename {
+		return "", false
+	}
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
 		return "", false
 	}
 
