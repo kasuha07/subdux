@@ -93,6 +93,17 @@ func (s *CategoryService) Delete(userID, id uint) error {
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&category).Error; err != nil {
 		return errors.New("category not found")
 	}
+
+	var subscriptionsUsingCategory int64
+	if err := s.DB.Model(&model.Subscription{}).
+		Where("user_id = ? AND (category_id = ? OR category = ?)", userID, category.ID, category.Name).
+		Count(&subscriptionsUsingCategory).Error; err != nil {
+		return err
+	}
+	if subscriptionsUsingCategory > 0 {
+		return ErrCategoryInUse
+	}
+
 	return s.DB.Delete(&category).Error
 }
 

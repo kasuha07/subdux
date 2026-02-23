@@ -120,14 +120,17 @@ func (s *PaymentMethodService) Delete(userID, id uint) error {
 		return errors.New("payment method not found")
 	}
 
-	if err := s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.Subscription{}).
-			Where("user_id = ? AND payment_method_id = ?", userID, id).
-			Update("payment_method_id", nil).Error; err != nil {
-			return err
-		}
-		return tx.Delete(&model.PaymentMethod{}, "id = ? AND user_id = ?", id, userID).Error
-	}); err != nil {
+	var subscriptionsUsingMethod int64
+	if err := s.DB.Model(&model.Subscription{}).
+		Where("user_id = ? AND payment_method_id = ?", userID, id).
+		Count(&subscriptionsUsingMethod).Error; err != nil {
+		return err
+	}
+	if subscriptionsUsingMethod > 0 {
+		return ErrPaymentMethodInUse
+	}
+
+	if err := s.DB.Delete(&model.PaymentMethod{}, "id = ? AND user_id = ?", id, userID).Error; err != nil {
 		return err
 	}
 

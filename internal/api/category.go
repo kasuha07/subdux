@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -109,6 +110,9 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 	if err := h.Service.Delete(userID, uint(id)); err != nil {
 		if err.Error() == "category not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+		}
+		if errors.Is(err, service.ErrCategoryInUse) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}

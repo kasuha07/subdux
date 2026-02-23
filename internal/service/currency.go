@@ -99,6 +99,17 @@ func (s *CurrencyService) Delete(userID, id uint, preferredCurrency string) erro
 	if strings.EqualFold(currency.Code, preferredCurrency) {
 		return errors.New("cannot delete your preferred currency")
 	}
+
+	var subscriptionsUsingCurrency int64
+	if err := s.DB.Model(&model.Subscription{}).
+		Where("user_id = ? AND UPPER(currency) = ?", userID, strings.ToUpper(currency.Code)).
+		Count(&subscriptionsUsingCurrency).Error; err != nil {
+		return err
+	}
+	if subscriptionsUsingCurrency > 0 {
+		return ErrCurrencyInUse
+	}
+
 	return s.DB.Delete(&currency).Error
 }
 

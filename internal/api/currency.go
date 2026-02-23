@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -110,6 +111,9 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
 		if err.Error() == "cannot delete your preferred currency" {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
+		if errors.Is(err, service.ErrCurrencyInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})

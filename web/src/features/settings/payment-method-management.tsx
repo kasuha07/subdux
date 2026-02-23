@@ -97,8 +97,8 @@ export default function PaymentMethodManagement() {
       await api.delete(`/payment-methods/${id}`)
       setMethods((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.paymentMethodManagement.deleteSuccess"))
-    } catch {
-      void 0
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
     }
   }
 
