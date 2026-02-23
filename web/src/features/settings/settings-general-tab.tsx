@@ -27,11 +27,13 @@ interface SettingsGeneralTabProps {
   customThemeColors: CustomThemeColors
   displayAllAmountsInPrimaryCurrency: boolean
   displayRecurringAmountsAsMonthlyCost: boolean
+  displaySubscriptionCycleProgress: boolean
   language: string
   onColorSchemeChange: (next: ThemeColorScheme) => void
   onCustomThemeColorChange: (key: keyof CustomThemeColors, value: string) => void
   onDisplayAllAmountsInPrimaryCurrencyChange: (enabled: boolean) => void
   onDisplayRecurringAmountsAsMonthlyCostChange: (enabled: boolean) => void
+  onDisplaySubscriptionCycleProgressChange: (enabled: boolean) => void
   onLanguageChange: (language: string) => void
   onResetCustomThemeColors: () => void
   onThemeChange: (next: Theme) => void
@@ -61,11 +63,13 @@ export default function SettingsGeneralTab({
   customThemeColors,
   displayAllAmountsInPrimaryCurrency,
   displayRecurringAmountsAsMonthlyCost,
+  displaySubscriptionCycleProgress,
   language,
   onColorSchemeChange,
   onCustomThemeColorChange,
   onDisplayAllAmountsInPrimaryCurrencyChange,
   onDisplayRecurringAmountsAsMonthlyCostChange,
+  onDisplaySubscriptionCycleProgressChange,
   onLanguageChange,
   onResetCustomThemeColors,
   onThemeChange,
@@ -105,6 +109,19 @@ export default function SettingsGeneralTab({
               className="cursor-pointer"
             >
               {t("settings.displayAmount.monthlyCostToggle")}
+            </Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="display-subscription-cycle-progress"
+              checked={displaySubscriptionCycleProgress}
+              onCheckedChange={onDisplaySubscriptionCycleProgressChange}
+            />
+            <Label
+              htmlFor="display-subscription-cycle-progress"
+              className="cursor-pointer"
+            >
+              {t("settings.displayAmount.cycleProgressToggle")}
             </Label>
           </div>
         </div>

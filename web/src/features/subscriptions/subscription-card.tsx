@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff } from "lucide-react"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
+import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
 
 function renderIcon(icon: string, name: string): ReactNode {
   const fallbackInitial = (
@@ -63,6 +64,7 @@ interface SubscriptionCardProps {
   displayCurrency?: string
   displayCurrencySymbol?: string
   showMonthlyAmount?: boolean
+  showCycleProgress?: boolean
   paymentMethodName?: string
   paymentMethodIcon?: string
   onEdit: (sub: Subscription) => void
@@ -133,6 +135,7 @@ export default function SubscriptionCard({
   displayCurrency,
   displayCurrencySymbol,
   showMonthlyAmount = false,
+  showCycleProgress = false,
   paymentMethodName,
   paymentMethodIcon,
   onEdit,
@@ -231,7 +234,7 @@ export default function SubscriptionCard({
   const secondaryBadgeTitle = secondaryBadgeText
 
   return (
-    <Card className="group py-3 transition-all hover:shadow-md">
+    <Card className="group relative overflow-hidden py-3 transition-all hover:shadow-md">
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
@@ -329,6 +332,7 @@ export default function SubscriptionCard({
           </Button>
         </div>
       </CardContent>
+      {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}
     </Card>
   )
 }

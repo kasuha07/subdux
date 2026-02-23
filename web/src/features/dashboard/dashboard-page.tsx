@@ -13,8 +13,10 @@ import { api, isAdmin } from "@/lib/api"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
   DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY,
+  DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY,
   getDisplayAllAmountsInPrimaryCurrency,
   getDisplayRecurringAmountsAsMonthlyCost,
+  getDisplaySubscriptionCycleProgress,
 } from "@/lib/display-preferences"
 import { getExchangeRatesToTarget } from "@/lib/exchange-rate-cache"
 import { toast } from "sonner"
@@ -116,6 +118,9 @@ export default function DashboardPage() {
   const [displayRecurringAmountsAsMonthlyCost, setDisplayRecurringAmountsAsMonthlyCost] = useState(
     getDisplayRecurringAmountsAsMonthlyCost()
   )
+  const [displaySubscriptionCycleProgress, setDisplaySubscriptionCycleProgress] = useState(
+    getDisplaySubscriptionCycleProgress()
+  )
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
 
   const {
@@ -176,6 +181,9 @@ export default function DashboardPage() {
       }
       if (event.key === DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY) {
         setDisplayRecurringAmountsAsMonthlyCost(getDisplayRecurringAmountsAsMonthlyCost())
+      }
+      if (event.key === DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY) {
+        setDisplaySubscriptionCycleProgress(getDisplaySubscriptionCycleProgress())
       }
     }
     window.addEventListener("storage", handleStorage)
@@ -395,6 +403,7 @@ export default function DashboardPage() {
                         displayCurrency={displayCurrency}
                         displayCurrencySymbol={displayCurrencySymbol}
                         showMonthlyAmount={monthlyFactor !== null}
+                        showCycleProgress={displaySubscriptionCycleProgress}
                         paymentMethodName={
                           sub.payment_method_id
                             ? paymentMethodLabelMap.get(sub.payment_method_id)
@@ -421,6 +430,7 @@ export default function DashboardPage() {
                       displayCurrency={displayCurrency}
                       displayCurrencySymbol={displayCurrencySymbol}
                       showMonthlyAmount={monthlyFactor !== null}
+                      showCycleProgress={displaySubscriptionCycleProgress}
                       paymentMethodName={
                         sub.payment_method_id
                           ? paymentMethodLabelMap.get(sub.payment_method_id)

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
+import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
 
 function renderIcon(icon: string, name: string): ReactNode {
   const fallbackInitial = (
@@ -52,6 +53,7 @@ interface SubscriptionSquareCardProps {
   displayCurrency?: string
   displayCurrencySymbol?: string
   showMonthlyAmount?: boolean
+  showCycleProgress?: boolean
   paymentMethodName?: string
   onEdit: (sub: Subscription) => void
 }
@@ -69,6 +71,7 @@ export default function SubscriptionSquareCard({
   displayCurrency,
   displayCurrencySymbol,
   showMonthlyAmount = false,
+  showCycleProgress = false,
   paymentMethodName,
   onEdit,
 }: SubscriptionSquareCardProps) {
@@ -126,7 +129,7 @@ export default function SubscriptionSquareCard({
   const reminderOff = subscription.notify_enabled === false
 
   return (
-    <Card className="h-auto w-full self-start gap-0 py-2 transition-all hover:shadow-md">
+    <Card className="relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md">
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -184,6 +187,7 @@ export default function SubscriptionSquareCard({
           </Button>
         </div>
       </CardContent>
+      {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}
     </Card>
   )
 }

@@ -42,7 +42,8 @@ const settings = {
     "title": "Amount Display",
     "description": "Control how amounts are shown on subscription cards",
     "toggle": "Display all amounts in primary currency",
-    "monthlyCostToggle": "Display recurring subscriptions as monthly cost"
+    "monthlyCostToggle": "Display recurring subscriptions as monthly cost",
+    "cycleProgressToggle": "Show subscription cycle progress bar"
   },
   "currencyManagement": {
     "title": "Currency Management",

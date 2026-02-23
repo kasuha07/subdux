@@ -24,6 +24,7 @@ const subscription = {
       "off": "提醒已关闭"
     },
     "notes": "备注：{{content}}",
+    "cycleProgressAria": "当前周期进度：{{progress}}%",
     "status": {
       "enabled": "启用",
       "disabled": "停用"

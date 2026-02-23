@@ -24,6 +24,7 @@ const subscription = {
       "off": "リマインドオフ"
     },
     "notes": "メモ: {{content}}",
+    "cycleProgressAria": "現在のサイクル進捗: {{progress}}%",
     "status": {
       "enabled": "有効",
       "disabled": "無効"

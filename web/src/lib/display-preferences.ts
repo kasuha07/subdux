@@ -1,5 +1,6 @@
 export const DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY = "displayAllAmountsInPrimaryCurrency"
 export const DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY = "displayRecurringAmountsAsMonthlyCost"
+export const DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY = "displaySubscriptionCycleProgress"
 
 export function getDisplayAllAmountsInPrimaryCurrency(): boolean {
   return localStorage.getItem(DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY) === "true"
@@ -15,4 +16,12 @@ export function getDisplayRecurringAmountsAsMonthlyCost(): boolean {
 
 export function setDisplayRecurringAmountsAsMonthlyCost(enabled: boolean): void {
   localStorage.setItem(DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY, enabled ? "true" : "false")
+}
+
+export function getDisplaySubscriptionCycleProgress(): boolean {
+  return localStorage.getItem(DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY) === "true"
+}
+
+export function setDisplaySubscriptionCycleProgress(enabled: boolean): void {
+  localStorage.setItem(DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY, enabled ? "true" : "false")
 }

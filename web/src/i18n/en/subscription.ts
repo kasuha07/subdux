@@ -24,6 +24,7 @@ const subscription = {
       "off": "Reminder off"
     },
     "notes": "Note: {{content}}",
+    "cycleProgressAria": "Current cycle progress: {{progress}}%",
     "status": {
       "enabled": "enabled",
       "disabled": "disabled"

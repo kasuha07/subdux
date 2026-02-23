@@ -11,8 +11,10 @@ import { api } from "@/lib/api"
 import {
   getDisplayAllAmountsInPrimaryCurrency,
   getDisplayRecurringAmountsAsMonthlyCost,
+  getDisplaySubscriptionCycleProgress,
   setDisplayAllAmountsInPrimaryCurrency,
   setDisplayRecurringAmountsAsMonthlyCost,
+  setDisplaySubscriptionCycleProgress,
 } from "@/lib/display-preferences"
 import type { VersionInfo } from "@/types"
 import {
@@ -52,6 +54,9 @@ export default function SettingsPage() {
   )
   const [displayRecurringAmountsAsMonthlyCost, setDisplayRecurringAmountsAsMonthlyCostState] = useState(
     getDisplayRecurringAmountsAsMonthlyCost()
+  )
+  const [displaySubscriptionCycleProgress, setDisplaySubscriptionCycleProgressState] = useState(
+    getDisplaySubscriptionCycleProgress()
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
@@ -134,6 +139,11 @@ export default function SettingsPage() {
     setDisplayRecurringAmountsAsMonthlyCost(enabled)
   }
 
+  function handleDisplaySubscriptionCycleProgress(enabled: boolean) {
+    setDisplaySubscriptionCycleProgressState(enabled)
+    setDisplaySubscriptionCycleProgress(enabled)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
@@ -188,6 +198,8 @@ export default function SettingsPage() {
             onDisplayAllAmountsInPrimaryCurrencyChange={handleDisplayAllAmountsInPrimaryCurrency}
             displayRecurringAmountsAsMonthlyCost={displayRecurringAmountsAsMonthlyCost}
             onDisplayRecurringAmountsAsMonthlyCostChange={handleDisplayRecurringAmountsAsMonthlyCost}
+            displaySubscriptionCycleProgress={displaySubscriptionCycleProgress}
+            onDisplaySubscriptionCycleProgressChange={handleDisplaySubscriptionCycleProgress}
             language={i18n.language}
             onLanguageChange={(language) => {
               void i18n.changeLanguage(language)

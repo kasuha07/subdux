@@ -42,7 +42,8 @@ const settings = {
     "title": "金额显示",
     "description": "控制订阅卡片上的金额显示方式",
     "toggle": "将所有金额显示为主货币",
-    "monthlyCostToggle": "将订阅制金额显示为每月费用"
+    "monthlyCostToggle": "将订阅制金额显示为每月费用",
+    "cycleProgressToggle": "显示订阅周期进度条"
   },
   "currencyManagement": {
     "title": "货币管理",
