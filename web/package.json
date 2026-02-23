@@ -12,6 +12,8 @@
   "dependencies": {
     "@icongo/bl": "^1.2.0",
     "@icongo/lg": "^1.2.0",
+    "@icongo/ri": "^1.2.0",
+    "@icongo/si": "^1.2.0",
     "@icongo/vl": "^1.2.0",
     "@tailwindcss/vite": "^4.1.18",
     "class-variance-authority": "^0.7.1",
