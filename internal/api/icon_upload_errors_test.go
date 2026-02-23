@@ -18,6 +18,7 @@ func TestIsIconUploadBadRequestError(t *testing.T) {
 		{err: service.ErrIconUploadUnsupportedType, want: true},
 		{err: service.ErrIconUploadContentMismatch, want: true},
 		{err: service.ErrIconUploadInvalidICO, want: true},
+		{err: service.ErrImageUploadDisabled, want: false},
 		{err: errors.New("failed to save icon file"), want: false},
 	}
 
@@ -25,5 +26,14 @@ func TestIsIconUploadBadRequestError(t *testing.T) {
 		if got := isIconUploadBadRequestError(tt.err); got != tt.want {
 			t.Fatalf("isIconUploadBadRequestError(%v) = %v, want %v", tt.err, got, tt.want)
 		}
+	}
+}
+
+func TestIsIconUploadForbiddenError(t *testing.T) {
+	if !isIconUploadForbiddenError(service.ErrImageUploadDisabled) {
+		t.Fatalf("isIconUploadForbiddenError(%v) = false, want true", service.ErrImageUploadDisabled)
+	}
+	if isIconUploadForbiddenError(service.ErrIconUploadUnsupportedType) {
+		t.Fatalf("isIconUploadForbiddenError(%v) = true, want false", service.ErrIconUploadUnsupportedType)
 	}
 }

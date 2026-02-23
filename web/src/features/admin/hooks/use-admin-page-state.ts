@@ -12,6 +12,7 @@ import type {
 } from "@/types"
 
 interface AdminSettingsFormState {
+  allowImageUpload: boolean
   currencyApiKey: string
   currencyApiKeyConfigured: boolean
   exchangeRateSource: string
@@ -98,6 +99,7 @@ interface UseAdminPageStateResult {
 
 function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
   return {
+    allowImageUpload: settings?.allow_image_upload ?? true,
     currencyApiKey: "",
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
     exchangeRateSource: settings?.exchange_rate_source || "auto",
@@ -305,6 +307,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         site_name: settingsForm.siteName,
         site_url: settingsForm.siteUrl,
         exchange_rate_source: settingsForm.exchangeRateSource,
+        allow_image_upload: settingsForm.allowImageUpload,
         max_icon_file_size: settingsForm.maxIconFileSize * 1024,
         smtp_enabled: settingsForm.smtpEnabled,
         smtp_host: settingsForm.smtpHost,

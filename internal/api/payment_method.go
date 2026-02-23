@@ -168,6 +168,9 @@ func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 	maxSize := h.Service.GetMaxIconFileSize()
 	iconPath, err := h.Service.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
+		if isIconUploadForbiddenError(err) {
+			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
+		}
 		if isIconUploadBadRequestError(err) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}

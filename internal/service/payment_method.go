@@ -169,7 +169,19 @@ func (s *PaymentMethodService) GetMaxIconFileSize() int64 {
 	return 65536
 }
 
+func (s *PaymentMethodService) AllowImageUpload() bool {
+	var setting model.SystemSetting
+	if err := s.DB.Where("key = ?", "allow_image_upload").First(&setting).Error; err == nil {
+		return setting.Value == "true"
+	}
+	return true
+}
+
 func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, file io.Reader, filename string, maxSize int64) (string, error) {
+	if !s.AllowImageUpload() {
+		return "", ErrImageUploadDisabled
+	}
+
 	method, err := s.GetByID(userID, methodID)
 	if err != nil {
 		return "", errors.New("payment method not found")

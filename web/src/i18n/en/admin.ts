@@ -46,6 +46,8 @@ const admin = {
     "save": "Save settings",
     "saved": "Settings saved",
     "saveSuccess": "Settings saved successfully",
+    "allowImageUpload": "Allow icon image uploads",
+    "allowImageUploadDescription": "When disabled, new subscription/payment method icon uploads are blocked (existing uploaded icons are unaffected)",
     "maxIconFileSize": "Max Icon Upload Size",
     "maxIconFileSizeDescription": "Maximum file size allowed for subscription icon image uploads",
     "maxIconFileSizeUnit": "KB",

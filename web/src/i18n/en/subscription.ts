@@ -97,7 +97,7 @@ const subscription = {
       "urlLabel": "Image URL",
       "urlPlaceholder": "https://example.com/logo.png",
       "uploadLabel": "Upload image",
-      "uploadHint": "PNG, JPG, or ICO (signature + extension checked), max {{size}}KB",
+      "uploadHint": "PNG, JPG, or ICO, max {{size}}KB",
       "uploadButton": "Choose file",
       "invalidType": "Only valid PNG/JPG/ICO files with matching extension are allowed",
       "fileTooLarge": "File exceeds {{size}}KB limit",

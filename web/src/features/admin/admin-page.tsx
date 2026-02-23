@@ -97,6 +97,7 @@ export default function AdminPage() {
             />
 
             <AdminSettingsTab
+              allowImageUpload={settingsForm.allowImageUpload}
               siteName={settingsForm.siteName}
               onSiteNameChange={(value) => admin.setSettingsField("siteName", value)}
               siteUrl={settingsForm.siteUrl}
@@ -110,6 +111,9 @@ export default function AdminPage() {
                 admin.handleRegistrationEmailVerificationChange
               }
               maxIconFileSize={settingsForm.maxIconFileSize}
+              onAllowImageUploadChange={(enabled) =>
+                admin.setSettingsField("allowImageUpload", enabled)
+              }
               onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
               onSave={admin.handleSaveSettings}
             />

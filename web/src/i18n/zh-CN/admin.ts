@@ -46,6 +46,8 @@ const admin = {
     "save": "保存设置",
     "saved": "设置已保存",
     "saveSuccess": "设置保存成功",
+    "allowImageUpload": "允许上传图标图片",
+    "allowImageUploadDescription": "关闭后将阻止新订阅/支付方式图标上传，已上传图片不受影响",
     "maxIconFileSize": "图标上传大小限制",
     "maxIconFileSizeDescription": "订阅图标图片上传的最大文件大小",
     "maxIconFileSizeUnit": "KB",

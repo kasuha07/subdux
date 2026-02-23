@@ -1,5 +1,7 @@
 export interface AdminSettingsTabProps {
+  allowImageUpload: boolean
   maxIconFileSize: number
+  onAllowImageUploadChange: (enabled: boolean) => void
   onMaxIconFileSizeChange: (value: number) => void
   onOIDCAutoCreateUserChange: (enabled: boolean) => void
   onOIDCAudienceChange: (value: string) => void
@@ -72,7 +74,9 @@ export interface AdminSettingsTabProps {
 
 export type AdminSettingsBasicSectionProps = Pick<
   AdminSettingsTabProps,
+  | "allowImageUpload"
   | "maxIconFileSize"
+  | "onAllowImageUploadChange"
   | "onMaxIconFileSizeChange"
   | "onRegistrationEnabledChange"
   | "onRegistrationEmailVerificationEnabledChange"

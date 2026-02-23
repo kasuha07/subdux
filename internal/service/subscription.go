@@ -381,7 +381,19 @@ func (s *SubscriptionService) GetMaxIconFileSize() int64 {
 	return 65536
 }
 
+func (s *SubscriptionService) AllowImageUpload() bool {
+	var setting model.SystemSetting
+	if err := s.DB.Where("key = ?", "allow_image_upload").First(&setting).Error; err == nil {
+		return setting.Value == "true"
+	}
+	return true
+}
+
 func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io.Reader, filename string, maxSize int64) (string, error) {
+	if !s.AllowImageUpload() {
+		return "", ErrImageUploadDisabled
+	}
+
 	sub, err := s.GetByID(userID, subID)
 	if err != nil {
 		return "", errors.New("subscription not found")

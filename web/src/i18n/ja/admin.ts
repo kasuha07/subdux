@@ -46,6 +46,8 @@ const admin = {
     "save": "設定を保存",
     "saved": "設定を保存しました",
     "saveSuccess": "設定を保存しました",
+    "allowImageUpload": "アイコン画像アップロードを許可",
+    "allowImageUploadDescription": "無効化すると新しいサブスクリプション/支払い方法のアイコンアップロードを拒否します（既存のアップロード済みアイコンには影響しません）",
     "maxIconFileSize": "アイコン最大アップロードサイズ",
     "maxIconFileSizeDescription": "サブスクリプションアイコン画像のアップロード最大ファイルサイズ",
     "maxIconFileSizeUnit": "KB",

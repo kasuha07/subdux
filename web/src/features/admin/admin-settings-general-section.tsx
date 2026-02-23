@@ -8,7 +8,9 @@ import { Switch } from "@/components/ui/switch"
 import type { AdminSettingsBasicSectionProps } from "./admin-settings-types"
 
 export default function AdminSettingsGeneralSection({
+  allowImageUpload,
   maxIconFileSize,
+  onAllowImageUploadChange,
   onMaxIconFileSizeChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
@@ -77,6 +79,20 @@ export default function AdminSettingsGeneralSection({
           id="registration-email-verification"
           checked={registrationEmailVerificationEnabled}
           onCheckedChange={onRegistrationEmailVerificationEnabledChange}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="allow-image-upload">{t("admin.settings.allowImageUpload")}</Label>
+          <p className="text-sm text-muted-foreground">{t("admin.settings.allowImageUploadDescription")}</p>
+        </div>
+        <Switch
+          id="allow-image-upload"
+          checked={allowImageUpload}
+          onCheckedChange={onAllowImageUploadChange}
         />
       </div>
 

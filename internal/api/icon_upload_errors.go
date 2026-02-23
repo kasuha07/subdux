@@ -24,3 +24,7 @@ func isIconUploadBadRequestError(err error) bool {
 		return false
 	}
 }
+
+func isIconUploadForbiddenError(err error) bool {
+	return errors.Is(err, service.ErrImageUploadDisabled)
+}

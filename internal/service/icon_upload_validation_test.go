@@ -126,6 +126,64 @@ func TestUploadPaymentMethodIconAcceptsICO(t *testing.T) {
 	}
 }
 
+func TestUploadSubscriptionIconBlockedWhenImageUploadDisabled(t *testing.T) {
+	dataPath := t.TempDir()
+	t.Setenv("DATA_PATH", dataPath)
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings: %v", err)
+	}
+	user := createTestUser(t, db)
+	sub := model.Subscription{
+		UserID:   user.ID,
+		Name:     "Demo",
+		Amount:   1.99,
+		Currency: "USD",
+	}
+	if err := db.Create(&sub).Error; err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+	if err := db.Create(&model.SystemSetting{Key: "allow_image_upload", Value: "false"}).Error; err != nil {
+		t.Fatalf("failed to disable image upload: %v", err)
+	}
+
+	svc := NewSubscriptionService(db)
+	_, err := svc.UploadSubscriptionIcon(user.ID, sub.ID, bytes.NewReader(mustEncodePNG(t, 16, 16)), "demo.png", 65536)
+	if !errors.Is(err, ErrImageUploadDisabled) {
+		t.Fatalf("UploadSubscriptionIcon() error = %v, want %v", err, ErrImageUploadDisabled)
+	}
+}
+
+func TestUploadPaymentMethodIconBlockedWhenImageUploadDisabled(t *testing.T) {
+	dataPath := t.TempDir()
+	t.Setenv("DATA_PATH", dataPath)
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings: %v", err)
+	}
+	user := createTestUser(t, db)
+	method := model.PaymentMethod{
+		UserID:         user.ID,
+		Name:           "Card",
+		NameCustomized: true,
+		Icon:           "",
+	}
+	if err := db.Create(&method).Error; err != nil {
+		t.Fatalf("failed to create payment method: %v", err)
+	}
+	if err := db.Create(&model.SystemSetting{Key: "allow_image_upload", Value: "false"}).Error; err != nil {
+		t.Fatalf("failed to disable image upload: %v", err)
+	}
+
+	svc := NewPaymentMethodService(db)
+	_, err := svc.UploadPaymentMethodIcon(user.ID, method.ID, bytes.NewReader(mustEncodePNG(t, 16, 16)), "card.png", 65536)
+	if !errors.Is(err, ErrImageUploadDisabled) {
+		t.Fatalf("UploadPaymentMethodIcon() error = %v, want %v", err, ErrImageUploadDisabled)
+	}
+}
+
 func mustEncodePNG(t *testing.T, width, height int) []byte {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))

@@ -50,6 +50,7 @@ type SystemSettings struct {
 	SiteURL                              string `json:"site_url"`
 	CurrencyAPIKeySet                    bool   `json:"currencyapi_key_configured"`
 	ExchangeRateSource                   string `json:"exchange_rate_source"`
+	AllowImageUpload                     bool   `json:"allow_image_upload"`
 	MaxIconFileSize                      int64  `json:"max_icon_file_size"`
 	SMTPEnabled                          bool   `json:"smtp_enabled"`
 	SMTPHost                             string `json:"smtp_host"`
@@ -86,6 +87,7 @@ type UpdateSettingsInput struct {
 	SiteURL                              *string `json:"site_url"`
 	CurrencyAPIKey                       *string `json:"currencyapi_key"`
 	ExchangeRateSource                   *string `json:"exchange_rate_source"`
+	AllowImageUpload                     *bool   `json:"allow_image_upload"`
 	MaxIconFileSize                      *int64  `json:"max_icon_file_size"`
 	SMTPEnabled                          *bool   `json:"smtp_enabled"`
 	SMTPHost                             *string `json:"smtp_host"`
@@ -241,6 +243,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		SiteURL:                              "",
 		CurrencyAPIKeySet:                    false,
 		ExchangeRateSource:                   "auto",
+		AllowImageUpload:                     true,
 		MaxIconFileSize:                      65536,
 		SMTPEnabled:                          false,
 		SMTPHost:                             "",
@@ -287,6 +290,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.CurrencyAPIKeySet = strings.TrimSpace(item.Value) != ""
 		case "exchange_rate_source":
 			settings.ExchangeRateSource = item.Value
+		case "allow_image_upload":
+			settings.AllowImageUpload = item.Value == "true"
 		case "max_icon_file_size":
 			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
 				settings.MaxIconFileSize = v
@@ -407,6 +412,18 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "exchange_rate_source").
 				Assign(model.SystemSetting{Value: *input.ExchangeRateSource}).
 				FirstOrCreate(&model.SystemSetting{Key: "exchange_rate_source"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.AllowImageUpload != nil {
+			value := "false"
+			if *input.AllowImageUpload {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "allow_image_upload").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "allow_image_upload"}).Error; err != nil {
 				return err
 			}
 		}

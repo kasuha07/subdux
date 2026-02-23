@@ -8,7 +8,9 @@ import AdminSettingsGeneralSection from "./admin-settings-general-section"
 import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 
 export default function AdminSettingsTab({
+  allowImageUpload,
   maxIconFileSize,
+  onAllowImageUploadChange,
   onMaxIconFileSizeChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
@@ -25,7 +27,9 @@ export default function AdminSettingsTab({
   return (
     <TabsContent value="settings" className="space-y-6">
       <AdminSettingsGeneralSection
+        allowImageUpload={allowImageUpload}
         maxIconFileSize={maxIconFileSize}
+        onAllowImageUploadChange={onAllowImageUploadChange}
         onMaxIconFileSizeChange={onMaxIconFileSizeChange}
         onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
         onRegistrationEnabledChange={onRegistrationEnabledChange}

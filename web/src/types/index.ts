@@ -207,6 +207,7 @@ export interface SystemSettings {
   site_url: string
   currencyapi_key_configured: boolean
   exchange_rate_source: string
+  allow_image_upload: boolean
   max_icon_file_size: number
   smtp_enabled: boolean
   smtp_host: string
@@ -243,6 +244,7 @@ export interface UpdateSettingsInput {
   site_url?: string
   currencyapi_key?: string
   exchange_rate_source?: string
+  allow_image_upload?: boolean
   max_icon_file_size?: number
   smtp_enabled?: boolean
   smtp_host?: string

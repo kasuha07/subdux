@@ -182,6 +182,7 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "site_url", Value: ""},
 		{Key: "currencyapi_key", Value: ""},
 		{Key: "exchange_rate_source", Value: "auto"},
+		{Key: "allow_image_upload", Value: "true"},
 		{Key: "max_icon_file_size", Value: "65536"},
 		{Key: "smtp_enabled", Value: "false"},
 		{Key: "smtp_host", Value: ""},
