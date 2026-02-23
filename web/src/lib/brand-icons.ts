@@ -94,7 +94,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Google Pay",
     hex: "#4285F4",
     keywords: ["payment", "wallet"],
-    loadIcon: () => import("@icongo/lg/esm/LGGooglePay").then((module) => module.LGGooglePay),
+    loadIcon: () => import("@icongo/lg/esm/LGGooglePayIcon").then((module) => module.LGGooglePayIcon),
   },
   {
     prefix: "lg",
@@ -102,7 +102,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "OpenAI",
     hex: "#412991",
     keywords: ["chatgpt", "gpt", "ai"],
-    loadIcon: () => import("@icongo/lg/esm/LGOpenai").then((module) => module.LGOpenai),
+    loadIcon: () => import("@icongo/lg/esm/LGOpenaiIcon").then((module) => module.LGOpenaiIcon),
   },
   {
     prefix: "lg",
@@ -110,7 +110,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Google",
     hex: "#4285F4",
     keywords: ["search", "workspace"],
-    loadIcon: () => import("@icongo/lg/esm/LGGoogle").then((module) => module.LGGoogle),
+    loadIcon: () => import("@icongo/lg/esm/LGGoogleIcon").then((module) => module.LGGoogleIcon),
   },
   {
     prefix: "lg",
@@ -134,7 +134,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "DigitalOcean",
     hex: "#0080FF",
     keywords: ["cloud"],
-    loadIcon: () => import("@icongo/lg/esm/LGDigitalOcean").then((module) => module.LGDigitalOcean),
+    loadIcon: () => import("@icongo/vl/esm/VLDigitalocean").then((module) => module.VLDigitalocean),
   },
   {
     prefix: "lg",
@@ -142,7 +142,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Vercel",
     hex: "#000000",
     keywords: ["hosting"],
-    loadIcon: () => import("@icongo/lg/esm/LGVercel").then((module) => module.LGVercel),
+    loadIcon: () => import("@icongo/lg/esm/LGVercelIcon").then((module) => module.LGVercelIcon),
   },
   {
     prefix: "lg",
@@ -166,7 +166,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Oracle",
     hex: "#F80000",
     keywords: ["cloud"],
-    loadIcon: () => import("@icongo/lg/esm/LGOracle").then((module) => module.LGOracle),
+    loadIcon: () => import("@icongo/vl/esm/VLOracle").then((module) => module.VLOracle),
   },
   {
     prefix: "lg",
@@ -190,7 +190,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "GitHub",
     hex: "#181717",
     keywords: ["code", "git"],
-    loadIcon: () => import("@icongo/lg/esm/LGGithub").then((module) => module.LGGithub),
+    loadIcon: () => import("@icongo/lg/esm/LGGithubIcon").then((module) => module.LGGithubIcon),
   },
   {
     prefix: "lg",
@@ -206,7 +206,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Docker",
     hex: "#2496ED",
     keywords: ["container"],
-    loadIcon: () => import("@icongo/lg/esm/LGDocker").then((module) => module.LGDocker),
+    loadIcon: () => import("@icongo/lg/esm/LGDockerIcon").then((module) => module.LGDockerIcon),
   },
   {
     prefix: "lg",
@@ -222,7 +222,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Postman",
     hex: "#FF6C37",
     keywords: ["api"],
-    loadIcon: () => import("@icongo/lg/esm/LGPostman").then((module) => module.LGPostman),
+    loadIcon: () => import("@icongo/lg/esm/LGPostmanIcon").then((module) => module.LGPostmanIcon),
   },
   {
     prefix: "lg",
@@ -254,7 +254,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Asana",
     hex: "#F06A6A",
     keywords: ["project"],
-    loadIcon: () => import("@icongo/lg/esm/LGAsana").then((module) => module.LGAsana),
+    loadIcon: () => import("@icongo/lg/esm/LGAsanaIcon").then((module) => module.LGAsanaIcon),
   },
   {
     prefix: "lg",
@@ -262,7 +262,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "YouTube",
     hex: "#FF0000",
     keywords: ["video"],
-    loadIcon: () => import("@icongo/lg/esm/LGYoutube").then((module) => module.LGYoutube),
+    loadIcon: () => import("@icongo/lg/esm/LGYoutubeIcon").then((module) => module.LGYoutubeIcon),
   },
   {
     prefix: "lg",
@@ -270,7 +270,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Spotify",
     hex: "#1DB954",
     keywords: ["music"],
-    loadIcon: () => import("@icongo/lg/esm/LGSpotify").then((module) => module.LGSpotify),
+    loadIcon: () => import("@icongo/lg/esm/LGSpotifyIcon").then((module) => module.LGSpotifyIcon),
   },
   {
     prefix: "lg",
@@ -278,7 +278,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Netflix",
     hex: "#E50914",
     keywords: ["video"],
-    loadIcon: () => import("@icongo/lg/esm/LGNetflix").then((module) => module.LGNetflix),
+    loadIcon: () => import("@icongo/vl/esm/VLNetflix").then((module) => module.VLNetflix),
   },
   {
     prefix: "lg",
@@ -286,7 +286,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Apple",
     hex: "#000000",
     keywords: ["ios", "mac"],
-    loadIcon: () => import("@icongo/lg/esm/LGApple").then((module) => module.LGApple),
+    loadIcon: () => import("@icongo/lg/esm/LGAppleAppStore").then((module) => module.LGAppleAppStore),
   },
   {
     prefix: "lg",
@@ -294,7 +294,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "TikTok",
     hex: "#000000",
     keywords: ["short video"],
-    loadIcon: () => import("@icongo/lg/esm/LGTiktok").then((module) => module.LGTiktok),
+    loadIcon: () => import("@icongo/lg/esm/LGTiktokIcon").then((module) => module.LGTiktokIcon),
   },
   {
     prefix: "lg",
@@ -302,7 +302,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Discord",
     hex: "#5865F2",
     keywords: ["chat"],
-    loadIcon: () => import("@icongo/lg/esm/LGDiscord").then((module) => module.LGDiscord),
+    loadIcon: () => import("@icongo/lg/esm/LGDiscordIcon").then((module) => module.LGDiscordIcon),
   },
   {
     prefix: "lg",
@@ -326,7 +326,7 @@ const brandSpecs: BrandIconSpec[] = [
     title: "Instagram",
     hex: "#E4405F",
     keywords: ["social"],
-    loadIcon: () => import("@icongo/lg/esm/LGInstagram").then((module) => module.LGInstagram),
+    loadIcon: () => import("@icongo/lg/esm/LGInstagramIcon").then((module) => module.LGInstagramIcon),
   },
   {
     prefix: "lg",

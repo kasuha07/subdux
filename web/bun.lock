@@ -7,6 +7,7 @@
       "dependencies": {
         "@icongo/bl": "^1.2.0",
         "@icongo/lg": "^1.2.0",
+        "@icongo/vl": "^1.2.0",
         "@tailwindcss/vite": "^4.1.18",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -169,6 +170,8 @@
     "@icongo/bl": ["@icongo/bl@1.2.0", "", {}, "sha512-JpdEE8AySImWH6CxOvFEBP3FVx0/fmqP0jT0yh040o+cVNhfHAVWONqmTah6+vkgC2hspnM4UrnxkCIl+NUVcg=="],
 
     "@icongo/lg": ["@icongo/lg@1.2.0", "", {}, "sha512-biK2kTHuNqOaq5clCAgHNpAlKzd1OaiQNem61vQEF5iT2ASqAbzAW2aqKl9br8cEXjDI/KEqoyLNrVrngAHv+Q=="],
+
+    "@icongo/vl": ["@icongo/vl@1.2.0", "", {}, "sha512-ZMeT0MD8n/7o/ifwNCq1ftyQSigyjvN6j52W91JGYaUpEBh9IWd3DTFuYqN2/I5jcM13l3w/8hRKz+26JRvsmg=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 
