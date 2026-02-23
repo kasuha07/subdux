@@ -142,7 +142,8 @@ func validateNotifyDaysBefore(value int) error {
 }
 
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
-	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, time.Now().UTC()); err != nil {
+	now := time.Now().In(pkg.GetSystemTimezone())
+	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}
 
@@ -493,7 +494,8 @@ func managedIconFilePath(icon string) (string, bool) {
 }
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
-	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, time.Now().UTC()); err != nil {
+	now := time.Now().In(pkg.GetSystemTimezone())
+	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}
 
@@ -520,7 +522,7 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 		totalMonthly += amount * factor
 	}
 
-	today := normalizeDateUTC(time.Now().UTC())
+	today := normalizeDateUTC(now)
 	sevenDays := today.AddDate(0, 0, 7)
 	var upcomingRenewalCount int64
 	if err := s.DB.Model(&model.Subscription{}).Where(
@@ -726,7 +728,7 @@ func subscriptionMonthlyFactor(sub model.Subscription) float64 {
 }
 
 func autoAdvanceRecurringNextBillingDatesForUser(db *gorm.DB, userID uint, referenceDate time.Time) error {
-	today := normalizeDateUTC(referenceDate.UTC())
+	today := normalizeDateUTC(referenceDate)
 
 	var subs []model.Subscription
 	if err := db.Where(
@@ -759,7 +761,7 @@ func nextRecurringBillingDateOnOrAfter(sub *model.Subscription, referenceDate ti
 		return nil, false
 	}
 
-	today := normalizeDateUTC(referenceDate.UTC())
+	today := normalizeDateUTC(referenceDate)
 	current := normalizeDateUTC(*sub.NextBillingDate)
 	if !current.Before(today) {
 		return nil, false

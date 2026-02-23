@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
+import { formatDateKey } from "@/lib/utils"
 import type {
   CreateSubscriptionInput,
   PaymentMethod,
@@ -65,9 +66,19 @@ const MAX_NOTIFICATION_DAYS_BEFORE = 10
 
 function formatDateInput(value: string | null | undefined): string {
   if (!value) {
-    return new Date().toISOString().split("T")[0]
+    return formatDateKey(new Date())
   }
-  return new Date(value).toISOString().split("T")[0]
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim())
+  if (match) {
+    return match[1]
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return formatDateKey(new Date())
+  }
+
+  return formatDateKey(parsed)
 }
 
 function buildInitialValues(
@@ -75,7 +86,7 @@ function buildInitialValues(
   fallbackCurrencyCode: string
 ): SubscriptionFormValues {
   const today = new Date()
-  const todayDate = today.toISOString().split("T")[0]
+  const todayDate = formatDateKey(today)
 
   if (subscription) {
     return {

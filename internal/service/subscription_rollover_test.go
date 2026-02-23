@@ -7,6 +7,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -144,7 +145,7 @@ func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	today := normalizeDateUTC(time.Now().UTC())
+	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
 	overdueRecurring := today.AddDate(0, 0, -10)
 	overdueOneTime := today.AddDate(0, 0, -5)
 
@@ -205,7 +206,7 @@ func TestDashboardAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	today := normalizeDateUTC(time.Now().UTC())
+	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
 	overdueRecurring := today.AddDate(0, -2, 0)
 	intervalCount := 1
 
@@ -245,7 +246,7 @@ func TestProcessUserNotificationsAutoAdvancesOverdueRecurringNextBillingDate(t *
 	subscriptionService := NewSubscriptionService(db)
 	notificationService := NewNotificationService(db, nil, nil)
 
-	today := normalizeDateUTC(time.Now().UTC())
+	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
 	overdueRecurring := today.AddDate(-1, 0, 0)
 	intervalCount := 1
 

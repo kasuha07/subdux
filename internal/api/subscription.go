@@ -21,28 +21,28 @@ func NewSubscriptionHandler(s *service.SubscriptionService, er *service.Exchange
 }
 
 type subscriptionResponse struct {
-	ID               uint       `json:"id"`
-	Name             string     `json:"name"`
-	Amount           float64    `json:"amount"`
-	Currency         string     `json:"currency"`
-	Enabled          bool       `json:"enabled"`
-	BillingType      string     `json:"billing_type"`
-	RecurrenceType   string     `json:"recurrence_type"`
-	IntervalCount    *int       `json:"interval_count"`
-	IntervalUnit     string     `json:"interval_unit"`
-	MonthlyDay       *int       `json:"monthly_day"`
-	YearlyMonth      *int       `json:"yearly_month"`
-	YearlyDay        *int       `json:"yearly_day"`
-	NextBillingDate  *time.Time `json:"next_billing_date"`
-	Category         string     `json:"category"`
-	CategoryID       *uint      `json:"category_id"`
-	PaymentMethodID  *uint      `json:"payment_method_id"`
-	NotifyEnabled    *bool      `json:"notify_enabled"`
-	NotifyDaysBefore *int       `json:"notify_days_before"`
-	Icon             string     `json:"icon"`
-	URL              string     `json:"url"`
-	Notes            string     `json:"notes"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID               uint      `json:"id"`
+	Name             string    `json:"name"`
+	Amount           float64   `json:"amount"`
+	Currency         string    `json:"currency"`
+	Enabled          bool      `json:"enabled"`
+	BillingType      string    `json:"billing_type"`
+	RecurrenceType   string    `json:"recurrence_type"`
+	IntervalCount    *int      `json:"interval_count"`
+	IntervalUnit     string    `json:"interval_unit"`
+	MonthlyDay       *int      `json:"monthly_day"`
+	YearlyMonth      *int      `json:"yearly_month"`
+	YearlyDay        *int      `json:"yearly_day"`
+	NextBillingDate  *string   `json:"next_billing_date"`
+	Category         string    `json:"category"`
+	CategoryID       *uint     `json:"category_id"`
+	PaymentMethodID  *uint     `json:"payment_method_id"`
+	NotifyEnabled    *bool     `json:"notify_enabled"`
+	NotifyDaysBefore *int      `json:"notify_days_before"`
+	Icon             string    `json:"icon"`
+	URL              string    `json:"url"`
+	Notes            string    `json:"notes"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
@@ -59,7 +59,7 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 		MonthlyDay:       sub.MonthlyDay,
 		YearlyMonth:      sub.YearlyMonth,
 		YearlyDay:        sub.YearlyDay,
-		NextBillingDate:  sub.NextBillingDate,
+		NextBillingDate:  formatDateOnly(sub.NextBillingDate),
 		Category:         sub.Category,
 		CategoryID:       sub.CategoryID,
 		PaymentMethodID:  sub.PaymentMethodID,
@@ -70,6 +70,15 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 		Notes:            sub.Notes,
 		CreatedAt:        sub.CreatedAt,
 	}
+}
+
+func formatDateOnly(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+
+	formatted := value.Format("2006-01-02")
+	return &formatted
 }
 
 func mapSubscriptionResponses(subs []model.Subscription) []subscriptionResponse {
