@@ -1,13 +1,35 @@
+import { SXAfdian } from "../custom/afdian"
 import { SXAdobeCreativeCloud } from "../custom/adobecreativecloud"
+import { SXAliyunDrive } from "../custom/aliyundrive"
+import { SXBaiduNetdisk } from "../custom/baidunetdisk"
 import { SXBitwarden } from "../custom/bitwarden"
+import { SXCamscanner } from "../custom/camscanner"
+import { SXChina12306 } from "../custom/china12306"
 import { SXCoinbase } from "../custom/coinbase"
+import { SXDrive115 } from "../custom/drive115"
+import { SXDrive123 } from "../custom/drive123"
 import { SXFeiniu } from "../custom/feiniu"
 import { SXFeishu } from "../custom/feishu"
 import { SXGodaddy } from "../custom/godaddy"
+import { SXHelloBike } from "../custom/hellobike"
 import { SXJd } from "../custom/jd"
+import { SXJuejin } from "../custom/juejin"
+import { SXLeetcode } from "../custom/leetcode"
+import { SXMeituan } from "../custom/meituan"
+import { SXOnlyFans } from "../custom/onlyfans"
+import { SXPikpak } from "../custom/pikpak"
 import { SXPinduoduo } from "../custom/pinduoduo"
+import { SXQuarkDrive } from "../custom/quarkdrive"
+import { SXSamsClub } from "../custom/samsclub"
 import { SXTaobao } from "../custom/taobao"
+import { SXTickTick } from "../custom/ticktick"
+import { SXVip88 } from "../custom/vip88"
+import { SXWeiyun } from "../custom/weiyun"
+import { SXWpsOffice } from "../custom/wpsoffice"
 import { SXX } from "../custom/x"
+import { SXXunlei } from "../custom/xunlei"
+import { SXYuque } from "../custom/yuque"
+import { SXZhihu } from "../custom/zhihu"
 
 import type { BrandIconSpec } from "../types"
 
@@ -149,6 +171,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGBox").then((module) => module.LGBox),
   },
   {
+    prefix: "custom",
+    slug: "baidunetdisk",
+    title: "Baidu Netdisk",
+    hex: "#06A7FF",
+    keywords: ["百度网盘", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXBaiduNetdisk),
+  },
+  {
     prefix: "lg",
     slug: "canva",
     title: "Canva",
@@ -171,6 +201,62 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     hex: "#0061FF",
     keywords: ["cloud storage", "files"],
     loadIcon: () => import("@icongo/lg/esm/LGDropbox").then((module) => module.LGDropbox),
+  },
+  {
+    prefix: "custom",
+    slug: "quarkdrive",
+    title: "Quark Drive",
+    hex: "#3A25DD",
+    keywords: ["夸克网盘", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXQuarkDrive),
+  },
+  {
+    prefix: "custom",
+    slug: "aliyundrive",
+    title: "Aliyun Drive",
+    hex: "#6666FF",
+    keywords: ["阿里云盘", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXAliyunDrive),
+  },
+  {
+    prefix: "custom",
+    slug: "drive115",
+    title: "115 Drive",
+    hex: "#224888",
+    keywords: ["115网盘", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXDrive115),
+  },
+  {
+    prefix: "custom",
+    slug: "drive123",
+    title: "123 Drive",
+    hex: "#597DFC",
+    keywords: ["123网盘", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXDrive123),
+  },
+  {
+    prefix: "custom",
+    slug: "weiyun",
+    title: "Tencent Weiyun",
+    hex: "#2980FF",
+    keywords: ["腾讯微云", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXWeiyun),
+  },
+  {
+    prefix: "custom",
+    slug: "xunlei",
+    title: "Xunlei",
+    hex: "#1390F2",
+    keywords: ["迅雷", "download", "cloud storage"],
+    loadIcon: () => Promise.resolve(SXXunlei),
+  },
+  {
+    prefix: "custom",
+    slug: "pikpak",
+    title: "PikPak",
+    hex: "#306EFF",
+    keywords: ["pikpak", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXPikpak),
   },
   {
     prefix: "lg",
@@ -222,6 +308,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
   },
   {
     prefix: "custom",
+    slug: "camscanner",
+    title: "CamScanner",
+    hex: "#3A86FF",
+    keywords: ["scan", "document", "pdf"],
+    loadIcon: () => Promise.resolve(SXCamscanner),
+  },
+  {
+    prefix: "custom",
     slug: "godaddy",
     title: "GoDaddy",
     hex: "#1BDBDB",
@@ -245,6 +339,46 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGGrammarlyIcon").then((module) => module.LGGrammarlyIcon),
   },
   {
+    prefix: "custom",
+    slug: "wpsoffice",
+    title: "WPS Office",
+    hex: "#FE3E53",
+    keywords: ["wps", "office", "document", "金山办公"],
+    loadIcon: () => Promise.resolve(SXWpsOffice),
+  },
+  {
+    prefix: "custom",
+    slug: "yuque",
+    title: "Yuque",
+    hex: "#31CC79",
+    keywords: ["语雀", "docs", "knowledge base"],
+    loadIcon: () => Promise.resolve(SXYuque),
+  },
+  {
+    prefix: "custom",
+    slug: "ticktick",
+    title: "TickTick",
+    hex: "#617FDE",
+    keywords: ["滴答清单", "todo", "task management"],
+    loadIcon: () => Promise.resolve(SXTickTick),
+  },
+  {
+    prefix: "custom",
+    slug: "hellobike",
+    title: "HelloBike",
+    hex: "#1890FF",
+    keywords: ["哈啰单车", "bike sharing", "transport"],
+    loadIcon: () => Promise.resolve(SXHelloBike),
+  },
+  {
+    prefix: "custom",
+    slug: "china12306",
+    title: "China Railway 12306",
+    hex: "#F95858",
+    keywords: ["railway", "train", "12306", "中国铁路"],
+    loadIcon: () => Promise.resolve(SXChina12306),
+  },
+  {
     prefix: "lg",
     slug: "udemy",
     title: "Udemy",
@@ -253,12 +387,28 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGUdemyIcon").then((module) => module.LGUdemyIcon),
   },
   {
+    prefix: "custom",
+    slug: "leetcode",
+    title: "LeetCode",
+    hex: "#EAA240",
+    keywords: ["coding", "algorithm", "interview"],
+    loadIcon: () => Promise.resolve(SXLeetcode),
+  },
+  {
     prefix: "lg",
     slug: "jetbrains",
     title: "JetBrains",
     hex: "#000000",
     keywords: ["ide", "developer tools", "jetbrains"],
     loadIcon: () => import("@icongo/lg/esm/LGJetbrainsIcon").then((module) => module.LGJetbrainsIcon),
+  },
+  {
+    prefix: "custom",
+    slug: "juejin",
+    title: "Juejin",
+    hex: "#006CFF",
+    keywords: ["掘金", "developer", "community", "articles"],
+    loadIcon: () => Promise.resolve(SXJuejin),
   },
   {
     prefix: "lg",
@@ -293,6 +443,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGMediumIcon").then((module) => module.LGMediumIcon),
   },
   {
+    prefix: "custom",
+    slug: "meituan",
+    title: "Meituan",
+    hex: "#FFC300",
+    keywords: ["美团", "food delivery", "local services"],
+    loadIcon: () => Promise.resolve(SXMeituan),
+  },
+  {
     prefix: "lg",
     slug: "meta",
     title: "Meta",
@@ -315,6 +473,30 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     hex: "#FF424D",
     keywords: ["creator", "membership", "subscription"],
     loadIcon: () => import("@icongo/lg/esm/LGPatreon").then((module) => module.LGPatreon),
+  },
+  {
+    prefix: "custom",
+    slug: "afdian",
+    title: "Afdian",
+    hex: "#8F66DF",
+    keywords: ["爱发电", "creator", "membership"],
+    loadIcon: () => Promise.resolve(SXAfdian),
+  },
+  {
+    prefix: "custom",
+    slug: "onlyfans",
+    title: "OnlyFans",
+    hex: "#00AFF0",
+    keywords: ["creator", "subscription", "membership"],
+    loadIcon: () => Promise.resolve(SXOnlyFans),
+  },
+  {
+    prefix: "lg",
+    slug: "pixiv",
+    title: "Pixiv",
+    hex: "#0096FA",
+    keywords: ["art", "illustration", "community"],
+    loadIcon: () => import("@icongo/si/esm/SIPixiv").then((module) => module.SIPixiv),
   },
   {
     prefix: "lg",
@@ -374,6 +556,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
   },
   {
     prefix: "custom",
+    slug: "samsclub",
+    title: "Sam's Club",
+    hex: "#5F6165",
+    keywords: ["山姆", "shopping", "retail"],
+    loadIcon: () => Promise.resolve(SXSamsClub),
+  },
+  {
+    prefix: "custom",
     slug: "pinduoduo",
     title: "Pinduoduo",
     hex: "#D81E06",
@@ -395,6 +585,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     hex: "#D81E06",
     keywords: ["京东", "shopping", "ecommerce"],
     loadIcon: () => Promise.resolve(SXJd),
+  },
+  {
+    prefix: "custom",
+    slug: "vip88",
+    title: "88VIP",
+    hex: "#DEC6AF",
+    keywords: ["88vip", "membership", "taobao"],
+    loadIcon: () => Promise.resolve(SXVip88),
   },
   {
     prefix: "lg",
@@ -419,6 +617,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     hex: "#2D8CFF",
     keywords: ["meeting", "video call", "conference"],
     loadIcon: () => import("@icongo/vl/esm/VLZoomus").then((module) => module.VLZoomus),
+  },
+  {
+    prefix: "custom",
+    slug: "zhihu",
+    title: "Zhihu",
+    hex: "#0E87EA",
+    keywords: ["知乎", "community", "q&a"],
+    loadIcon: () => Promise.resolve(SXZhihu),
   },
   {
     prefix: "lg",

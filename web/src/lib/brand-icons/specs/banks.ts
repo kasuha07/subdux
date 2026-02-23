@@ -1,3 +1,5 @@
+import { SXZaBank } from "../custom/zabank"
+
 import type { BrandIconSpec } from "../types"
 
 export const bankBrandSpecs: BrandIconSpec[] = [
@@ -16,6 +18,22 @@ export const bankBrandSpecs: BrandIconSpec[] = [
     hex: "#DB0011",
     keywords: ["bank"],
     loadIcon: () => import("@icongo/vl/esm/VLHsbc").then((module) => module.VLHsbc),
+  },
+  {
+    prefix: "bl",
+    slug: "n26",
+    title: "N26",
+    hex: "#2C2C2C",
+    keywords: ["bank", "digital bank"],
+    loadIcon: () => import("@icongo/vl/esm/VLN26").then((module) => module.VLN26),
+  },
+  {
+    prefix: "custom",
+    slug: "zabank",
+    title: "ZA Bank",
+    hex: "#00CC88",
+    keywords: ["众安银行", "bank", "digital bank"],
+    loadIcon: () => Promise.resolve(SXZaBank),
   },
   {
     prefix: "bl",

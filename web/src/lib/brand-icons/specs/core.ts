@@ -1,9 +1,13 @@
 import { SXAlipay } from "../custom/alipay"
 import { SXAnthropic } from "../custom/anthropic"
+import { SXCash } from "../custom/cash"
+import { SXClash } from "../custom/clash"
 import { SXClaude } from "../custom/claude"
 import { SXDeepseek } from "../custom/deepseek"
+import { SXEcny } from "../custom/ecny"
 import { SXEmail } from "../custom/email"
 import { SXGemini } from "../custom/gemini"
+import { SXGiffgaff } from "../custom/giffgaff"
 import { SXGrok } from "../custom/grok"
 import { SXHuggingFace } from "../custom/huggingface"
 import { SXKimi } from "../custom/kimi"
@@ -13,6 +17,8 @@ import { SXNewapi } from "../custom/newapi"
 import { SXPerplexity } from "../custom/perplexity"
 import { SXQwen } from "../custom/qwen"
 import { SXServer } from "../custom/server"
+import { SXSimCard } from "../custom/simcard"
+import { SXV2ray } from "../custom/v2ray"
 import { SXVpn } from "../custom/vpn"
 import { SXWechatPay } from "../custom/wechatpay"
 import { SXZhipu } from "../custom/zhipu"
@@ -99,6 +105,22 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     hex: "#34A853",
     keywords: ["app store", "android", "google"],
     loadIcon: () => import("@icongo/vl/esm/VLGooglePlay").then((module) => module.VLGooglePlay),
+  },
+  {
+    prefix: "custom",
+    slug: "ecny",
+    title: "Digital RMB (e-CNY)",
+    hex: "#FF0000",
+    keywords: ["e-cny", "digital rmb", "数字人民币", "payment"],
+    loadIcon: () => Promise.resolve(SXEcny),
+  },
+  {
+    prefix: "custom",
+    slug: "cash",
+    title: "Cash",
+    hex: "#2E7D32",
+    keywords: ["money", "cash", "payment"],
+    loadIcon: () => Promise.resolve(SXCash),
   },
   {
     prefix: "custom",
@@ -315,6 +337,14 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     hex: "#FC6D26",
     keywords: ["code", "git"],
     loadIcon: () => import("@icongo/lg/esm/LGGitlab").then((module) => module.LGGitlab),
+  },
+  {
+    prefix: "lg",
+    slug: "ipfs",
+    title: "IPFS",
+    hex: "#65C2CB",
+    keywords: ["decentralized storage", "web3", "network"],
+    loadIcon: () => import("@icongo/si/esm/SIIpfs").then((module) => module.SIIpfs),
   },
   {
     prefix: "lg",
@@ -541,6 +571,14 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGManjaro").then((module) => module.LGManjaro),
   },
   {
+    prefix: "custom",
+    slug: "giffgaff",
+    title: "giffgaff",
+    hex: "#00D672",
+    keywords: ["telecom", "mobile", "sim"],
+    loadIcon: () => Promise.resolve(SXGiffgaff),
+  },
+  {
     prefix: "lg",
     slug: "microsoft",
     title: "Microsoft",
@@ -621,6 +659,14 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => Promise.resolve(SXServer),
   },
   {
+    prefix: "custom",
+    slug: "simcard",
+    title: "SIM Card",
+    hex: "#4A4A4A",
+    keywords: ["sim", "mobile", "telecom"],
+    loadIcon: () => Promise.resolve(SXSimCard),
+  },
+  {
     prefix: "lg",
     slug: "shopify",
     title: "Shopify",
@@ -683,6 +729,22 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     hex: "#4A4A4A",
     keywords: ["privacy", "security", "network"],
     loadIcon: () => Promise.resolve(SXVpn),
+  },
+  {
+    prefix: "custom",
+    slug: "clash",
+    title: "Clash",
+    hex: "#4A4A4A",
+    keywords: ["proxy", "vpn", "network"],
+    loadIcon: () => Promise.resolve(SXClash),
+  },
+  {
+    prefix: "custom",
+    slug: "v2ray",
+    title: "V2Ray",
+    hex: "#4A4A4A",
+    keywords: ["proxy", "vpn", "network"],
+    loadIcon: () => Promise.resolve(SXV2ray),
   },
   {
     prefix: "lg",

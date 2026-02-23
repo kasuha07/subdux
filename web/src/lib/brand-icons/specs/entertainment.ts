@@ -1,9 +1,12 @@
 import { SXBilibili } from "../custom/bilibili"
+import { SXBinance } from "../custom/binance"
 import { SXChinaBroadcast } from "../custom/chinabroadcast"
 import { SXChinaMobile } from "../custom/chinamobile"
 import { SXChinaTelecom } from "../custom/chinatelecom"
 import { SXChinaUnicom } from "../custom/chinaunicom"
+import { SXDlsite } from "../custom/dlsite"
 import { SXEmby } from "../custom/emby"
+import { SXGame } from "../custom/game"
 import { SXInfuse } from "../custom/infuse"
 import { SXIqiyi } from "../custom/iqiyi"
 import { SXJellyfin } from "../custom/jellyfin"
@@ -11,9 +14,11 @@ import { SXKugouMusic } from "../custom/kugoumusic"
 import { SXNeteaseCloudMusic } from "../custom/neteasecloudmusic"
 import { SXNeteaseUu } from "../custom/neteaseuu"
 import { SXNintendo } from "../custom/nintendo"
+import { SXOkx } from "../custom/okx"
 import { SXQq } from "../custom/qq"
 import { SXQqMusic } from "../custom/qqmusic"
 import { SXTencentVideo } from "../custom/tencentvideo"
+import { SXXimalaya } from "../custom/ximalaya"
 import { SXYoutubeMusic } from "../custom/youtubemusic"
 
 import type { BrandIconSpec } from "../types"
@@ -236,6 +241,14 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/si/esm/SICrunchyroll").then((module) => module.SICrunchyroll),
   },
   {
+    prefix: "custom",
+    slug: "dlsite",
+    title: "DLsite",
+    hex: "#0B3687",
+    keywords: ["doujin", "digital store", "anime"],
+    loadIcon: () => Promise.resolve(SXDlsite),
+  },
+  {
     prefix: "lg",
     slug: "niconico",
     title: "Niconico",
@@ -356,6 +369,14 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => Promise.resolve(SXKugouMusic),
   },
   {
+    prefix: "custom",
+    slug: "ximalaya",
+    title: "Ximalaya",
+    hex: "#ED2400",
+    keywords: ["喜马拉雅", "audio", "podcast"],
+    loadIcon: () => Promise.resolve(SXXimalaya),
+  },
+  {
     prefix: "lg",
     slug: "disneyplus",
     title: "Disney+",
@@ -469,6 +490,14 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
   },
   {
     prefix: "lg",
+    slug: "line",
+    title: "LINE",
+    hex: "#00C300",
+    keywords: ["chat", "messaging", "social"],
+    loadIcon: () => import("@icongo/vl/esm/VLLine").then((module) => module.VLLine),
+  },
+  {
+    prefix: "lg",
     slug: "telegram",
     title: "Telegram",
     hex: "#26A5E4",
@@ -500,6 +529,22 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/lg/esm/LGBitcoin").then((module) => module.LGBitcoin),
   },
   {
+    prefix: "custom",
+    slug: "okx",
+    title: "OKX",
+    hex: "#111111",
+    keywords: ["crypto", "exchange", "okx"],
+    loadIcon: () => Promise.resolve(SXOkx),
+  },
+  {
+    prefix: "custom",
+    slug: "binance",
+    title: "Binance",
+    hex: "#F3BA2F",
+    keywords: ["crypto", "exchange", "binance"],
+    loadIcon: () => Promise.resolve(SXBinance),
+  },
+  {
     prefix: "lg",
     slug: "ethereum",
     title: "Ethereum",
@@ -522,5 +567,13 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     hex: "#5741D9",
     keywords: ["exchange", "crypto"],
     loadIcon: () => import("@icongo/lg/esm/LGKraken").then((module) => module.LGKraken),
+  },
+  {
+    prefix: "custom",
+    slug: "game",
+    title: "Game",
+    hex: "#4A4A4A",
+    keywords: ["gaming", "gamepad", "controller"],
+    loadIcon: () => Promise.resolve(SXGame),
   },
 ]
