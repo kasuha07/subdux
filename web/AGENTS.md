@@ -38,6 +38,7 @@ web/
 | New Shadcn component | Run `bunx shadcn@latest add {name}` from `web/` | Auto-creates in `src/components/ui/` |
 | API integration | `src/lib/api.ts` | `api.get<T>()`, `api.post<T>()`, `api.put<T>()`, `api.delete<T>()` |
 | Add TypeScript type | `src/types/index.ts` | Must match Go model's json tags exactly |
+| Manage brand icons | `src/lib/brand-icons.ts` + `src/lib/brand-icons/*` | Keep API stable, specs/data modular |
 | Theme/colors | `src/index.css` | oklch CSS variables (light + dark mode defined) |
 
 ## CONVENTIONS
@@ -65,6 +66,13 @@ web/
 - Shadcn: new-york variant, zinc palette, oklch color space
 - All theme vars in `index.css` under `:root` and `.dark`
 - Dark mode vars defined but no toggle mechanism implemented
+
+### Brand icons (`src/lib/brand-icons/*`)
+- Keep exported API in `src/lib/brand-icons.ts` (`brandIcons`, `getBrandIcon`, `getBrandIconFromValue`).
+- Keep bulk provider icon specs in `src/lib/brand-icons/specs.ts`.
+- Extra/custom SVG icons must be one-file-per-icon under `src/lib/brand-icons/custom/<slug>.ts`.
+- Custom icon values use `custom:<slug>` (example: `custom:neteasecloudmusic`).
+- Do not inline large custom SVG definitions directly in `specs.ts`.
 
 ## ANTI-PATTERNS
 

@@ -7,7 +7,6 @@
       "dependencies": {
         "@icongo/bl": "^1.2.0",
         "@icongo/lg": "^1.2.0",
-        "@icongo/ri": "^1.2.0",
         "@icongo/si": "^1.2.0",
         "@icongo/vl": "^1.2.0",
         "@tailwindcss/vite": "^4.1.18",
@@ -172,8 +171,6 @@
     "@icongo/bl": ["@icongo/bl@1.2.0", "", {}, "sha512-JpdEE8AySImWH6CxOvFEBP3FVx0/fmqP0jT0yh040o+cVNhfHAVWONqmTah6+vkgC2hspnM4UrnxkCIl+NUVcg=="],
 
     "@icongo/lg": ["@icongo/lg@1.2.0", "", {}, "sha512-biK2kTHuNqOaq5clCAgHNpAlKzd1OaiQNem61vQEF5iT2ASqAbzAW2aqKl9br8cEXjDI/KEqoyLNrVrngAHv+Q=="],
-
-    "@icongo/ri": ["@icongo/ri@1.2.0", "", {}, "sha512-6fJjFWNmUiKWHrzgZELC1EALVygCzARPH+JPgJxE0LBJOv8n75rBIePFmdMt7brj0OOSPKNJVdtmDRIFr+0LnA=="],
 
     "@icongo/si": ["@icongo/si@1.2.0", "", {}, "sha512-PSMyRqOp8OFfWgpg8uBt7kgiyGpuvsAr36VJdsRo2KA4SsSH0aLroTFIYX0BOQthHEEg/+1pWc8WZF4H7QrAZA=="],
 

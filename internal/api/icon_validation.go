@@ -89,7 +89,7 @@ func isIconGoIcon(icon string) bool {
 		return false
 	}
 
-	if prefix == "si" || prefix == "file" || len(prefix) < 2 || len(prefix) > 5 {
+	if prefix == "si" || prefix == "file" || len(prefix) < 2 || len(prefix) > 16 {
 		return false
 	}
 

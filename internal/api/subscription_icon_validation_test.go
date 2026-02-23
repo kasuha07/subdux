@@ -33,6 +33,7 @@ func TestValidateIconAcceptsIconGoValues(t *testing.T) {
 		"bl:icbc",
 		"bl:bankofchina",
 		"ccp:paypal",
+		"custom:neteasecloudmusic",
 	}
 
 	for _, icon := range tests {
