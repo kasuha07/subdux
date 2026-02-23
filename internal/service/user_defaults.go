@@ -30,28 +30,20 @@ var defaultCategoryTemplates = []defaultCategoryTemplate{
 	{SystemKey: "music", CanonicalName: "Music", DisplayOrder: 1},
 	{SystemKey: "productivity", CanonicalName: "Productivity", DisplayOrder: 2},
 	{SystemKey: "cloud", CanonicalName: "Cloud", DisplayOrder: 3},
-	{SystemKey: "shopping", CanonicalName: "Shopping", DisplayOrder: 4},
-	{SystemKey: "finance", CanonicalName: "Finance", DisplayOrder: 5},
-	{SystemKey: "education", CanonicalName: "Education", DisplayOrder: 6},
-	{SystemKey: "health", CanonicalName: "Health", DisplayOrder: 7},
-	{SystemKey: "news", CanonicalName: "News", DisplayOrder: 8},
-	{SystemKey: "other", CanonicalName: "Other", DisplayOrder: 9},
+	{SystemKey: "other", CanonicalName: "Other", DisplayOrder: 4},
 }
 
 var defaultPaymentMethodTemplates = []defaultPaymentMethodTemplate{
-	{SystemKey: "credit_card", CanonicalName: "Credit Card", Icon: "💳", SortOrder: 0},
-	{SystemKey: "debit_card", CanonicalName: "Debit Card", Icon: "💳", SortOrder: 1},
-	{SystemKey: "paypal", CanonicalName: "PayPal", Icon: "lg:paypal", SortOrder: 2},
-	{SystemKey: "bank_transfer", CanonicalName: "Bank Transfer", Icon: "🏦", SortOrder: 3},
-	{SystemKey: "cash", CanonicalName: "Cash", Icon: "💵", SortOrder: 4},
+	{SystemKey: "alipay", CanonicalName: "支付宝", Icon: "custom:alipay", SortOrder: 0},
+	{SystemKey: "wechatpay", CanonicalName: "微信", Icon: "custom:wechatpay", SortOrder: 1},
+	{SystemKey: "paypal", CanonicalName: "Paypal", Icon: "lg:paypal", SortOrder: 2},
 }
 
 var defaultCurrencyTemplates = []defaultCurrencyTemplate{
-	{Code: "USD", Symbol: "$", SortOrder: 0},
-	{Code: "EUR", Symbol: "€", SortOrder: 1},
-	{Code: "GBP", Symbol: "£", SortOrder: 2},
-	{Code: "CNY", Symbol: "¥", SortOrder: 3},
-	{Code: "JPY", Symbol: "¥", SortOrder: 4},
+	{Code: "CNY", Symbol: "¥", SortOrder: 0},
+	{Code: "USD", Symbol: "$", SortOrder: 1},
+	{Code: "EUR", Symbol: "€", SortOrder: 2},
+	{Code: "GBP", Symbol: "£", SortOrder: 3},
 }
 
 const defaultNotificationTemplate = "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}. Payment method: {{.PaymentMethod}}. URL: {{.URL}}. Remark: {{.Remark}}."
@@ -133,7 +125,7 @@ func seedDefaultCurrencies(tx *gorm.DB, userID uint) error {
 func seedDefaultPreference(tx *gorm.DB, userID uint) error {
 	preference := model.UserPreference{
 		UserID:            userID,
-		PreferredCurrency: "USD",
+		PreferredCurrency: "CNY",
 	}
 	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&preference).Error
 }

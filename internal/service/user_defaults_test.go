@@ -90,8 +90,8 @@ func TestSeedUserDefaultsIsIdempotent(t *testing.T) {
 	if err := db.Where("user_id = ?", user.ID).First(&preference).Error; err != nil {
 		t.Fatalf("query preference failed: %v", err)
 	}
-	if preference.PreferredCurrency != "USD" {
-		t.Fatalf("preferred currency = %q, want %q", preference.PreferredCurrency, "USD")
+	if preference.PreferredCurrency != "CNY" {
+		t.Fatalf("preferred currency = %q, want %q", preference.PreferredCurrency, "CNY")
 	}
 
 	var templates []model.NotificationTemplate
@@ -175,7 +175,7 @@ func TestCategoryAndPaymentMethodCustomizeFlags(t *testing.T) {
 	}
 
 	var seededMethod model.PaymentMethod
-	if err := db.Where("user_id = ? AND system_key = ?", user.ID, "credit_card").First(&seededMethod).Error; err != nil {
+	if err := db.Where("user_id = ? AND system_key = ?", user.ID, "alipay").First(&seededMethod).Error; err != nil {
 		t.Fatalf("query seeded payment method failed: %v", err)
 	}
 	renamedMethod := "My Card"

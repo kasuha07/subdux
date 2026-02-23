@@ -12,6 +12,8 @@ const presets = {
     "other": "その他"
   },
   "payment_method": {
+    "alipay": "Alipay",
+    "wechatpay": "WeChat Pay",
     "credit_card": "クレジットカード",
     "debit_card": "デビットカード",
     "paypal": "PayPal",
