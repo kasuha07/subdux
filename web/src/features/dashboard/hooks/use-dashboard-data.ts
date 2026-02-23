@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { api } from "@/lib/api"
+import { getDefaultCurrency, setDefaultCurrency } from "@/lib/default-currency"
 import type {
   Category,
   DashboardSummary,
@@ -25,9 +26,7 @@ export function useDashboardData(): UseDashboardDataResult {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [preferredCurrency, setPreferredCurrency] = useState(
-    localStorage.getItem("defaultCurrency") || "USD"
-  )
+  const [preferredCurrency, setPreferredCurrency] = useState(getDefaultCurrency())
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
@@ -49,7 +48,7 @@ export function useDashboardData(): UseDashboardDataResult {
       setPaymentMethods(methods || [])
       if (pref?.preferred_currency) {
         setPreferredCurrency(pref.preferred_currency)
-        localStorage.setItem("defaultCurrency", pref.preferred_currency)
+        setDefaultCurrency(pref.preferred_currency)
       }
     } catch {
       void 0

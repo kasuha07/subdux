@@ -299,6 +299,7 @@ export default function DashboardPage() {
               <DashboardSummaryCards
                 summary={summary}
                 preferredCurrency={preferredCurrency}
+                currencySymbol={currencySymbolMap.get((summary.currency || preferredCurrency).toUpperCase())}
                 language={i18n.language}
               />
             )}

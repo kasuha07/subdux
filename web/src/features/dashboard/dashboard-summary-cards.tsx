@@ -2,21 +2,24 @@ import { useTranslation } from "react-i18next"
 import { CalendarDays, DollarSign, Repeat, TrendingUp } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrencyWithSymbol } from "@/lib/utils"
 import type { DashboardSummary } from "@/types"
 
 interface DashboardSummaryCardsProps {
+  currencySymbol?: string
   language: string
   preferredCurrency: string
   summary: DashboardSummary
 }
 
 export default function DashboardSummaryCards({
+  currencySymbol,
   language,
   preferredCurrency,
   summary,
 }: DashboardSummaryCardsProps) {
   const { t } = useTranslation()
+  const displayCurrency = summary.currency || preferredCurrency
 
   return (
     <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -29,7 +32,7 @@ export default function DashboardSummaryCards({
             </span>
           </div>
           <p className="mt-1 text-2xl font-bold tabular-nums">
-            {formatCurrency(summary.total_monthly, summary.currency || preferredCurrency, language)}
+            {formatCurrencyWithSymbol(summary.total_monthly, displayCurrency, currencySymbol, language)}
           </p>
         </CardContent>
       </Card>
@@ -42,7 +45,7 @@ export default function DashboardSummaryCards({
             </span>
           </div>
           <p className="mt-1 text-2xl font-bold tabular-nums">
-            {formatCurrency(summary.total_yearly, summary.currency || preferredCurrency, language)}
+            {formatCurrencyWithSymbol(summary.total_yearly, displayCurrency, currencySymbol, language)}
           </p>
         </CardContent>
       </Card>
