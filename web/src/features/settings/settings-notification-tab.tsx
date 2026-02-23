@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -19,8 +19,13 @@ import { NotificationLogList } from "./notification-log-list"
 import { NotificationPolicySection } from "./notification-policy-section"
 import { NotificationTemplateSection } from "./notification-template-section"
 
-export default function SettingsNotificationTab() {
+interface SettingsNotificationTabProps {
+  active: boolean
+}
+
+export default function SettingsNotificationTab({ active }: SettingsNotificationTabProps) {
   const { t } = useTranslation()
+  const [, startHydrationTransition] = useTransition()
 
   const [channels, setChannels] = useState<NotificationChannel[]>([])
   const [policy, setPolicy] = useState<NotificationPolicy>({ days_before: 3, notify_on_due_day: true })
@@ -37,25 +42,45 @@ export default function SettingsNotificationTab() {
   const loaded = useRef(false)
 
   useEffect(() => {
-    if (loaded.current) return
+    if (!active || loaded.current) {
+      return
+    }
     loaded.current = true
 
     api.get<NotificationChannel[]>("/notifications/channels")
-      .then((data) => setChannels(data ?? []))
+      .then((data) => {
+        startHydrationTransition(() => {
+          setChannels(data ?? [])
+        })
+      })
       .catch(() => void 0)
 
     api.get<NotificationPolicy>("/notifications/policy")
-      .then((data) => { if (data) setPolicy(data) })
+      .then((data) => {
+        if (data) {
+          startHydrationTransition(() => {
+            setPolicy(data)
+          })
+        }
+      })
       .catch(() => void 0)
 
     api.get<NotificationLog[]>("/notifications/logs")
-      .then((data) => setLogs(data ?? []))
+      .then((data) => {
+        startHydrationTransition(() => {
+          setLogs(data ?? [])
+        })
+      })
       .catch(() => void 0)
 
     api.get<NotificationTemplate[]>("/notifications/templates")
-      .then((data) => setTemplates(data ?? []))
+      .then((data) => {
+        startHydrationTransition(() => {
+          setTemplates(data ?? [])
+        })
+      })
       .catch(() => void 0)
-  }, [])
+  }, [active])
 
   function handleAddChannel() {
     setEditingChannel(null)
@@ -96,6 +121,8 @@ export default function SettingsNotificationTab() {
 
   async function handleToggleChannel(channel: NotificationChannel, enabled: boolean) {
     setUpdatingChannelId(channel.id)
+    setChannels((prev) => prev.map((ch) => (ch.id === channel.id ? { ...ch, enabled } : ch)))
+
     try {
       const updated = await api.put<NotificationChannel>(
         `/notifications/channels/${channel.id}`,
@@ -103,7 +130,7 @@ export default function SettingsNotificationTab() {
       )
       setChannels((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)))
     } catch {
-      void 0
+      setChannels((prev) => prev.map((ch) => (ch.id === channel.id ? channel : ch)))
     } finally {
       setUpdatingChannelId(null)
     }
@@ -111,12 +138,14 @@ export default function SettingsNotificationTab() {
 
   async function handleDeleteChannel(channel: NotificationChannel) {
     if (!window.confirm(t("settings.notifications.channels.deleteConfirm"))) return
+
+    const previousChannels = channels
+    setChannels((prev) => prev.filter((ch) => ch.id !== channel.id))
     try {
       await api.delete(`/notifications/channels/${channel.id}`)
-      setChannels((prev) => prev.filter((ch) => ch.id !== channel.id))
       toast.success(t("settings.notifications.channels.deleteSuccess"))
     } catch {
-      void 0
+      setChannels(previousChannels)
     }
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Bell, CircleUserRound, CreditCard, Settings } from "lucide-react"
@@ -55,13 +55,49 @@ export default function SettingsPage() {
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
+  const versionTriggerRef = useRef<HTMLDivElement | null>(null)
+  const versionRequestedRef = useRef(false)
 
   const account = useSettingsAccount({ active: activeTab === "account" })
   const payment = useSettingsPayment({ active: activeTab === "payment" })
 
   useEffect(() => {
-    api.get<VersionInfo>("/version").then(setVersionInfo).catch(() => {})
-  }, [])
+    if (versionRequestedRef.current || versionInfo) {
+      return
+    }
+
+    const loadVersionInfo = () => {
+      if (versionRequestedRef.current) {
+        return
+      }
+
+      versionRequestedRef.current = true
+      api.get<VersionInfo>("/version").then(setVersionInfo).catch(() => {})
+    }
+
+    const node = versionTriggerRef.current
+    if (!node) {
+      return
+    }
+
+    if (typeof IntersectionObserver !== "function") {
+      loadVersionInfo()
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadVersionInfo()
+          observer.disconnect()
+        }
+      },
+      { rootMargin: "200px 0px" }
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [versionInfo])
 
   function handleTheme(next: Theme) {
     setTheme(next)
@@ -189,7 +225,7 @@ export default function SettingsPage() {
             onAddCurrency={payment.handleAddCurrency}
           />
 
-          <SettingsNotificationTab />
+          <SettingsNotificationTab active={activeTab === "notification"} />
 
           <SettingsAccountTab
             user={account.user}
@@ -220,6 +256,8 @@ export default function SettingsPage() {
           />
         </Tabs>
       </main>
+
+      <div ref={versionTriggerRef} className="h-px" />
 
       {versionInfo && (
         <footer className="mx-auto max-w-4xl px-4 py-6 text-center text-xs text-muted-foreground">
