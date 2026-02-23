@@ -20,6 +20,11 @@ web/
 │   │   └── subscriptions/       # subscription-card.tsx, subscription-form.tsx (dialog)
 │   ├── lib/
 │   │   ├── api.ts               # Fetch wrapper with JWT, auto-redirect on 401
+│   │   ├── brand-icons.ts       # Stable brand icon API surface
+│   │   ├── brand-icons/
+│   │   │   ├── specs.ts         # Aggregates split spec modules
+│   │   │   ├── specs/           # core.ts, services.ts, entertainment.ts, banks.ts
+│   │   │   └── custom/          # One-file-per-custom icon
 │   │   └── utils.ts             # cn(), formatCurrency(), formatDate(), daysUntil()
 │   └── types/
 │       └── index.ts             # All interfaces (mirrors Go models)
@@ -38,7 +43,7 @@ web/
 | New Shadcn component | Run `bunx shadcn@latest add {name}` from `web/` | Auto-creates in `src/components/ui/` |
 | API integration | `src/lib/api.ts` | `api.get<T>()`, `api.post<T>()`, `api.put<T>()`, `api.delete<T>()` |
 | Add TypeScript type | `src/types/index.ts` | Must match Go model's json tags exactly |
-| Manage brand icons | `src/lib/brand-icons.ts` + `src/lib/brand-icons/*` | Keep API stable, specs/data modular |
+| Manage brand icons | `src/lib/brand-icons.ts` + `src/lib/brand-icons/*` | Keep API stable, keep specs split by domain |
 | Theme/colors | `src/index.css` | oklch CSS variables (light + dark mode defined) |
 
 ## CONVENTIONS
@@ -69,10 +74,16 @@ web/
 
 ### Brand icons (`src/lib/brand-icons/*`)
 - Keep exported API in `src/lib/brand-icons.ts` (`brandIcons`, `getBrandIcon`, `getBrandIconFromValue`).
-- Keep bulk provider icon specs in `src/lib/brand-icons/specs.ts`.
+- Keep `src/lib/brand-icons/specs.ts` as a thin aggregator only.
+- Store bulk provider specs in split files under `src/lib/brand-icons/specs/`:
+  - `core.ts`
+  - `services.ts`
+  - `entertainment.ts`
+  - `banks.ts`
+- Add new icons to the closest domain file above; keep aggregator order stable unless intentionally changing output order.
 - Extra/custom SVG icons must be one-file-per-icon under `src/lib/brand-icons/custom/<slug>.ts`.
 - Custom icon values use `custom:<slug>` (example: `custom:neteasecloudmusic`).
-- Do not inline large custom SVG definitions directly in `specs.ts`.
+- Do not inline large custom SVG definitions directly in `specs.ts` or aggregator files.
 
 ## ANTI-PATTERNS
 
