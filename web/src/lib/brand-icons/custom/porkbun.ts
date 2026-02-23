@@ -1,0 +1,51 @@
+import { createElement } from "react"
+
+import type { SvgIconComponent } from "../types"
+
+const PORKBUN_EAR_LEFT_PATH =
+  "M43.1 43.2c5 1.1 9.8 2.9 14.1 5.3-5.1 2.6-9.4 6.5-12.5 11.3-2-2.7-3.1-6.1-3.1-9.7 0-2.5.5-4.8 1.5-6.9z"
+
+const PORKBUN_BODY_PATH =
+  "M102.4 95.2c0 3.1-2.5 5.6-5.6 5.6s-5.6-2.5-5.6-5.6v-4.5H52.7v4.5c0 3.1-2.5 5.6-5.6 5.6s-5.6-2.5-5.6-5.6V78.1c0-16.5 12.8-30.5 29.3-31.1 17.3-.6 31.5 13.2 31.5 30.4z"
+
+const PORKBUN_EAR_RIGHT_PATH =
+  "M99.3 59.8c-3.1-4.8-7.4-8.7-12.5-11.3 4.4-2.4 9.1-4.2 14.1-5.3 1 2.1 1.5 4.4 1.5 6.9 0 3.6-1.2 6.9-3.1 9.7z"
+
+const PORKBUN_SNOUT_PATH =
+  "M85.3 71.4c-.4-.2-.8-.1-1 .2-.4.6-.9 1-1.6 1.4v-.5c0-1.4-.5-2.7-1.3-3.7-.6-.9-1.6-1.4-2.8-1.4-1.9 0-3.5 1.6-3.5 3.5 0 .8.3 1.6.8 2.2.6.7 1.3 1.3 2.2 1.7-.6.3-1.2.5-1.9.5-.8 0-1.4.7-1.4 1.4 0 .8.6 1.4 1.4 1.4h.7c2.2 0 4.2-1.3 5.1-3.1 1.5-.4 2.7-1.4 3.5-2.7.3-.2.2-.7-.2-.9zm-5.7 1.9c-.9-.3-1.7-.8-2.2-1.6-.2-.2-.3-.5-.3-.8 0-.8.6-1.4 1.4-1.4.7 0 1.4.6 1.4 1.3 0 .2.1.4.1.7.1.6-.1 1.3-.4 1.8z"
+
+export const SXPorkbun: SvgIconComponent = (props) =>
+  createElement(
+    "svg",
+    {
+      ...props,
+      viewBox: "0 0 112.6 112.6",
+      xmlns: "http://www.w3.org/2000/svg",
+    },
+    createElement(
+      "g",
+      { transform: "translate(-15.7 -15.7)" },
+      createElement("circle", {
+        cx: 72,
+        cy: 72,
+        r: 56.3,
+        fill: "#F27777",
+      }),
+      createElement("path", {
+        d: PORKBUN_EAR_LEFT_PATH,
+        fill: "#FFFFFF",
+      }),
+      createElement("path", {
+        d: PORKBUN_BODY_PATH,
+        fill: "#FFFFFF",
+      }),
+      createElement("path", {
+        d: PORKBUN_EAR_RIGHT_PATH,
+        fill: "#FFFFFF",
+      }),
+      createElement("path", {
+        d: PORKBUN_SNOUT_PATH,
+        fill: "#F27777",
+      }),
+    ),
+  )

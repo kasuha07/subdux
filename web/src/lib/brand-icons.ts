@@ -23,6 +23,7 @@ const legacyIconValueAliases = new Map<string, string>([
   ["lg:chatgpt", "lg:openai"],
   ["lg:coinbase", "custom:coinbase"],
   ["lg:godaddy", "custom:godaddy"],
+  ["lg:icloud", "custom:icloud"],
   ["lg:kugoumusic", "custom:kugoumusic"],
   ["lg:kuwomusic", "custom:qqmusic"],
   ["lg:nintendo", "custom:nintendo"],

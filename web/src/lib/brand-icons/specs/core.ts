@@ -1,26 +1,38 @@
 import { SXAlipay } from "../custom/alipay"
 import { SXAnthropic } from "../custom/anthropic"
+import { SXBaiduCloud } from "../custom/baiducloud"
 import { SXCash } from "../custom/cash"
 import { SXClash } from "../custom/clash"
 import { SXClaude } from "../custom/claude"
+import { SXCursor } from "../custom/cursor"
 import { SXDeepseek } from "../custom/deepseek"
 import { SXEcny } from "../custom/ecny"
 import { SXEmail } from "../custom/email"
+import { SXFrp } from "../custom/frp"
 import { SXGemini } from "../custom/gemini"
 import { SXGiffgaff } from "../custom/giffgaff"
 import { SXGrok } from "../custom/grok"
 import { SXHuggingFace } from "../custom/huggingface"
 import { SXKimi } from "../custom/kimi"
+import { SXLinuxDo } from "../custom/linuxdo"
 import { SXMicrosoft365 } from "../custom/microsoft365"
 import { SXMistral } from "../custom/mistral"
+import { SXMoonshot } from "../custom/moonshot"
+import { SXNameCom } from "../custom/namecom"
+import { SXNetcup } from "../custom/netcup"
 import { SXNewapi } from "../custom/newapi"
 import { SXPerplexity } from "../custom/perplexity"
+import { SXPorkbun } from "../custom/porkbun"
 import { SXQwen } from "../custom/qwen"
 import { SXServer } from "../custom/server"
 import { SXSimCard } from "../custom/simcard"
+import { SXSpaceship } from "../custom/spaceship"
+import { SXTencentCloud } from "../custom/tencentcloud"
 import { SXV2ray } from "../custom/v2ray"
 import { SXVpn } from "../custom/vpn"
 import { SXWechatPay } from "../custom/wechatpay"
+import { SXWestCn } from "../custom/westcn"
+import { SXZai } from "../custom/zai"
 import { SXZhipu } from "../custom/zhipu"
 
 import type { BrandIconSpec } from "../types"
@@ -148,6 +160,14 @@ export const coreBrandSpecs: BrandIconSpec[] = [
   },
   {
     prefix: "custom",
+    slug: "cursor",
+    title: "Cursor",
+    hex: "#26251E",
+    keywords: ["ai", "ide", "editor", "coding"],
+    loadIcon: () => Promise.resolve(SXCursor),
+  },
+  {
+    prefix: "custom",
     slug: "anthropic",
     title: "Anthropic",
     hex: "#191919",
@@ -212,11 +232,27 @@ export const coreBrandSpecs: BrandIconSpec[] = [
   },
   {
     prefix: "custom",
+    slug: "moonshot",
+    title: "Moonshot",
+    hex: "#000000",
+    keywords: ["moonshot", "kimi", "ai", "llm"],
+    loadIcon: () => Promise.resolve(SXMoonshot),
+  },
+  {
+    prefix: "custom",
     slug: "zhipu",
     title: "Zhipu",
     hex: "#6253FF",
     keywords: ["智谱", "ai", "llm"],
     loadIcon: () => Promise.resolve(SXZhipu),
+  },
+  {
+    prefix: "custom",
+    slug: "zai",
+    title: "Z.AI",
+    hex: "#2D2D2D",
+    keywords: ["z.ai", "ai", "llm", "智谱"],
+    loadIcon: () => Promise.resolve(SXZai),
   },
   {
     prefix: "custom",
@@ -319,8 +355,96 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     slug: "namecheap",
     title: "Namecheap",
     hex: "#FF6A00",
-    keywords: ["domain"],
+    keywords: ["domain", "registrar"],
     loadIcon: () => import("@icongo/lg/esm/LGNamecheap").then((module) => module.LGNamecheap),
+  },
+  {
+    prefix: "custom",
+    slug: "netcup",
+    title: "Netcup",
+    hex: "#00646E",
+    keywords: ["domain", "hosting", "vps", "cloud"],
+    loadIcon: () => Promise.resolve(SXNetcup),
+  },
+  {
+    prefix: "custom",
+    slug: "namecom",
+    title: "Name.com",
+    hex: "#6EDA78",
+    keywords: ["domain", "registrar", "name.com"],
+    loadIcon: () => Promise.resolve(SXNameCom),
+  },
+  {
+    prefix: "custom",
+    slug: "porkbun",
+    title: "Porkbun",
+    hex: "#F27777",
+    keywords: ["domain", "registrar", "hosting"],
+    loadIcon: () => Promise.resolve(SXPorkbun),
+  },
+  {
+    prefix: "custom",
+    slug: "spaceship",
+    title: "Spaceship",
+    hex: "#394EFF",
+    keywords: ["domain", "registrar", "namecheap", "hosting"],
+    loadIcon: () => Promise.resolve(SXSpaceship),
+  },
+  {
+    prefix: "lg",
+    slug: "ovh",
+    title: "OVHcloud",
+    hex: "#123F6D",
+    keywords: ["ovh", "cloud", "vps", "hosting"],
+    loadIcon: () => import("@icongo/si/esm/SIOvh").then((module) => module.SIOvh),
+  },
+  {
+    prefix: "lg",
+    slug: "scaleway",
+    title: "Scaleway",
+    hex: "#4F0599",
+    keywords: ["scaleway", "cloud", "vps", "hosting"],
+    loadIcon: () => import("@icongo/si/esm/SIScaleway").then((module) => module.SIScaleway),
+  },
+  {
+    prefix: "custom",
+    slug: "tencentcloud",
+    title: "Tencent Cloud",
+    hex: "#00A3FF",
+    keywords: ["腾讯云", "cloud", "tencent"],
+    loadIcon: () => Promise.resolve(SXTencentCloud),
+  },
+  {
+    prefix: "custom",
+    slug: "baiducloud",
+    title: "Baidu Cloud",
+    hex: "#008DD5",
+    keywords: ["百度云", "cloud", "baidu"],
+    loadIcon: () => Promise.resolve(SXBaiduCloud),
+  },
+  {
+    prefix: "custom",
+    slug: "westcn",
+    title: "West.cn",
+    hex: "#0070B6",
+    keywords: ["西部数码", "domain", "hosting", "west.cn"],
+    loadIcon: () => Promise.resolve(SXWestCn),
+  },
+  {
+    prefix: "custom",
+    slug: "frp",
+    title: "FRP",
+    hex: "#4A7EE5",
+    keywords: ["frp", "proxy", "tunnel", "network"],
+    loadIcon: () => Promise.resolve(SXFrp),
+  },
+  {
+    prefix: "custom",
+    slug: "linuxdo",
+    title: "Linux.do",
+    hex: "#FFB003",
+    keywords: ["linux.do", "forum", "community", "linux"],
+    loadIcon: () => Promise.resolve(SXLinuxDo),
   },
   {
     prefix: "lg",

@@ -6,12 +6,14 @@ import { SXBitwarden } from "../custom/bitwarden"
 import { SXCamscanner } from "../custom/camscanner"
 import { SXChina12306 } from "../custom/china12306"
 import { SXCoinbase } from "../custom/coinbase"
+import { SXCsdn } from "../custom/csdn"
 import { SXDrive115 } from "../custom/drive115"
 import { SXDrive123 } from "../custom/drive123"
 import { SXFeiniu } from "../custom/feiniu"
 import { SXFeishu } from "../custom/feishu"
 import { SXGodaddy } from "../custom/godaddy"
 import { SXHelloBike } from "../custom/hellobike"
+import { SXIcloud } from "../custom/icloud"
 import { SXJd } from "../custom/jd"
 import { SXJuejin } from "../custom/juejin"
 import { SXLeetcode } from "../custom/leetcode"
@@ -27,6 +29,7 @@ import { SXVip88 } from "../custom/vip88"
 import { SXWeiyun } from "../custom/weiyun"
 import { SXWpsOffice } from "../custom/wpsoffice"
 import { SXX } from "../custom/x"
+import { SXXiaomiCloud } from "../custom/xiaomicloud"
 import { SXXunlei } from "../custom/xunlei"
 import { SXYuque } from "../custom/yuque"
 import { SXZhihu } from "../custom/zhihu"
@@ -244,6 +247,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
   },
   {
     prefix: "custom",
+    slug: "xiaomicloud",
+    title: "Xiaomi Cloud",
+    hex: "#1296DB",
+    keywords: ["小米云空间", "xiaomi", "cloud storage", "drive"],
+    loadIcon: () => Promise.resolve(SXXiaomiCloud),
+  },
+  {
+    prefix: "custom",
     slug: "xunlei",
     title: "Xunlei",
     hex: "#1390F2",
@@ -409,6 +420,14 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     hex: "#006CFF",
     keywords: ["掘金", "developer", "community", "articles"],
     loadIcon: () => Promise.resolve(SXJuejin),
+  },
+  {
+    prefix: "custom",
+    slug: "csdn",
+    title: "CSDN",
+    hex: "#C61C22",
+    keywords: ["csdn", "developer", "community", "articles", "博客"],
+    loadIcon: () => Promise.resolve(SXCsdn),
   },
   {
     prefix: "lg",
@@ -627,11 +646,11 @@ export const serviceBrandSpecs: BrandIconSpec[] = [
     loadIcon: () => Promise.resolve(SXZhihu),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "icloud",
     title: "iCloud",
     hex: "#0A84FF",
     keywords: ["apple", "cloud storage", "icloud"],
-    loadIcon: () => import("@icongo/vl/esm/VLApple").then((module) => module.VLApple),
+    loadIcon: () => Promise.resolve(SXIcloud),
   },
 ]

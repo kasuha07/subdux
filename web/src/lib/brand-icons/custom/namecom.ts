@@ -1,0 +1,34 @@
+import { createElement } from "react"
+
+import type { SvgIconComponent } from "../types"
+
+const NAME_COM_BACKGROUND_PATH =
+  "M2133.37 533.315c0-294.364-238.987-533.351-533.352-533.351h-1066.7C238.954-.036-.033 238.951-.033 533.315v1066.7c0 294.365 238.987 533.352 533.351 533.352h1066.7c294.365 0 533.352-238.987 533.352-533.352v-1066.7Z"
+
+const NAME_COM_LOGO_PATH =
+  "M1381.96 1610.81 721.425 916.083v439.837c0 113.456 52.843 170.963 158.527 170.963v65.276H492.958v-65.276c85.482 0 130.553-57.507 130.553-170.963V681.398c0-32.638-52.844-51.289-152.312-51.289v-68.385h293.743l582.825 624.787V787.085c0-105.687-54.395-156.976-156.973-156.976v-68.385h385.44v68.385c-93.251 0-141.431 51.289-141.431 156.976v809.737l-52.843 13.988Z"
+
+export const SXNameCom: SvgIconComponent = (props) =>
+  createElement(
+    "svg",
+    {
+      ...props,
+      viewBox: "-0.03 -0.04 2133.4 2133.4",
+      xmlns: "http://www.w3.org/2000/svg",
+    },
+    createElement("path", {
+      d: NAME_COM_BACKGROUND_PATH,
+      fill: "#6EDA78",
+    }),
+    createElement("circle", {
+      cx: 1694.99,
+      cy: 1489.61,
+      r: 116.622,
+      fill: "#4E4E4E",
+    }),
+    createElement("path", {
+      d: NAME_COM_LOGO_PATH,
+      fill: "#FFFFFF",
+      fillRule: "nonzero",
+    }),
+  )

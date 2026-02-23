@@ -13,7 +13,7 @@ export const SXPinduoduo: SvgIconComponent = (props) =>
     "svg",
     {
       ...props,
-      viewBox: "0 0 2416 1024",
+      viewBox: "571 0 1024 1024",
       xmlns: "http://www.w3.org/2000/svg",
     },
     createElement("path", { d: PINDUODUO_PATH_1, fill: "#D81E06" }),
