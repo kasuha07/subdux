@@ -10,7 +10,7 @@ import { getBrandIconFromValue } from "@/lib/brand-icons"
 
 function renderIcon(icon: string, name: string): ReactNode {
   const fallbackInitial = (
-    <span className="flex size-full items-center justify-center bg-muted text-sm font-bold text-foreground">
+    <span className="flex size-full items-center justify-center bg-muted text-base font-bold text-foreground">
       {name.charAt(0).toUpperCase()}
     </span>
   )
@@ -22,7 +22,7 @@ function renderIcon(icon: string, name: string): ReactNode {
   const brand = getBrandIconFromValue(icon)
   if (brand) {
     const { Icon } = brand
-    return <Icon size={20} color="default" />
+    return <Icon size={24} color="default" />
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://")) {
@@ -30,7 +30,7 @@ function renderIcon(icon: string, name: string): ReactNode {
       <img
         src={icon}
         alt={name}
-        className="h-6 w-6 object-contain"
+        className="h-7 w-7 object-contain"
       />
     )
   }
@@ -42,7 +42,7 @@ function renderIcon(icon: string, name: string): ReactNode {
         <img
           src={`/uploads/icons/${filename}`}
           alt={name}
-          className="h-6 w-6 object-contain"
+          className="h-7 w-7 object-contain"
         />
       )
     }
@@ -52,7 +52,7 @@ function renderIcon(icon: string, name: string): ReactNode {
     return fallbackInitial
   }
 
-  return <span className="text-lg leading-none">{icon}</span>
+  return <span className="text-xl leading-none">{icon}</span>
 }
 
 interface SubscriptionCardProps {
@@ -234,7 +234,7 @@ export default function SubscriptionCard({
     <Card className="group py-3 transition-all hover:shadow-md">
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
-          className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+          className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
         >
           {renderIcon(subscription.icon, subscription.name)}
         </div>
