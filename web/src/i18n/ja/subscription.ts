@@ -97,9 +97,9 @@ const subscription = {
       "urlLabel": "画像URL",
       "urlPlaceholder": "https://example.com/logo.png",
       "uploadLabel": "画像をアップロード",
-      "uploadHint": "PNG または JPG、最大 {{size}}KB",
+      "uploadHint": "PNG / JPG / ICO（シグネチャと拡張子を検証）、最大 {{size}}KB",
       "uploadButton": "ファイルを選択",
-      "invalidType": "PNG と JPG 形式のみ対応しています",
+      "invalidType": "拡張子と内容が一致する有効な PNG/JPG/ICO のみ対応しています",
       "fileTooLarge": "ファイルが {{size}}KB の制限を超えています",
       "removeFile": "削除"
     },

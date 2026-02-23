@@ -168,11 +168,10 @@ func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 	maxSize := h.Service.GetMaxIconFileSize()
 	iconPath, err := h.Service.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
-		msg := err.Error()
-		if msg == "only PNG and JPG images are supported" || msg == "file size exceeds limit" || msg == "payment method not found" {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": msg})
+		if isIconUploadBadRequestError(err) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": msg})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})

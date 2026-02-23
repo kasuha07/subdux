@@ -60,6 +60,61 @@ function isImageURLValue(value: string): boolean {
   return value.startsWith("http://") || value.startsWith("https://")
 }
 
+type UploadedImageFormat = "png" | "jpg" | "ico"
+
+const allowedMimeByFormat: Record<UploadedImageFormat, string[]> = {
+  png: ["image/png"],
+  jpg: ["image/jpeg", "image/jpg", "image/pjpeg"],
+  ico: ["image/x-icon", "image/vnd.microsoft.icon"],
+}
+
+function getFileExtension(name: string): string {
+  const index = name.lastIndexOf(".")
+  if (index < 0) return ""
+  return name.slice(index).toLowerCase()
+}
+
+function detectFileFormat(headerBytes: Uint8Array): UploadedImageFormat | null {
+  const isPNG = headerBytes.length >= 8 &&
+    headerBytes[0] === 0x89 &&
+    headerBytes[1] === 0x50 &&
+    headerBytes[2] === 0x4E &&
+    headerBytes[3] === 0x47 &&
+    headerBytes[4] === 0x0D &&
+    headerBytes[5] === 0x0A &&
+    headerBytes[6] === 0x1A &&
+    headerBytes[7] === 0x0A
+  if (isPNG) return "png"
+
+  const isJPG = headerBytes.length >= 3 &&
+    headerBytes[0] === 0xFF &&
+    headerBytes[1] === 0xD8 &&
+    headerBytes[2] === 0xFF
+  if (isJPG) return "jpg"
+
+  const isICO = headerBytes.length >= 4 &&
+    headerBytes[0] === 0x00 &&
+    headerBytes[1] === 0x00 &&
+    headerBytes[2] === 0x01 &&
+    headerBytes[3] === 0x00
+  if (isICO) return "ico"
+
+  return null
+}
+
+function extensionMatchesFormat(extension: string, format: UploadedImageFormat): boolean {
+  switch (format) {
+    case "png":
+      return extension === ".png"
+    case "jpg":
+      return extension === ".jpg" || extension === ".jpeg"
+    case "ico":
+      return extension === ".ico"
+    default:
+      return false
+  }
+}
+
 export default function IconPicker({
   value,
   onChange,
@@ -88,17 +143,35 @@ export default function IconPicker({
   }, [brandSearch])
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    void validateAndSelectFile(e)
+  }
+
+  async function validateAndSelectFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setFileError("")
 
-    if (file.type !== "image/png" && file.type !== "image/jpeg") {
+    const extension = getFileExtension(file.name)
+    if (!extension) {
       setFileError(t("subscription.form.iconPicker.invalidType"))
       return
     }
 
     if (file.size > maxFileSizeKB * 1024) {
       setFileError(t("subscription.form.iconPicker.fileTooLarge", { size: maxFileSizeKB }))
+      return
+    }
+
+    const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+    const detectedFormat = detectFileFormat(headerBytes)
+    if (!detectedFormat || !extensionMatchesFormat(extension, detectedFormat)) {
+      setFileError(t("subscription.form.iconPicker.invalidType"))
+      return
+    }
+
+    const allowedMimes = allowedMimeByFormat[detectedFormat]
+    if (file.type && !allowedMimes.includes(file.type)) {
+      setFileError(t("subscription.form.iconPicker.invalidType"))
       return
     }
 
@@ -358,7 +431,7 @@ export default function IconPicker({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg"
+                  accept=".png,.jpg,.jpeg,.ico,image/png,image/jpeg,image/x-icon,image/vnd.microsoft.icon"
                   className="hidden"
                   onChange={handleFileChange}
                 />

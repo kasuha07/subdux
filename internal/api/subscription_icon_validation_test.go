@@ -6,6 +6,9 @@ func TestValidateIconManagedAssetPath(t *testing.T) {
 	if !validateIcon("file:1_2_3.png") {
 		t.Fatal("validateIcon() should accept valid managed icon path")
 	}
+	if !validateIcon("file:1_2_3.ico") {
+		t.Fatal("validateIcon() should accept valid managed ico path")
+	}
 }
 
 func TestValidateIconRejectsAssetTraversal(t *testing.T) {

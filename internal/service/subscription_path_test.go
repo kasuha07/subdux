@@ -25,6 +25,12 @@ func TestManagedIconFilePath(t *testing.T) {
 			wantOK:   true,
 		},
 		{
+			name:     "valid ico icon path",
+			icon:     "file:2_4_6.ico",
+			wantPath: filepath.Join("data", "assets", "icons", "2_4_6.ico"),
+			wantOK:   true,
+		},
+		{
 			name:   "reject traversal outside data directory",
 			icon:   "file:../../data/subdux.db",
 			wantOK: false,

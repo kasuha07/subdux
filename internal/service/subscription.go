@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -388,26 +387,9 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 		return "", errors.New("subscription not found")
 	}
 
-	ext := strings.ToLower(filepath.Ext(filename))
-	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
-		return "", errors.New("only PNG and JPG images are supported")
-	}
-
-	buf, err := io.ReadAll(io.LimitReader(file, maxSize+1))
+	sanitized, ext, err := sanitizeUploadedIcon(file, filename, maxSize)
 	if err != nil {
-		return "", errors.New("failed to read file")
-	}
-	if int64(len(buf)) > maxSize {
-		return "", errors.New("file size exceeds limit")
-	}
-
-	contentType := http.DetectContentType(buf)
-	if contentType != "image/png" && contentType != "image/jpeg" {
-		return "", errors.New("only PNG and JPG images are supported")
-	}
-
-	if ext == ".jpeg" {
-		ext = ".jpg"
+		return "", err
 	}
 
 	iconDir := filepath.Join(pkg.GetDataPath(), "assets", "icons")
@@ -418,7 +400,7 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 	newFilename := fmt.Sprintf("%d_%d_%d%s", userID, subID, time.Now().UnixNano(), ext)
 	destPath := filepath.Join(iconDir, newFilename)
 
-	if err := os.WriteFile(destPath, buf, 0644); err != nil {
+	if err := os.WriteFile(destPath, sanitized, 0644); err != nil {
 		return "", errors.New("failed to save icon file")
 	}
 
@@ -456,7 +438,7 @@ func managedIconFilePath(icon string) (string, bool) {
 		return "", false
 	}
 	ext := strings.ToLower(filepath.Ext(filename))
-	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
+	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".ico" {
 		return "", false
 	}
 

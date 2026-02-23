@@ -65,7 +65,7 @@ func isManagedAssetIcon(icon string) bool {
 		return false
 	}
 	ext := strings.ToLower(filepath.Ext(filename))
-	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
+	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".ico" {
 		return false
 	}
 

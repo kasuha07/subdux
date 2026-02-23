@@ -97,9 +97,9 @@ const subscription = {
       "urlLabel": "图片链接",
       "urlPlaceholder": "https://example.com/logo.png",
       "uploadLabel": "上传图片",
-      "uploadHint": "PNG 或 JPG，最大 {{size}}KB",
+      "uploadHint": "PNG/JPG/ICO（会校验文件签名与扩展名），最大 {{size}}KB",
       "uploadButton": "选择文件",
-      "invalidType": "仅支持 PNG 和 JPG 格式",
+      "invalidType": "仅支持扩展名与内容匹配的有效 PNG/JPG/ICO 文件",
       "fileTooLarge": "文件超过 {{size}}KB 限制",
       "removeFile": "移除"
     },
