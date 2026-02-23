@@ -8,6 +8,13 @@ const dashboard = {
     "enabled": "Enabled",
     "upcoming": "Upcoming"
   },
+  "views": {
+    "current": "Current view: {{view}}",
+    "list": "List view",
+    "cards": "Card view",
+    "toggleToList": "Switch to list view",
+    "toggleToCards": "Switch to card view"
+  },
   "empty": {
     "title": "No subscriptions yet",
     "description": "Start tracking by adding your first subscription",

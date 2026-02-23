@@ -8,6 +8,13 @@ const dashboard = {
     "enabled": "启用",
     "upcoming": "即将到期"
   },
+  "views": {
+    "current": "当前视图：{{view}}",
+    "list": "列表视图",
+    "cards": "卡片视图",
+    "toggleToList": "切换为列表视图",
+    "toggleToCards": "切换为卡片视图"
+  },
   "empty": {
     "title": "暂无订阅",
     "description": "添加您的第一个订阅开始追踪",

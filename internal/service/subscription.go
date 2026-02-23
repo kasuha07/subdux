@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -86,6 +87,32 @@ type UpdateSubscriptionInput struct {
 	Icon             *string  `json:"icon"`
 	URL              *string  `json:"url"`
 	Notes            *string  `json:"notes"`
+
+	NotifyEnabledSet    bool `json:"-"`
+	NotifyDaysBeforeSet bool `json:"-"`
+}
+
+func (input *UpdateSubscriptionInput) UnmarshalJSON(data []byte) error {
+	type alias UpdateSubscriptionInput
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*input = UpdateSubscriptionInput(decoded)
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	if _, ok := raw["notify_enabled"]; ok {
+		input.NotifyEnabledSet = true
+	}
+	if _, ok := raw["notify_days_before"]; ok {
+		input.NotifyDaysBeforeSet = true
+	}
+
+	return nil
 }
 
 type DashboardSummary struct {
@@ -264,14 +291,22 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	if input.Notes != nil {
 		updates["notes"] = *input.Notes
 	}
-	if input.NotifyEnabled != nil {
-		updates["notify_enabled"] = *input.NotifyEnabled
-	}
-	if input.NotifyDaysBefore != nil {
-		if err := validateNotifyDaysBefore(*input.NotifyDaysBefore); err != nil {
-			return nil, err
+	if input.NotifyEnabledSet || input.NotifyEnabled != nil {
+		if input.NotifyEnabled == nil {
+			updates["notify_enabled"] = nil
+		} else {
+			updates["notify_enabled"] = *input.NotifyEnabled
 		}
-		updates["notify_days_before"] = *input.NotifyDaysBefore
+	}
+	if input.NotifyDaysBeforeSet || input.NotifyDaysBefore != nil {
+		if input.NotifyDaysBefore == nil {
+			updates["notify_days_before"] = nil
+		} else {
+			if err := validateNotifyDaysBefore(*input.NotifyDaysBefore); err != nil {
+				return nil, err
+			}
+			updates["notify_days_before"] = *input.NotifyDaysBefore
+		}
 	}
 
 	hasScheduleUpdate := input.BillingType != nil ||

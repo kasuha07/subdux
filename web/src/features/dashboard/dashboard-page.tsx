@@ -21,6 +21,7 @@ import { toast } from "sonner"
 import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
+import SubscriptionSquareCard from "@/features/subscriptions/subscription-square-card"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
@@ -106,6 +107,7 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation()
+  const [subscriptionView, setSubscriptionView] = useState<"list" | "cards">("list")
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
@@ -325,9 +327,20 @@ export default function DashboardPage() {
               onToggleNoCategory={onToggleNoCategory}
               onTogglePaymentMethod={handleTogglePaymentMethod}
               onToggleNoPaymentMethod={onToggleNoPaymentMethod}
+              subscriptionView={subscriptionView}
+              onToggleSubscriptionView={() =>
+                setSubscriptionView((current) => (current === "list" ? "cards" : "list"))
+              }
+              viewToggleDisabled={subscriptions.length === 0}
             />
 
-            <div className="space-y-1">
+            <div
+              className={
+                subscriptionView === "list"
+                  ? "space-y-1"
+                  : "grid auto-rows-min items-start grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+              }
+            >
               {subscriptions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="mb-4 rounded-full bg-muted p-4">
@@ -370,8 +383,35 @@ export default function DashboardPage() {
                     ? (displayAmount ?? sub.amount) * monthlyFactor
                     : undefined
 
+                  if (subscriptionView === "list") {
+                    return (
+                      <SubscriptionCard
+                        key={sub.id}
+                        subscription={sub}
+                        categoryName={getSubscriptionCategoryName(sub)}
+                        currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
+                        displayAmount={monthlyDisplayAmount ?? displayAmount}
+                        displayCurrency={displayCurrency}
+                        displayCurrencySymbol={displayCurrencySymbol}
+                        showMonthlyAmount={monthlyFactor !== null}
+                        paymentMethodName={
+                          sub.payment_method_id
+                            ? paymentMethodLabelMap.get(sub.payment_method_id)
+                            : undefined
+                        }
+                        paymentMethodIcon={
+                          sub.payment_method_id
+                            ? paymentMethodIconMap.get(sub.payment_method_id)
+                            : undefined
+                        }
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
+                    )
+                  }
+
                   return (
-                    <SubscriptionCard
+                    <SubscriptionSquareCard
                       key={sub.id}
                       subscription={sub}
                       categoryName={getSubscriptionCategoryName(sub)}
@@ -385,13 +425,7 @@ export default function DashboardPage() {
                           ? paymentMethodLabelMap.get(sub.payment_method_id)
                           : undefined
                       }
-                      paymentMethodIcon={
-                        sub.payment_method_id
-                          ? paymentMethodIconMap.get(sub.payment_method_id)
-                          : undefined
-                      }
                       onEdit={handleEdit}
-                      onDelete={handleDelete}
                     />
                   )
                 })

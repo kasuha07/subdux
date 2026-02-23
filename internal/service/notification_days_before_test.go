@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -106,5 +107,41 @@ func TestUpdateSubscriptionRejectsNotifyDaysBeforeAboveMax(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "notify_days_before must be between 0 and 10") {
 		t.Fatalf("Update() error = %q, want notify_days_before validation", err.Error())
+	}
+}
+
+func TestUpdateSubscriptionAllowsClearingNotifyOverridesWithNull(t *testing.T) {
+	db := newNotificationDaysBeforeTestDB(t)
+	user := createNotificationDaysBeforeTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	initialEnabled := false
+	initialDays := 3
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:             "Example subscription",
+		Amount:           9.99,
+		BillingType:      billingTypeOneTime,
+		NextBillingDate:  "2025-01-01",
+		NotifyEnabled:    &initialEnabled,
+		NotifyDaysBefore: &initialDays,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	var updateInput UpdateSubscriptionInput
+	if err := json.Unmarshal([]byte(`{"notify_enabled":null,"notify_days_before":null}`), &updateInput); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+
+	updated, err := service.Update(user.ID, sub.ID, updateInput)
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if updated.NotifyEnabled != nil {
+		t.Fatalf("updated.NotifyEnabled = %v, want nil", *updated.NotifyEnabled)
+	}
+	if updated.NotifyDaysBefore != nil {
+		t.Fatalf("updated.NotifyDaysBefore = %v, want nil", *updated.NotifyDaysBefore)
 	}
 }

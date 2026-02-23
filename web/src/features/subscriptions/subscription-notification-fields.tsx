@@ -28,9 +28,10 @@ export default function SubscriptionNotificationFields({
   onNotifyEnabledChange,
 }: SubscriptionNotificationFieldsProps) {
   const { t } = useTranslation()
+  const showDaysBeforeOverride = notifyEnabled === "enabled"
 
   return (
-    <>
+    <div className={showDaysBeforeOverride ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "space-y-0"}>
       <div className="space-y-2">
         <Label>{t("settings.notifications.subscription.title")}</Label>
         <Select value={notifyEnabled} onValueChange={onNotifyEnabledChange}>
@@ -51,7 +52,7 @@ export default function SubscriptionNotificationFields({
         </Select>
       </div>
 
-      {notifyEnabled === "enabled" && (
+      {showDaysBeforeOverride && (
         <div className="space-y-2">
           <Label htmlFor="notify-days">{t("settings.notifications.subscription.daysBeforeOverride")}</Label>
           <Input
@@ -65,6 +66,6 @@ export default function SubscriptionNotificationFields({
           />
         </div>
       )}
-    </>
+    </div>
   )
 }

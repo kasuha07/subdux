@@ -5,6 +5,8 @@ import {
   ArrowUpDown,
   Filter,
   FilterX,
+  Grid3X3,
+  List,
   Search,
 } from "lucide-react"
 
@@ -48,9 +50,12 @@ interface DashboardFiltersToolbarProps {
   paymentMethodLabelMap: Map<number, string>
   paymentMethods: PaymentMethod[]
   searchTerm: string
+  subscriptionView: "list" | "cards"
   selectedCategories: Set<string>
   selectedEnabledStates: Set<EnabledFilter>
   selectedPaymentMethodIDs: Set<number>
+  onToggleSubscriptionView: () => void
+  viewToggleDisabled?: boolean
   sortDirection: SortDirection
   sortField: SortField
 }
@@ -72,9 +77,12 @@ export default function DashboardFiltersToolbar({
   paymentMethodLabelMap,
   paymentMethods,
   searchTerm,
+  subscriptionView,
   selectedCategories,
   selectedEnabledStates,
   selectedPaymentMethodIDs,
+  onToggleSubscriptionView,
+  viewToggleDisabled = false,
   sortDirection,
   sortField,
 }: DashboardFiltersToolbarProps) {
@@ -240,6 +248,26 @@ export default function DashboardFiltersToolbar({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Button
+        variant="outline"
+        size="icon-sm"
+        className="shrink-0"
+        onClick={onToggleSubscriptionView}
+        disabled={viewToggleDisabled}
+        aria-label={
+          subscriptionView === "list"
+            ? t("dashboard.views.toggleToCards")
+            : t("dashboard.views.toggleToList")
+        }
+        title={
+          subscriptionView === "list"
+            ? t("dashboard.views.toggleToCards")
+            : t("dashboard.views.toggleToList")
+        }
+      >
+        {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
+      </Button>
     </div>
   )
 }

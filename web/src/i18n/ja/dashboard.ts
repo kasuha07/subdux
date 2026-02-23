@@ -8,6 +8,13 @@ const dashboard = {
     "enabled": "有効",
     "upcoming": "更新予定"
   },
+  "views": {
+    "current": "現在の表示: {{view}}",
+    "list": "リスト表示",
+    "cards": "カード表示",
+    "toggleToList": "リスト表示に切替",
+    "toggleToCards": "カード表示に切替"
+  },
   "empty": {
     "title": "サブスクリプションがありません",
     "description": "最初のサブスクリプションを追加して追跡を始めましょう",
