@@ -1,3 +1,4 @@
+import { SXBilibili } from "./custom/bilibili"
 import { SXNeteaseCloudMusic } from "./custom/neteasecloudmusic"
 
 import type { BrandIconSpec } from "./types"
@@ -820,12 +821,12 @@ export const brandSpecs: BrandIconSpec[] = [
     loadIcon: () => import("@icongo/si/esm/SINiconico").then((module) => module.SINiconico),
   },
   {
-    prefix: "lg",
+    prefix: "custom",
     slug: "bilibili",
     title: "Bilibili",
-    hex: "#00A1D6",
+    hex: "#1296DB",
     keywords: ["b站", "哔哩哔哩", "anime", "video", "streaming"],
-    loadIcon: () => import("@icongo/si/esm/SIBilibili").then((module) => module.SIBilibili),
+    loadIcon: () => Promise.resolve(SXBilibili),
   },
   {
     prefix: "lg",

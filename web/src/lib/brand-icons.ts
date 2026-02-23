@@ -16,6 +16,10 @@ export const brandIcons: BrandIcon[] = brandSpecs.map((spec) => ({
 
 const brandIconMap = new Map(brandIcons.map((icon) => [icon.slug, icon] as const))
 const brandIconValueMap = new Map(brandIcons.map((icon) => [icon.value, icon] as const))
+const legacyIconValueAliases = new Map<string, string>([
+  ["lg:bilibili", "custom:bilibili"],
+  ["sx:neteasecloudmusic", "custom:neteasecloudmusic"],
+])
 
 export function getBrandIcon(slug: string): BrandIcon | undefined {
   return brandIconMap.get(slug)
@@ -26,5 +30,15 @@ export function getBrandIconFromValue(value: string): BrandIcon | undefined {
     return undefined
   }
 
-  return brandIconValueMap.get(value)
+  const icon = brandIconValueMap.get(value)
+  if (icon) {
+    return icon
+  }
+
+  const aliasValue = legacyIconValueAliases.get(value)
+  if (!aliasValue) {
+    return undefined
+  }
+
+  return brandIconValueMap.get(aliasValue)
 }
