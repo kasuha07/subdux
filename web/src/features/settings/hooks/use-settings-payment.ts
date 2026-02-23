@@ -15,6 +15,7 @@ import {
   getPresetCurrencies,
   getPresetCurrencyMeta,
 } from "@/lib/currencies"
+import { getDefaultCurrency, setDefaultCurrency } from "@/lib/default-currency"
 import { toast } from "sonner"
 import type {
   CreateCurrencyInput,
@@ -92,7 +93,7 @@ function getIntlCurrencyAliasPlaceholder(code: string, locale: string): string |
 export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSettingsPaymentResult {
   const { i18n, t } = useTranslation()
 
-  const [currency, setCurrency] = useState(localStorage.getItem("defaultCurrency") || "USD")
+  const [currency, setCurrency] = useState(getDefaultCurrency())
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const [addCode, setAddCode] = useState("")
   const [customCode, setCustomCode] = useState("")
@@ -117,7 +118,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
       .then((pref) => {
         if (pref?.preferred_currency) {
           setCurrency(pref.preferred_currency)
-          localStorage.setItem("defaultCurrency", pref.preferred_currency)
+          setDefaultCurrency(pref.preferred_currency)
         }
       })
       .catch(() => void 0)
@@ -137,7 +138,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     if (!userCurrencies.some((item) => item.code === currency)) {
       const nextCurrency = userCurrencies[0].code
       setCurrency(nextCurrency)
-      localStorage.setItem("defaultCurrency", nextCurrency)
+      setDefaultCurrency(nextCurrency)
       api.put("/preferences/currency", { preferred_currency: nextCurrency }).catch(() => void 0)
     }
   }, [currency, userCurrencies])
@@ -248,7 +249,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
 
   async function handleCurrency(value: string) {
     setCurrency(value)
-    localStorage.setItem("defaultCurrency", value)
+    setDefaultCurrency(value)
     try {
       await api.put("/preferences/currency", { preferred_currency: value })
     } catch {
