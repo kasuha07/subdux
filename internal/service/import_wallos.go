@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -89,14 +90,21 @@ type WallosImportResponse struct {
 	Result *ImportResult `json:"result,omitempty"`
 }
 
-var currencySymbols = map[string]string{
-	"$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY", "￥": "CNY",
-	"₩": "KRW", "₹": "INR", "₽": "RUB", "₺": "TRY", "₴": "UAH",
-	"₫": "VND", "₱": "PHP", "₿": "BTC", "฿": "THB", "₪": "ILS",
-	"R$": "BRL", "zł": "PLN", "Kč": "CZK", "kr": "SEK", "Fr": "CHF",
-	"RM": "MYR", "Rp": "IDR", "Rs": "INR", "DH": "MAD", "DA": "DZD",
-	"DT": "TND", "LD": "LYD", "S$": "SGD", "A$": "AUD", "C$": "CAD",
-	"NZ$": "NZD", "HK$": "HKD", "NT$": "TWD", "MX$": "MXN",
+// currencySymbols maps currency symbols to candidate currency codes.
+// Ambiguous symbols (e.g. ¥ for JPY/CNY, $ for USD/CAD/AUD) list multiple candidates;
+// the user's preferred currency is used to disambiguate.
+var currencySymbols = map[string][]string{
+	"€": {"EUR"}, "£": {"GBP"}, "₩": {"KRW"}, "₹": {"INR"}, "₽": {"RUB"},
+	"₺": {"TRY"}, "₴": {"UAH"}, "₫": {"VND"}, "₱": {"PHP"}, "₿": {"BTC"},
+	"฿": {"THB"}, "₪": {"ILS"}, "zł": {"PLN"}, "Kč": {"CZK"},
+	"¥": {"CNY", "JPY"}, "￥": {"CNY", "JPY"},
+	"$":   {"USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN"},
+	"kr":  {"SEK", "NOK", "DKK", "ISK"},
+	"Fr":  {"CHF"},
+	"RM":  {"MYR"}, "Rp": {"IDR"}, "Rs": {"INR", "PKR", "LKR", "NPR"},
+	"DH":  {"MAD"}, "DA": {"DZD"}, "DT": {"TND"}, "LD": {"LYD"},
+	"R$":  {"BRL"}, "S$": {"SGD"}, "A$": {"AUD"}, "C$": {"CAD"},
+	"NZ$": {"NZD"}, "HK$": {"HKD"}, "NT$": {"TWD"}, "MX$": {"MXN"},
 }
 
 var wallosPaymentMethods = map[string]bool{
@@ -128,14 +136,29 @@ var knownCurrencies = []string{
 
 var currencyRe = regexp.MustCompile(`[A-Z]{3}`)
 
-func extractCurrencyAndAmount(price string) (float64, string) {
-	currency := "USD"
+func extractCurrencyAndAmount(price string, preferredCurrency string) (float64, string) {
+	currency := preferredCurrency
+	if currency == "" {
+		currency = "USD"
+	}
 	found := false
 
-	// Try symbol matching first (longer symbols first to match "NZ$" before "$")
-	for sym, code := range currencySymbols {
-		if strings.Contains(price, sym) {
-			currency = code
+	// Try symbol matching, longest symbols first to match "NZ$" before "$"
+	type symEntry struct {
+		sym   string
+		codes []string
+	}
+	sorted := make([]symEntry, 0, len(currencySymbols))
+	for sym, codes := range currencySymbols {
+		sorted = append(sorted, symEntry{sym, codes})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return len(sorted[i].sym) > len(sorted[j].sym)
+	})
+
+	for _, entry := range sorted {
+		if strings.Contains(price, entry.sym) {
+			currency = resolveAmbiguous(entry.codes, preferredCurrency)
 			found = true
 			break
 		}
@@ -168,11 +191,27 @@ func extractCurrencyAndAmount(price string) (float64, string) {
 	return amount, currency
 }
 
+// resolveAmbiguous picks the best currency code from candidates.
+// If the user's preferred currency is among the candidates, use it; otherwise use the first candidate.
+func resolveAmbiguous(candidates []string, preferredCurrency string) string {
+	if len(candidates) == 1 {
+		return candidates[0]
+	}
+	for _, c := range candidates {
+		if c == preferredCurrency {
+			return c
+		}
+	}
+	return candidates[0]
+}
+
 // symbolForCode returns the currency symbol for a given code, or empty string if unknown.
 func symbolForCode(code string) string {
-	for sym, c := range currencySymbols {
-		if c == code {
-			return sym
+	for sym, codes := range currencySymbols {
+		for _, c := range codes {
+			if c == code {
+				return sym
+			}
 		}
 	}
 	return ""
@@ -256,6 +295,13 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 	seenSubscriptions := map[string]bool{}
 
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		// Read user's preferred currency to disambiguate symbols like ¥ and $
+		var pref model.UserPreference
+		preferredCurrency := "USD"
+		if err := tx.Where("user_id = ?", userID).First(&pref).Error; err == nil {
+			preferredCurrency = pref.PreferredCurrency
+		}
+
 		for _, item := range data {
 			name := strings.TrimSpace(item.Name)
 			if name == "" {
@@ -266,7 +312,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 				continue
 			}
 
-			amount, currency := extractCurrencyAndAmount(item.Price)
+			amount, currency := extractCurrencyAndAmount(item.Price, preferredCurrency)
 			billingType, recurrenceType, intervalUnit, intervalCount := mapPaymentCycle(item.PaymentCycle)
 			nextBilling := parseDate(item.NextPayment)
 			enabled := parseEnabled(item.Active)
