@@ -151,7 +151,21 @@ const settings = {
     "importing": "インポート中...",
     "importSuccess": "{{imported}} 件のサブスクリプションをインポートしました（{{skipped}} 件スキップ）",
     "importFailed": "データのインポートに失敗しました",
-    "importInvalidFormat": "ファイル形式が無効です。有効な Wallos JSON エクスポートファイルを選択してください"
+    "importInvalidFormat": "ファイル形式が無効です。有効な Wallos JSON エクスポートファイルを選択してください",
+    "importPreviewTitle": "インポートプレビュー",
+    "importPreviewDescription": "インポート前に変更内容を確認してください",
+    "importPreviewCurrencies": "通貨",
+    "importPreviewPaymentMethods": "支払い方法",
+    "importPreviewCategories": "カテゴリ",
+    "importPreviewSubscriptions": "サブスクリプション",
+    "importPreviewNew": "新規",
+    "importPreviewExists": "既存",
+    "importPreviewSkipped": "スキップ",
+    "importPreviewMatchedAs": "{{name}} として一致",
+    "importPreviewConfirm": "インポート実行",
+    "importPreviewCancel": "キャンセル",
+    "importAnalyzing": "分析中...",
+    "importPreviewEmpty": "インポートする変更はありません"
   },
   "twoFactor": {
     "title": "二段階認証",

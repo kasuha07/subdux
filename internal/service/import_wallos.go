@@ -36,10 +36,57 @@ type WallosSubscription struct {
 	Active           string `json:"Active"`
 }
 
+type WallosImportRequest struct {
+	Data    []WallosSubscription `json:"data"`
+	Confirm bool                 `json:"confirm"`
+}
+
 type ImportResult struct {
 	Imported int      `json:"imported"`
 	Skipped  int      `json:"skipped"`
 	Errors   []string `json:"errors"`
+}
+
+type PreviewCurrencyChange struct {
+	Code   string `json:"code"`
+	Symbol string `json:"symbol"`
+	IsNew  bool   `json:"is_new"`
+}
+
+type PreviewPaymentMethodChange struct {
+	Name    string `json:"name"`
+	IsNew   bool   `json:"is_new"`
+	Matched string `json:"matched,omitempty"`
+}
+
+type PreviewCategoryChange struct {
+	Name  string `json:"name"`
+	IsNew bool   `json:"is_new"`
+}
+
+type PreviewSubscriptionChange struct {
+	Name        string  `json:"name"`
+	Amount      float64 `json:"amount"`
+	Currency    string  `json:"currency"`
+	BillingType string  `json:"billing_type"`
+	Category    string  `json:"category,omitempty"`
+	Skipped     bool    `json:"skipped"`
+	SkipReason  string  `json:"skip_reason,omitempty"`
+}
+
+type ImportPreview struct {
+	Currencies     []PreviewCurrencyChange      `json:"currencies"`
+	PaymentMethods []PreviewPaymentMethodChange  `json:"payment_methods"`
+	Categories     []PreviewCategoryChange       `json:"categories"`
+	Subscriptions  []PreviewSubscriptionChange   `json:"subscriptions"`
+}
+
+// WallosImportResponse is returned for both preview and confirm modes.
+type WallosImportResponse struct {
+	// Preview fields (returned when confirm=false)
+	Preview *ImportPreview `json:"preview,omitempty"`
+	// Result fields (returned when confirm=true)
+	Result *ImportResult `json:"result,omitempty"`
 }
 
 var currencySymbols = map[string]string{
@@ -50,6 +97,24 @@ var currencySymbols = map[string]string{
 	"RM": "MYR", "Rp": "IDR", "Rs": "INR", "DH": "MAD", "DA": "DZD",
 	"DT": "TND", "LD": "LYD", "S$": "SGD", "A$": "AUD", "C$": "CAD",
 	"NZ$": "NZD", "HK$": "HKD", "NT$": "TWD", "MX$": "MXN",
+}
+
+var wallosPaymentMethods = map[string]bool{
+	"PayPal": true, "Credit Card": true, "Bank Transfer": true, "Direct Debit": true,
+	"Money": true, "Google Pay": true, "Samsung Pay": true, "Apple Pay": true,
+	"Crypto": true, "Klarna": true, "Amazon Pay": true, "SEPA": true,
+	"Skrill": true, "Sofort": true, "Stripe": true, "Affirm": true,
+	"AliPay": true, "Elo": true, "Facebook Pay": true, "GiroPay": true,
+	"iDeal": true, "Union Pay": true, "Interac": true, "WeChat": true,
+	"Paysafe": true, "Poli": true, "Qiwi": true, "ShopPay": true,
+	"Venmo": true, "VeriFone": true, "WebMoney": true,
+}
+
+// wallosToSystemKey maps Wallos payment method names to subdux system keys.
+var wallosToSystemKey = map[string]string{
+	"PayPal": "paypal",
+	"AliPay": "alipay",
+	"WeChat": "wechatpay",
 }
 
 var knownCurrencies = []string{
@@ -101,6 +166,16 @@ func extractCurrencyAndAmount(price string) (float64, string) {
 		return 0, currency
 	}
 	return amount, currency
+}
+
+// symbolForCode returns the currency symbol for a given code, or empty string if unknown.
+func symbolForCode(code string) string {
+	for sym, c := range currencySymbols {
+		if c == code {
+			return sym
+		}
+	}
+	return ""
 }
 
 var everyNRe = regexp.MustCompile(`(?i)^every\s+(\d+)\s+(day|week|month|year)s?$`)
@@ -161,15 +236,30 @@ func parseEnabled(s string) bool {
 	return lower == "enabled" || lower == "yes" || lower == "1" || lower == "true"
 }
 
-func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription) (*ImportResult, error) {
+// errPreviewRollback is a sentinel error used to trigger transaction rollback in preview mode.
+var errPreviewRollback = fmt.Errorf("preview rollback")
+
+func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription, confirm bool) (*WallosImportResponse, error) {
 	result := &ImportResult{Errors: []string{}}
+	preview := &ImportPreview{
+		Currencies:     []PreviewCurrencyChange{},
+		PaymentMethods: []PreviewPaymentMethodChange{},
+		Categories:     []PreviewCategoryChange{},
+		Subscriptions:  []PreviewSubscriptionChange{},
+	}
+
+	seenCurrencies := map[string]bool{}
+	seenPaymentMethods := map[string]bool{}
+	seenCategories := map[string]bool{}
 
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
 		for _, item := range data {
 			name := strings.TrimSpace(item.Name)
 			if name == "" {
-				result.Errors = append(result.Errors, "skipped item with empty name")
-				result.Skipped++
+				if confirm {
+					result.Errors = append(result.Errors, "skipped item with empty name")
+					result.Skipped++
+				}
 				continue
 			}
 
@@ -191,43 +281,179 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription)
 			if err := query.Count(&count).Error; err != nil {
 				return err
 			}
-			if count > 0 {
-				result.Skipped++
+
+			isDuplicate := count > 0
+
+			// Collect preview info
+			if currency != "" && !seenCurrencies[currency] {
+				seenCurrencies[currency] = true
+				var uc model.UserCurrency
+				ucErr := tx.Where("user_id = ? AND code = ?", userID, currency).First(&uc).Error
+				isNew := ucErr == gorm.ErrRecordNotFound
+				preview.Currencies = append(preview.Currencies, PreviewCurrencyChange{
+					Code:   currency,
+					Symbol: symbolForCode(currency),
+					IsNew:  isNew,
+				})
+			}
+
+			pmName := strings.TrimSpace(item.PaymentMethod)
+			if pmName != "" && wallosPaymentMethods[pmName] && !seenPaymentMethods[pmName] {
+				seenPaymentMethods[pmName] = true
+				var pm model.PaymentMethod
+				found := false
+				matched := ""
+
+				if sysKey, ok := wallosToSystemKey[pmName]; ok {
+					if err := tx.Where("user_id = ? AND system_key = ?", userID, sysKey).First(&pm).Error; err == nil {
+						found = true
+						matched = pm.Name
+					}
+				}
+				if !found {
+					if err := tx.Where("user_id = ? AND LOWER(name) = ?", userID, strings.ToLower(pmName)).First(&pm).Error; err == nil {
+						found = true
+						matched = pm.Name
+					}
+				}
+
+				preview.PaymentMethods = append(preview.PaymentMethods, PreviewPaymentMethodChange{
+					Name:    pmName,
+					IsNew:   !found,
+					Matched: matched,
+				})
+			}
+
+			categoryName := strings.TrimSpace(item.Category)
+			if strings.EqualFold(categoryName, "No category") {
+				categoryName = ""
+			}
+			if categoryName != "" && !seenCategories[categoryName] {
+				seenCategories[categoryName] = true
+				var cat model.Category
+				catErr := tx.Where("user_id = ? AND name = ?", userID, categoryName).First(&cat).Error
+				isNew := catErr == gorm.ErrRecordNotFound
+				preview.Categories = append(preview.Categories, PreviewCategoryChange{
+					Name:  categoryName,
+					IsNew: isNew,
+				})
+			}
+
+			sub := PreviewSubscriptionChange{
+				Name:        name,
+				Amount:      amount,
+				Currency:    currency,
+				BillingType: billingType,
+				Category:    categoryName,
+			}
+			if isDuplicate {
+				sub.Skipped = true
+				sub.SkipReason = "duplicate"
+			}
+			preview.Subscriptions = append(preview.Subscriptions, sub)
+
+			// Skip actual import logic in preview mode or for duplicates
+			if !confirm || isDuplicate {
+				if confirm {
+					result.Skipped++
+				}
 				continue
 			}
 
+			// --- Actual import (confirm=true only) ---
+
+			// Resolve category
+			var categoryID *uint
+			if categoryName != "" {
+				var cat model.Category
+				err := tx.Where("user_id = ? AND name = ?", userID, categoryName).First(&cat).Error
+				if err == gorm.ErrRecordNotFound {
+					cat = model.Category{UserID: userID, Name: categoryName}
+					if err := tx.Create(&cat).Error; err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("failed to create category %q: %v", categoryName, err))
+					} else {
+						categoryID = &cat.ID
+					}
+				} else if err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("failed to lookup category %q: %v", categoryName, err))
+				} else {
+					categoryID = &cat.ID
+				}
+			}
+
+			// Ensure user currency exists
+			if currency != "" {
+				var uc model.UserCurrency
+				err := tx.Where("user_id = ? AND code = ?", userID, currency).First(&uc).Error
+				if err == gorm.ErrRecordNotFound {
+					uc = model.UserCurrency{UserID: userID, Code: currency, Symbol: symbolForCode(currency)}
+					if err := tx.Create(&uc).Error; err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("failed to create currency %q: %v", currency, err))
+					}
+				}
+			}
+
+			// Resolve payment method
+			var paymentMethodID *uint
+			if pmName != "" && wallosPaymentMethods[pmName] {
+				var pm model.PaymentMethod
+				found := false
+
+				if sysKey, ok := wallosToSystemKey[pmName]; ok {
+					if err := tx.Where("user_id = ? AND system_key = ?", userID, sysKey).First(&pm).Error; err == nil {
+						found = true
+					}
+				}
+				if !found {
+					if err := tx.Where("user_id = ? AND LOWER(name) = ?", userID, strings.ToLower(pmName)).First(&pm).Error; err == nil {
+						found = true
+					}
+				}
+				if !found {
+					pm = model.PaymentMethod{UserID: userID, Name: pmName}
+					if err := tx.Create(&pm).Error; err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("failed to create payment method %q: %v", pmName, err))
+					}
+				}
+				if pm.ID != 0 {
+					paymentMethodID = &pm.ID
+				}
+			}
+
 			notifyEnabled := parseEnabled(item.Notifications)
-			sub := model.Subscription{
-				UserID:        userID,
-				Name:          name,
-				Amount:        amount,
-				Currency:      currency,
-				Enabled:       enabled,
-				BillingType:   billingType,
-				Category:      item.Category,
-				URL:           item.URL,
-				Notes:         item.Notes,
-				NotifyEnabled: &notifyEnabled,
+			subscription := model.Subscription{
+				UserID:          userID,
+				Name:            name,
+				Amount:          amount,
+				Currency:        currency,
+				Enabled:         enabled,
+				BillingType:     billingType,
+				Category:        categoryName,
+				CategoryID:      categoryID,
+				PaymentMethodID: paymentMethodID,
+				URL:             item.URL,
+				Notes:           item.Notes,
+				NotifyEnabled:   &notifyEnabled,
 			}
 
 			if billingType == "recurring" {
-				sub.RecurrenceType = recurrenceType
-				sub.IntervalUnit = intervalUnit
-				sub.IntervalCount = &intervalCount
+				subscription.RecurrenceType = recurrenceType
+				subscription.IntervalUnit = intervalUnit
+				subscription.IntervalCount = &intervalCount
 			}
 
 			if nextBilling != nil {
-				sub.NextBillingDate = nextBilling
+				subscription.NextBillingDate = nextBilling
 			}
 
-			if err := tx.Create(&sub).Error; err != nil {
+			if err := tx.Create(&subscription).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to import %q: %v", name, err))
 				continue
 			}
 
 			// Force update enabled field to handle GORM default:true zero-value issue
 			if !enabled {
-				if err := tx.Model(&sub).Update("enabled", false).Error; err != nil {
+				if err := tx.Model(&subscription).Update("enabled", false).Error; err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("failed to update enabled for %q: %v", name, err))
 					continue
 				}
@@ -235,12 +461,19 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription)
 
 			result.Imported++
 		}
+
+		if !confirm {
+			return errPreviewRollback
+		}
 		return nil
 	})
 
-	if err != nil {
+	if err != nil && err != errPreviewRollback {
 		return nil, err
 	}
 
-	return result, nil
+	if confirm {
+		return &WallosImportResponse{Result: result}, nil
+	}
+	return &WallosImportResponse{Preview: preview}, nil
 }

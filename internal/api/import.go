@@ -18,12 +18,12 @@ func NewImportHandler(s *service.ImportService) *ImportHandler {
 func (h *ImportHandler) ImportWallos(c echo.Context) error {
 	userID := getUserID(c)
 
-	var data []service.WallosSubscription
-	if err := c.Bind(&data); err != nil {
+	var req service.WallosImportRequest
+	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON"})
 	}
 
-	result, err := h.Service.ImportFromWallos(userID, data)
+	result, err := h.Service.ImportFromWallos(userID, req.Data, req.Confirm)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}

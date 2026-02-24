@@ -151,7 +151,21 @@ const settings = {
     "importing": "导入中...",
     "importSuccess": "成功导入 {{imported}} 个订阅（跳过 {{skipped}} 个）",
     "importFailed": "导入数据失败",
-    "importInvalidFormat": "文件格式无效，请选择有效的 Wallos JSON 导出文件"
+    "importInvalidFormat": "文件格式无效，请选择有效的 Wallos JSON 导出文件",
+    "importPreviewTitle": "导入预览",
+    "importPreviewDescription": "在导入前确认即将进行的变更",
+    "importPreviewCurrencies": "货币",
+    "importPreviewPaymentMethods": "支付方式",
+    "importPreviewCategories": "分类",
+    "importPreviewSubscriptions": "订阅",
+    "importPreviewNew": "新增",
+    "importPreviewExists": "已存在",
+    "importPreviewSkipped": "跳过",
+    "importPreviewMatchedAs": "匹配为 {{name}}",
+    "importPreviewConfirm": "确认导入",
+    "importPreviewCancel": "取消",
+    "importAnalyzing": "分析中...",
+    "importPreviewEmpty": "没有可导入的变更"
   },
   "twoFactor": {
     "title": "两步验证",

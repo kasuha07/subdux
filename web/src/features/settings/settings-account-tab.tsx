@@ -2,10 +2,12 @@ import { useState, useRef, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -19,6 +21,40 @@ import type { User } from "@/types"
 import OIDCSection from "./oidc-section"
 import PasskeySection from "./passkey-section"
 import TotpSection from "./totp-section"
+
+interface PreviewCurrencyChange {
+  code: string
+  symbol: string
+  is_new: boolean
+}
+
+interface PreviewPaymentMethodChange {
+  name: string
+  is_new: boolean
+  matched?: string
+}
+
+interface PreviewCategoryChange {
+  name: string
+  is_new: boolean
+}
+
+interface PreviewSubscriptionChange {
+  name: string
+  amount: number
+  currency: string
+  billing_type: string
+  category?: string
+  skipped: boolean
+  skip_reason?: string
+}
+
+interface ImportPreview {
+  currencies: PreviewCurrencyChange[]
+  payment_methods: PreviewPaymentMethodChange[]
+  categories: PreviewCategoryChange[]
+  subscriptions: PreviewSubscriptionChange[]
+}
 
 interface SettingsAccountTabProps {
   confirmPassword: string
@@ -80,6 +116,9 @@ export default function SettingsAccountTab({
   const [exportLoading, setExportLoading] = useState(false)
   const [importLoading, setImportLoading] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false)
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
+  const [importRawData, setImportRawData] = useState<unknown[] | null>(null)
 
   async function handleExport() {
     setExportLoading(true)
@@ -132,7 +171,7 @@ export default function SettingsAccountTab({
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ data, confirm: false }),
       })
 
       if (!res.ok) {
@@ -141,13 +180,10 @@ export default function SettingsAccountTab({
         return
       }
 
-      const result = await res.json()
-      toast.success(
-        t("settings.account.importSuccess", {
-          imported: result.imported,
-          skipped: result.skipped,
-        })
-      )
+      const preview: ImportPreview = (await res.json()).preview
+      setImportPreview(preview)
+      setImportRawData(data)
+      setImportPreviewOpen(true)
     } catch {
       toast.error(t("settings.account.importFailed"))
     } finally {
@@ -155,6 +191,44 @@ export default function SettingsAccountTab({
       if (importFileRef.current) {
         importFileRef.current.value = ""
       }
+    }
+  }
+
+  async function handleConfirmImport() {
+    if (!importRawData) return
+
+    setImportLoading(true)
+    try {
+      const token = localStorage.getItem("token")
+      const res = await fetch("/api/import/wallos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ data: importRawData, confirm: true }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error || t("settings.account.importFailed"))
+        return
+      }
+
+      const { result } = await res.json()
+      toast.success(
+        t("settings.account.importSuccess", {
+          imported: result.imported,
+          skipped: result.skipped,
+        })
+      )
+      setImportPreviewOpen(false)
+      setImportPreview(null)
+      setImportRawData(null)
+    } catch {
+      toast.error(t("settings.account.importFailed"))
+    } finally {
+      setImportLoading(false)
     }
   }
 
@@ -337,7 +411,7 @@ export default function SettingsAccountTab({
             onClick={() => importFileRef.current?.click()}
           >
             {importLoading
-              ? t("settings.account.importing")
+              ? t("settings.account.importAnalyzing")
               : t("settings.account.importButton")}
           </Button>
         </div>
@@ -409,6 +483,149 @@ export default function SettingsAccountTab({
           </Button>
         </div>
       </div>
+
+      <Dialog open={importPreviewOpen} onOpenChange={(open) => {
+        if (!open && !importLoading) {
+          setImportPreviewOpen(false)
+          setImportPreview(null)
+          setImportRawData(null)
+        }
+      }}>
+        <DialogContent
+          className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh] sm:max-w-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => { if (importLoading) e.preventDefault() }}
+          showCloseButton={false}
+        >
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>{t("settings.account.importPreviewTitle")}</DialogTitle>
+            <DialogDescription>{t("settings.account.importPreviewDescription")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {importPreview && (
+              <div className="space-y-5">
+                {importPreview.currencies.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewCurrencies")}</h4>
+                    <div className="space-y-1.5">
+                      {importPreview.currencies.map((c) => (
+                        <div key={c.code} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>{c.code}{c.symbol ? ` (${c.symbol})` : ""}</span>
+                          <Badge variant={c.is_new ? "default" : "secondary"} className="text-xs">
+                            {c.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {importPreview.payment_methods.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewPaymentMethods")}</h4>
+                    <div className="space-y-1.5">
+                      {importPreview.payment_methods.map((pm) => (
+                        <div key={pm.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <div>
+                            <span>{pm.name}</span>
+                            {pm.matched && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {t("settings.account.importPreviewMatchedAs", { name: pm.matched })}
+                              </span>
+                            )}
+                          </div>
+                          <Badge variant={pm.is_new ? "default" : "secondary"} className="text-xs">
+                            {pm.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {importPreview.categories.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewCategories")}</h4>
+                    <div className="space-y-1.5">
+                      {importPreview.categories.map((cat) => (
+                        <div key={cat.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>{cat.name}</span>
+                          <Badge variant={cat.is_new ? "default" : "secondary"} className="text-xs">
+                            {cat.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {importPreview.subscriptions.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewSubscriptions")}</h4>
+                    <div className="space-y-1.5">
+                      {importPreview.subscriptions.map((sub, i) => (
+                        <div key={i} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate font-medium">{sub.name}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {sub.amount} {sub.currency}
+                              </span>
+                            </div>
+                            {sub.category && (
+                              <span className="text-xs text-muted-foreground">{sub.category}</span>
+                            )}
+                          </div>
+                          <Badge
+                            variant={sub.skipped ? "outline" : "default"}
+                            className="ml-2 shrink-0 text-xs"
+                          >
+                            {sub.skipped ? t("settings.account.importPreviewSkipped") : t("settings.account.importPreviewNew")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {importPreview.currencies.length === 0 &&
+                  importPreview.payment_methods.length === 0 &&
+                  importPreview.categories.length === 0 &&
+                  importPreview.subscriptions.length === 0 && (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      {t("settings.account.importPreviewEmpty")}
+                    </p>
+                  )}
+              </div>
+            )}
+          </div>
+
+          <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={importLoading}
+              onClick={() => {
+                setImportPreviewOpen(false)
+                setImportPreview(null)
+                setImportRawData(null)
+              }}
+            >
+              {t("settings.account.importPreviewCancel")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={importLoading || (importPreview?.subscriptions.every(s => s.skipped) ?? false)}
+              onClick={() => void handleConfirmImport()}
+            >
+              {importLoading
+                ? t("settings.account.importing")
+                : t("settings.account.importPreviewConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </TabsContent>
   )
 }

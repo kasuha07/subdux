@@ -151,7 +151,21 @@ const settings = {
     "importing": "Importing...",
     "importSuccess": "Successfully imported {{imported}} subscriptions ({{skipped}} skipped)",
     "importFailed": "Failed to import data",
-    "importInvalidFormat": "Invalid file format. Please select a valid Wallos JSON export file"
+    "importInvalidFormat": "Invalid file format. Please select a valid Wallos JSON export file",
+    "importPreviewTitle": "Import Preview",
+    "importPreviewDescription": "Review the changes that will be made before importing",
+    "importPreviewCurrencies": "Currencies",
+    "importPreviewPaymentMethods": "Payment Methods",
+    "importPreviewCategories": "Categories",
+    "importPreviewSubscriptions": "Subscriptions",
+    "importPreviewNew": "New",
+    "importPreviewExists": "Exists",
+    "importPreviewSkipped": "Skipped",
+    "importPreviewMatchedAs": "Matched as {{name}}",
+    "importPreviewConfirm": "Confirm Import",
+    "importPreviewCancel": "Cancel",
+    "importAnalyzing": "Analyzing...",
+    "importPreviewEmpty": "No changes to import"
   },
   "twoFactor": {
     "title": "Two-Factor Authentication",
