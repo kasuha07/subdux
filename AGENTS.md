@@ -76,6 +76,22 @@ bun run build                # tsc + Vite production build
 bun run lint                 # ESLint
 ```
 
+## COMMIT MESSAGE REQUIREMENTS
+
+- For any non-trivial change, commit messages MUST include a detailed body (not only a short title).
+- The body should use scoped bullets (`Backend`, `API`, `Frontend`, `i18n`, etc.) and describe concrete behavior/logic changes.
+- Include key implementation details such as parsing rules, data mapping, dedup rules, endpoint paths, UX feedback, and translation coverage when applicable.
+
+Example:
+```text
+- Backend: import service parses Wallos JSON export, maps payment cycles
+      (including "Every N Units" format), extracts currency from symbols and
+      codes, deduplicates by name+amount+currency+billing_type+next_billing_date
+- API: POST /api/import/wallos endpoint
+- Frontend: file picker button in account settings with toast feedback
+- i18n: translations for en, zh-CN, ja
+```
+
 ## CONVENTIONS
 
 **Backend:**
