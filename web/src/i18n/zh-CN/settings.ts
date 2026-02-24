@@ -140,7 +140,11 @@ const settings = {
     "update": "更新密码",
     "logout": "退出登录",
     "logoutDescription": "退出当前账户",
-    "logoutSuccess": "退出成功"
+    "logoutSuccess": "退出成功",
+    "exportTitle": "数据导出",
+    "exportDescription": "将您的所有数据（包括订阅、分类、支付方式和设置）导出为 JSON 文件",
+    "exportButton": "导出我的数据",
+    "exporting": "导出中..."
   },
   "twoFactor": {
     "title": "两步验证",

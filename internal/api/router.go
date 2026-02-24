@@ -82,6 +82,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	notificationService := service.NewNotificationService(db, templateService, renderer)
 	apiKeyService := service.NewAPIKeyService(db)
 	calendarService := service.NewCalendarService(db)
+	exportService := service.NewExportService(db)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
@@ -94,6 +95,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	templateHandler := NewNotificationTemplateHandler(templateService)
 	apiKeyHandler := NewAPIKeyHandler(apiKeyService)
 	calendarHandler := NewCalendarHandler(calendarService)
+	exportHandler := NewExportHandler(exportService)
 
 	api := e.Group("/api")
 
@@ -242,6 +244,8 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	protected.GET("/calendar/tokens", calendarHandler.ListTokens)
 	protected.POST("/calendar/tokens", calendarHandler.CreateToken)
 	protected.DELETE("/calendar/tokens/:id", calendarHandler.DeleteToken)
+
+	protected.GET("/export", exportHandler.Export)
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 

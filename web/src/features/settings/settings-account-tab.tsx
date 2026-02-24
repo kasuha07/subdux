@@ -76,6 +76,37 @@ export default function SettingsAccountTab({
 }: SettingsAccountTabProps) {
   const { t } = useTranslation()
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
+
+  async function handleExport() {
+    setExportLoading(true)
+    try {
+      const token = localStorage.getItem("token")
+      const res = await fetch("/api/export", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error("Export failed")
+      const blob = await res.blob()
+      const disposition = res.headers.get("Content-Disposition")
+      let filename = "subdux-export.json"
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/)
+        if (match) filename = match[1]
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      URL.revokeObjectURL(url)
+      a.remove()
+    } catch {
+      // error toast is handled by the fetch failure
+    } finally {
+      setExportLoading(false)
+    }
+  }
 
   return (
     <TabsContent value="account">
@@ -215,6 +246,26 @@ export default function SettingsAccountTab({
         <Separator />
 
         <OIDCSection />
+
+        <Separator />
+
+        <div>
+          <h3 className="text-base font-semibold tracking-tight">{t("settings.account.exportTitle")}</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("settings.account.exportDescription")}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={exportLoading}
+            onClick={handleExport}
+          >
+            {exportLoading
+              ? t("settings.account.exporting")
+              : t("settings.account.exportButton")}
+          </Button>
+        </div>
 
         <Separator />
 

@@ -140,7 +140,11 @@ const settings = {
     "update": "Update password",
     "logout": "Sign out",
     "logoutDescription": "Sign out of your account",
-    "logoutSuccess": "Logged out successfully"
+    "logoutSuccess": "Logged out successfully",
+    "exportTitle": "Data Export",
+    "exportDescription": "Download all your data including subscriptions, categories, payment methods, and settings as a JSON file",
+    "exportButton": "Export my data",
+    "exporting": "Exporting..."
   },
   "twoFactor": {
     "title": "Two-Factor Authentication",

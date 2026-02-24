@@ -140,7 +140,11 @@ const settings = {
     "update": "パスワードを更新",
     "logout": "サインアウト",
     "logoutDescription": "アカウントからサインアウト",
-    "logoutSuccess": "サインアウトしました"
+    "logoutSuccess": "サインアウトしました",
+    "exportTitle": "データエクスポート",
+    "exportDescription": "サブスクリプション、カテゴリ、支払い方法、設定を含むすべてのデータを JSON ファイルとしてダウンロード",
+    "exportButton": "データをエクスポート",
+    "exporting": "エクスポート中..."
   },
   "twoFactor": {
     "title": "二段階認証",
