@@ -126,8 +126,8 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if input.BillingType == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Billing type is required"})
 	}
-	if input.Amount <= 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must be positive"})
+	if input.Amount < 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must not be negative"})
 	}
 	if !validateSubscriptionIcon(input.Icon) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
@@ -155,8 +155,8 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
-	if input.Amount != nil && *input.Amount <= 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must be positive"})
+	if input.Amount != nil && *input.Amount < 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must not be negative"})
 	}
 	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})

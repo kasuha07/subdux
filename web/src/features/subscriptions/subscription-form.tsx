@@ -126,7 +126,7 @@ export default function SubscriptionForm({
                     id="amount"
                     type="number"
                     step="0.01"
-                    min="0.01"
+                    min="0"
                     placeholder={t("subscription.form.amountPlaceholder")}
                     value={values.amount}
                     onChange={(event) => setField("amount", event.target.value)}
