@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, Bell, CircleUserRound, CreditCard, Settings } from "lucide-react"
+import { ArrowLeft, Bell, CircleUserRound, CreditCard, Info, KeyRound, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -29,16 +29,17 @@ import {
   type ThemeColorScheme,
 } from "@/lib/theme"
 
+import SettingsAboutTab from "./settings-about-tab"
 import SettingsAccountTab from "./settings-account-tab"
+import SettingsAPIKeyTab from "./settings-apikey-tab"
 import SettingsGeneralTab from "./settings-general-tab"
 import SettingsNotificationTab from "./settings-notification-tab"
 import SettingsPaymentTab from "./settings-payment-tab"
 
-type SettingsTab = "general" | "payment" | "notification" | "account"
-const githubRepoURL = "https://github.com/kasuha07/subdux"
+type SettingsTab = "general" | "payment" | "notification" | "account" | "apikey" | "about"
 
 function isSettingsTab(value: string): value is SettingsTab {
-  return value === "general" || value === "payment" || value === "notification" || value === "account"
+  return value === "general" || value === "payment" || value === "notification" || value === "account" || value === "apikey" || value === "about"
 }
 
 export default function SettingsPage() {
@@ -60,49 +61,16 @@ export default function SettingsPage() {
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
-  const versionTriggerRef = useRef<HTMLDivElement | null>(null)
   const versionRequestedRef = useRef(false)
 
   const account = useSettingsAccount({ active: activeTab === "account" })
   const payment = useSettingsPayment({ active: activeTab === "payment" })
 
   useEffect(() => {
-    if (versionRequestedRef.current || versionInfo) {
-      return
-    }
-
-    const loadVersionInfo = () => {
-      if (versionRequestedRef.current) {
-        return
-      }
-
-      versionRequestedRef.current = true
-      api.get<VersionInfo>("/version").then(setVersionInfo).catch(() => {})
-    }
-
-    const node = versionTriggerRef.current
-    if (!node) {
-      return
-    }
-
-    if (typeof IntersectionObserver !== "function") {
-      loadVersionInfo()
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          loadVersionInfo()
-          observer.disconnect()
-        }
-      },
-      { rootMargin: "200px 0px" }
-    )
-
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [versionInfo])
+    if (activeTab !== "about" || versionRequestedRef.current) return
+    versionRequestedRef.current = true
+    api.get<VersionInfo>("/version").then(setVersionInfo).catch(() => {})
+  }, [activeTab])
 
   function handleTheme(next: Theme) {
     setTheme(next)
@@ -183,6 +151,14 @@ export default function SettingsPage() {
             <TabsTrigger value="account" className="gap-2">
               <CircleUserRound className="size-4" />
               {t("settings.account.title")}
+            </TabsTrigger>
+            <TabsTrigger value="apikey" className="gap-2">
+              <KeyRound className="size-4" />
+              {t("settings.apiKeys.title")}
+            </TabsTrigger>
+            <TabsTrigger value="about" className="gap-2">
+              <Info className="size-4" />
+              {t("settings.about.title")}
             </TabsTrigger>
           </TabsList>
 
@@ -266,28 +242,12 @@ export default function SettingsPage() {
             onChangePassword={account.handleChangePassword}
             onLogout={account.handleLogout}
           />
+
+          <SettingsAPIKeyTab active={activeTab === "apikey"} />
+
+          <SettingsAboutTab versionInfo={versionInfo} />
         </Tabs>
       </main>
-
-      <div ref={versionTriggerRef} className="h-px" />
-
-      {versionInfo && (
-        <footer className="mx-auto max-w-4xl px-4 py-6 text-center text-xs text-muted-foreground">
-          Subdux {versionInfo.version}
-          {versionInfo.commit !== "unknown" && (
-            <span className="ml-1">({versionInfo.commit})</span>
-          )}
-          <span className="mx-1">·</span>
-          <a
-            href={githubRepoURL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            GitHub
-          </a>
-        </footer>
-      )}
     </div>
   )
 }

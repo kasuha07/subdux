@@ -537,3 +537,22 @@ export interface VersionInfo {
   build_date: string
   go_version: string
 }
+
+export interface APIKey {
+  id: number
+  name: string
+  prefix: string
+  last_used_at: string | null
+  expires_at: string | null
+  created_at: string
+}
+
+export interface CreateAPIKeyInput {
+  name: string
+  expires_at?: string | null
+}
+
+export interface CreateAPIKeyResponse {
+  api_key: APIKey
+  key: string
+}

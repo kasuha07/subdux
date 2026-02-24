@@ -179,3 +179,15 @@ type NotificationTemplate struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+type APIKey struct {
+	ID         uint       `gorm:"primaryKey" json:"id"`
+	UserID     uint       `gorm:"index;not null" json:"user_id"`
+	Name       string     `gorm:"not null;size:100" json:"name"`
+	KeyHash    string     `gorm:"not null" json:"-"`
+	Prefix     string     `gorm:"not null;size:12" json:"prefix"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}

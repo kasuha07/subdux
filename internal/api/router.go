@@ -1,7 +1,9 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -34,6 +36,37 @@ func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// JWTOrAPIKeyMiddleware accepts either a Bearer JWT token or an X-API-Key header.
+// JWT is tried first; if no Authorization header is present, it falls back to API key.
+func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIKeyService) echo.MiddlewareFunc {
+	jwtMiddleware := echojwt.WithConfig(jwtConfig)
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// If the request has an Authorization header, use JWT auth
+			if c.Request().Header.Get("Authorization") != "" {
+				return jwtMiddleware(next)(c)
+			}
+
+			// Otherwise, try API key
+			key := c.Request().Header.Get("X-API-Key")
+			if key == "" {
+				return c.JSON(http.StatusUnauthorized, echo.Map{"error": "authorization required"})
+			}
+
+			userID, err := apiKeyService.ValidateKey(key)
+			if err != nil {
+				return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+			}
+
+			claims := &pkg.JWTClaims{UserID: userID}
+			token := &jwt.Token{Claims: claims}
+			c.Set("user", token)
+
+			return next(c)
+		}
+	}
+}
+
 func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *service.NotificationService) {
 	authService := service.NewAuthService(db)
 	totpService := service.NewTOTPService(db)
@@ -47,6 +80,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	renderer := service.NewTemplateRenderer(validator)
 	templateService := service.NewNotificationTemplateService(db, validator)
 	notificationService := service.NewNotificationService(db, templateService, renderer)
+	apiKeyService := service.NewAPIKeyService(db)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
@@ -57,11 +91,41 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	paymentMethodHandler := NewPaymentMethodHandler(paymentMethodService)
 	notificationHandler := NewNotificationHandler(notificationService)
 	templateHandler := NewNotificationTemplateHandler(templateService)
+	apiKeyHandler := NewAPIKeyHandler(apiKeyService)
 
 	api := e.Group("/api")
 
 	api.GET("/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, version.Get())
+	})
+
+	api.GET("/version/latest", func(c echo.Context) error {
+		client := &http.Client{Timeout: 10 * time.Second}
+		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
+			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create request"})
+		}
+		req.Header.Set("Accept", "application/vnd.github+json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return c.JSON(http.StatusBadGateway, echo.Map{"error": "failed to fetch latest release"})
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return c.JSON(http.StatusBadGateway, echo.Map{"error": "github api returned non-200"})
+		}
+
+		var release struct {
+			TagName string `json:"tag_name"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to parse response"})
+		}
+
+		return c.JSON(http.StatusOK, echo.Map{"tag_name": release.TagName})
 	})
 
 	auth := api.Group("/auth")
@@ -87,7 +151,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	}
 
 	protected := api.Group("")
-	protected.Use(echojwt.WithConfig(jwtConfig))
+	protected.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
 
 	protected.GET("/subscriptions", subHandler.List)
 	protected.POST("/subscriptions", subHandler.Create)
@@ -168,6 +232,10 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	protected.PUT("/notifications/templates/:id", templateHandler.UpdateTemplate)
 	protected.DELETE("/notifications/templates/:id", templateHandler.DeleteTemplate)
 	protected.POST("/notifications/templates/preview", templateHandler.PreviewTemplate)
+
+	protected.GET("/api-keys", apiKeyHandler.List)
+	protected.POST("/api-keys", apiKeyHandler.Create)
+	protected.DELETE("/api-keys/:id", apiKeyHandler.Delete)
 
 	seedDefaultSettings(db)
 

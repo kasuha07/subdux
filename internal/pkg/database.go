@@ -53,6 +53,7 @@ func InitDB() *gorm.DB {
 		&model.NotificationPolicy{},
 		&model.NotificationLog{},
 		&model.NotificationTemplate{},
+		&model.APIKey{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
