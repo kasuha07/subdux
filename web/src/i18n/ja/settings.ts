@@ -144,7 +144,14 @@ const settings = {
     "exportTitle": "データエクスポート",
     "exportDescription": "サブスクリプション、カテゴリ、支払い方法、設定を含むすべてのデータを JSON ファイルとしてダウンロード",
     "exportButton": "データをエクスポート",
-    "exporting": "エクスポート中..."
+    "exporting": "エクスポート中...",
+    "importTitle": "Wallos からインポート",
+    "importDescription": "Wallos のエクスポート JSON ファイルからサブスクリプションをインポートします",
+    "importButton": "Wallos データをインポート",
+    "importing": "インポート中...",
+    "importSuccess": "{{imported}} 件のサブスクリプションをインポートしました（{{skipped}} 件スキップ）",
+    "importFailed": "データのインポートに失敗しました",
+    "importInvalidFormat": "ファイル形式が無効です。有効な Wallos JSON エクスポートファイルを選択してください"
   },
   "twoFactor": {
     "title": "二段階認証",

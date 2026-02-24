@@ -144,7 +144,14 @@ const settings = {
     "exportTitle": "数据导出",
     "exportDescription": "将您的所有数据（包括订阅、分类、支付方式和设置）导出为 JSON 文件",
     "exportButton": "导出我的数据",
-    "exporting": "导出中..."
+    "exporting": "导出中...",
+    "importTitle": "从 Wallos 导入",
+    "importDescription": "从 Wallos 导出的 JSON 文件中导入订阅数据",
+    "importButton": "导入 Wallos 数据",
+    "importing": "导入中...",
+    "importSuccess": "成功导入 {{imported}} 个订阅（跳过 {{skipped}} 个）",
+    "importFailed": "导入数据失败",
+    "importInvalidFormat": "文件格式无效，请选择有效的 Wallos JSON 导出文件"
   },
   "twoFactor": {
     "title": "两步验证",

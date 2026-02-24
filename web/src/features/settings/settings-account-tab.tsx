@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react"
+import { useState, useRef, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -77,6 +78,8 @@ export default function SettingsAccountTab({
   const { t } = useTranslation()
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [importLoading, setImportLoading] = useState(false)
+  const importFileRef = useRef<HTMLInputElement>(null)
 
   async function handleExport() {
     setExportLoading(true)
@@ -105,6 +108,53 @@ export default function SettingsAccountTab({
       // error toast is handled by the fetch failure
     } finally {
       setExportLoading(false)
+    }
+  }
+
+  async function handleImportWallos(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setImportLoading(true)
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (!Array.isArray(data)) {
+        toast.error(t("settings.account.importInvalidFormat"))
+        return
+      }
+
+      const token = localStorage.getItem("token")
+      const res = await fetch("/api/import/wallos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error || t("settings.account.importFailed"))
+        return
+      }
+
+      const result = await res.json()
+      toast.success(
+        t("settings.account.importSuccess", {
+          imported: result.imported,
+          skipped: result.skipped,
+        })
+      )
+    } catch {
+      toast.error(t("settings.account.importFailed"))
+    } finally {
+      setImportLoading(false)
+      if (importFileRef.current) {
+        importFileRef.current.value = ""
+      }
     }
   }
 
@@ -264,6 +314,31 @@ export default function SettingsAccountTab({
             {exportLoading
               ? t("settings.account.exporting")
               : t("settings.account.exportButton")}
+          </Button>
+        </div>
+
+        <div className="mt-3">
+          <h3 className="text-base font-semibold tracking-tight">{t("settings.account.importTitle")}</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("settings.account.importDescription")}
+          </p>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImportWallos}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={importLoading}
+            onClick={() => importFileRef.current?.click()}
+          >
+            {importLoading
+              ? t("settings.account.importing")
+              : t("settings.account.importButton")}
           </Button>
         </div>
 

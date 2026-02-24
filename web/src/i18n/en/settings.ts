@@ -144,7 +144,14 @@ const settings = {
     "exportTitle": "Data Export",
     "exportDescription": "Download all your data including subscriptions, categories, payment methods, and settings as a JSON file",
     "exportButton": "Export my data",
-    "exporting": "Exporting..."
+    "exporting": "Exporting...",
+    "importTitle": "Import from Wallos",
+    "importDescription": "Import your subscriptions from a Wallos JSON export file",
+    "importButton": "Import Wallos data",
+    "importing": "Importing...",
+    "importSuccess": "Successfully imported {{imported}} subscriptions ({{skipped}} skipped)",
+    "importFailed": "Failed to import data",
+    "importInvalidFormat": "Invalid file format. Please select a valid Wallos JSON export file"
   },
   "twoFactor": {
     "title": "Two-Factor Authentication",
