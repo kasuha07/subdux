@@ -65,8 +65,8 @@ export default function CategoryManagement() {
       await api.delete(`/categories/${id}`)
       setCategories((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.categoryManagement.deleteSuccess"))
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
+    } catch {
+      void 0
     }
   }
 

@@ -299,12 +299,8 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
       await api.delete(`/currencies/${id}`)
       setUserCurrencies((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.currencyManagement.deleteSuccess"))
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : t("settings.currencyManagement.cannotDeletePreferred")
-      )
+    } catch {
+      void 0
     }
   }
 
