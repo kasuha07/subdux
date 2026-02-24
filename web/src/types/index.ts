@@ -43,7 +43,7 @@ export interface Subscription {
 export interface DashboardSummary {
   total_monthly: number
   total_yearly: number
-  enabled_count: number
+  due_this_month: number
   upcoming_renewal_count: number
   currency: string
 }

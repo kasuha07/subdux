@@ -5,7 +5,7 @@ const dashboard = {
   "stats": {
     "monthly": "Monthly",
     "yearly": "Yearly",
-    "enabled": "Enabled",
+    "thisMonth": "This month",
     "upcoming": "Upcoming"
   },
   "views": {

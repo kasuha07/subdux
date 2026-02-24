@@ -5,7 +5,7 @@ const dashboard = {
   "stats": {
     "monthly": "月額",
     "yearly": "年額",
-    "enabled": "有効",
+    "thisMonth": "今月",
     "upcoming": "更新予定"
   },
   "views": {

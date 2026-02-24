@@ -54,10 +54,12 @@ export default function DashboardSummaryCards({
           <div className="flex items-center gap-2 text-muted-foreground">
             <Repeat className="size-4" />
             <span className="text-xs font-medium uppercase tracking-wider">
-              {t("dashboard.stats.enabled")}
+              {t("dashboard.stats.thisMonth")}
             </span>
           </div>
-          <p className="mt-1 text-2xl font-bold tabular-nums">{summary.enabled_count}</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {formatCurrencyWithSymbol(summary.due_this_month, displayCurrency, currencySymbol, language)}
+          </p>
         </CardContent>
       </Card>
       <Card>
