@@ -22,7 +22,6 @@ export default function SettingsAboutTab({ versionInfo }: SettingsAboutTabProps)
 
   useEffect(() => {
     if (!versionInfo) return
-    setLatestCheckStatus("checking")
     api
       .get<{ tag_name: string }>(`/version/latest`)
       .then((data) => {
@@ -75,6 +74,9 @@ export default function SettingsAboutTab({ versionInfo }: SettingsAboutTabProps)
               <span className="text-muted-foreground">{t("settings.about.latestVersion")}</span>
               <span>
                 {latestCheckStatus === "checking" && (
+                  <span className="text-muted-foreground">{t("settings.about.checking")}</span>
+                )}
+                {latestCheckStatus === "idle" && (
                   <span className="text-muted-foreground">{t("settings.about.checking")}</span>
                 )}
                 {latestCheckStatus === "error" && (
