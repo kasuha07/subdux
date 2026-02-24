@@ -8,14 +8,21 @@ export function useSiteSettings() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) return
-    if (!isAdmin()) return
 
-    api.get<SystemSettings>("/admin/settings")
+    // Fetch site name for all users via public endpoint
+    api.get<{ site_name: string }>("/site-info")
       .then((data) => {
-        setSettings(data)
         if (data?.site_name) {
           document.title = data.site_name
         }
+      })
+      .catch(() => void 0)
+
+    // Fetch full settings for admin users
+    if (!isAdmin()) return
+    api.get<SystemSettings>("/admin/settings")
+      .then((data) => {
+        setSettings(data)
       })
       .catch(() => void 0)
   }, [])

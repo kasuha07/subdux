@@ -252,6 +252,15 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 
+	api.GET("/site-info", func(c echo.Context) error {
+		var setting model.SystemSetting
+		siteName := "Subdux"
+		if err := db.Where("key = ?", "site_name").First(&setting).Error; err == nil && setting.Value != "" {
+			siteName = setting.Value
+		}
+		return c.JSON(http.StatusOK, echo.Map{"site_name": siteName})
+	})
+
 	seedDefaultSettings(db)
 
 	return erService, notificationService
