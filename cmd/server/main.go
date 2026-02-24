@@ -19,7 +19,9 @@ import (
 
 func main() {
 	db := pkg.InitDB()
-	pkg.InitJWTSecret(db)
+	if err := pkg.InitJWTSecret(db); err != nil {
+		log.Fatalf("Failed to initialize JWT secret: %v", err)
+	}
 
 	e := echo.New()
 	e.HideBanner = true

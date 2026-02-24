@@ -1,17 +1,34 @@
 package service
 
 import (
-	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"text/template"
+	"strings"
 )
 
 // Constants for template validation limits
 const (
 	MaxTemplateLength = 2000
 )
+
+var allowedTemplateVariables = map[string]struct{}{
+	"SubscriptionName": {},
+	"BillingDate":      {},
+	"Amount":           {},
+	"Currency":         {},
+	"DaysUntil":        {},
+	"Category":         {},
+	"PaymentMethod":    {},
+	"URL":              {},
+	"Remark":           {},
+	"UserEmail":        {},
+}
+
+type templateActionToken struct {
+	start    int
+	end      int
+	variable string
+}
 
 // TemplateValidator provides security-focused template validation
 // to prevent DoS attacks from malicious user-provided templates.
@@ -22,9 +39,9 @@ func NewTemplateValidator() *TemplateValidator {
 	return &TemplateValidator{}
 }
 
-// ValidateTemplate parses and validates a template string.
-// It checks length limits, parses the template, and verifies it can be
-// rendered with sample data within a timeout.
+// ValidateTemplate validates a user-provided template string.
+// It enforces length limits and allows only documented placeholders
+// in the form {{.VariableName}}.
 func (v *TemplateValidator) ValidateTemplate(tmplStr string) error {
 	// Check template length
 	if len(tmplStr) == 0 {
@@ -35,25 +52,8 @@ func (v *TemplateValidator) ValidateTemplate(tmplStr string) error {
 		return fmt.Errorf("template length %d exceeds maximum %d", len(tmplStr), MaxTemplateLength)
 	}
 
-	// Parse template with no custom functions (security: empty FuncMap)
-	tmpl, err := template.New("validation").Parse(tmplStr)
-	if err != nil {
-		return fmt.Errorf("template parse error: %w", err)
-	}
-
-	// Test render with sample data using timeout
-	sampleData := map[string]interface{}{
-		"name":   "test",
-		"value":  123,
-		"items":  []string{"a", "b", "c"},
-		"active": true,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), RenderTimeout)
-	defer cancel()
-
-	if err := renderWithTimeout(ctx, tmpl, sampleData); err != nil {
-		return fmt.Errorf("template render error: %w", err)
+	if _, err := parseTemplateActions(tmplStr); err != nil {
+		return err
 	}
 
 	return nil
@@ -70,33 +70,59 @@ func (v *TemplateValidator) ValidateFormat(format string) error {
 	}
 }
 
-// renderWithTimeout renders a template with sample data within a context timeout.
-// Uses goroutine + channel pattern to handle timeout safely.
-func renderWithTimeout(ctx context.Context, tmpl *template.Template, data interface{}) error {
-	type renderResult struct {
-		output string
-		err    error
+func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
+	tokens := make([]templateActionToken, 0)
+	for idx := 0; idx < len(tmplStr); {
+		openOffset := strings.Index(tmplStr[idx:], "{{")
+		closeOffset := strings.Index(tmplStr[idx:], "}}")
+		if closeOffset != -1 && (openOffset == -1 || closeOffset < openOffset) {
+			return nil, errors.New("template parse error: unexpected closing delimiter \"}}\"")
+		}
+		if openOffset == -1 {
+			break
+		}
+
+		open := idx + openOffset
+		actionCloseOffset := strings.Index(tmplStr[open+2:], "}}")
+		if actionCloseOffset == -1 {
+			return nil, errors.New("template parse error: unclosed template action")
+		}
+
+		close := open + 2 + actionCloseOffset
+		action := strings.TrimSpace(tmplStr[open+2 : close])
+		varName, err := parseTemplateVariable(action)
+		if err != nil {
+			return nil, err
+		}
+
+		tokens = append(tokens, templateActionToken{
+			start:    open,
+			end:      close + 2,
+			variable: varName,
+		})
+		idx = close + 2
 	}
 
-	resultChan := make(chan renderResult, 1)
+	return tokens, nil
+}
 
-	go func() {
-		var buf bytes.Buffer
-		err := tmpl.Execute(&buf, data)
-		resultChan <- renderResult{output: buf.String(), err: err}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return errors.New("template render timeout: possible infinite loop or expensive operation")
-	case result := <-resultChan:
-		if result.err != nil {
-			return result.err
-		}
-		// Check rendered output length
-		if len(result.output) > MaxRenderedLength {
-			return fmt.Errorf("rendered output length %d exceeds maximum %d", len(result.output), MaxRenderedLength)
-		}
-		return nil
+func parseTemplateVariable(action string) (string, error) {
+	if action == "" {
+		return "", errors.New("template parse error: empty template action is not allowed")
 	}
+	if !strings.HasPrefix(action, ".") {
+		return "", fmt.Errorf("template parse error: unsupported directive %q", action)
+	}
+	if strings.ContainsAny(action, " \t\r\n|()") {
+		return "", fmt.Errorf("template parse error: unsupported directive %q", action)
+	}
+
+	varName := strings.TrimPrefix(action, ".")
+	if varName == "" {
+		return "", errors.New("template parse error: empty placeholder is not allowed")
+	}
+	if _, ok := allowedTemplateVariables[varName]; !ok {
+		return "", fmt.Errorf("template parse error: unsupported placeholder %q", action)
+	}
+	return varName, nil
 }

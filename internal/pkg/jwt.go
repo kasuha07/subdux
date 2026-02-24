@@ -4,8 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -22,28 +24,42 @@ type JWTClaims struct {
 }
 
 const jwtSecretKey = "jwt_secret"
+const minJWTSecretLength = 32
 
 var jwtSecretFromDB string
 
-func InitJWTSecret(db *gorm.DB) {
+func InitJWTSecret(db *gorm.DB) error {
+	if envSecret := os.Getenv("JWT_SECRET"); envSecret != "" {
+		if err := validateJWTSecret(envSecret, "JWT_SECRET environment variable"); err != nil {
+			return err
+		}
+		jwtSecretFromDB = ""
+		return nil
+	}
+
 	var setting model.SystemSetting
 	if err := db.Where("key = ?", jwtSecretKey).First(&setting).Error; err == nil {
+		if err := validateJWTSecret(setting.Value, "database system setting jwt_secret"); err != nil {
+			return err
+		}
 		jwtSecretFromDB = setting.Value
-		return
+		return nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to load JWT secret from database: %w", err)
 	}
 
-	secretBytes := make([]byte, 32)
-	if _, err := rand.Read(secretBytes); err != nil {
-		log.Fatalf("Failed to generate JWT secret: %v", err)
+	secret, err := generateJWTSecret()
+	if err != nil {
+		return err
 	}
-	secret := hex.EncodeToString(secretBytes)
 
 	if err := db.Create(&model.SystemSetting{Key: jwtSecretKey, Value: secret}).Error; err != nil {
-		log.Fatalf("Failed to save JWT secret to database: %v", err)
+		return fmt.Errorf("failed to save JWT secret to database: %w", err)
 	}
 
 	jwtSecretFromDB = secret
 	log.Println("Generated new JWT secret on first run")
+	return nil
 }
 
 func GetJWTSecret() []byte {
@@ -57,7 +73,30 @@ func getJWTSecretValue() string {
 	if jwtSecretFromDB != "" {
 		return jwtSecretFromDB
 	}
-	return "subdux-default-secret-change-in-production"
+	panic("JWT secret is not initialized: call InitJWTSecret during startup")
+}
+
+func generateJWTSecret() (string, error) {
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(secretBytes); err != nil {
+		return "", fmt.Errorf("failed to generate JWT secret: %w", err)
+	}
+	secret := hex.EncodeToString(secretBytes)
+	if err := validateJWTSecret(secret, "generated JWT secret"); err != nil {
+		return "", err
+	}
+	return secret, nil
+}
+
+func validateJWTSecret(secret string, source string) error {
+	trimmed := strings.TrimSpace(secret)
+	if trimmed != secret {
+		return fmt.Errorf("%s must not include leading or trailing whitespace", source)
+	}
+	if len(secret) < minJWTSecretLength {
+		return fmt.Errorf("%s must be at least %d characters long", source, minJWTSecretLength)
+	}
+	return nil
 }
 
 func GenerateToken(userID uint, username string, email string, role string) (string, error) {

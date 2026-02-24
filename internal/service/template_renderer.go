@@ -1,19 +1,14 @@
 package service
 
 import (
-	"bytes"
-	"context"
-	"errors"
 	"fmt"
-	"text/template"
-	"time"
+	"strconv"
+	"strings"
 )
 
 const (
 	// MaxRenderedLength is the maximum allowed length for rendered template output
 	MaxRenderedLength = 4000
-	// RenderTimeout is the maximum time allowed for template rendering
-	RenderTimeout = 100 * time.Millisecond
 )
 
 // TemplateData holds all notification variables for template rendering
@@ -43,49 +38,41 @@ func NewTemplateRenderer(validator *TemplateValidator) *TemplateRenderer {
 }
 
 // RenderTemplate renders a template string with the provided data.
-// It enforces a timeout to prevent DoS attacks and checks output length.
+// It allows placeholder-only actions (e.g. {{.SubscriptionName}}) and
+// rejects unsupported directives/functions.
 func (tr *TemplateRenderer) RenderTemplate(tmplStr string, data TemplateData) (string, error) {
-	// Parse the template
-	tmpl, err := template.New("notification").Parse(tmplStr)
+	tokens, err := parseTemplateActions(tmplStr)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", err
 	}
 
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), RenderTimeout)
-	defer cancel()
-
-	// Use goroutine + channel pattern for timeout enforcement
-	type result struct {
-		output string
-		err    error
+	values := map[string]string{
+		"SubscriptionName": data.SubscriptionName,
+		"BillingDate":      data.BillingDate,
+		"Amount":           strconv.FormatFloat(data.Amount, 'f', -1, 64),
+		"Currency":         data.Currency,
+		"DaysUntil":        strconv.Itoa(data.DaysUntil),
+		"Category":         data.Category,
+		"PaymentMethod":    data.PaymentMethod,
+		"URL":              data.URL,
+		"Remark":           data.Remark,
+		"UserEmail":        data.UserEmail,
 	}
 
-	resultChan := make(chan result, 1)
-
-	go func() {
-		var buf bytes.Buffer
-		err := tmpl.Execute(&buf, data)
-		if err != nil {
-			resultChan <- result{"", fmt.Errorf("failed to execute template: %w", err)}
-			return
-		}
-		resultChan <- result{buf.String(), nil}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return "", errors.New("template rendering timeout exceeded")
-	case res := <-resultChan:
-		if res.err != nil {
-			return "", res.err
-		}
-
-		// Check rendered length to prevent expansion attacks
-		if len(res.output) > MaxRenderedLength {
-			return "", fmt.Errorf("rendered template exceeds maximum length of %d characters", MaxRenderedLength)
-		}
-
-		return res.output, nil
+	var builder strings.Builder
+	last := 0
+	for _, token := range tokens {
+		builder.WriteString(tmplStr[last:token.start])
+		builder.WriteString(values[token.variable])
+		last = token.end
 	}
+	builder.WriteString(tmplStr[last:])
+	output := builder.String()
+
+	// Check rendered length to prevent expansion attacks
+	if len(output) > MaxRenderedLength {
+		return "", fmt.Errorf("rendered template exceeds maximum length of %d characters", MaxRenderedLength)
+	}
+
+	return output, nil
 }
