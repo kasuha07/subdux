@@ -1,5 +1,6 @@
 const common = {
   "loading": "Loading...",
+  "cancel": "Cancel",
   "unauthorized": "Unauthorized",
   "requestFailed": "Request failed",
   "passkeyErrors": {

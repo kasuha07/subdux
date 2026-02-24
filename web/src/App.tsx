@@ -9,6 +9,7 @@ import ResetPasswordPage from "@/features/auth/reset-password-page"
 import DashboardPage from "@/features/dashboard/dashboard-page"
 import SettingsPage from "@/features/settings/settings-page"
 import AdminPage from "@/features/admin/admin-page"
+import CalendarPage from "@/features/calendar/calendar-page"
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
         <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

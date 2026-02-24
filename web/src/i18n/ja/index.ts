@@ -1,4 +1,5 @@
 import admin from "./admin"
+import calendar from "./calendar"
 import auth from "./auth"
 import common from "./common"
 import dashboard from "./dashboard"
@@ -8,6 +9,7 @@ import subscription from "./subscription"
 
 const locale = {
   admin,
+  calendar,
   auth,
   common,
   dashboard,

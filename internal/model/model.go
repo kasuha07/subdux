@@ -191,3 +191,17 @@ type APIKey struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 }
+
+type CalendarToken struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"-"`
+	Token     string    `gorm:"uniqueIndex;not null;size:64" json:"token,omitempty"`
+	Name      string    `gorm:"not null;size:100" json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (t *CalendarToken) MaskToken() {
+	if len(t.Token) > 8 {
+		t.Token = t.Token[:4] + "..." + t.Token[len(t.Token)-4:]
+	}
+}
