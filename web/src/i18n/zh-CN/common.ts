@@ -3,6 +3,9 @@ const common = {
   "cancel": "取消",
   "unauthorized": "未授权",
   "requestFailed": "请求失败",
+  "backendErrors": {
+    "maxNotificationChannels": "最多只能启用 3 个通知渠道"
+  },
   "passkeyErrors": {
     "notAllowed": "Passkey 请求已取消或超时",
     "notSupported": "当前设备或浏览器不支持 Passkey",

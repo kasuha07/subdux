@@ -3,6 +3,9 @@ const common = {
   "cancel": "Cancel",
   "unauthorized": "Unauthorized",
   "requestFailed": "Request failed",
+  "backendErrors": {
+    "maxNotificationChannels": "You can enable at most 3 notification channels"
+  },
   "passkeyErrors": {
     "notAllowed": "Passkey request was cancelled or timed out",
     "notSupported": "Passkey is not supported on this device or browser",

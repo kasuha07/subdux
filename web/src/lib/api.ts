@@ -7,6 +7,9 @@ const ACCESS_TOKEN_KEY = "token"
 const REFRESH_TOKEN_KEY = "refresh_token"
 
 let refreshRequest: Promise<boolean> | null = null
+const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
+  "you can enable at most 3 notification channels": "common.backendErrors.maxNotificationChannels",
+}
 
 function getToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY)
@@ -75,6 +78,15 @@ function handleUnauthorized(): never {
 
 function canRefresh(path: string, hasAccessToken: boolean): boolean {
   return hasAccessToken && path !== "/auth/refresh" && !!getRefreshToken()
+}
+
+function localizeBackendError(error: unknown): string {
+  if (typeof error !== "string" || !error) {
+    return i18n.t("common.requestFailed")
+  }
+
+  const translationKey = BACKEND_ERROR_TRANSLATIONS[error]
+  return translationKey ? i18n.t(translationKey) : error
 }
 
 async function performRefresh(): Promise<boolean> {
@@ -148,7 +160,7 @@ async function request<T>(
   const data = await res.json()
 
   if (!res.ok) {
-    const errorMsg = data.error || i18n.t("common.requestFailed")
+    const errorMsg = localizeBackendError(data.error)
     toast.error(errorMsg)
     throw new Error(errorMsg)
   }
@@ -185,7 +197,7 @@ export const api = {
     }
     const data = await res.json()
     if (!res.ok) {
-      const errorMsg = data.error || i18n.t("common.requestFailed")
+      const errorMsg = localizeBackendError(data.error)
       toast.error(errorMsg)
       throw new Error(errorMsg)
     }

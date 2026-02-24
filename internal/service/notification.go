@@ -31,6 +31,7 @@ type NotificationService struct {
 }
 
 const maxNotificationDaysBefore = 10
+const maxEnabledNotificationChannels = 3
 const maxParallelUserNotificationChecks = 4
 const maxParallelNotificationDispatchesPerUser = 4
 
@@ -69,6 +70,11 @@ func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInpu
 	if !isValidChannelType(channelType) {
 		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus, pushover, napcat")
 	}
+	if input.Enabled {
+		if err := s.ensureEnabledChannelLimit(userID); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := validateChannelConfig(channelType, input.Config); err != nil {
 		return nil, err
@@ -98,6 +104,11 @@ func (s *NotificationService) UpdateChannel(userID, channelID uint, input Update
 
 	updates := make(map[string]interface{})
 	if input.Enabled != nil {
+		if *input.Enabled && !channel.Enabled {
+			if err := s.ensureEnabledChannelLimit(userID); err != nil {
+				return nil, err
+			}
+		}
 		updates["enabled"] = *input.Enabled
 	}
 	if input.Config != nil {
@@ -117,6 +128,19 @@ func (s *NotificationService) UpdateChannel(userID, channelID uint, input Update
 		return nil, err
 	}
 	return &channel, nil
+}
+
+func (s *NotificationService) ensureEnabledChannelLimit(userID uint) error {
+	var enabledCount int64
+	if err := s.DB.Model(&model.NotificationChannel{}).
+		Where("user_id = ? AND enabled = ?", userID, true).
+		Count(&enabledCount).Error; err != nil {
+		return err
+	}
+	if enabledCount >= maxEnabledNotificationChannels {
+		return fmt.Errorf("you can enable at most %d notification channels", maxEnabledNotificationChannels)
+	}
+	return nil
 }
 
 func (s *NotificationService) DeleteChannel(userID, channelID uint) error {

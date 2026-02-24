@@ -3,6 +3,9 @@ const common = {
   "cancel": "キャンセル",
   "unauthorized": "認証エラー",
   "requestFailed": "リクエストに失敗しました",
+  "backendErrors": {
+    "maxNotificationChannels": "有効化できる通知チャンネルは最大3件です"
+  },
   "passkeyErrors": {
     "notAllowed": "Passkey リクエストはキャンセルされたかタイムアウトしました",
     "notSupported": "この端末またはブラウザは Passkey に対応していません",
