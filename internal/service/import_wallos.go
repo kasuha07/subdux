@@ -251,6 +251,9 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 	seenCurrencies := map[string]bool{}
 	seenPaymentMethods := map[string]bool{}
 	seenCategories := map[string]bool{}
+	// Track subscriptions within this import batch to catch duplicates in the input data itself.
+	// Key: "name|amount|currency|billingType"
+	seenSubscriptions := map[string]bool{}
 
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
 		for _, item := range data {
@@ -268,21 +271,26 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			nextBilling := parseDate(item.NextPayment)
 			enabled := parseEnabled(item.Active)
 
-			// Deduplicate by name + amount + currency + billing_type + next_billing_date
-			query := tx.Model(&model.Subscription{}).
-				Where("user_id = ? AND name = ? AND amount = ? AND currency = ? AND billing_type = ?",
-					userID, name, amount, currency, billingType)
-			if nextBilling != nil {
-				query = query.Where("next_billing_date = ?", *nextBilling)
-			} else {
-				query = query.Where("next_billing_date IS NULL")
-			}
-			var count int64
-			if err := query.Count(&count).Error; err != nil {
-				return err
+			// Deduplicate by name + amount + currency + billing_type (without next_billing_date,
+			// because the app may advance billing dates after import, causing re-imports).
+			dedupKey := fmt.Sprintf("%s|%v|%s|%s", name, amount, currency, billingType)
+
+			// Check within the current import batch first
+			isDuplicate := seenSubscriptions[dedupKey]
+
+			if !isDuplicate {
+				// Check against existing DB records
+				var count int64
+				if err := tx.Model(&model.Subscription{}).
+					Where("user_id = ? AND name = ? AND amount = ? AND currency = ? AND billing_type = ?",
+						userID, name, amount, currency, billingType).
+					Count(&count).Error; err != nil {
+					return err
+				}
+				isDuplicate = count > 0
 			}
 
-			isDuplicate := count > 0
+			seenSubscriptions[dedupKey] = true
 
 			// Collect preview info
 			if currency != "" && !seenCurrencies[currency] {
