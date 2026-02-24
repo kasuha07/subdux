@@ -56,6 +56,45 @@ interface ImportPreview {
   subscriptions: PreviewSubscriptionChange[]
 }
 
+interface SubduxPreviewChannelChange {
+  type: string
+  is_new: boolean
+  config: string
+}
+
+interface SubduxPreviewTemplateChange {
+  channel_type: string
+  format: string
+  is_new: boolean
+}
+
+interface SubduxPreviewPreferenceChange {
+  will_create: boolean
+  will_update: boolean
+  current: string
+  incoming: string
+}
+
+interface SubduxPreviewPolicyChange {
+  will_create: boolean
+  will_update: boolean
+  current_days_before: number
+  incoming_days_before: number
+  current_notify_on_due_day: boolean
+  incoming_notify_on_due_day: boolean
+}
+
+interface SubduxImportPreview {
+  currencies: PreviewCurrencyChange[]
+  payment_methods: PreviewPaymentMethodChange[]
+  categories: PreviewCategoryChange[]
+  subscriptions: PreviewSubscriptionChange[]
+  channels: SubduxPreviewChannelChange[]
+  templates: SubduxPreviewTemplateChange[]
+  preference?: SubduxPreviewPreferenceChange
+  policy?: SubduxPreviewPolicyChange
+}
+
 interface SettingsAccountTabProps {
   confirmPassword: string
   currentPassword: string
@@ -119,6 +158,11 @@ export default function SettingsAccountTab({
   const [importPreviewOpen, setImportPreviewOpen] = useState(false)
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [importRawData, setImportRawData] = useState<unknown[] | null>(null)
+  const [subduxImportLoading, setSubduxImportLoading] = useState(false)
+  const subduxImportFileRef = useRef<HTMLInputElement>(null)
+  const [subduxImportPreviewOpen, setSubduxImportPreviewOpen] = useState(false)
+  const [subduxImportPreview, setSubduxImportPreview] = useState<SubduxImportPreview | null>(null)
+  const [subduxImportRawData, setSubduxImportRawData] = useState<Record<string, unknown> | null>(null)
 
   async function handleExport() {
     setExportLoading(true)
@@ -229,6 +273,88 @@ export default function SettingsAccountTab({
       toast.error(t("settings.account.importFailed"))
     } finally {
       setImportLoading(false)
+    }
+  }
+
+  async function handleImportSubdux(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setSubduxImportLoading(true)
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (typeof data !== "object" || data === null || Array.isArray(data)) {
+        toast.error(t("settings.account.subduxImportInvalidFormat"))
+        return
+      }
+
+      const token = localStorage.getItem("token")
+      const res = await fetch("/api/import/subdux", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ data, confirm: false }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error || t("settings.account.subduxImportFailed"))
+        return
+      }
+
+      const preview: SubduxImportPreview = (await res.json()).preview
+      setSubduxImportPreview(preview)
+      setSubduxImportRawData(data as Record<string, unknown>)
+      setSubduxImportPreviewOpen(true)
+    } catch {
+      toast.error(t("settings.account.subduxImportFailed"))
+    } finally {
+      setSubduxImportLoading(false)
+      if (subduxImportFileRef.current) {
+        subduxImportFileRef.current.value = ""
+      }
+    }
+  }
+
+  async function handleConfirmSubduxImport() {
+    if (!subduxImportRawData) return
+
+    setSubduxImportLoading(true)
+    try {
+      const token = localStorage.getItem("token")
+      const res = await fetch("/api/import/subdux", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ data: subduxImportRawData, confirm: true }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error || t("settings.account.subduxImportFailed"))
+        return
+      }
+
+      const { result } = await res.json()
+      toast.success(
+        t("settings.account.subduxImportSuccess", {
+          imported: result.imported,
+          skipped: result.skipped,
+        })
+      )
+      setSubduxImportPreviewOpen(false)
+      setSubduxImportPreview(null)
+      setSubduxImportRawData(null)
+    } catch {
+      toast.error(t("settings.account.subduxImportFailed"))
+    } finally {
+      setSubduxImportLoading(false)
     }
   }
 
@@ -392,6 +518,31 @@ export default function SettingsAccountTab({
         </div>
 
         <div className="mt-3">
+          <h3 className="text-base font-semibold tracking-tight">{t("settings.account.subduxImportTitle")}</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("settings.account.subduxImportDescription")}
+          </p>
+          <input
+            ref={subduxImportFileRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImportSubdux}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={subduxImportLoading}
+            onClick={() => subduxImportFileRef.current?.click()}
+          >
+            {subduxImportLoading
+              ? t("settings.account.subduxImportAnalyzing")
+              : t("settings.account.subduxImportButton")}
+          </Button>
+        </div>
+
+        <div className="mt-3">
           <h3 className="text-base font-semibold tracking-tight">{t("settings.account.importTitle")}</h3>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {t("settings.account.importDescription")}
@@ -483,6 +634,169 @@ export default function SettingsAccountTab({
           </Button>
         </div>
       </div>
+
+      <Dialog open={subduxImportPreviewOpen} onOpenChange={(open) => {
+        if (!open && !subduxImportLoading) {
+          setSubduxImportPreviewOpen(false)
+          setSubduxImportPreview(null)
+          setSubduxImportRawData(null)
+        }
+      }}>
+        <DialogContent
+          className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh] sm:max-w-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => { if (subduxImportLoading) e.preventDefault() }}
+          showCloseButton={false}
+        >
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>{t("settings.account.subduxImportPreviewTitle")}</DialogTitle>
+            <DialogDescription>{t("settings.account.subduxImportPreviewDescription")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {subduxImportPreview && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-md border px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{t("settings.account.importPreviewCurrencies")}</div>
+                    <div className="font-medium">{subduxImportPreview.currencies.length}</div>
+                  </div>
+                  <div className="rounded-md border px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{t("settings.account.importPreviewCategories")}</div>
+                    <div className="font-medium">{subduxImportPreview.categories.length}</div>
+                  </div>
+                  <div className="rounded-md border px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{t("settings.account.importPreviewPaymentMethods")}</div>
+                    <div className="font-medium">{subduxImportPreview.payment_methods.length}</div>
+                  </div>
+                  <div className="rounded-md border px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{t("settings.account.importPreviewSubscriptions")}</div>
+                    <div className="font-medium">{subduxImportPreview.subscriptions.length}</div>
+                  </div>
+                  <div className="rounded-md border px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{t("settings.account.subduxImportChannels")}</div>
+                    <div className="font-medium">{subduxImportPreview.channels.length}</div>
+                  </div>
+                  <div className="rounded-md border px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{t("settings.account.subduxImportTemplates")}</div>
+                    <div className="font-medium">{subduxImportPreview.templates.length}</div>
+                  </div>
+                </div>
+
+                {(subduxImportPreview.preference || subduxImportPreview.policy) && (
+                  <div className="space-y-2">
+                    {subduxImportPreview.preference && (
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                        <span>{t("settings.account.subduxImportPreference")}</span>
+                        <Badge variant={(subduxImportPreview.preference.will_create || subduxImportPreview.preference.will_update) ? "default" : "secondary"} className="text-xs">
+                          {(subduxImportPreview.preference.will_create || subduxImportPreview.preference.will_update)
+                            ? t("settings.account.subduxImportWillUpdate")
+                            : t("settings.account.subduxImportUnchanged")}
+                        </Badge>
+                      </div>
+                    )}
+                    {subduxImportPreview.policy && (
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                        <span>{t("settings.account.subduxImportPolicy")}</span>
+                        <Badge variant={(subduxImportPreview.policy.will_create || subduxImportPreview.policy.will_update) ? "default" : "secondary"} className="text-xs">
+                          {(subduxImportPreview.policy.will_create || subduxImportPreview.policy.will_update)
+                            ? t("settings.account.subduxImportWillUpdate")
+                            : t("settings.account.subduxImportUnchanged")}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {subduxImportPreview.subscriptions.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewSubscriptions")}</h4>
+                    <div className="space-y-1.5">
+                      {subduxImportPreview.subscriptions.map((sub, i) => (
+                        <div key={i} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate font-medium">{sub.name}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {sub.amount} {sub.currency}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge
+                            variant={sub.skipped ? "outline" : "default"}
+                            className="ml-2 shrink-0 text-xs"
+                          >
+                            {sub.skipped ? t("settings.account.importPreviewSkipped") : t("settings.account.importPreviewNew")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {subduxImportPreview.channels.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.subduxImportChannels")}</h4>
+                    <div className="space-y-1.5">
+                      {subduxImportPreview.channels.map((channel) => (
+                        <div key={`${channel.type}-${channel.config}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>{channel.type}</span>
+                          <Badge variant={channel.is_new ? "default" : "secondary"} className="text-xs">
+                            {channel.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {subduxImportPreview.templates.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.subduxImportTemplates")}</h4>
+                    <div className="space-y-1.5">
+                      {subduxImportPreview.templates.map((template, index) => (
+                        <div key={`${template.channel_type}-${template.format}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>
+                            {template.channel_type ? `${template.channel_type} / ` : ""}
+                            {template.format}
+                          </span>
+                          <Badge variant={template.is_new ? "default" : "secondary"} className="text-xs">
+                            {template.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={subduxImportLoading}
+              onClick={() => {
+                setSubduxImportPreviewOpen(false)
+                setSubduxImportPreview(null)
+                setSubduxImportRawData(null)
+              }}
+            >
+              {t("settings.account.importPreviewCancel")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={subduxImportLoading}
+              onClick={() => void handleConfirmSubduxImport()}
+            >
+              {subduxImportLoading
+                ? t("settings.account.subduxImporting")
+                : t("settings.account.subduxImportPreviewConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={importPreviewOpen} onOpenChange={(open) => {
         if (!open && !importLoading) {

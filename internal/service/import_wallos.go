@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -77,9 +78,9 @@ type PreviewSubscriptionChange struct {
 
 type ImportPreview struct {
 	Currencies     []PreviewCurrencyChange      `json:"currencies"`
-	PaymentMethods []PreviewPaymentMethodChange  `json:"payment_methods"`
-	Categories     []PreviewCategoryChange       `json:"categories"`
-	Subscriptions  []PreviewSubscriptionChange   `json:"subscriptions"`
+	PaymentMethods []PreviewPaymentMethodChange `json:"payment_methods"`
+	Categories     []PreviewCategoryChange      `json:"categories"`
+	Subscriptions  []PreviewSubscriptionChange  `json:"subscriptions"`
 }
 
 // WallosImportResponse is returned for both preview and confirm modes.
@@ -90,6 +91,10 @@ type WallosImportResponse struct {
 	Result *ImportResult `json:"result,omitempty"`
 }
 
+const maxWallosImportItems = 5000
+
+var ErrWallosImportTooLarge = errors.New("wallos import file is too large")
+
 // currencySymbols maps currency symbols to candidate currency codes.
 // Ambiguous symbols (e.g. ¥ for JPY/CNY, $ for USD/CAD/AUD) list multiple candidates;
 // the user's preferred currency is used to disambiguate.
@@ -98,12 +103,12 @@ var currencySymbols = map[string][]string{
 	"₺": {"TRY"}, "₴": {"UAH"}, "₫": {"VND"}, "₱": {"PHP"}, "₿": {"BTC"},
 	"฿": {"THB"}, "₪": {"ILS"}, "zł": {"PLN"}, "Kč": {"CZK"},
 	"¥": {"CNY", "JPY"}, "￥": {"CNY", "JPY"},
-	"$":   {"USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN"},
-	"kr":  {"SEK", "NOK", "DKK", "ISK"},
-	"Fr":  {"CHF"},
-	"RM":  {"MYR"}, "Rp": {"IDR"}, "Rs": {"INR", "PKR", "LKR", "NPR"},
-	"DH":  {"MAD"}, "DA": {"DZD"}, "DT": {"TND"}, "LD": {"LYD"},
-	"R$":  {"BRL"}, "S$": {"SGD"}, "A$": {"AUD"}, "C$": {"CAD"},
+	"$":  {"USD", "CAD", "AUD", "NZD", "HKD", "SGD", "TWD", "MXN"},
+	"kr": {"SEK", "NOK", "DKK", "ISK"},
+	"Fr": {"CHF"},
+	"RM": {"MYR"}, "Rp": {"IDR"}, "Rs": {"INR", "PKR", "LKR", "NPR"},
+	"DH": {"MAD"}, "DA": {"DZD"}, "DT": {"TND"}, "LD": {"LYD"},
+	"R$": {"BRL"}, "S$": {"SGD"}, "A$": {"AUD"}, "C$": {"CAD"},
 	"NZ$": {"NZD"}, "HK$": {"HKD"}, "NT$": {"TWD"}, "MX$": {"MXN"},
 }
 
@@ -279,6 +284,10 @@ func parseEnabled(s string) bool {
 var errPreviewRollback = fmt.Errorf("preview rollback")
 
 func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription, confirm bool) (*WallosImportResponse, error) {
+	if len(data) > maxWallosImportItems {
+		return nil, ErrWallosImportTooLarge
+	}
+
 	result := &ImportResult{Errors: []string{}}
 	preview := &ImportPreview{
 		Currencies:     []PreviewCurrencyChange{},

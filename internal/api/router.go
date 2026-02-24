@@ -249,6 +249,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 	protected.GET("/export", exportHandler.Export)
 	protected.POST("/import/wallos", importHandler.ImportWallos)
+	protected.POST("/import/subdux", importHandler.ImportSubdux)
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 
