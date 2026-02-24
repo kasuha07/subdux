@@ -22,7 +22,7 @@ const dashboard = {
   },
   "filters": {
     "searchPlaceholder": "名前・カテゴリ・メモで検索...",
-    "filter": "フィルター",
+    "filterButton": "フィルター",
     "status": "ステータス",
     "category": "カテゴリ",
     "noCategory": "カテゴリ未設定",
@@ -32,7 +32,6 @@ const dashboard = {
     "noPaymentMethods": "選択可能な支払い方法がありません",
     "clear": "リセット",
     "clearFilters": "フィルターをクリア",
-    "sort": "並び替え",
     "sortBy": "並び替え項目",
     "order": "順序",
     "sortFields": {

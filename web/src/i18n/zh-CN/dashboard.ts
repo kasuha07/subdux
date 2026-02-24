@@ -22,7 +22,7 @@ const dashboard = {
   },
   "filters": {
     "searchPlaceholder": "按名称、分类或备注搜索...",
-    "filter": "筛选",
+    "filterButton": "筛选",
     "status": "状态",
     "category": "分类",
     "noCategory": "无分类",
@@ -32,7 +32,6 @@ const dashboard = {
     "noPaymentMethods": "暂无可筛选支付方式",
     "clear": "重置",
     "clearFilters": "清空筛选",
-    "sort": "排序",
     "sortBy": "排序字段",
     "order": "排序方向",
     "sortFields": {

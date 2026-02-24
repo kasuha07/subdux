@@ -16,7 +16,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -111,14 +110,11 @@ export default function DashboardFiltersToolbar({
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="shrink-0">
             <Filter className="size-4" />
-            {t("dashboard.filters.filter")}
+            {t("dashboard.filters.filterButton")}
             {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
-          <DropdownMenuLabel>{t("dashboard.filters.filter")}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-48">
@@ -226,8 +222,6 @@ export default function DashboardFiltersToolbar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel>{t("dashboard.filters.sort")}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
           {sortFieldOptions.map((field) => (
             <DropdownMenuItem
               key={field}

@@ -22,7 +22,7 @@ const dashboard = {
   },
   "filters": {
     "searchPlaceholder": "Search by name, category, or notes...",
-    "filter": "Filter",
+    "filterButton": "Filter",
     "status": "Status",
     "category": "Category",
     "noCategory": "No category",
@@ -32,7 +32,6 @@ const dashboard = {
     "noPaymentMethods": "No payment methods available",
     "clear": "Reset",
     "clearFilters": "Clear filters",
-    "sort": "Sort",
     "sortBy": "Sort by",
     "order": "Order",
     "sortFields": {
