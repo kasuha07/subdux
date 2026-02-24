@@ -119,7 +119,7 @@ func normalizeOrigin(raw string) string {
 
 func startNotificationChecker(ns *service.NotificationService, stop <-chan struct{}) {
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
+		ticker := time.NewTicker(3 * time.Hour)
 		defer ticker.Stop()
 
 		if err := ns.ProcessPendingNotifications(); err != nil {

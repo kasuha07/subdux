@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
@@ -30,6 +31,8 @@ type NotificationService struct {
 }
 
 const maxNotificationDaysBefore = 10
+const maxParallelUserNotificationChecks = 4
+const maxParallelNotificationDispatchesPerUser = 4
 
 func NewNotificationService(db *gorm.DB, templateService *NotificationTemplateService, templateRenderer *TemplateRenderer) *NotificationService {
 	return &NotificationService{
@@ -317,13 +320,99 @@ func (s *NotificationService) ProcessPendingNotifications() error {
 		return fmt.Errorf("failed to query notification channels: %w", err)
 	}
 
-	for _, userID := range channelUserIDs {
-		if err := s.processUserNotifications(userID); err != nil {
-			fmt.Printf("notification error for user %d: %v\n", userID, err)
-		}
+	userIDs := uniqueUserIDs(channelUserIDs)
+	if len(userIDs) == 0 {
+		return nil
 	}
 
+	workerCount := notificationWorkerCount(len(userIDs))
+	userJobs := make(chan uint, len(userIDs))
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for userID := range userJobs {
+				if err := s.processUserNotifications(userID); err != nil {
+					fmt.Printf("notification error for user %d: %v\n", userID, err)
+				}
+			}
+		}()
+	}
+
+	for _, userID := range userIDs {
+		userJobs <- userID
+	}
+	close(userJobs)
+	wg.Wait()
+
 	return nil
+}
+
+func uniqueUserIDs(userIDs []uint) []uint {
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	seen := make(map[uint]struct{}, len(userIDs))
+	unique := make([]uint, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		unique = append(unique, userID)
+	}
+
+	return unique
+}
+
+func notificationWorkerCount(userCount int) int {
+	if userCount <= 0 {
+		return 0
+	}
+	if userCount < maxParallelUserNotificationChecks {
+		return userCount
+	}
+	return maxParallelUserNotificationChecks
+}
+
+func notificationDispatchWorkerCount(jobCount int) int {
+	if jobCount <= 0 {
+		return 0
+	}
+	if jobCount < maxParallelNotificationDispatchesPerUser {
+		return jobCount
+	}
+	return maxParallelNotificationDispatchesPerUser
+}
+
+func notificationDispatchKey(subscriptionID uint, channelType string, notifyDate time.Time) string {
+	return fmt.Sprintf("%d|%s|%s", subscriptionID, channelType, notifyDate.UTC().Format(time.RFC3339Nano))
+}
+
+func shouldScheduleNotificationDispatch(
+	scheduled map[string]struct{},
+	subscriptionID uint,
+	channelType string,
+	notifyDate time.Time,
+) bool {
+	key := notificationDispatchKey(subscriptionID, channelType, notifyDate)
+	if _, exists := scheduled[key]; exists {
+		return false
+	}
+	scheduled[key] = struct{}{}
+	return true
+}
+
+type notificationDispatchJob struct {
+	subscriptionID  uint
+	channel         model.NotificationChannel
+	notifyDate      time.Time
+	message         string
+	targetEmail     string
+	subscriptionURL string
 }
 
 func (s *NotificationService) processUserNotifications(userID uint) error {
@@ -359,6 +448,8 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 
 	// Use system timezone
 	systemLoc := pkg.GetSystemTimezone()
+	dispatchJobs := make([]notificationDispatchJob, 0)
+	scheduledDispatches := make(map[string]struct{})
 
 	for _, sub := range subs {
 		if sub.NextBillingDate == nil {
@@ -396,6 +487,10 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 		}
 
 		for _, channel := range enabledChannels {
+			if !shouldScheduleNotificationDispatch(scheduledDispatches, sub.ID, channel.Type, billingDate) {
+				continue
+			}
+
 			var count int64
 			s.DB.Model(&model.NotificationLog{}).
 				Where("subscription_id = ? AND channel_type = ? AND notify_date = ? AND status = ?",
@@ -412,58 +507,91 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 				fmt.Printf("failed to render template for user %d channel %s: %v\n", userID, channel.Type, renderErr)
 				continue
 			}
-			var sendErr error
-			switch channel.Type {
-			case "smtp":
-				sendErr = s.sendSMTP(channel, user.Email, message)
-			case "resend":
-				sendErr = s.sendResend(channel, message)
-			case "telegram":
-				sendErr = s.sendTelegram(channel, message)
-			case "webhook":
-				sendErr = s.sendWebhook(channel, message)
-			case "gotify":
-				sendErr = s.sendGotify(channel, message)
-			case "ntfy":
-				sendErr = s.sendNtfy(channel, message, sub.URL)
-			case "bark":
-				sendErr = s.sendBark(channel, message)
-			case "serverchan":
-				sendErr = s.sendServerChan(channel, message)
-			case "feishu":
-				sendErr = s.sendFeishu(channel, message)
-			case "wecom":
-				sendErr = s.sendWeCom(channel, message)
-			case "dingtalk":
-				sendErr = s.sendDingTalk(channel, message)
-			case "pushdeer":
-				sendErr = s.sendPushDeer(channel, message)
-			case "pushplus":
-				sendErr = s.sendPushplus(channel, message)
-			case "pushover":
-				sendErr = s.sendPushover(channel, message)
-			case "napcat":
-				sendErr = s.sendNapCat(channel, message)
-			}
-
-			logEntry := model.NotificationLog{
-				UserID:         userID,
-				SubscriptionID: sub.ID,
-				ChannelType:    channel.Type,
-				NotifyDate:     billingDate,
-				SentAt:         time.Now().UTC(),
-			}
-
-			if sendErr != nil {
-				logEntry.Status = "failed"
-				logEntry.Error = sendErr.Error()
-			} else {
-				logEntry.Status = "sent"
-			}
-
-			s.DB.Create(&logEntry)
+			dispatchJobs = append(dispatchJobs, notificationDispatchJob{
+				subscriptionID:  sub.ID,
+				channel:         channel,
+				notifyDate:      billingDate,
+				message:         message,
+				targetEmail:     user.Email,
+				subscriptionURL: sub.URL,
+			})
 		}
 	}
+
+	workerCount := notificationDispatchWorkerCount(len(dispatchJobs))
+	if workerCount == 0 {
+		return nil
+	}
+
+	jobs := make(chan notificationDispatchJob, len(dispatchJobs))
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				var sendErr error
+				switch job.channel.Type {
+				case "smtp":
+					sendErr = s.sendSMTP(job.channel, job.targetEmail, job.message)
+				case "resend":
+					sendErr = s.sendResend(job.channel, job.message)
+				case "telegram":
+					sendErr = s.sendTelegram(job.channel, job.message)
+				case "webhook":
+					sendErr = s.sendWebhook(job.channel, job.message)
+				case "gotify":
+					sendErr = s.sendGotify(job.channel, job.message)
+				case "ntfy":
+					sendErr = s.sendNtfy(job.channel, job.message, job.subscriptionURL)
+				case "bark":
+					sendErr = s.sendBark(job.channel, job.message)
+				case "serverchan":
+					sendErr = s.sendServerChan(job.channel, job.message)
+				case "feishu":
+					sendErr = s.sendFeishu(job.channel, job.message)
+				case "wecom":
+					sendErr = s.sendWeCom(job.channel, job.message)
+				case "dingtalk":
+					sendErr = s.sendDingTalk(job.channel, job.message)
+				case "pushdeer":
+					sendErr = s.sendPushDeer(job.channel, job.message)
+				case "pushplus":
+					sendErr = s.sendPushplus(job.channel, job.message)
+				case "pushover":
+					sendErr = s.sendPushover(job.channel, job.message)
+				case "napcat":
+					sendErr = s.sendNapCat(job.channel, job.message)
+				default:
+					sendErr = errors.New("unsupported channel type")
+				}
+
+				logEntry := model.NotificationLog{
+					UserID:         userID,
+					SubscriptionID: job.subscriptionID,
+					ChannelType:    job.channel.Type,
+					NotifyDate:     job.notifyDate,
+					SentAt:         time.Now().UTC(),
+				}
+
+				if sendErr != nil {
+					logEntry.Status = "failed"
+					logEntry.Error = sendErr.Error()
+				} else {
+					logEntry.Status = "sent"
+				}
+
+				s.DB.Create(&logEntry)
+			}
+		}()
+	}
+
+	for _, job := range dispatchJobs {
+		jobs <- job
+	}
+	close(jobs)
+	wg.Wait()
 
 	return nil
 }
