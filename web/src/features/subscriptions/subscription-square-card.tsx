@@ -129,7 +129,7 @@ export default function SubscriptionSquareCard({
   const reminderOff = subscription.notify_enabled === false
 
   return (
-    <Card className="relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md">
+    <Card className={`relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${subscription.enabled ? "" : " grayscale opacity-60"}`}>
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">

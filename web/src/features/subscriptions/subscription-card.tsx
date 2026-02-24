@@ -234,7 +234,7 @@ export default function SubscriptionCard({
   const secondaryBadgeTitle = secondaryBadgeText
 
   return (
-    <Card className="group relative overflow-hidden py-3 transition-all hover:shadow-md">
+    <Card className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${subscription.enabled ? "" : " grayscale opacity-60"}`}>
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"

@@ -12,9 +12,11 @@ import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-fi
 import { api, isAdmin } from "@/lib/api"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
+  DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY,
   DISPLAY_RECURRING_AMOUNTS_AS_MONTHLY_COST_KEY,
   DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY,
   getDisplayAllAmountsInPrimaryCurrency,
+  getDisplayDisabledSubscriptionsLast,
   getDisplayRecurringAmountsAsMonthlyCost,
   getDisplaySubscriptionCycleProgress,
 } from "@/lib/display-preferences"
@@ -121,6 +123,9 @@ export default function DashboardPage() {
   const [displaySubscriptionCycleProgress, setDisplaySubscriptionCycleProgress] = useState(
     getDisplaySubscriptionCycleProgress()
   )
+  const [displayDisabledSubscriptionsLast, setDisplayDisabledSubscriptionsLast] = useState(
+    getDisplayDisabledSubscriptionsLast()
+  )
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
 
   const {
@@ -159,6 +164,7 @@ export default function DashboardPage() {
     sortField,
   } = useDashboardFilters({
     categories,
+    displayDisabledSubscriptionsLast,
     language: i18n.language,
     paymentMethods,
     subscriptions,
@@ -184,6 +190,9 @@ export default function DashboardPage() {
       }
       if (event.key === DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY) {
         setDisplaySubscriptionCycleProgress(getDisplaySubscriptionCycleProgress())
+      }
+      if (event.key === DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY) {
+        setDisplayDisabledSubscriptionsLast(getDisplayDisabledSubscriptionsLast())
       }
     }
     window.addEventListener("storage", handleStorage)

@@ -10,9 +10,11 @@ import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payme
 import { api } from "@/lib/api"
 import {
   getDisplayAllAmountsInPrimaryCurrency,
+  getDisplayDisabledSubscriptionsLast,
   getDisplayRecurringAmountsAsMonthlyCost,
   getDisplaySubscriptionCycleProgress,
   setDisplayAllAmountsInPrimaryCurrency,
+  setDisplayDisabledSubscriptionsLast,
   setDisplayRecurringAmountsAsMonthlyCost,
   setDisplaySubscriptionCycleProgress,
 } from "@/lib/display-preferences"
@@ -58,6 +60,9 @@ export default function SettingsPage() {
   )
   const [displaySubscriptionCycleProgress, setDisplaySubscriptionCycleProgressState] = useState(
     getDisplaySubscriptionCycleProgress()
+  )
+  const [displayDisabledSubscriptionsLast, setDisplayDisabledSubscriptionsLastState] = useState(
+    getDisplayDisabledSubscriptionsLast()
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
@@ -110,6 +115,11 @@ export default function SettingsPage() {
   function handleDisplaySubscriptionCycleProgress(enabled: boolean) {
     setDisplaySubscriptionCycleProgressState(enabled)
     setDisplaySubscriptionCycleProgress(enabled)
+  }
+
+  function handleDisplayDisabledSubscriptionsLast(enabled: boolean) {
+    setDisplayDisabledSubscriptionsLastState(enabled)
+    setDisplayDisabledSubscriptionsLast(enabled)
   }
 
   return (
@@ -176,6 +186,8 @@ export default function SettingsPage() {
             onDisplayRecurringAmountsAsMonthlyCostChange={handleDisplayRecurringAmountsAsMonthlyCost}
             displaySubscriptionCycleProgress={displaySubscriptionCycleProgress}
             onDisplaySubscriptionCycleProgressChange={handleDisplaySubscriptionCycleProgress}
+            displayDisabledSubscriptionsLast={displayDisabledSubscriptionsLast}
+            onDisplayDisabledSubscriptionsLastChange={handleDisplayDisabledSubscriptionsLast}
             language={i18n.language}
             onLanguageChange={(language) => {
               void i18n.changeLanguage(language)

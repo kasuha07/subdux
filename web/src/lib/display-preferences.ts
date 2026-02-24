@@ -25,3 +25,13 @@ export function getDisplaySubscriptionCycleProgress(): boolean {
 export function setDisplaySubscriptionCycleProgress(enabled: boolean): void {
   localStorage.setItem(DISPLAY_SUBSCRIPTION_CYCLE_PROGRESS_KEY, enabled ? "true" : "false")
 }
+
+export const DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY = "displayDisabledSubscriptionsLast"
+
+export function getDisplayDisabledSubscriptionsLast(): boolean {
+  return localStorage.getItem(DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY) === "true"
+}
+
+export function setDisplayDisabledSubscriptionsLast(enabled: boolean): void {
+  localStorage.setItem(DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY, enabled ? "true" : "false")
+}

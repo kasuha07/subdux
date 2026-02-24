@@ -26,12 +26,14 @@ interface SettingsGeneralTabProps {
   colorScheme: ThemeColorScheme
   customThemeColors: CustomThemeColors
   displayAllAmountsInPrimaryCurrency: boolean
+  displayDisabledSubscriptionsLast: boolean
   displayRecurringAmountsAsMonthlyCost: boolean
   displaySubscriptionCycleProgress: boolean
   language: string
   onColorSchemeChange: (next: ThemeColorScheme) => void
   onCustomThemeColorChange: (key: keyof CustomThemeColors, value: string) => void
   onDisplayAllAmountsInPrimaryCurrencyChange: (enabled: boolean) => void
+  onDisplayDisabledSubscriptionsLastChange: (enabled: boolean) => void
   onDisplayRecurringAmountsAsMonthlyCostChange: (enabled: boolean) => void
   onDisplaySubscriptionCycleProgressChange: (enabled: boolean) => void
   onLanguageChange: (language: string) => void
@@ -62,12 +64,14 @@ export default function SettingsGeneralTab({
   colorScheme,
   customThemeColors,
   displayAllAmountsInPrimaryCurrency,
+  displayDisabledSubscriptionsLast,
   displayRecurringAmountsAsMonthlyCost,
   displaySubscriptionCycleProgress,
   language,
   onColorSchemeChange,
   onCustomThemeColorChange,
   onDisplayAllAmountsInPrimaryCurrencyChange,
+  onDisplayDisabledSubscriptionsLastChange,
   onDisplayRecurringAmountsAsMonthlyCostChange,
   onDisplaySubscriptionCycleProgressChange,
   onLanguageChange,
@@ -122,6 +126,19 @@ export default function SettingsGeneralTab({
               className="cursor-pointer"
             >
               {t("settings.displayAmount.cycleProgressToggle")}
+            </Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="display-disabled-subscriptions-last"
+              checked={displayDisabledSubscriptionsLast}
+              onCheckedChange={onDisplayDisabledSubscriptionsLastChange}
+            />
+            <Label
+              htmlFor="display-disabled-subscriptions-last"
+              className="cursor-pointer"
+            >
+              {t("settings.displayAmount.disabledLastToggle")}
             </Label>
           </div>
         </div>

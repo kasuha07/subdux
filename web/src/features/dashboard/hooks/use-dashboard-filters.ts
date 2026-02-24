@@ -14,6 +14,7 @@ import {
 
 interface UseDashboardFiltersOptions {
   categories: Category[]
+  displayDisabledSubscriptionsLast: boolean
   language: string
   paymentMethods: PaymentMethod[]
   subscriptions: Subscription[]
@@ -55,6 +56,7 @@ function toTimestamp(value: string | null): number {
 
 export function useDashboardFilters({
   categories,
+  displayDisabledSubscriptionsLast,
   language,
   paymentMethods,
   subscriptions,
@@ -152,6 +154,12 @@ export function useDashboardFilters({
     })
 
     return [...filtered].sort((a, b) => {
+      if (displayDisabledSubscriptionsLast) {
+        if (a.enabled !== b.enabled) {
+          return a.enabled ? -1 : 1
+        }
+      }
+
       let result = 0
 
       if (sortField === "name") {
@@ -180,6 +188,7 @@ export function useDashboardFilters({
     includeNoPaymentMethod,
     sortField,
     sortDirection,
+    displayDisabledSubscriptionsLast,
     getSubscriptionCategoryName,
     language,
   ])

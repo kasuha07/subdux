@@ -39,11 +39,12 @@ const settings = {
     "description": "Subscriptions in other currencies will be converted to this currency for totals"
   },
   "displayAmount": {
-    "title": "Amount Display",
-    "description": "Control how amounts are shown on subscription cards",
+    "title": "Subscription Display",
+    "description": "Control how subscriptions are displayed",
     "toggle": "Display all amounts in primary currency",
     "monthlyCostToggle": "Display recurring subscriptions as monthly cost",
-    "cycleProgressToggle": "Show subscription cycle progress bar"
+    "cycleProgressToggle": "Show subscription cycle progress bar",
+    "disabledLastToggle": "Show disabled subscriptions at the end"
   },
   "currencyManagement": {
     "title": "Currency Management",

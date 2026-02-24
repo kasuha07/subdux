@@ -39,11 +39,12 @@ const settings = {
     "description": "其他货币的订阅将按汇率转换为此货币进行统计"
   },
   "displayAmount": {
-    "title": "金额显示",
-    "description": "控制订阅卡片上的金额显示方式",
+    "title": "订阅显示",
+    "description": "控制订阅卡片的显示方式",
     "toggle": "将所有金额显示为主货币",
     "monthlyCostToggle": "将订阅制金额显示为每月费用",
-    "cycleProgressToggle": "显示订阅周期进度条"
+    "cycleProgressToggle": "显示订阅周期进度条",
+    "disabledLastToggle": "将已停用的订阅靠后显示"
   },
   "currencyManagement": {
     "title": "货币管理",

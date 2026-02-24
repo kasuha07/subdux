@@ -39,11 +39,12 @@ const settings = {
     "description": "他の通貨のサブスクリプションはこの通貨に換算されて集計されます"
   },
   "displayAmount": {
-    "title": "金額表示",
-    "description": "サブスクリプションカードの金額表示方法を設定します",
+    "title": "サブスクリプション表示",
+    "description": "サブスクリプションカードの表示方法を設定します",
     "toggle": "すべての金額を基準通貨で表示する",
     "monthlyCostToggle": "サブスク制の金額を月額換算で表示する",
-    "cycleProgressToggle": "請求サイクルの進捗バーを表示する"
+    "cycleProgressToggle": "請求サイクルの進捗バーを表示する",
+    "disabledLastToggle": "無効なサブスクリプションを末尾に表示する"
   },
   "currencyManagement": {
     "title": "通貨管理",
