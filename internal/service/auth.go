@@ -23,13 +23,22 @@ type AuthService struct {
 	oidcResultSessions map[string]oidcResultSession
 }
 
+const (
+	passkeySessionCleanupInterval = 1 * time.Minute
+	oidcSessionCleanupInterval    = 1 * time.Minute
+)
+
 func NewAuthService(db *gorm.DB) *AuthService {
-	return &AuthService{
+	service := &AuthService{
 		DB:                 db,
 		passkeySessions:    make(map[string]passkeySession),
 		oidcStateSessions:  make(map[string]oidcStateSession),
 		oidcResultSessions: make(map[string]oidcResultSession),
 	}
+	if db != nil {
+		service.startSessionCleanupLoop()
+	}
+	return service
 }
 
 type RegisterInput struct {
@@ -95,6 +104,9 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 	if usernameCount > 0 {
 		return nil, ErrUsernameAlreadyTaken
 	}
+	if err := validateBcryptPasswordLength(input.Password); err != nil {
+		return nil, err
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -159,6 +171,9 @@ func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) err
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
 		return ErrCurrentPasswordIncorrect
 	}
+	if err := validateBcryptPasswordLength(input.NewPassword); err != nil {
+		return err
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -206,4 +221,28 @@ func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
 		RefreshToken: authResp.RefreshToken,
 		User:         &authResp.User,
 	}, nil
+}
+
+func (s *AuthService) startSessionCleanupLoop() {
+	go func() {
+		ticker := time.NewTicker(minDuration(passkeySessionCleanupInterval, oidcSessionCleanupInterval))
+		defer ticker.Stop()
+
+		for range ticker.C {
+			s.passkeyMu.Lock()
+			s.cleanupPasskeySessionsLocked()
+			s.passkeyMu.Unlock()
+
+			s.oidcMu.Lock()
+			s.cleanupOIDCSessionsLocked()
+			s.oidcMu.Unlock()
+		}
+	}()
+}
+
+func minDuration(a time.Duration, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }

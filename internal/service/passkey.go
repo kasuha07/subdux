@@ -16,10 +16,12 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
 const passkeySessionTTL = 5 * time.Minute
+const maxPasskeySessions = 1024
 
 type passkeySessionKind string
 
@@ -33,6 +35,7 @@ type passkeySession struct {
 	UserID    uint
 	Name      string
 	Data      webauthn.SessionData
+	CreatedAt time.Time
 	ExpiresAt time.Time
 }
 
@@ -412,7 +415,19 @@ func (s *AuthService) getSetting(key string) string {
 	if err := s.DB.Where("key = ?", key).First(&setting).Error; err != nil {
 		return ""
 	}
-	return strings.TrimSpace(setting.Value)
+
+	value, err := decryptSystemSettingValueIfNeeded(key, setting.Value)
+	if err != nil {
+		return ""
+	}
+
+	if !pkg.IsSystemSettingEncrypted(setting.Value) && value != "" && isEncryptedSystemSettingKey(key) {
+		if encryptedValue, encryptErr := encryptSystemSettingValueIfNeeded(key, value); encryptErr == nil {
+			_ = s.DB.Model(&model.SystemSetting{}).Where("key = ?", key).Update("value", encryptedValue).Error
+		}
+	}
+
+	return strings.TrimSpace(value)
 }
 
 func normalizeSiteURL(raw string) string {
@@ -468,6 +483,10 @@ func (s *AuthService) storePasskeySession(session passkeySession) string {
 	defer s.passkeyMu.Unlock()
 
 	s.cleanupPasskeySessionsLocked()
+	if session.CreatedAt.IsZero() {
+		session.CreatedAt = time.Now().UTC()
+	}
+	s.enforcePasskeySessionLimitLocked()
 
 	sessionID := uuid.NewString()
 	s.passkeySessions[sessionID] = session
@@ -504,5 +523,27 @@ func (s *AuthService) cleanupPasskeySessionsLocked() {
 		if now.After(session.ExpiresAt) {
 			delete(s.passkeySessions, sessionID)
 		}
+	}
+}
+
+func (s *AuthService) enforcePasskeySessionLimitLocked() {
+	overflow := len(s.passkeySessions) - maxPasskeySessions + 1
+	if overflow <= 0 {
+		return
+	}
+
+	for i := 0; i < overflow; i++ {
+		oldestID := ""
+		var oldestTime time.Time
+		for sessionID, session := range s.passkeySessions {
+			if oldestID == "" || session.CreatedAt.Before(oldestTime) {
+				oldestID = sessionID
+				oldestTime = session.CreatedAt
+			}
+		}
+		if oldestID == "" {
+			return
+		}
+		delete(s.passkeySessions, oldestID)
 	}
 }

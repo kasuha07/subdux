@@ -277,81 +277,87 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 	s.DB.Find(&items)
 
 	for _, item := range items {
+		settingValue := item.Value
+		decryptedValue, decryptErr := decryptSystemSettingValueIfNeeded(item.Key, item.Value)
+		if decryptErr == nil {
+			settingValue = decryptedValue
+		}
+
 		switch item.Key {
 		case "registration_enabled":
-			settings.RegistrationEnabled = item.Value == "true"
+			settings.RegistrationEnabled = settingValue == "true"
 		case "registration_email_verification_enabled":
-			settings.RegistrationEmailVerificationEnabled = item.Value == "true"
+			settings.RegistrationEmailVerificationEnabled = settingValue == "true"
 		case "site_name":
-			settings.SiteName = item.Value
+			settings.SiteName = settingValue
 		case "site_url":
-			settings.SiteURL = item.Value
+			settings.SiteURL = settingValue
 		case "currencyapi_key":
-			settings.CurrencyAPIKeySet = strings.TrimSpace(item.Value) != ""
+			settings.CurrencyAPIKeySet = strings.TrimSpace(settingValue) != ""
 		case "exchange_rate_source":
-			settings.ExchangeRateSource = item.Value
+			settings.ExchangeRateSource = settingValue
 		case "allow_image_upload":
-			settings.AllowImageUpload = item.Value == "true"
+			settings.AllowImageUpload = settingValue == "true"
 		case "max_icon_file_size":
-			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
+			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
 				settings.MaxIconFileSize = v
 			}
 		case "smtp_enabled":
-			settings.SMTPEnabled = item.Value == "true"
+			settings.SMTPEnabled = settingValue == "true"
 		case "smtp_host":
-			settings.SMTPHost = item.Value
+			settings.SMTPHost = settingValue
 		case "smtp_port":
-			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
+			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
 				settings.SMTPPort = v
 			}
 		case "smtp_username":
-			settings.SMTPUsername = item.Value
+			settings.SMTPUsername = settingValue
 		case "smtp_password":
-			settings.SMTPPasswordSet = strings.TrimSpace(item.Value) != ""
+			settings.SMTPPasswordSet = strings.TrimSpace(settingValue) != ""
 		case "smtp_from_email":
-			settings.SMTPFromEmail = item.Value
+			settings.SMTPFromEmail = settingValue
 		case "smtp_from_name":
-			settings.SMTPFromName = item.Value
+			settings.SMTPFromName = settingValue
 		case "smtp_encryption":
-			settings.SMTPEncryption = item.Value
+			settings.SMTPEncryption = settingValue
 		case "smtp_auth_method":
-			settings.SMTPAuthMethod = item.Value
+			settings.SMTPAuthMethod = settingValue
 		case "smtp_helo_name":
-			settings.SMTPHeloName = item.Value
+			settings.SMTPHeloName = settingValue
 		case "smtp_timeout_seconds":
-			if v, err := strconv.ParseInt(item.Value, 10, 64); err == nil {
+			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
 				settings.SMTPTimeoutSeconds = v
 			}
 		case "smtp_skip_tls_verify":
-			settings.SMTPSkipTLSVerify = item.Value == "true"
+			settings.SMTPSkipTLSVerify = settingValue == "true"
 		case "oidc_enabled":
-			settings.OIDCEnabled = item.Value == "true"
+			settings.OIDCEnabled = settingValue == "true"
 		case "oidc_provider_name":
-			settings.OIDCProviderName = item.Value
+			settings.OIDCProviderName = settingValue
 		case "oidc_issuer_url":
-			settings.OIDCIssuerURL = item.Value
+			settings.OIDCIssuerURL = settingValue
 		case "oidc_client_id":
-			settings.OIDCClientID = item.Value
+			settings.OIDCClientID = settingValue
 		case "oidc_client_secret":
-			settings.OIDCClientSecretSet = strings.TrimSpace(item.Value) != ""
+			settings.OIDCClientSecretSet = strings.TrimSpace(settingValue) != ""
 		case "oidc_redirect_url":
-			settings.OIDCRedirectURL = item.Value
+			settings.OIDCRedirectURL = settingValue
 		case "oidc_scopes":
-			settings.OIDCScopes = item.Value
+			settings.OIDCScopes = settingValue
 		case "oidc_auto_create_user":
-			settings.OIDCAutoCreateUser = item.Value == "true"
+			settings.OIDCAutoCreateUser = settingValue == "true"
 		case "oidc_authorization_endpoint":
-			settings.OIDCAuthorizeURL = item.Value
+			settings.OIDCAuthorizeURL = settingValue
 		case "oidc_token_endpoint":
-			settings.OIDCTokenURL = item.Value
+			settings.OIDCTokenURL = settingValue
 		case "oidc_userinfo_endpoint":
-			settings.OIDCUserinfoURL = item.Value
+			settings.OIDCUserinfoURL = settingValue
 		case "oidc_audience":
-			settings.OIDCAudience = item.Value
+			settings.OIDCAudience = settingValue
 		case "oidc_resource":
-			settings.OIDCResource = item.Value
+			settings.OIDCResource = settingValue
 		case "oidc_extra_auth_params":
-			settings.OIDCExtraAuthParams = item.Value
+			settings.OIDCExtraAuthParams = settingValue
 		}
 	}
 
@@ -475,8 +481,12 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.SMTPPassword != nil {
+			encryptedSMTPPassword, err := encryptSystemSettingValueIfNeeded("smtp_password", *input.SMTPPassword)
+			if err != nil {
+				return err
+			}
 			if err := tx.Where("key = ?", "smtp_password").
-				Assign(model.SystemSetting{Value: *input.SMTPPassword}).
+				Assign(model.SystemSetting{Value: encryptedSMTPPassword}).
 				FirstOrCreate(&model.SystemSetting{Key: "smtp_password"}).Error; err != nil {
 				return err
 			}
@@ -580,8 +590,12 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.OIDCClientSecret != nil {
+			encryptedOIDCClientSecret, err := encryptSystemSettingValueIfNeeded("oidc_client_secret", *input.OIDCClientSecret)
+			if err != nil {
+				return err
+			}
 			if err := tx.Where("key = ?", "oidc_client_secret").
-				Assign(model.SystemSetting{Value: *input.OIDCClientSecret}).
+				Assign(model.SystemSetting{Value: encryptedOIDCClientSecret}).
 				FirstOrCreate(&model.SystemSetting{Key: "oidc_client_secret"}).Error; err != nil {
 				return err
 			}
@@ -801,7 +815,11 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 		return nil, errors.New("failed to load smtp settings")
 	}
 	for _, item := range items {
-		values[item.Key] = item.Value
+		settingValue, err := decryptSystemSettingValueIfNeeded(item.Key, item.Value)
+		if err != nil {
+			return nil, errors.New("failed to decrypt smtp settings")
+		}
+		values[item.Key] = settingValue
 	}
 
 	if values["smtp_enabled"] != "true" {
@@ -1016,6 +1034,9 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 	if len(input.Password) < 6 {
 		return nil, errors.New("password must be at least 6 characters")
 	}
+	if err := validateBcryptPasswordLength(input.Password); err != nil {
+		return nil, err
+	}
 
 	role := input.Role
 	if role != "admin" && role != "user" {
@@ -1059,8 +1080,7 @@ func (s *AdminService) BackupDB(includeAssets bool) (string, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	backupPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
 
-	query := fmt.Sprintf(`VACUUM INTO '%s'`, backupPath)
-	if err := s.DB.Exec(query).Error; err != nil {
+	if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
 		return "", err
 	}
 

@@ -39,6 +39,7 @@ var (
 	ErrUserNotFound                          = errors.New("user not found")
 	ErrCurrentPasswordIncorrect              = errors.New("current password is incorrect")
 	ErrNewEmailSameAsCurrent                 = errors.New("new email must be different from current email")
+	ErrPasswordTooLong                       = errors.New("password must not exceed 72 bytes")
 )
 
 type RegistrationConfig struct {
@@ -128,6 +129,9 @@ func (s *AuthService) ResetPassword(email string, verificationCode string, newPa
 	}
 
 	if err := s.consumeVerificationCode(&user.ID, normalizedEmail, verificationPurposePasswordReset, verificationCode); err != nil {
+		return err
+	}
+	if err := validateBcryptPasswordLength(newPassword); err != nil {
 		return err
 	}
 

@@ -105,6 +105,7 @@ func authServiceErrorStatus(err error) int {
 		errors.Is(err, service.ErrInvalidEmail),
 		errors.Is(err, service.ErrCurrentPasswordIncorrect),
 		errors.Is(err, service.ErrNewEmailSameAsCurrent),
+		errors.Is(err, service.ErrPasswordTooLong),
 		errors.Is(err, service.ErrSMTPUnavailable):
 		return http.StatusBadRequest
 	default:
@@ -139,6 +140,9 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	if len(input.Password) < 6 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must be at least 6 characters"})
+	}
+	if len([]byte(input.Password)) > 72 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must not exceed 72 bytes"})
 	}
 
 	resp, err := h.Service.Register(input)
@@ -225,6 +229,9 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	if len(input.NewPassword) < 6 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 6 characters"})
 	}
+	if len([]byte(input.NewPassword)) > 72 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
+	}
 
 	if err := h.Service.ResetPassword(input.Email, input.VerificationCode, input.NewPassword); err != nil {
 		return writeAuthServiceError(c, err)
@@ -253,6 +260,9 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	}
 	if len(input.NewPassword) < 6 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 6 characters"})
+	}
+	if len([]byte(input.NewPassword)) > 72 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
 	}
 	if err := h.Service.ChangePassword(userID, input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})

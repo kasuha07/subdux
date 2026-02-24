@@ -30,6 +30,8 @@ var (
 	errInvalidBackup = errors.New("invalid backup file")
 )
 
+const maxBackupUploadSize = 32 << 20 // 32 MiB
+
 type backupRestorePayload struct {
 	dbFilePath       string
 	assetsDirPath    string
@@ -86,6 +88,9 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 
 	if len(input.Password) < 6 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 6 characters"})
+	}
+	if len([]byte(input.Password)) > 72 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must not exceed 72 bytes"})
 	}
 
 	user, err := h.Service.CreateUser(input)
@@ -225,13 +230,25 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 }
 
 func (h *AdminHandler) RestoreDB(c echo.Context) error {
+	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxBackupUploadSize)
+
 	file, err := c.FormFile("backup")
 	if err != nil {
+		if isRequestTooLargeError(err) {
+			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{
+				"error": fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20),
+			})
+		}
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "no file uploaded"})
 	}
 
 	uploadedBackupPath, err := saveUploadedBackupFile(file)
 	if err != nil {
+		if isRequestTooLargeError(err) {
+			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{
+				"error": fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20),
+			})
+		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to save uploaded backup"})
 	}
 	defer os.Remove(uploadedBackupPath)
@@ -603,4 +620,17 @@ func isSubPath(basePath string, targetPath string) bool {
 	}
 
 	return relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(filepath.Separator))
+}
+
+func isRequestTooLargeError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		return true
+	}
+
+	return strings.Contains(strings.ToLower(err.Error()), "request body too large")
 }

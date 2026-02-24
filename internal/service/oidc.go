@@ -29,6 +29,8 @@ const (
 	defaultOIDCScopes    = "openid profile email"
 	oidcStateSessionTTL  = 10 * time.Minute
 	oidcResultSessionTTL = 3 * time.Minute
+	maxOIDCStateSessions = 1024
+	maxOIDCResultSession = 1024
 )
 
 type OIDCPublicConfig struct {
@@ -69,11 +71,13 @@ type oidcStateSession struct {
 	UserID       uint
 	CodeVerifier string
 	Nonce        string
+	CreatedAt    time.Time
 	ExpiresAt    time.Time
 }
 
 type oidcResultSession struct {
 	Result    OIDCSessionResult
+	CreatedAt time.Time
 	ExpiresAt time.Time
 }
 
@@ -654,6 +658,10 @@ func (s *AuthService) storeOIDCStateSession(state string, session oidcStateSessi
 	defer s.oidcMu.Unlock()
 
 	s.cleanupOIDCSessionsLocked()
+	if session.CreatedAt.IsZero() {
+		session.CreatedAt = time.Now().UTC()
+	}
+	s.enforceOIDCStateSessionLimitLocked()
 	s.oidcStateSessions[state] = session
 }
 
@@ -681,10 +689,12 @@ func (s *AuthService) storeOIDCResultSession(result OIDCSessionResult) string {
 	defer s.oidcMu.Unlock()
 
 	s.cleanupOIDCSessionsLocked()
+	s.enforceOIDCResultSessionLimitLocked()
 
 	sessionID := uuid.NewString()
 	s.oidcResultSessions[sessionID] = oidcResultSession{
 		Result:    result,
+		CreatedAt: time.Now().UTC(),
 		ExpiresAt: time.Now().UTC().Add(oidcResultSessionTTL),
 	}
 
@@ -723,6 +733,50 @@ func (s *AuthService) cleanupOIDCSessionsLocked() {
 		if now.After(session.ExpiresAt) {
 			delete(s.oidcResultSessions, sessionID)
 		}
+	}
+}
+
+func (s *AuthService) enforceOIDCStateSessionLimitLocked() {
+	overflow := len(s.oidcStateSessions) - maxOIDCStateSessions + 1
+	if overflow <= 0 {
+		return
+	}
+
+	for i := 0; i < overflow; i++ {
+		oldestID := ""
+		var oldestTime time.Time
+		for state, session := range s.oidcStateSessions {
+			if oldestID == "" || session.CreatedAt.Before(oldestTime) {
+				oldestID = state
+				oldestTime = session.CreatedAt
+			}
+		}
+		if oldestID == "" {
+			return
+		}
+		delete(s.oidcStateSessions, oldestID)
+	}
+}
+
+func (s *AuthService) enforceOIDCResultSessionLimitLocked() {
+	overflow := len(s.oidcResultSessions) - maxOIDCResultSession + 1
+	if overflow <= 0 {
+		return
+	}
+
+	for i := 0; i < overflow; i++ {
+		oldestID := ""
+		var oldestTime time.Time
+		for sessionID, session := range s.oidcResultSessions {
+			if oldestID == "" || session.CreatedAt.Before(oldestTime) {
+				oldestID = sessionID
+				oldestTime = session.CreatedAt
+			}
+		}
+		if oldestID == "" {
+			return
+		}
+		delete(s.oidcResultSessions, oldestID)
 	}
 }
 
