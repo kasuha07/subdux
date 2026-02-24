@@ -16,7 +16,6 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
@@ -56,12 +55,13 @@ type OIDCCallbackResult struct {
 }
 
 type OIDCSessionResult struct {
-	Purpose    string              `json:"purpose"`
-	Token      string              `json:"token,omitempty"`
-	User       *model.User         `json:"user,omitempty"`
-	Connected  bool                `json:"connected,omitempty"`
-	Connection *OIDCConnectionInfo `json:"connection,omitempty"`
-	Error      string              `json:"error,omitempty"`
+	Purpose      string              `json:"purpose"`
+	Token        string              `json:"token,omitempty"`
+	RefreshToken string              `json:"refresh_token,omitempty"`
+	User         *model.User         `json:"user,omitempty"`
+	Connected    bool                `json:"connected,omitempty"`
+	Connection   *OIDCConnectionInfo `json:"connection,omitempty"`
+	Error        string              `json:"error,omitempty"`
 }
 
 type oidcStateSession struct {
@@ -415,15 +415,16 @@ func (s *AuthService) finishOIDCLogin(settings oidcSettings, claims *oidcIdentit
 		}
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
+	authResp, err := s.issueAuthResponse(*user)
 	if err != nil {
 		return OIDCSessionResult{}, err
 	}
 
 	return OIDCSessionResult{
-		Purpose: oidcPurposeLogin,
-		Token:   token,
-		User:    user,
+		Purpose:      oidcPurposeLogin,
+		Token:        authResp.AccessToken,
+		RefreshToken: authResp.RefreshToken,
+		User:         &authResp.User,
 	}, nil
 }
 

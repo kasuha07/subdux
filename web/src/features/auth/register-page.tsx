@@ -104,7 +104,7 @@ export default function RegisterPage() {
         password,
         verification_code: emailVerificationEnabled ? verificationCode.trim() : "",
       })
-      setAuth(data.token, data.user)
+      setAuth(data.access_token ?? data.token, data.user, data.refresh_token)
       toast.success(t("auth.register.success"))
       navigate("/")
     } catch (err) {

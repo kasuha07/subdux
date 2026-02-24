@@ -36,14 +36,18 @@ type authUserResponse struct {
 }
 
 type authResponse struct {
-	Token string           `json:"token"`
-	User  authUserResponse `json:"user"`
+	Token        string           `json:"token"`
+	AccessToken  string           `json:"access_token"`
+	RefreshToken string           `json:"refresh_token"`
+	User         authUserResponse `json:"user"`
 }
 
 type loginResponse struct {
 	RequiresTotp bool              `json:"requires_totp"`
 	TotpToken    string            `json:"totp_token,omitempty"`
 	Token        string            `json:"token,omitempty"`
+	AccessToken  string            `json:"access_token,omitempty"`
+	RefreshToken string            `json:"refresh_token,omitempty"`
 	User         *authUserResponse `json:"user,omitempty"`
 }
 
@@ -68,8 +72,19 @@ func mapLoginResponse(resp *service.LoginResponse) loginResponse {
 	return loginResponse{
 		RequiresTotp: resp.RequiresTotp,
 		TotpToken:    resp.TotpToken,
-		Token:        resp.Token,
+		Token:        resp.AccessToken,
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
 		User:         user,
+	}
+}
+
+func mapAuthResponse(resp *service.AuthResponse) authResponse {
+	return authResponse{
+		Token:        resp.AccessToken,
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		User:         mapAuthUserResponse(resp.User),
 	}
 }
 
@@ -131,10 +146,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return writeAuthServiceError(c, err)
 	}
 
-	return c.JSON(http.StatusCreated, authResponse{
-		Token: resp.Token,
-		User:  mapAuthUserResponse(resp.User),
-	})
+	return c.JSON(http.StatusCreated, mapAuthResponse(resp))
 }
 
 func (h *AuthHandler) GetRegistrationConfig(c echo.Context) error {
@@ -297,10 +309,7 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 		return writeAuthServiceError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, authResponse{
-		Token: resp.Token,
-		User:  mapAuthUserResponse(resp.User),
-	})
+	return c.JSON(http.StatusOK, mapAuthResponse(resp))
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {
@@ -319,6 +328,30 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, mapLoginResponse(resp))
+}
+
+func (h *AuthHandler) RefreshSession(c echo.Context) error {
+	var input struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	input.RefreshToken = strings.TrimSpace(input.RefreshToken)
+	if input.RefreshToken == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "refresh token is required"})
+	}
+
+	resp, err := h.Service.RefreshSession(input.RefreshToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidRefreshToken) {
+			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid refresh token"})
+		}
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to refresh session"})
+	}
+
+	return c.JSON(http.StatusOK, mapAuthResponse(resp))
 }
 
 func (h *AuthHandler) SetupTOTP(c echo.Context) error {
@@ -391,20 +424,18 @@ func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid code"})
 	}
 
-	user, err := h.Service.GetUser(userID)
+	resp, err := h.Service.CreateSession(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "User not found"})
+		if errors.Is(err, service.ErrUserNotFound) {
+			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "disabled") {
+			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "account is disabled"})
+		}
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create session"})
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to generate token"})
-	}
-
-	return c.JSON(http.StatusOK, authResponse{
-		Token: token,
-		User:  mapAuthUserResponse(*user),
-	})
+	return c.JSON(http.StatusOK, mapAuthResponse(resp))
 }
 
 type passkeyBeginRegistrationInput struct {
@@ -510,19 +541,18 @@ func (h *AuthHandler) FinishPasskeyLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, authResponse{
-		Token: resp.Token,
-		User:  mapAuthUserResponse(resp.User),
-	})
+	return c.JSON(http.StatusOK, mapAuthResponse(resp))
 }
 
 type oidcSessionResponse struct {
-	Purpose    string                      `json:"purpose"`
-	Token      string                      `json:"token,omitempty"`
-	User       *authUserResponse           `json:"user,omitempty"`
-	Connected  bool                        `json:"connected,omitempty"`
-	Connection *service.OIDCConnectionInfo `json:"connection,omitempty"`
-	Error      string                      `json:"error,omitempty"`
+	Purpose      string                      `json:"purpose"`
+	Token        string                      `json:"token,omitempty"`
+	AccessToken  string                      `json:"access_token,omitempty"`
+	RefreshToken string                      `json:"refresh_token,omitempty"`
+	User         *authUserResponse           `json:"user,omitempty"`
+	Connected    bool                        `json:"connected,omitempty"`
+	Connection   *service.OIDCConnectionInfo `json:"connection,omitempty"`
+	Error        string                      `json:"error,omitempty"`
 }
 
 func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionResponse {
@@ -533,12 +563,14 @@ func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionRespon
 	}
 
 	return oidcSessionResponse{
-		Purpose:    result.Purpose,
-		Token:      result.Token,
-		User:       user,
-		Connected:  result.Connected,
-		Connection: result.Connection,
-		Error:      result.Error,
+		Purpose:      result.Purpose,
+		Token:        result.Token,
+		AccessToken:  result.Token,
+		RefreshToken: result.RefreshToken,
+		User:         user,
+		Connected:    result.Connected,
+		Connection:   result.Connection,
+		Error:        result.Error,
 	}
 }
 

@@ -1,19 +1,32 @@
 import { toast } from "sonner"
 import i18n from "@/i18n"
-import type { User } from "@/types"
+import type { AuthResponse, User } from "@/types"
 
 const API_BASE = "/api"
+const ACCESS_TOKEN_KEY = "token"
+const REFRESH_TOKEN_KEY = "refresh_token"
+
+let refreshRequest: Promise<boolean> | null = null
 
 function getToken(): string | null {
-  return localStorage.getItem("token")
+  return localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem("token", token)
+  localStorage.setItem(ACCESS_TOKEN_KEY, token)
+}
+
+export function setRefreshToken(token: string): void {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token)
 }
 
 export function clearToken(): void {
-  localStorage.removeItem("token")
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem("user")
 }
 
@@ -39,14 +52,72 @@ export function isAdmin(): boolean {
   return getUser()?.role === "admin"
 }
 
-export function setAuth(token: string, user: User): void {
+export function setAuth(token: string, user: User, refreshToken?: string): void {
   setToken(token)
+  if (refreshToken) {
+    setRefreshToken(refreshToken)
+  } else {
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+  }
   setUser(user)
+}
+
+function resolveAccessToken(data: Partial<AuthResponse>): string | null {
+  return data.access_token ?? data.token ?? null
+}
+
+function handleUnauthorized(): never {
+  clearToken()
+  toast.error(i18n.t("common.unauthorized"))
+  window.location.href = "/login"
+  throw new Error(i18n.t("common.unauthorized"))
+}
+
+function canRefresh(path: string, hasAccessToken: boolean): boolean {
+  return hasAccessToken && path !== "/auth/refresh" && !!getRefreshToken()
+}
+
+async function performRefresh(): Promise<boolean> {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return false
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+
+    if (!res.ok) {
+      return false
+    }
+
+    const data = await res.json() as AuthResponse
+    const accessToken = resolveAccessToken(data)
+    if (!accessToken || !data.user) {
+      return false
+    }
+
+    setAuth(accessToken, data.user, data.refresh_token)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function refreshSession(): Promise<boolean> {
+  if (!refreshRequest) {
+    refreshRequest = performRefresh().finally(() => {
+      refreshRequest = null
+    })
+  }
+  return refreshRequest
 }
 
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retryOnUnauthorized = true
 ): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -64,10 +135,10 @@ async function request<T>(
   })
 
   if (res.status === 401) {
-    clearToken()
-    toast.error(i18n.t("common.unauthorized"))
-    window.location.href = "/login"
-    throw new Error(i18n.t("common.unauthorized"))
+    if (retryOnUnauthorized && canRefresh(path, !!token) && (await refreshSession())) {
+      return request<T>(path, options, false)
+    }
+    return handleUnauthorized()
   }
 
   if (res.status === 204) {
@@ -92,7 +163,7 @@ export const api = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
-  uploadFile: async <T>(path: string, formData: FormData): Promise<T> => {
+  uploadFile: async <T>(path: string, formData: FormData, retryOnUnauthorized = true): Promise<T> => {
     const token = getToken()
     const headers: Record<string, string> = {}
     if (token) {
@@ -104,10 +175,10 @@ export const api = {
       body: formData,
     })
     if (res.status === 401) {
-      clearToken()
-      toast.error(i18n.t("common.unauthorized"))
-      window.location.href = "/login"
-      throw new Error(i18n.t("common.unauthorized"))
+      if (retryOnUnauthorized && canRefresh(path, !!token) && (await refreshSession())) {
+        return api.uploadFile<T>(path, formData, false)
+      }
+      return handleUnauthorized()
     }
     if (res.status === 204) {
       return undefined as T

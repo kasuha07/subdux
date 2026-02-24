@@ -184,10 +184,22 @@ type APIKey struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	UserID     uint       `gorm:"index;not null" json:"user_id"`
 	Name       string     `gorm:"not null;size:100" json:"name"`
-	KeyHash    string     `gorm:"not null" json:"-"`
+	KeyHash    string     `gorm:"not null;uniqueIndex:idx_api_key_hash" json:"-"`
 	Prefix     string     `gorm:"not null;size:12" json:"prefix"`
+	Scopes     string     `gorm:"type:text;not null;default:'read,write'" json:"-"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	ExpiresAt  *time.Time `json:"expires_at"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+type RefreshToken struct {
+	ID         uint       `gorm:"primaryKey" json:"id"`
+	UserID     uint       `gorm:"index;not null" json:"user_id"`
+	TokenHash  string     `gorm:"not null;uniqueIndex:idx_refresh_token_hash;size:64" json:"-"`
+	ExpiresAt  time.Time  `gorm:"not null;index" json:"expires_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	RevokedAt  *time.Time `gorm:"index" json:"revoked_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 }

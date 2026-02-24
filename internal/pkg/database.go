@@ -54,6 +54,7 @@ func InitDB() *gorm.DB {
 		&model.NotificationLog{},
 		&model.NotificationTemplate{},
 		&model.APIKey{},
+		&model.RefreshToken{},
 		&model.CalendarToken{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)

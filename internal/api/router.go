@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -24,7 +25,38 @@ func getUserID(c echo.Context) uint {
 func getUserRole(c echo.Context) string {
 	token := c.Get("user").(*jwt.Token)
 	claims := token.Claims.(*pkg.JWTClaims)
+	if getAuthType(c) == pkg.AuthTypeAPIKey {
+		// API keys are machine principals and should not be granted human role
+		// privileges. Treat as least-privilege "user" for legacy role checks.
+		return "user"
+	}
+	if strings.TrimSpace(claims.Role) == "" {
+		return "user"
+	}
 	return claims.Role
+}
+
+func getAuthType(c echo.Context) string {
+	token := c.Get("user").(*jwt.Token)
+	claims := token.Claims.(*pkg.JWTClaims)
+	if claims.AuthType != "" {
+		return claims.AuthType
+	}
+	if len(claims.Scopes) > 0 {
+		return pkg.AuthTypeAPIKey
+	}
+	return pkg.AuthTypeUser
+}
+
+func hasAPIKeyScope(c echo.Context, scope string) bool {
+	token := c.Get("user").(*jwt.Token)
+	claims := token.Claims.(*pkg.JWTClaims)
+	for _, candidate := range claims.Scopes {
+		if candidate == scope {
+			return true
+		}
+	}
+	return false
 }
 
 func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -53,12 +85,16 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIK
 				return c.JSON(http.StatusUnauthorized, echo.Map{"error": "authorization required"})
 			}
 
-			userID, err := apiKeyService.ValidateKey(key)
+			principal, err := apiKeyService.ValidateKey(key)
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 			}
 
-			claims := &pkg.JWTClaims{UserID: userID}
+			claims := &pkg.JWTClaims{
+				UserID:   principal.UserID,
+				AuthType: pkg.AuthTypeAPIKey,
+				Scopes:   principal.Scopes,
+			}
 			token := &jwt.Token{Claims: claims}
 			c.Set("user", token)
 
@@ -101,6 +137,13 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 	api := e.Group("/api")
 
+	authIPLimiter := authIPRateLimit(30, time.Minute)
+	loginAccountLimiter := authAccountRateLimit(10, time.Minute, loginAccountKey)
+	registerAccountLimiter := authAccountRateLimit(6, 10*time.Minute, registerAccountKey)
+	passwordAccountLimiter := authAccountRateLimit(6, 10*time.Minute, emailAccountKey)
+	totpAccountLimiter := authAccountRateLimit(8, 5*time.Minute, totpAccountKey)
+	refreshTokenLimiter := authAccountRateLimit(20, time.Minute, refreshTokenAccountKey)
+
 	api.GET("/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, version.Get())
 	})
@@ -136,12 +179,13 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 	auth := api.Group("/auth")
 	auth.GET("/register/config", authHandler.GetRegistrationConfig)
-	auth.POST("/register/send-code", authHandler.SendRegisterVerificationCode)
-	auth.POST("/register", authHandler.Register)
-	auth.POST("/login", authHandler.Login)
-	auth.POST("/password/forgot", authHandler.ForgotPassword)
-	auth.POST("/password/reset", authHandler.ResetPassword)
-	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin)
+	auth.POST("/register/send-code", authHandler.SendRegisterVerificationCode, authIPLimiter, registerAccountLimiter)
+	auth.POST("/register", authHandler.Register, authIPLimiter, registerAccountLimiter)
+	auth.POST("/login", authHandler.Login, authIPLimiter, loginAccountLimiter)
+	auth.POST("/password/forgot", authHandler.ForgotPassword, authIPLimiter, passwordAccountLimiter)
+	auth.POST("/password/reset", authHandler.ResetPassword, authIPLimiter, passwordAccountLimiter)
+	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin, authIPLimiter, totpAccountLimiter)
+	auth.POST("/refresh", authHandler.RefreshSession, authIPLimiter, refreshTokenLimiter)
 	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin)
 	auth.POST("/passkeys/login/finish", authHandler.FinishPasskeyLogin)
 	auth.GET("/oidc/config", authHandler.GetOIDCConfig)
@@ -158,6 +202,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 	protected := api.Group("")
 	protected.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
+	protected.Use(APIKeyScopeMiddleware)
 
 	protected.GET("/subscriptions", subHandler.List)
 	protected.POST("/subscriptions", subHandler.Create)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -142,6 +141,9 @@ func (s *AuthService) ResetPassword(email string, verificationCode string, newPa
 		if err := tx.Model(&model.User{}).Where("id = ?", user.ID).Update("password", string(hash)).Error; err != nil {
 			return err
 		}
+		if err := revokeAllRefreshTokens(tx, user.ID); err != nil {
+			return err
+		}
 		return tx.Model(&model.EmailVerificationCode{}).
 			Where("user_id = ? AND email = ? AND purpose = ? AND consumed_at IS NULL", user.ID, normalizedEmail, verificationPurposePasswordReset).
 			Update("consumed_at", &now).Error
@@ -216,6 +218,9 @@ func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificat
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("email", normalizedEmail).Error; err != nil {
 			return err
 		}
+		if err := revokeAllRefreshTokens(tx, user.ID); err != nil {
+			return err
+		}
 		return tx.Model(&model.EmailVerificationCode{}).
 			Where("user_id = ? AND email = ? AND purpose = ? AND consumed_at IS NULL", userID, normalizedEmail, verificationPurposeChangeEmail).
 			Update("consumed_at", &now).Error
@@ -224,12 +229,7 @@ func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificat
 	}
 
 	user.Email = normalizedEmail
-	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AuthResponse{Token: token, User: user}, nil
+	return s.issueAuthResponse(user)
 }
 
 func (s *AuthService) isRegistrationEnabled(userCount int64) bool {

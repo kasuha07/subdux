@@ -61,8 +61,9 @@ export default function LoginPage() {
           return
         }
 
-        if (result.token && result.user) {
-          setAuth(result.token, result.user)
+        const accessToken = result.access_token ?? result.token
+        if (accessToken && result.user) {
+          setAuth(accessToken, result.user, result.refresh_token)
           toast.success(t("auth.login.success"))
           navigate("/", { replace: true })
           return
@@ -96,7 +97,7 @@ export default function LoginPage() {
         setStep("totp")
       } else {
         const authData = data as AuthResponse
-        setAuth(authData.token, authData.user)
+        setAuth(authData.access_token ?? authData.token, authData.user, authData.refresh_token)
         toast.success(t("auth.login.success"))
         navigate("/")
       }
@@ -117,7 +118,7 @@ export default function LoginPage() {
         totp_token: totpToken,
         code: totpCode.trim(),
       })
-      setAuth(data.token, data.user)
+      setAuth(data.access_token ?? data.token, data.user, data.refresh_token)
       toast.success(t("auth.login.success"))
       navigate("/")
     } catch (err) {
@@ -149,7 +150,7 @@ export default function LoginPage() {
         session_id: begin.session_id,
         credential,
       })
-      setAuth(authData.token, authData.user)
+      setAuth(authData.access_token ?? authData.token, authData.user, authData.refresh_token)
       toast.success(t("auth.login.success"))
       navigate("/")
     } catch (err) {

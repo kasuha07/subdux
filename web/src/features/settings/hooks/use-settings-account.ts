@@ -157,7 +157,7 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
         verification_code: emailVerificationCode.trim(),
       }
       const authData = await api.post<AuthResponse>("/auth/email/change/confirm", payload)
-      setAuth(authData.token, authData.user)
+      setAuth(authData.access_token ?? authData.token, authData.user, authData.refresh_token)
       setUserState(authData.user)
       setNewEmail("")
       setEmailChangePassword("")

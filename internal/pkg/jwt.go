@@ -2,11 +2,13 @@ package pkg
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,15 +18,29 @@ import (
 )
 
 type JWTClaims struct {
-	UserID   uint   `json:"user_id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
+	UserID   uint     `json:"user_id"`
+	Username string   `json:"username"`
+	Email    string   `json:"email"`
+	Role     string   `json:"role"`
+	AuthType string   `json:"auth_type,omitempty"`
+	Scopes   []string `json:"scopes,omitempty"`
 	jwt.RegisteredClaims
 }
 
-const jwtSecretKey = "jwt_secret"
-const minJWTSecretLength = 32
+const (
+	jwtSecretKey       = "jwt_secret"
+	minJWTSecretLength = 32
+
+	defaultAccessTokenTTL  = 15 * time.Minute
+	minAccessTokenTTL      = 1 * time.Minute
+	defaultRefreshTokenTTL = 30 * 24 * time.Hour
+	minRefreshTokenTTL     = 1 * time.Hour
+)
+
+const (
+	AuthTypeUser   = "user"
+	AuthTypeAPIKey = "api_key"
+)
 
 var jwtSecretFromDB string
 
@@ -99,19 +115,80 @@ func validateJWTSecret(secret string, source string) error {
 	return nil
 }
 
+// GenerateToken issues the short-lived access token used on normal API requests.
+// Kept for compatibility with existing call-sites.
 func GenerateToken(userID uint, username string, email string, role string) (string, error) {
+	return GenerateAccessToken(userID, username, email, role)
+}
+
+func GenerateAccessToken(userID uint, username string, email string, role string) (string, error) {
+	now := time.Now().UTC()
 	claims := &JWTClaims{
 		UserID:   userID,
 		Username: username,
 		Email:    email,
 		Role:     role,
+		AuthType: AuthTypeUser,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(72 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(getAccessTokenTTL())),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(GetJWTSecret())
+}
+
+func getAccessTokenTTL() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("ACCESS_TOKEN_TTL_MINUTES"))
+	if raw == "" {
+		return defaultAccessTokenTTL
+	}
+
+	minutes, err := strconv.Atoi(raw)
+	if err != nil || minutes <= 0 {
+		log.Printf("invalid ACCESS_TOKEN_TTL_MINUTES value %q, using default", raw)
+		return defaultAccessTokenTTL
+	}
+
+	ttl := time.Duration(minutes) * time.Minute
+	if ttl < minAccessTokenTTL {
+		return minAccessTokenTTL
+	}
+	return ttl
+}
+
+func getRefreshTokenTTL() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("REFRESH_TOKEN_TTL_HOURS"))
+	if raw == "" {
+		return defaultRefreshTokenTTL
+	}
+
+	hours, err := strconv.Atoi(raw)
+	if err != nil || hours <= 0 {
+		log.Printf("invalid REFRESH_TOKEN_TTL_HOURS value %q, using default", raw)
+		return defaultRefreshTokenTTL
+	}
+
+	ttl := time.Duration(hours) * time.Hour
+	if ttl < minRefreshTokenTTL {
+		return minRefreshTokenTTL
+	}
+	return ttl
+}
+
+func HashRefreshToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
+func GenerateRefreshToken() (string, string, time.Time, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", "", time.Time{}, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	rawToken := "sdr_" + hex.EncodeToString(tokenBytes)
+	return rawToken, HashRefreshToken(rawToken), time.Now().UTC().Add(getRefreshTokenTTL()), nil
 }
 
 // TOTPPendingClaims is a short-lived intermediate token (5 min) issued after

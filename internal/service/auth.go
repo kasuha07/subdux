@@ -45,14 +45,16 @@ type LoginInput struct {
 }
 
 type AuthResponse struct {
-	Token string     `json:"token"`
-	User  model.User `json:"user"`
+	AccessToken  string     `json:"access_token"`
+	RefreshToken string     `json:"refresh_token"`
+	User         model.User `json:"user"`
 }
 
 type LoginResponse struct {
 	RequiresTotp bool        `json:"requires_totp"`
 	TotpToken    string      `json:"totp_token,omitempty"`
-	Token        string      `json:"token,omitempty"`
+	AccessToken  string      `json:"access_token,omitempty"`
+	RefreshToken string      `json:"refresh_token,omitempty"`
 	User         *model.User `json:"user,omitempty"`
 }
 
@@ -128,12 +130,12 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 			Update("consumed_at", &now).Error
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
+	authResp, err := s.issueAuthResponse(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthResponse{Token: token, User: user}, nil
+	return authResp, nil
 }
 
 type ChangePasswordInput struct {
@@ -161,7 +163,12 @@ func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) err
 	if err != nil {
 		return err
 	}
-	return s.DB.Model(&user).Update("password", string(hash)).Error
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&user).Update("password", string(hash)).Error; err != nil {
+			return err
+		}
+		return revokeAllRefreshTokens(tx, userID)
+	})
 }
 
 func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
@@ -189,10 +196,14 @@ func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
 		return &LoginResponse{RequiresTotp: true, TotpToken: pendingToken}, nil
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
+	authResp, err := s.issueAuthResponse(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return &LoginResponse{Token: token, User: &user}, nil
+	return &LoginResponse{
+		AccessToken:  authResp.AccessToken,
+		RefreshToken: authResp.RefreshToken,
+		User:         &authResp.User,
+	}, nil
 }

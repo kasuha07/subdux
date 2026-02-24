@@ -50,6 +50,8 @@ export interface DashboardSummary {
 
 export interface AuthResponse {
   token: string
+  access_token?: string
+  refresh_token?: string
   user: User
 }
 
@@ -79,6 +81,8 @@ export interface OIDCConnection {
 export interface OIDCSessionResult {
   purpose: "login" | "connect"
   token?: string
+  access_token?: string
+  refresh_token?: string
   user?: User
   connected?: boolean
   connection?: OIDCConnection
@@ -542,6 +546,7 @@ export interface APIKey {
   id: number
   name: string
   prefix: string
+  scopes: string[]
   last_used_at: string | null
   expires_at: string | null
   created_at: string
@@ -550,6 +555,7 @@ export interface APIKey {
 export interface CreateAPIKeyInput {
   name: string
   expires_at?: string | null
+  scopes?: string[]
 }
 
 export interface CreateAPIKeyResponse {

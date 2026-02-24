@@ -16,7 +16,6 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -253,15 +252,12 @@ func (s *AuthService) FinishPasskeyLogin(sessionID string, parsedResponse *proto
 			}).Error
 	}
 
-	token, err := pkg.GenerateToken(user.ID, user.Username, user.Email, user.Role)
+	authResp, err := s.issueAuthResponse(user)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthResponse{
-		Token: token,
-		User:  user,
-	}, nil
+	return authResp, nil
 }
 
 func (s *AuthService) DeletePasskey(userID uint, passkeyID uint) error {
