@@ -9,3 +9,5 @@ web/dist/
 .env
 .env.local
 .omx/
+.omc/
+.claude/
