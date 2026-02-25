@@ -247,6 +247,15 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
+		path := c.Path()
+		if path == "" {
+			path = c.Request().URL.Path
+		}
+
+		if !isAPIKeyRouteAllowed(path) {
+			return c.JSON(http.StatusForbidden, echo.Map{"error": "api key cannot access this endpoint"})
+		}
+
 		requiredScope := requiredAPIKeyScope(c)
 
 		if hasAPIKeyScope(c, requiredScope) {
@@ -255,6 +264,18 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "api key does not have required scope"})
 	}
+}
+
+func isAPIKeyRouteAllowed(path string) bool {
+	if path == "/api/auth" {
+		return false
+	}
+
+	if strings.HasPrefix(path, "/api/auth/") {
+		return path == "/api/auth/me"
+	}
+
+	return true
 }
 
 var writeScopeRoutes = map[string]struct{}{

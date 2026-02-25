@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
 )
 
@@ -82,5 +84,114 @@ func TestRequiredAPIKeyScopeUsesReadForRegularGetRoute(t *testing.T) {
 	got := requiredAPIKeyScope(c)
 	if got != service.APIKeyScopeRead {
 		t.Fatalf("requiredAPIKeyScope() = %q, want %q", got, service.APIKeyScopeRead)
+	}
+}
+
+func TestIsAPIKeyRouteAllowed(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "/api/subscriptions", want: true},
+		{path: "/api/auth", want: false},
+		{path: "/api/auth/me", want: true},
+		{path: "/api/auth/totp/setup", want: false},
+		{path: "/api/auth/passkeys/register/start", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := isAPIKeyRouteAllowed(tt.path)
+			if got != tt.want {
+				t.Fatalf("isAPIKeyRouteAllowed(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIKeyScopeMiddlewareBlocksAuthNamespaceRoot(t *testing.T) {
+	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/auth", "", "")
+	c.SetPath("/api/auth")
+	c.Set("user", &jwt.Token{
+		Claims: &pkg.JWTClaims{
+			AuthType: pkg.AuthTypeAPIKey,
+			Scopes:   []string{service.APIKeyScopeWrite},
+		},
+	})
+
+	calledNext := false
+	middleware := APIKeyScopeMiddleware(func(c echo.Context) error {
+		calledNext = true
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	if err := middleware(c); err != nil {
+		t.Fatalf("APIKeyScopeMiddleware() error = %v, want nil", err)
+	}
+
+	if calledNext {
+		t.Fatal("APIKeyScopeMiddleware() called next handler for /api/auth, want blocked")
+	}
+
+	if got := c.Response().Status; got != http.StatusForbidden {
+		t.Fatalf("APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusForbidden)
+	}
+}
+
+func TestAPIKeyScopeMiddlewareBlocksRestrictedAuthRoutes(t *testing.T) {
+	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/auth/totp/setup", "", "")
+	c.SetPath("/api/auth/totp/setup")
+	c.Set("user", &jwt.Token{
+		Claims: &pkg.JWTClaims{
+			AuthType: pkg.AuthTypeAPIKey,
+			Scopes:   []string{service.APIKeyScopeWrite},
+		},
+	})
+
+	calledNext := false
+	middleware := APIKeyScopeMiddleware(func(c echo.Context) error {
+		calledNext = true
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	if err := middleware(c); err != nil {
+		t.Fatalf("APIKeyScopeMiddleware() error = %v, want nil", err)
+	}
+
+	if calledNext {
+		t.Fatal("APIKeyScopeMiddleware() called next handler for restricted auth route, want blocked")
+	}
+
+	if got := c.Response().Status; got != http.StatusForbidden {
+		t.Fatalf("APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusForbidden)
+	}
+}
+
+func TestAPIKeyScopeMiddlewareAllowsAuthMeRoute(t *testing.T) {
+	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/auth/me", "", "")
+	c.SetPath("/api/auth/me")
+	c.Set("user", &jwt.Token{
+		Claims: &pkg.JWTClaims{
+			AuthType: pkg.AuthTypeAPIKey,
+			Scopes:   []string{service.APIKeyScopeRead},
+		},
+	})
+
+	calledNext := false
+	middleware := APIKeyScopeMiddleware(func(c echo.Context) error {
+		calledNext = true
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	if err := middleware(c); err != nil {
+		t.Fatalf("APIKeyScopeMiddleware() error = %v, want nil", err)
+	}
+
+	if !calledNext {
+		t.Fatal("APIKeyScopeMiddleware() blocked /api/auth/me for api key, want allowed")
+	}
+
+	if got := c.Response().Status; got != http.StatusNoContent {
+		t.Fatalf("APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusNoContent)
 	}
 }

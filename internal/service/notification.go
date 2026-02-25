@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -34,6 +36,10 @@ const maxNotificationDaysBefore = 10
 const maxEnabledNotificationChannels = 3
 const maxParallelUserNotificationChecks = 4
 const maxParallelNotificationDispatchesPerUser = 4
+
+var lookupOutboundHostIPs = func(ctx context.Context, network string, host string) ([]net.IP, error) {
+	return net.DefaultResolver.LookupIP(ctx, network, host)
+}
 
 func NewNotificationService(db *gorm.DB, templateService *NotificationTemplateService, templateRenderer *TemplateRenderer) *NotificationService {
 	return &NotificationService{
@@ -701,7 +707,7 @@ func (s *NotificationService) sendResend(channel model.NotificationChannel, mess
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("resend request failed: %w", err)
 	}
@@ -740,7 +746,7 @@ func (s *NotificationService) sendTelegram(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("telegram request failed: %w", err)
 	}
@@ -826,7 +832,7 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, mes
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
@@ -900,6 +906,133 @@ func isValidHTTPHeaderName(name string) bool {
 	return true
 }
 
+func validateOutboundChannelURL(rawURL string, fieldLabel string, requireHTTPS bool) error {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Host == "" {
+		if requireHTTPS {
+			return fmt.Errorf("%s must start with https://", fieldLabel)
+		}
+		return fmt.Errorf("%s must start with http:// or https://", fieldLabel)
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	if requireHTTPS {
+		if scheme != "https" {
+			return fmt.Errorf("%s must start with https://", fieldLabel)
+		}
+	} else {
+		if scheme != "http" && scheme != "https" {
+			return fmt.Errorf("%s must start with http:// or https://", fieldLabel)
+		}
+	}
+
+	return validateOutboundHost(parsed.Hostname(), fieldLabel)
+}
+
+func validateOutboundHost(hostname string, fieldLabel string) error {
+	normalized := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(hostname)), ".")
+	if normalized == "" {
+		return fmt.Errorf("%s must include a host", fieldLabel)
+	}
+	if normalized == "localhost" || strings.HasSuffix(normalized, ".localhost") {
+		return fmt.Errorf("%s must not target localhost or private network addresses", fieldLabel)
+	}
+
+	if ip := net.ParseIP(normalized); ip != nil && isLocalOrPrivateIP(ip) {
+		return fmt.Errorf("%s must not target localhost or private network addresses", fieldLabel)
+	}
+
+	return nil
+}
+
+func isLocalOrPrivateIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+
+	if ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified() ||
+		ip.IsMulticast() {
+		return true
+	}
+
+	// RFC 6598: 100.64.0.0/10 (carrier-grade NAT)
+	if ipv4 := ip.To4(); ipv4 != nil {
+		if ipv4[0] == 100 && ipv4[1] >= 64 && ipv4[1] <= 127 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateResolvedOutboundHost(hostname string) error {
+	if err := validateOutboundHost(hostname, "outbound request url"); err != nil {
+		return err
+	}
+
+	normalized := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(hostname)), ".")
+	if net.ParseIP(normalized) != nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	ips, err := lookupOutboundHostIPs(ctx, "ip", normalized)
+	if err != nil {
+		return fmt.Errorf("failed to resolve outbound request host: %w", err)
+	}
+	if len(ips) == 0 {
+		return errors.New("outbound request url host resolves to no addresses")
+	}
+
+	for _, resolvedIP := range ips {
+		if isLocalOrPrivateIP(resolvedIP) {
+			return errors.New("outbound request url resolves to localhost or private network addresses")
+		}
+	}
+
+	return nil
+}
+
+func doNotificationRequest(client *http.Client, req *http.Request) (*http.Response, error) {
+	if req == nil || req.URL == nil {
+		return nil, errors.New("invalid outbound request")
+	}
+
+	if err := validateResolvedOutboundHost(req.URL.Hostname()); err != nil {
+		return nil, err
+	}
+
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	checkedClient := *client
+	originalCheckRedirect := client.CheckRedirect
+	checkedClient.CheckRedirect = func(redirectReq *http.Request, via []*http.Request) error {
+		if redirectReq == nil || redirectReq.URL == nil {
+			return errors.New("invalid outbound request")
+		}
+		if err := validateResolvedOutboundHost(redirectReq.URL.Hostname()); err != nil {
+			return err
+		}
+		if originalCheckRedirect != nil {
+			return originalCheckRedirect(redirectReq, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
+
+	return checkedClient.Do(req)
+}
+
 func (s *NotificationService) sendGotify(channel model.NotificationChannel, message string) error {
 	var cfg struct {
 		URL   string `json:"url"`
@@ -931,7 +1064,7 @@ func (s *NotificationService) sendGotify(channel model.NotificationChannel, mess
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("gotify request failed: %w", err)
 	}
@@ -1009,7 +1142,7 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("ntfy request failed: %w", err)
 	}
@@ -1060,7 +1193,7 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, messag
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("bark request failed: %w", err)
 	}
@@ -1102,7 +1235,7 @@ func (s *NotificationService) sendServerChan(channel model.NotificationChannel, 
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("serverchan request failed: %w", err)
 	}
@@ -1199,7 +1332,7 @@ func (s *NotificationService) sendFeishu(channel model.NotificationChannel, mess
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("feishu request failed: %w", err)
 	}
@@ -1243,7 +1376,7 @@ func (s *NotificationService) sendWeCom(channel model.NotificationChannel, messa
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("wecom request failed: %w", err)
 	}
@@ -1299,7 +1432,7 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, me
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("dingtalk request failed: %w", err)
 	}
@@ -1344,7 +1477,7 @@ func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, me
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("pushdeer request failed: %w", err)
 	}
@@ -1408,7 +1541,7 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, me
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("pushplus request failed: %w", err)
 	}
@@ -1482,7 +1615,7 @@ func (s *NotificationService) sendPushover(channel model.NotificationChannel, me
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("pushover request failed: %w", err)
 	}
@@ -1563,7 +1696,7 @@ func (s *NotificationService) sendNapCat(channel model.NotificationChannel, mess
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("napcat request failed: %w", err)
 	}
@@ -1698,8 +1831,8 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.URL == "" {
 			return errors.New("webhook channel requires url")
 		}
-		if !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
-			return errors.New("webhook url must start with http:// or https://")
+		if err := validateOutboundChannelURL(cfg.URL, "webhook url", false); err != nil {
+			return err
 		}
 		method, err := normalizeWebhookMethod(cfg.Method)
 		if err != nil {
@@ -1723,8 +1856,8 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.URL == "" {
 			return errors.New("gotify channel requires url")
 		}
-		if !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
-			return errors.New("gotify url must start with http:// or https://")
+		if err := validateOutboundChannelURL(cfg.URL, "gotify url", false); err != nil {
+			return err
 		}
 		if cfg.Token == "" {
 			return errors.New("gotify channel requires token")
@@ -1741,8 +1874,10 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.Topic == "" {
 			return errors.New("ntfy channel requires topic")
 		}
-		if cfg.URL != "" && !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
-			return errors.New("ntfy url must start with http:// or https://")
+		if cfg.URL != "" {
+			if err := validateOutboundChannelURL(cfg.URL, "ntfy url", false); err != nil {
+				return err
+			}
 		}
 		return nil
 	case "bark":
@@ -1756,8 +1891,10 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.DeviceKey == "" {
 			return errors.New("bark channel requires device_key")
 		}
-		if cfg.URL != "" && !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
-			return errors.New("bark url must start with http:// or https://")
+		if cfg.URL != "" {
+			if err := validateOutboundChannelURL(cfg.URL, "bark url", false); err != nil {
+				return err
+			}
 		}
 		return nil
 	case "serverchan":
@@ -1781,8 +1918,8 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.WebhookURL == "" {
 			return errors.New("feishu channel requires webhook_url")
 		}
-		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
-			return errors.New("feishu webhook_url must start with https://")
+		if err := validateOutboundChannelURL(cfg.WebhookURL, "feishu webhook_url", true); err != nil {
+			return err
 		}
 		return nil
 	case "wecom":
@@ -1795,8 +1932,8 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.WebhookURL == "" {
 			return errors.New("wecom channel requires webhook_url")
 		}
-		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
-			return errors.New("wecom webhook_url must start with https://")
+		if err := validateOutboundChannelURL(cfg.WebhookURL, "wecom webhook_url", true); err != nil {
+			return err
 		}
 		return nil
 	case "dingtalk":
@@ -1809,8 +1946,8 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.WebhookURL == "" {
 			return errors.New("dingtalk channel requires webhook_url")
 		}
-		if !strings.HasPrefix(cfg.WebhookURL, "https://") {
-			return errors.New("dingtalk webhook_url must start with https://")
+		if err := validateOutboundChannelURL(cfg.WebhookURL, "dingtalk webhook_url", true); err != nil {
+			return err
 		}
 		return nil
 	case "pushdeer":
@@ -1825,8 +1962,10 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("pushdeer channel requires push_key")
 		}
 		serverURL := strings.TrimSpace(cfg.ServerURL)
-		if serverURL != "" && !strings.HasPrefix(serverURL, "http://") && !strings.HasPrefix(serverURL, "https://") {
-			return errors.New("pushdeer server_url must start with http:// or https://")
+		if serverURL != "" {
+			if err := validateOutboundChannelURL(serverURL, "pushdeer server_url", false); err != nil {
+				return err
+			}
 		}
 		return nil
 	case "pushplus":
@@ -1841,8 +1980,10 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("pushplus channel requires token")
 		}
 		endpoint := strings.TrimSpace(cfg.Endpoint)
-		if endpoint != "" && !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-			return errors.New("pushplus endpoint must start with http:// or https://")
+		if endpoint != "" {
+			if err := validateOutboundChannelURL(endpoint, "pushplus endpoint", false); err != nil {
+				return err
+			}
 		}
 		return nil
 	case "pushover":
@@ -1861,8 +2002,10 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("pushover channel requires user")
 		}
 		endpoint := strings.TrimSpace(cfg.Endpoint)
-		if endpoint != "" && !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-			return errors.New("pushover endpoint must start with http:// or https://")
+		if endpoint != "" {
+			if err := validateOutboundChannelURL(endpoint, "pushover endpoint", false); err != nil {
+				return err
+			}
 		}
 		return nil
 	case "napcat":
@@ -1879,8 +2022,8 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("napcat channel requires url")
 		}
 		napcatURL := strings.TrimSpace(cfg.URL)
-		if !strings.HasPrefix(napcatURL, "http://") && !strings.HasPrefix(napcatURL, "https://") {
-			return errors.New("napcat url must start with http:// or https://")
+		if err := validateOutboundChannelURL(napcatURL, "napcat url", false); err != nil {
+			return err
 		}
 		msgType := strings.ToLower(strings.TrimSpace(cfg.MessageType))
 		if msgType == "" {

@@ -1,9 +1,20 @@
 package service
 
 import (
+	"context"
+	"errors"
+	"io"
+	"net"
+	"net/http"
 	"strings"
 	"testing"
 )
+
+type notificationTestRoundTripper func(req *http.Request) (*http.Response, error)
+
+func (fn notificationTestRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
 
 func TestValidateChannelConfigWebhook(t *testing.T) {
 	tests := []struct {
@@ -53,6 +64,11 @@ func TestValidateChannelConfigWebhook(t *testing.T) {
 			name:    "reject header value with newline",
 			config:  `{"url":"https://example.com/webhook","headers":{"X-Token":"abc123\n"}}`,
 			wantErr: "webhook header value contains invalid newline characters",
+		},
+		{
+			name:    "reject localhost webhook target",
+			config:  `{"url":"http://127.0.0.1/webhook"}`,
+			wantErr: "webhook url must not target localhost or private network addresses",
 		},
 	}
 
@@ -158,12 +174,12 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 		{
 			name:        "valid napcat private message",
 			channelType: "napcat",
-			config:      `{"url":"http://127.0.0.1:3000","message_type":"private","user_id":"123456789"}`,
+			config:      `{"url":"https://napcat.example.com","message_type":"private","user_id":"123456789"}`,
 		},
 		{
 			name:        "valid napcat group message",
 			channelType: "napcat",
-			config:      `{"url":"http://127.0.0.1:3000","message_type":"group","group_id":"987654321"}`,
+			config:      `{"url":"https://napcat.example.com","message_type":"group","group_id":"987654321"}`,
 		},
 		{
 			name:        "valid napcat with access token",
@@ -173,7 +189,7 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 		{
 			name:        "valid napcat defaults to private",
 			channelType: "napcat",
-			config:      `{"url":"http://127.0.0.1:3000","user_id":"123456789"}`,
+			config:      `{"url":"https://napcat.example.com","user_id":"123456789"}`,
 		},
 		{
 			name:        "reject napcat missing url",
@@ -190,20 +206,26 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 		{
 			name:        "reject napcat invalid message type",
 			channelType: "napcat",
-			config:      `{"url":"http://127.0.0.1:3000","message_type":"channel","user_id":"123"}`,
+			config:      `{"url":"https://napcat.example.com","message_type":"channel","user_id":"123"}`,
 			wantErr:     "napcat message_type must be private or group",
 		},
 		{
 			name:        "reject napcat private missing user_id",
 			channelType: "napcat",
-			config:      `{"url":"http://127.0.0.1:3000","message_type":"private"}`,
+			config:      `{"url":"https://napcat.example.com","message_type":"private"}`,
 			wantErr:     "napcat channel requires user_id for private messages",
 		},
 		{
 			name:        "reject napcat group missing group_id",
 			channelType: "napcat",
-			config:      `{"url":"http://127.0.0.1:3000","message_type":"group"}`,
+			config:      `{"url":"https://napcat.example.com","message_type":"group"}`,
 			wantErr:     "napcat channel requires group_id for group messages",
+		},
+		{
+			name:        "reject napcat localhost target",
+			channelType: "napcat",
+			config:      `{"url":"http://127.0.0.1:3000","message_type":"private","user_id":"123"}`,
+			wantErr:     "napcat url must not target localhost or private network addresses",
 		},
 	}
 
@@ -224,5 +246,107 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 				t.Fatalf("validateChannelConfig() error = %q, want to contain %q", err.Error(), tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestDoNotificationRequestRejectsRedirectToPrivateHost(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+		switch host {
+		case "example.com":
+			return []net.IP{net.ParseIP("93.184.216.34")}, nil
+		case "127.0.0.1":
+			return []net.IP{net.ParseIP("127.0.0.1")}, nil
+		default:
+			return nil, errors.New("unexpected lookup host")
+		}
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	callCount := 0
+	client := &http.Client{
+		Transport: notificationTestRoundTripper(func(req *http.Request) (*http.Response, error) {
+			callCount++
+			switch callCount {
+			case 1:
+				return &http.Response{
+					StatusCode: http.StatusFound,
+					Header: http.Header{
+						"Location": []string{"http://127.0.0.1/internal"},
+					},
+					Body:       io.NopCloser(strings.NewReader("")),
+					Request:    req,
+					Status:     "302 Found",
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+				}, nil
+			default:
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("ok")),
+					Request:    req,
+					Status:     "200 OK",
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+				}, nil
+			}
+		}),
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/start", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest() error = %v, want nil", err)
+	}
+
+	resp, err := doNotificationRequest(client, req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("doNotificationRequest() error = nil, want redirect validation error")
+	}
+	if !strings.Contains(err.Error(), "must not target localhost or private network addresses") {
+		t.Fatalf("doNotificationRequest() error = %q, want localhost/private address validation error", err.Error())
+	}
+	if callCount != 1 {
+		t.Fatalf("RoundTrip call count = %d, want 1 (redirect follow blocked)", callCount)
+	}
+}
+
+func TestValidateResolvedOutboundHostRejectsDNSLookupFailure(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, _ string) ([]net.IP, error) {
+		return nil, errors.New("dns unavailable")
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	err := validateResolvedOutboundHost("example.com")
+	if err == nil {
+		t.Fatal("validateResolvedOutboundHost() error = nil, want DNS resolution error")
+	}
+	if !strings.Contains(err.Error(), "failed to resolve outbound request host") {
+		t.Fatalf("validateResolvedOutboundHost() error = %q, want DNS resolution failure", err.Error())
+	}
+}
+
+func TestValidateResolvedOutboundHostRejectsEmptyDNSResults(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, _ string) ([]net.IP, error) {
+		return []net.IP{}, nil
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	err := validateResolvedOutboundHost("example.com")
+	if err == nil {
+		t.Fatal("validateResolvedOutboundHost() error = nil, want empty DNS result error")
+	}
+	if !strings.Contains(err.Error(), "resolves to no addresses") {
+		t.Fatalf("validateResolvedOutboundHost() error = %q, want empty DNS result failure", err.Error())
 	}
 }
