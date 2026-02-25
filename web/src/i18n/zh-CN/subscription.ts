@@ -97,6 +97,11 @@ const subscription = {
       "noResults": "未找到图标",
       "urlLabel": "图片链接",
       "urlPlaceholder": "https://example.com/logo.png",
+      "suggestions": {
+        "title": "{{domain}} 的图标建议",
+        "google": "Google 网站图标",
+        "iconHorse": "icon.horse"
+      },
       "uploadLabel": "上传图片",
       "uploadHint": "PNG/JPG/ICO，最大 {{size}}KB",
       "uploadButton": "选择文件",

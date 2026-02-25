@@ -97,6 +97,11 @@ const subscription = {
       "noResults": "アイコンが見つかりません",
       "urlLabel": "画像URL",
       "urlPlaceholder": "https://example.com/logo.png",
+      "suggestions": {
+        "title": "{{domain}} の候補アイコン",
+        "google": "Google ファビコン",
+        "iconHorse": "icon.horse"
+      },
       "uploadLabel": "画像をアップロード",
       "uploadHint": "PNG / JPG / ICO、最大 {{size}}KB",
       "uploadButton": "ファイルを選択",

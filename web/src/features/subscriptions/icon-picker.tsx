@@ -60,6 +60,41 @@ function isImageURLValue(value: string): boolean {
   return value.startsWith("http://") || value.startsWith("https://")
 }
 
+const suggestionServiceDomains = new Set(["google.com", "www.google.com", "icon.horse"])
+
+function isValidDomain(hostname: string): boolean {
+  if (!hostname || hostname.length > 253 || !hostname.includes(".")) {
+    return false
+  }
+
+  return hostname.split(".").every((part) =>
+    part.length > 0 &&
+    part.length <= 63 &&
+    /^[a-z0-9-]+$/i.test(part) &&
+    !part.startsWith("-") &&
+    !part.endsWith("-")
+  )
+}
+
+function extractDomain(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed || trimmed.includes(" ")) {
+    return null
+  }
+
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  try {
+    const hostname = new URL(candidate).hostname.toLowerCase().replace(/\.$/, "")
+    if (!isValidDomain(hostname)) {
+      return null
+    }
+    return hostname
+  } catch {
+    return null
+  }
+}
+
 type UploadedImageFormat = "png" | "jpg" | "ico"
 
 const allowedMimeByFormat: Record<UploadedImageFormat, string[]> = {
@@ -141,6 +176,29 @@ export default function IconPicker({
       icon.keywords.some((keyword) => keyword.toLowerCase().includes(term))
     )
   }, [brandSearch])
+
+  const imageDomain = useMemo(() => {
+    const domain = extractDomain(imageUrl)
+    if (!domain || suggestionServiceDomains.has(domain)) {
+      return null
+    }
+    return domain
+  }, [imageUrl])
+  const imageUrlSuggestions = useMemo(() => {
+    if (!imageDomain) return []
+    return [
+      {
+        key: "google",
+        label: t("subscription.form.iconPicker.suggestions.google"),
+        url: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(imageDomain)}&sz=64`,
+      },
+      {
+        key: "iconHorse",
+        label: t("subscription.form.iconPicker.suggestions.iconHorse"),
+        url: `https://icon.horse/icon/${encodeURIComponent(imageDomain)}`,
+      },
+    ]
+  }, [imageDomain, t])
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     void validateAndSelectFile(e)
@@ -394,6 +452,37 @@ export default function IconPicker({
                     onKeyDown={handleImageUrlKeyDown}
                     className="h-8 text-sm"
                   />
+                  {imageUrlSuggestions.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {t("subscription.form.iconPicker.suggestions.title", { domain: imageDomain })}
+                      </p>
+                      <div className="space-y-1">
+                        {imageUrlSuggestions.map((suggestion) => {
+                          const isSelected = value === suggestion.url
+                          return (
+                            <button
+                              key={suggestion.key}
+                              type="button"
+                              className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-accent ${
+                                isSelected ? "border-primary bg-accent" : "border-border"
+                              }`}
+                              onClick={() => {
+                                setImageUrl(suggestion.url)
+                                setFilePreview(null)
+                                setFileError("")
+                                onChange(suggestion.url)
+                                setOpen(false)
+                              }}
+                            >
+                              <img src={suggestion.url} alt="" className="h-4 w-4 rounded-sm object-contain" />
+                              <span className="text-xs text-foreground">{suggestion.label}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="relative flex items-center gap-2">

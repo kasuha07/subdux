@@ -97,6 +97,11 @@ const subscription = {
       "noResults": "No icons found",
       "urlLabel": "Image URL",
       "urlPlaceholder": "https://example.com/logo.png",
+      "suggestions": {
+        "title": "Suggested icons for {{domain}}",
+        "google": "Google favicon",
+        "iconHorse": "icon.horse"
+      },
       "uploadLabel": "Upload image",
       "uploadHint": "PNG, JPG, or ICO, max {{size}}KB",
       "uploadButton": "Choose file",
