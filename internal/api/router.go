@@ -136,6 +136,14 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	importHandler := NewImportHandler(importService)
 
 	api := e.Group("/api")
+	api.Use(securityHeadersMiddleware)
+	api.Use(requestBodyLimitMiddleware(1<<20, func(c echo.Context) bool {
+		path := c.Path()
+		if path == "" {
+			path = c.Request().URL.Path
+		}
+		return path == "/api/admin/restore" || path == "/api/import/wallos" || path == "/api/import/subdux"
+	}))
 
 	authIPLimiter := authIPRateLimit(30, time.Minute)
 	loginAccountLimiter := authAccountRateLimit(10, time.Minute, loginAccountKey)
@@ -241,7 +249,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.POST("/settings/smtp/test", adminHandler.TestSMTP)
 	admin.GET("/backup", adminHandler.BackupDB)
-	admin.POST("/restore", adminHandler.RestoreDB)
+	admin.POST("/restore", adminHandler.RestoreDB, requestBodyLimitMiddleware(32<<20, nil))
 	admin.GET("/exchange-rates/status", erHandler.GetStatus)
 	admin.POST("/exchange-rates/refresh", erHandler.RefreshRates)
 
@@ -293,8 +301,8 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	protected.DELETE("/calendar/tokens/:id", calendarHandler.DeleteToken)
 
 	protected.GET("/export", exportHandler.Export)
-	protected.POST("/import/wallos", importHandler.ImportWallos)
-	protected.POST("/import/subdux", importHandler.ImportSubdux)
+	protected.POST("/import/wallos", importHandler.ImportWallos, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
+	protected.POST("/import/subdux", importHandler.ImportSubdux, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 

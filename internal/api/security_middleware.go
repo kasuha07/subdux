@@ -108,6 +108,8 @@ func authIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 
 type accountKeyExtractor func(c echo.Context) string
 
+const maxAccountKeyReadBodyBytes int64 = 64 << 10 // 64 KiB
+
 func authAccountRateLimit(limit int, window time.Duration, extractor accountKeyExtractor) echo.MiddlewareFunc {
 	limiter := newFixedWindowLimiter(limit, window)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -127,7 +129,7 @@ func authAccountRateLimit(limit int, window time.Duration, extractor accountKeyE
 }
 
 func readInputField(c echo.Context, field string) string {
-	body, err := readRequestBodyAndRestore(c)
+	body, err := readRequestBodyAndRestore(c, maxAccountKeyReadBodyBytes)
 	if err != nil {
 		return ""
 	}
@@ -179,16 +181,31 @@ func readFormField(body []byte, field string) string {
 	return strings.TrimSpace(values.Get(field))
 }
 
-func readRequestBodyAndRestore(c echo.Context) ([]byte, error) {
+func readRequestBodyAndRestore(c echo.Context, maxBytes int64) ([]byte, error) {
 	req := c.Request()
 	if req.Body == nil {
 		return nil, nil
 	}
 
-	body, err := io.ReadAll(req.Body)
+	if maxBytes > 0 && req.ContentLength > maxBytes {
+		return nil, nil
+	}
+
+	reader := io.Reader(req.Body)
+	if maxBytes > 0 && req.ContentLength < 0 {
+		reader = io.LimitReader(req.Body, maxBytes+1)
+	}
+
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
+
+	if maxBytes > 0 && int64(len(body)) > maxBytes {
+		req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(body), req.Body))
+		return nil, nil
+	}
+
 	req.Body = io.NopCloser(bytes.NewReader(body))
 	return body, nil
 }
@@ -305,5 +322,32 @@ func isReadOnlyMethod(method string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func securityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		h := c.Response().Header()
+		h.Set(echo.HeaderXContentTypeOptions, "nosniff")
+		h.Set(echo.HeaderXFrameOptions, "DENY")
+		h.Set(echo.HeaderContentSecurityPolicy, "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+
+		return next(c)
+	}
+}
+
+func requestBodyLimitMiddleware(maxBytes int64, skipper func(echo.Context) bool) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if skipper != nil && skipper(c) {
+				return next(c)
+			}
+			if maxBytes > 0 && c.Request().Body != nil {
+				c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxBytes)
+			}
+			return next(c)
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -64,6 +65,75 @@ func TestEmailAccountKeyReadsFormEncodedBody(t *testing.T) {
 	want := "email:recover@example.com"
 	if got != want {
 		t.Fatalf("emailAccountKey() = %q, want %q", got, want)
+	}
+}
+
+func TestReadRequestBodyAndRestorePreservesBodyForDownstream(t *testing.T) {
+	body := `{"identifier":"Alice@example.com","password":"secret"}`
+	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/auth/login", echo.MIMEApplicationJSON, body)
+
+	readBody, err := readRequestBodyAndRestore(c, 1024)
+	if err != nil {
+		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
+	}
+	if string(readBody) != body {
+		t.Fatalf("readRequestBodyAndRestore() body = %q, want %q", string(readBody), body)
+	}
+
+	downstreamBody, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
+	}
+	if string(downstreamBody) != body {
+		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
+	}
+}
+
+func TestReadRequestBodyAndRestoreSkipsLargeFixedLengthBody(t *testing.T) {
+	body := strings.Repeat("a", 128)
+	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/auth/login", echo.MIMETextPlain, body)
+
+	readBody, err := readRequestBodyAndRestore(c, 32)
+	if err != nil {
+		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
+	}
+	if len(readBody) != 0 {
+		t.Fatalf("readRequestBodyAndRestore() returned %d bytes, want 0", len(readBody))
+	}
+
+	downstreamBody, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
+	}
+	if string(downstreamBody) != body {
+		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
+	}
+}
+
+func TestReadRequestBodyAndRestoreSkipsLargeUnknownLengthBody(t *testing.T) {
+	body := strings.Repeat("x", 64)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+	req.ContentLength = -1
+	req.Header.Set(echo.HeaderContentType, echo.MIMETextPlain)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	readBody, err := readRequestBodyAndRestore(c, 32)
+	if err != nil {
+		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
+	}
+	if len(readBody) != 0 {
+		t.Fatalf("readRequestBodyAndRestore() returned %d bytes, want 0", len(readBody))
+	}
+
+	downstreamBody, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
+	}
+	if string(downstreamBody) != body {
+		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
 	}
 }
 
