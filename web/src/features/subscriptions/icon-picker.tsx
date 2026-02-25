@@ -238,6 +238,14 @@ export default function IconPicker({
     onFileSelected(file)
   }
 
+  function applyImageUrl(url: string) {
+    setImageUrl(url)
+    setFilePreview(null)
+    setFileError("")
+    onChange(url)
+    setOpen(false)
+  }
+
   function handleRemoveFile() {
     setFilePreview(null)
     setFileError("")
@@ -248,10 +256,7 @@ export default function IconPicker({
   function handleImageUrlSubmit() {
     const trimmed = imageUrl.trim()
     if (isImageURLValue(trimmed)) {
-      setFilePreview(null)
-      setFileError("")
-      onChange(trimmed)
-      setOpen(false)
+      applyImageUrl(trimmed)
     }
   }
 
@@ -467,13 +472,8 @@ export default function IconPicker({
                               className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-accent ${
                                 isSelected ? "border-primary bg-accent" : "border-border"
                               }`}
-                              onClick={() => {
-                                setImageUrl(suggestion.url)
-                                setFilePreview(null)
-                                setFileError("")
-                                onChange(suggestion.url)
-                                setOpen(false)
-                              }}
+                              onPointerDown={(event) => event.preventDefault()}
+                              onClick={() => applyImageUrl(suggestion.url)}
                             >
                               <img src={suggestion.url} alt="" className="h-4 w-4 rounded-sm object-contain" />
                               <span className="text-xs text-foreground">{suggestion.label}</span>
