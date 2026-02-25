@@ -81,6 +81,10 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		return nil, ErrRegistrationDisabled
 	}
 
+	if err := s.enforceEmailDomainWhitelist(input.Email); err != nil {
+		return nil, err
+	}
+
 	emailVerificationEnabled := s.isRegistrationEmailVerificationEnabled()
 	if emailVerificationEnabled {
 		if input.VerificationCode == "" {

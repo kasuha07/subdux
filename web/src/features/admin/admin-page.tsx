@@ -104,8 +104,12 @@ export default function AdminPage() {
               onSiteUrlChange={(value) => admin.setSettingsField("siteUrl", value)}
               registrationEnabled={settingsForm.registrationEnabled}
               registrationEmailVerificationEnabled={settingsForm.registrationEmailVerificationEnabled}
+              emailDomainWhitelist={settingsForm.emailDomainWhitelist}
               onRegistrationEnabledChange={(enabled) =>
                 admin.setSettingsField("registrationEnabled", enabled)
+              }
+              onEmailDomainWhitelistChange={(value) =>
+                admin.setSettingsField("emailDomainWhitelist", value)
               }
               onRegistrationEmailVerificationEnabledChange={
                 admin.handleRegistrationEmailVerificationChange

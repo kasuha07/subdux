@@ -13,6 +13,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 	settings := &SystemSettings{
 		RegistrationEnabled:                  true,
 		RegistrationEmailVerificationEnabled: false,
+		EmailDomainWhitelist:                 "",
 		SiteName:                             "Subdux",
 		SiteURL:                              "",
 		CurrencyAPIKeySet:                    false,
@@ -62,6 +63,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.RegistrationEnabled = settingValue == "true"
 		case "registration_email_verification_enabled":
 			settings.RegistrationEmailVerificationEnabled = settingValue == "true"
+		case "email_domain_whitelist":
+			settings.EmailDomainWhitelist = settingValue
 		case "site_name":
 			settings.SiteName = settingValue
 		case "site_url":
@@ -160,6 +163,18 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "registration_email_verification_enabled").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "registration_email_verification_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.EmailDomainWhitelist != nil {
+			normalized, err := normalizeEmailDomainWhitelist(*input.EmailDomainWhitelist)
+			if err != nil {
+				return err
+			}
+			if err := tx.Where("key = ?", "email_domain_whitelist").
+				Assign(model.SystemSetting{Value: normalized}).
+				FirstOrCreate(&model.SystemSetting{Key: "email_domain_whitelist"}).Error; err != nil {
 				return err
 			}
 		}

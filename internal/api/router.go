@@ -325,6 +325,7 @@ func seedDefaultSettings(db *gorm.DB) {
 	defaults := []model.SystemSetting{
 		{Key: "registration_enabled", Value: "true"},
 		{Key: "registration_email_verification_enabled", Value: "false"},
+		{Key: "email_domain_whitelist", Value: ""},
 		{Key: "site_name", Value: "Subdux"},
 		{Key: "site_url", Value: ""},
 		{Key: "currencyapi_key", Value: ""},

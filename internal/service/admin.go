@@ -27,6 +27,7 @@ type AdminStats struct {
 type SystemSettings struct {
 	RegistrationEnabled                  bool   `json:"registration_enabled"`
 	RegistrationEmailVerificationEnabled bool   `json:"registration_email_verification_enabled"`
+	EmailDomainWhitelist                 string `json:"email_domain_whitelist"`
 	SiteName                             string `json:"site_name"`
 	SiteURL                              string `json:"site_url"`
 	CurrencyAPIKeySet                    bool   `json:"currencyapi_key_configured"`
@@ -64,6 +65,7 @@ type SystemSettings struct {
 type UpdateSettingsInput struct {
 	RegistrationEnabled                  *bool   `json:"registration_enabled"`
 	RegistrationEmailVerificationEnabled *bool   `json:"registration_email_verification_enabled"`
+	EmailDomainWhitelist                 *string `json:"email_domain_whitelist"`
 	SiteName                             *string `json:"site_name"`
 	SiteURL                              *string `json:"site_url"`
 	CurrencyAPIKey                       *string `json:"currencyapi_key"`

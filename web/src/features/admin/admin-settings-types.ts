@@ -17,6 +17,7 @@ export interface AdminSettingsTabProps {
   onOIDCScopesChange: (value: string) => void
   onOIDCTokenEndpointChange: (value: string) => void
   onOIDCUserinfoEndpointChange: (value: string) => void
+  onEmailDomainWhitelistChange: (value: string) => void
   onRegistrationEnabledChange: (enabled: boolean) => void
   onRegistrationEmailVerificationEnabledChange: (enabled: boolean) => void
   onSMTPAuthMethodChange: (value: string) => void
@@ -36,6 +37,7 @@ export interface AdminSettingsTabProps {
   onSave: () => void | Promise<void>
   onSiteNameChange: (value: string) => void
   onSiteUrlChange: (value: string) => void
+  emailDomainWhitelist: string
   oidcAutoCreateUser: boolean
   oidcAudience: string
   oidcAuthorizationEndpoint: string
@@ -75,7 +77,9 @@ export interface AdminSettingsTabProps {
 export type AdminSettingsBasicSectionProps = Pick<
   AdminSettingsTabProps,
   | "allowImageUpload"
+  | "emailDomainWhitelist"
   | "maxIconFileSize"
+  | "onEmailDomainWhitelistChange"
   | "onAllowImageUploadChange"
   | "onMaxIconFileSizeChange"
   | "onRegistrationEnabledChange"

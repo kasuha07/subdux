@@ -207,6 +207,7 @@ export interface AdminStats {
 export interface SystemSettings {
   registration_enabled: boolean
   registration_email_verification_enabled: boolean
+  email_domain_whitelist: string
   site_name: string
   site_url: string
   currencyapi_key_configured: boolean
@@ -244,6 +245,7 @@ export interface SystemSettings {
 export interface UpdateSettingsInput {
   registration_enabled?: boolean
   registration_email_verification_enabled?: boolean
+  email_domain_whitelist?: string
   site_name?: string
   site_url?: string
   currencyapi_key?: string

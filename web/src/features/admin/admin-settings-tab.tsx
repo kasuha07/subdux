@@ -9,8 +9,10 @@ import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 
 export default function AdminSettingsTab({
   allowImageUpload,
+  emailDomainWhitelist,
   maxIconFileSize,
   onAllowImageUploadChange,
+  onEmailDomainWhitelistChange,
   onMaxIconFileSizeChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
@@ -28,8 +30,10 @@ export default function AdminSettingsTab({
     <TabsContent value="settings" className="space-y-6">
       <AdminSettingsGeneralSection
         allowImageUpload={allowImageUpload}
+        emailDomainWhitelist={emailDomainWhitelist}
         maxIconFileSize={maxIconFileSize}
         onAllowImageUploadChange={onAllowImageUploadChange}
+        onEmailDomainWhitelistChange={onEmailDomainWhitelistChange}
         onMaxIconFileSizeChange={onMaxIconFileSizeChange}
         onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
         onRegistrationEnabledChange={onRegistrationEnabledChange}

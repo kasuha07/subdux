@@ -84,6 +84,8 @@ func authServiceErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, service.ErrRegistrationDisabled):
 		return http.StatusForbidden
+	case errors.Is(err, service.ErrEmailDomainNotAllowed):
+		return http.StatusForbidden
 	case errors.Is(err, service.ErrEmailAlreadyRegistered), errors.Is(err, service.ErrUsernameAlreadyTaken):
 		return http.StatusConflict
 	case errors.Is(err, service.ErrVerificationCodeTooFrequent):

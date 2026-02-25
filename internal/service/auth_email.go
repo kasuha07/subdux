@@ -79,6 +79,9 @@ func (s *AuthService) SendRegistrationVerificationCode(email string) error {
 	if !s.isRegistrationEmailVerificationEnabled() {
 		return ErrRegistrationEmailVerificationDisabled
 	}
+	if err := s.enforceEmailDomainWhitelist(normalizedEmail); err != nil {
+		return err
+	}
 
 	if exists, err := s.emailExists(normalizedEmail, 0); err != nil {
 		return err
@@ -163,6 +166,9 @@ func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail stri
 	if err != nil {
 		return err
 	}
+	if err := s.enforceEmailDomainWhitelist(normalizedEmail); err != nil {
+		return err
+	}
 
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
@@ -192,6 +198,9 @@ func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail stri
 func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificationCode string) (*AuthResponse, error) {
 	normalizedEmail, err := sanitizeAndValidateEmail(newEmail)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.enforceEmailDomainWhitelist(normalizedEmail); err != nil {
 		return nil, err
 	}
 

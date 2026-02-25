@@ -15,6 +15,7 @@ interface AdminSettingsFormState {
   allowImageUpload: boolean
   currencyApiKey: string
   currencyApiKeyConfigured: boolean
+  emailDomainWhitelist: string
   exchangeRateSource: string
   maxIconFileSize: number
   oidcAudience: string
@@ -102,6 +103,7 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     allowImageUpload: settings?.allow_image_upload ?? true,
     currencyApiKey: "",
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
+    emailDomainWhitelist: settings?.email_domain_whitelist || "",
     exchangeRateSource: settings?.exchange_rate_source || "auto",
     maxIconFileSize: settings?.max_icon_file_size
       ? Math.round(settings.max_icon_file_size / 1024)
@@ -304,6 +306,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       const payload: UpdateSettingsInput = {
         registration_enabled: settingsForm.registrationEnabled,
         registration_email_verification_enabled: settingsForm.registrationEmailVerificationEnabled,
+        email_domain_whitelist: settingsForm.emailDomainWhitelist,
         site_name: settingsForm.siteName,
         site_url: settingsForm.siteUrl,
         exchange_rate_source: settingsForm.exchangeRateSource,

@@ -4,13 +4,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 
 import type { AdminSettingsBasicSectionProps } from "./admin-settings-types"
 
 export default function AdminSettingsGeneralSection({
   allowImageUpload,
+  emailDomainWhitelist,
   maxIconFileSize,
   onAllowImageUploadChange,
+  onEmailDomainWhitelistChange,
   onMaxIconFileSizeChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
@@ -48,6 +51,22 @@ export default function AdminSettingsGeneralSection({
           placeholder="https://example.com"
         />
         <p className="text-xs text-muted-foreground">{t("admin.settings.siteUrlDescription")}</p>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Label htmlFor="email-domain-whitelist">{t("admin.settings.emailDomainWhitelist")}</Label>
+        <Textarea
+          id="email-domain-whitelist"
+          value={emailDomainWhitelist}
+          onChange={(event) => onEmailDomainWhitelistChange(event.target.value)}
+          placeholder={t("admin.settings.emailDomainWhitelistPlaceholder")}
+          rows={4}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("admin.settings.emailDomainWhitelistDescription")}
+        </p>
       </div>
 
       <Separator />
