@@ -51,6 +51,11 @@ func TestManagedIconFilePath(t *testing.T) {
 			wantOK: false,
 		},
 		{
+			name:   "reject windows separator with image extension",
+			icon:   `file:nested\icon.png`,
+			wantOK: false,
+		},
+		{
 			name:   "reject empty filename",
 			icon:   "file:",
 			wantOK: false,
