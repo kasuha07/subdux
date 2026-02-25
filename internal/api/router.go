@@ -186,6 +186,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	})
 
 	auth := api.Group("/auth")
+	auth.Use(requestBodyLimitMiddleware(maxAuthRequestBodyBytes, nil))
 	auth.GET("/register/config", authHandler.GetRegistrationConfig)
 	auth.POST("/register/send-code", authHandler.SendRegisterVerificationCode, authIPLimiter, registerAccountLimiter)
 	auth.POST("/register", authHandler.Register, authIPLimiter, registerAccountLimiter)

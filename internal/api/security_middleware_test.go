@@ -110,6 +110,33 @@ func TestReadRequestBodyAndRestoreSkipsLargeFixedLengthBody(t *testing.T) {
 	}
 }
 
+func TestReadRequestBodyAndRestoreDoesNotTrustContentLengthForLimiterReads(t *testing.T) {
+	body := strings.Repeat("z", 128)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+	req.ContentLength = 1
+	req.Header.Set(echo.HeaderContentType, echo.MIMETextPlain)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	readBody, err := readRequestBodyAndRestore(c, 32)
+	if err != nil {
+		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
+	}
+	if len(readBody) != 0 {
+		t.Fatalf("readRequestBodyAndRestore() returned %d bytes, want 0", len(readBody))
+	}
+
+	downstreamBody, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
+	}
+	if string(downstreamBody) != body {
+		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
+	}
+}
+
 func TestReadRequestBodyAndRestoreSkipsLargeUnknownLengthBody(t *testing.T) {
 	body := strings.Repeat("x", 64)
 

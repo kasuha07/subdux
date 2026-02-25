@@ -108,7 +108,10 @@ func authIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 
 type accountKeyExtractor func(c echo.Context) string
 
-const maxAccountKeyReadBodyBytes int64 = 64 << 10 // 64 KiB
+const (
+	maxAuthRequestBodyBytes    int64 = 128 << 10 // 128 KiB
+	maxAccountKeyReadBodyBytes int64 = 8 << 10   // 8 KiB
+)
 
 func authAccountRateLimit(limit int, window time.Duration, extractor accountKeyExtractor) echo.MiddlewareFunc {
 	limiter := newFixedWindowLimiter(limit, window)
@@ -187,26 +190,21 @@ func readRequestBodyAndRestore(c echo.Context, maxBytes int64) ([]byte, error) {
 		return nil, nil
 	}
 
-	if maxBytes > 0 && req.ContentLength > maxBytes {
+	if maxBytes <= 0 {
 		return nil, nil
 	}
 
-	reader := io.Reader(req.Body)
-	if maxBytes > 0 && req.ContentLength < 0 {
-		reader = io.LimitReader(req.Body, maxBytes+1)
-	}
-
-	body, err := io.ReadAll(reader)
+	body, err := io.ReadAll(io.LimitReader(req.Body, maxBytes+1))
 	if err != nil {
 		return nil, err
 	}
 
-	if maxBytes > 0 && int64(len(body)) > maxBytes {
-		req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(body), req.Body))
+	req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(body), req.Body))
+
+	if int64(len(body)) > maxBytes {
 		return nil, nil
 	}
 
-	req.Body = io.NopCloser(bytes.NewReader(body))
 	return body, nil
 }
 
