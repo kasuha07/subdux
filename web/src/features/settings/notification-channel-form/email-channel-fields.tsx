@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/select"
 
 import type { BaseChannelConfigFieldProps } from "./field-props"
+import { SecretInput } from "./secret-input"
 
-export function SmtpConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function SmtpConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -47,12 +48,13 @@ export function SmtpConfigFields({ onValueChange, t, values }: BaseChannelConfig
         </div>
         <div className="space-y-2">
           <Label htmlFor="smtp-pass">{t("settings.notifications.channels.configFields.smtpPassword")}</Label>
-          <Input
+          <SecretInput
             id="smtp-pass"
             type="password"
-            placeholder={t("settings.notifications.channels.configFields.smtpPasswordPlaceholder")}
             value={values.smtpPassword}
-            onChange={(e) => onValueChange("smtpPassword", e.target.value)}
+            configured={isSecretFieldConfigured("smtpPassword")}
+            onValueChange={(value) => onValueChange("smtpPassword", value)}
+            placeholder={t("settings.notifications.channels.configFields.smtpPasswordPlaceholder")}
           />
         </div>
       </div>
@@ -104,16 +106,18 @@ export function SmtpConfigFields({ onValueChange, t, values }: BaseChannelConfig
   )
 }
 
-export function ResendConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function ResendConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="resend-key">{t("settings.notifications.channels.configFields.apiKey")}</Label>
-        <Input
+        <SecretInput
           id="resend-key"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.apiKeyPlaceholder")}
           value={values.apiKey}
-          onChange={(e) => onValueChange("apiKey", e.target.value)}
+          configured={isSecretFieldConfigured("apiKey")}
+          onValueChange={(value) => onValueChange("apiKey", value)}
           required
         />
       </div>

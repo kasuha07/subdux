@@ -97,6 +97,11 @@ func validateSubduxImportData(data SubduxImportData) error {
 }
 
 func canonicalChannelConfig(config string) string {
+	decrypted, err := decryptNotificationChannelConfig(config)
+	if err == nil {
+		config = decrypted
+	}
+
 	trimmed := strings.TrimSpace(config)
 	if trimmed == "" {
 		return ""
@@ -492,8 +497,13 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				UserID:  userID,
 				Type:    channelType,
 				Enabled: incoming.Enabled,
-				Config:  canonicalConfig,
 			}
+			encryptedConfig, err := encryptNotificationChannelConfig(canonicalConfig)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to encrypt notification channel %q config: %v", channelType, err))
+				continue
+			}
+			created.Config = encryptedConfig
 			if err := tx.Create(&created).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to create notification channel %q: %v", channelType, err))
 				continue

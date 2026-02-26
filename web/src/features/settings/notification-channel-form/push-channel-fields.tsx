@@ -17,17 +17,20 @@ import {
   PUSHOVER_SOUND_OPTIONS,
 } from "./constants"
 import type { BaseChannelConfigFieldProps } from "./field-props"
+import { SecretInput } from "./secret-input"
 
-export function PushdeerConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function PushdeerConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="pd-key">{t("settings.notifications.channels.configFields.pushdeerPushKey")}</Label>
-        <Input
+        <SecretInput
           id="pd-key"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.pushdeerPushKeyPlaceholder")}
           value={values.pushdeerPushKey}
-          onChange={(e) => onValueChange("pushdeerPushKey", e.target.value)}
+          configured={isSecretFieldConfigured("pushdeerPushKey")}
+          onValueChange={(value) => onValueChange("pushdeerPushKey", value)}
           required
         />
       </div>
@@ -45,16 +48,18 @@ export function PushdeerConfigFields({ onValueChange, t, values }: BaseChannelCo
   )
 }
 
-export function PushplusConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function PushplusConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="pp-token">{t("settings.notifications.channels.configFields.pushplusToken")}</Label>
-        <Input
+        <SecretInput
           id="pp-token"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.pushplusTokenPlaceholder")}
           value={values.pushplusToken}
-          onChange={(e) => onValueChange("pushplusToken", e.target.value)}
+          configured={isSecretFieldConfigured("pushplusToken")}
+          onValueChange={(value) => onValueChange("pushplusToken", value)}
           required
         />
       </div>
@@ -102,26 +107,30 @@ export function PushplusConfigFields({ onValueChange, t, values }: BaseChannelCo
   )
 }
 
-export function PushoverConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function PushoverConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="po-token">{t("settings.notifications.channels.configFields.pushoverToken")}</Label>
-        <Input
+        <SecretInput
           id="po-token"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.pushoverTokenPlaceholder")}
           value={values.pushoverToken}
-          onChange={(e) => onValueChange("pushoverToken", e.target.value)}
+          configured={isSecretFieldConfigured("pushoverToken")}
+          onValueChange={(value) => onValueChange("pushoverToken", value)}
           required
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="po-user">{t("settings.notifications.channels.configFields.pushoverUser")}</Label>
-        <Input
+        <SecretInput
           id="po-user"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.pushoverUserPlaceholder")}
           value={values.pushoverUser}
-          onChange={(e) => onValueChange("pushoverUser", e.target.value)}
+          configured={isSecretFieldConfigured("pushoverUser")}
+          onValueChange={(value) => onValueChange("pushoverUser", value)}
           required
         />
       </div>
@@ -185,7 +194,7 @@ export function PushoverConfigFields({ onValueChange, t, values }: BaseChannelCo
   )
 }
 
-export function GotifyConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function GotifyConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
@@ -201,11 +210,13 @@ export function GotifyConfigFields({ onValueChange, t, values }: BaseChannelConf
       </div>
       <div className="space-y-2">
         <Label htmlFor="gotify-token">{t("settings.notifications.channels.configFields.gotifyToken")}</Label>
-        <Input
+        <SecretInput
           id="gotify-token"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.gotifyTokenPlaceholder")}
           value={values.gotifyToken}
-          onChange={(e) => onValueChange("gotifyToken", e.target.value)}
+          configured={isSecretFieldConfigured("gotifyToken")}
+          onValueChange={(value) => onValueChange("gotifyToken", value)}
           required
         />
       </div>
@@ -213,7 +224,7 @@ export function GotifyConfigFields({ onValueChange, t, values }: BaseChannelConf
   )
 }
 
-export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function NtfyConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   const appendNtfyTagPreset = (tag: string) => {
     const currentTags = values.ntfyTags
       .split(",")
@@ -256,11 +267,13 @@ export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfig
         <div className="mt-3 space-y-3">
           <div className="space-y-2">
             <Label htmlFor="ntfy-token">{t("settings.notifications.channels.configFields.ntfyToken")}</Label>
-            <Input
+            <SecretInput
               id="ntfy-token"
+              type="password"
               placeholder={t("settings.notifications.channels.configFields.ntfyTokenPlaceholder")}
               value={values.ntfyToken}
-              onChange={(e) => onValueChange("ntfyToken", e.target.value)}
+              configured={isSecretFieldConfigured("ntfyToken")}
+              onValueChange={(value) => onValueChange("ntfyToken", value)}
             />
           </div>
           <div className="space-y-2">
@@ -330,7 +343,7 @@ export function NtfyConfigFields({ onValueChange, t, values }: BaseChannelConfig
   )
 }
 
-export function BarkConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function BarkConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
@@ -345,11 +358,13 @@ export function BarkConfigFields({ onValueChange, t, values }: BaseChannelConfig
       </div>
       <div className="space-y-2">
         <Label htmlFor="bark-key">{t("settings.notifications.channels.configFields.barkDeviceKey")}</Label>
-        <Input
+        <SecretInput
           id="bark-key"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.barkDeviceKeyPlaceholder")}
           value={values.barkDeviceKey}
-          onChange={(e) => onValueChange("barkDeviceKey", e.target.value)}
+          configured={isSecretFieldConfigured("barkDeviceKey")}
+          onValueChange={(value) => onValueChange("barkDeviceKey", value)}
           required
         />
       </div>
@@ -357,15 +372,17 @@ export function BarkConfigFields({ onValueChange, t, values }: BaseChannelConfig
   )
 }
 
-export function ServerChanConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function ServerChanConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <div className="space-y-2">
       <Label htmlFor="sc-key">{t("settings.notifications.channels.configFields.serverChanSendKey")}</Label>
-      <Input
+      <SecretInput
         id="sc-key"
+        type="password"
         placeholder={t("settings.notifications.channels.configFields.serverChanSendKeyPlaceholder")}
         value={values.serverChanSendKey}
-        onChange={(e) => onValueChange("serverChanSendKey", e.target.value)}
+        configured={isSecretFieldConfigured("serverChanSendKey")}
+        onValueChange={(value) => onValueChange("serverChanSendKey", value)}
         required
       />
     </div>

@@ -7,6 +7,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -60,6 +61,8 @@ func createNotificationChannelLimitTestChannel(t *testing.T, db *gorm.DB, userID
 }
 
 func TestCreateChannelRejectsEnabledWhenLimitExceeded(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-limit-test-key")
+
 	db := newNotificationChannelLimitTestDB(t)
 	user := createNotificationChannelLimitTestUser(t, db)
 	service := NewNotificationService(db, nil, nil)
@@ -82,6 +85,8 @@ func TestCreateChannelRejectsEnabledWhenLimitExceeded(t *testing.T) {
 }
 
 func TestCreateChannelAllowsDisabledWhenLimitReached(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-limit-test-key")
+
 	db := newNotificationChannelLimitTestDB(t)
 	user := createNotificationChannelLimitTestUser(t, db)
 	service := NewNotificationService(db, nil, nil)
@@ -104,6 +109,8 @@ func TestCreateChannelAllowsDisabledWhenLimitReached(t *testing.T) {
 }
 
 func TestUpdateChannelRejectsDisabledToEnabledWhenLimitExceeded(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-limit-test-key")
+
 	db := newNotificationChannelLimitTestDB(t)
 	user := createNotificationChannelLimitTestUser(t, db)
 	service := NewNotificationService(db, nil, nil)
@@ -126,6 +133,8 @@ func TestUpdateChannelRejectsDisabledToEnabledWhenLimitExceeded(t *testing.T) {
 }
 
 func TestUpdateChannelAllowsConfigEditWhenLimitReached(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-limit-test-key")
+
 	db := newNotificationChannelLimitTestDB(t)
 	user := createNotificationChannelLimitTestUser(t, db)
 	service := NewNotificationService(db, nil, nil)
@@ -142,7 +151,11 @@ func TestUpdateChannelAllowsConfigEditWhenLimitReached(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateChannel() error = %v, want nil", err)
 	}
-	if updated.Config != config {
-		t.Fatalf("UpdateChannel() config = %q, want %q", updated.Config, config)
+	decryptedConfig, err := pkg.DecryptNotificationChannelConfig(updated.Config)
+	if err != nil {
+		t.Fatalf("DecryptNotificationChannelConfig() error = %v", err)
+	}
+	if !strings.Contains(decryptedConfig, `"url":"https://example.com/updated"`) {
+		t.Fatalf("UpdateChannel() decrypted config = %q, want updated url", decryptedConfig)
 	}
 }

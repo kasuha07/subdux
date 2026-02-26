@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +28,17 @@ func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInpu
 		}
 	}
 
-	if err := validateChannelConfig(channelType, input.Config); err != nil {
+	canonicalConfig, err := parseAndNormalizeConfig(input.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateChannelConfig(channelType, canonicalConfig); err != nil {
+		return nil, err
+	}
+
+	encryptedConfig, err := encryptNotificationChannelConfig(canonicalConfig)
+	if err != nil {
 		return nil, err
 	}
 
@@ -35,7 +46,7 @@ func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInpu
 		UserID:  userID,
 		Type:    channelType,
 		Enabled: input.Enabled,
-		Config:  input.Config,
+		Config:  encryptedConfig,
 	}
 
 	if err := s.DB.Create(&channel).Error; err != nil {
@@ -63,10 +74,20 @@ func (s *NotificationService) UpdateChannel(userID, channelID uint, input Update
 		updates["enabled"] = *input.Enabled
 	}
 	if input.Config != nil {
-		if err := validateChannelConfig(channel.Type, *input.Config); err != nil {
+		mergedConfig, err := mergeNotificationConfigWithExistingSecrets(channel.Type, channel.Config, *input.Config)
+		if err != nil {
 			return nil, err
 		}
-		updates["config"] = *input.Config
+
+		if err := validateChannelConfig(channel.Type, mergedConfig); err != nil {
+			return nil, err
+		}
+
+		encryptedConfig, err := encryptNotificationChannelConfig(mergedConfig)
+		if err != nil {
+			return nil, err
+		}
+		updates["config"] = encryptedConfig
 	}
 
 	if len(updates) > 0 {
@@ -79,6 +100,19 @@ func (s *NotificationService) UpdateChannel(userID, channelID uint, input Update
 		return nil, err
 	}
 	return &channel, nil
+}
+
+func parseAndNormalizeConfig(config string) (string, error) {
+	parsed, err := parseNotificationConfigMap(config)
+	if err != nil {
+		return "", err
+	}
+
+	encoded, err := json.Marshal(parsed)
+	if err != nil {
+		return "", err
+	}
+	return string(encoded), nil
 }
 
 func (s *NotificationService) ensureEnabledChannelLimit(userID uint) error {

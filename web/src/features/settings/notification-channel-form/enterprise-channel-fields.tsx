@@ -1,72 +1,79 @@
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 import type { BaseChannelConfigFieldProps } from "./field-props"
+import { SecretInput } from "./secret-input"
 
-export function FeishuConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function FeishuConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="feishu-url">{t("settings.notifications.channels.configFields.feishuWebhookUrl")}</Label>
-        <Input
+        <SecretInput
           id="feishu-url"
-          type="url"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.feishuWebhookUrlPlaceholder")}
           value={values.feishuWebhookUrl}
-          onChange={(e) => onValueChange("feishuWebhookUrl", e.target.value)}
+          configured={isSecretFieldConfigured("feishuWebhookUrl")}
+          onValueChange={(value) => onValueChange("feishuWebhookUrl", value)}
           required
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="feishu-secret">{t("settings.notifications.channels.configFields.feishuSecret")}</Label>
-        <Input
+        <SecretInput
           id="feishu-secret"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.feishuSecretPlaceholder")}
           value={values.feishuSecret}
-          onChange={(e) => onValueChange("feishuSecret", e.target.value)}
+          configured={isSecretFieldConfigured("feishuSecret")}
+          onValueChange={(value) => onValueChange("feishuSecret", value)}
         />
       </div>
     </>
   )
 }
 
-export function WecomConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function WecomConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <div className="space-y-2">
       <Label htmlFor="wecom-url">{t("settings.notifications.channels.configFields.wecomWebhookUrl")}</Label>
-      <Input
+      <SecretInput
         id="wecom-url"
-        type="url"
+        type="password"
         placeholder={t("settings.notifications.channels.configFields.wecomWebhookUrlPlaceholder")}
         value={values.wecomWebhookUrl}
-        onChange={(e) => onValueChange("wecomWebhookUrl", e.target.value)}
+        configured={isSecretFieldConfigured("wecomWebhookUrl")}
+        onValueChange={(value) => onValueChange("wecomWebhookUrl", value)}
         required
       />
     </div>
   )
 }
 
-export function DingtalkConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function DingtalkConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="dt-url">{t("settings.notifications.channels.configFields.dingtalkWebhookUrl")}</Label>
-        <Input
+        <SecretInput
           id="dt-url"
-          type="url"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.dingtalkWebhookUrlPlaceholder")}
           value={values.dingtalkWebhookUrl}
-          onChange={(e) => onValueChange("dingtalkWebhookUrl", e.target.value)}
+          configured={isSecretFieldConfigured("dingtalkWebhookUrl")}
+          onValueChange={(value) => onValueChange("dingtalkWebhookUrl", value)}
           required
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="dt-secret">{t("settings.notifications.channels.configFields.dingtalkSecret")}</Label>
-        <Input
+        <SecretInput
           id="dt-secret"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.dingtalkSecretPlaceholder")}
           value={values.dingtalkSecret}
-          onChange={(e) => onValueChange("dingtalkSecret", e.target.value)}
+          configured={isSecretFieldConfigured("dingtalkSecret")}
+          onValueChange={(value) => onValueChange("dingtalkSecret", value)}
         />
       </div>
     </>

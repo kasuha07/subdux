@@ -41,6 +41,7 @@ interface Props extends BaseChannelConfigFieldProps {
 }
 
 export function NotificationChannelConfigFields({
+  isSecretFieldConfigured,
   isEditing,
   onTypeChange,
   onValueChange,
@@ -49,6 +50,7 @@ export function NotificationChannelConfigFields({
   values,
 }: Props) {
   const fieldProps: BaseChannelConfigFieldProps = {
+    isSecretFieldConfigured,
     onValueChange,
     t,
     values,

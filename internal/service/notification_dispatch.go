@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"regexp"
 	"sync"
 	"time"
 
@@ -18,6 +19,12 @@ type notificationDispatchJob struct {
 }
 
 func (s *NotificationService) dispatchNotificationChannel(channel model.NotificationChannel, targetEmail, message, subscriptionURL string) error {
+	decryptedConfig, err := decryptNotificationChannelConfig(channel.Config)
+	if err != nil {
+		return err
+	}
+	channel.Config = decryptedConfig
+
 	switch channel.Type {
 	case "smtp":
 		return s.sendSMTP(channel, targetEmail, message)
@@ -80,7 +87,7 @@ func (s *NotificationService) dispatchNotificationJobs(userID uint, dispatchJobs
 
 				if sendErr != nil {
 					logEntry.Status = "failed"
-					logEntry.Error = sendErr.Error()
+					logEntry.Error = sanitizeNotificationError(sendErr.Error())
 				} else {
 					logEntry.Status = "sent"
 				}
@@ -97,4 +104,20 @@ func (s *NotificationService) dispatchNotificationJobs(userID uint, dispatchJobs
 	wg.Wait()
 
 	return nil
+}
+
+var (
+	notificationErrorBearerPattern   = regexp.MustCompile(`(?i)(authorization[^\n]*bearer\s+)([A-Za-z0-9._\-~+/=]+)`)
+	notificationErrorQuerySecretExpr = regexp.MustCompile(`(?i)([?&](?:token|access_token|api_key|apikey|secret|password|key)=)([^&#\s]+)`)
+	notificationErrorJSONSecretExpr  = regexp.MustCompile(`(?i)("?(?:token|access_token|api_key|apikey|secret|password|send_key|bot_token|push_key|device_key|accessToken|apiKey|webhook_url)"?\s*[:=]\s*"?)([^"\s,}]+)`)
+	notificationErrorTelegramToken   = regexp.MustCompile(`https://api\.telegram\.org/bot[^/\s]+`)
+)
+
+func sanitizeNotificationError(input string) string {
+	sanitized := notificationErrorBearerPattern.ReplaceAllString(input, "${1}[REDACTED]")
+	sanitized = notificationErrorQuerySecretExpr.ReplaceAllString(sanitized, "${1}[REDACTED]")
+	sanitized = notificationErrorJSONSecretExpr.ReplaceAllString(sanitized, "${1}[REDACTED]")
+
+	sanitized = notificationErrorTelegramToken.ReplaceAllString(sanitized, "https://api.telegram.org/bot[REDACTED]")
+	return sanitized
 }

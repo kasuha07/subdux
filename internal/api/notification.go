@@ -3,13 +3,26 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 )
 
 type NotificationHandler struct {
 	Service *service.NotificationService
+}
+
+type notificationChannelResponse struct {
+	ID                          uint      `json:"id"`
+	Type                        string    `json:"type"`
+	Enabled                     bool      `json:"enabled"`
+	Config                      string    `json:"config"`
+	ConfiguredSecretFields      []string  `json:"configured_secret_fields,omitempty"`
+	ConfiguredWebhookHeaderKeys []string  `json:"configured_webhook_header_keys,omitempty"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
 }
 
 func NewNotificationHandler(s *service.NotificationService) *NotificationHandler {
@@ -22,7 +35,7 @@ func (h *NotificationHandler) ListChannels(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, channels)
+	return c.JSON(http.StatusOK, mapNotificationChannelResponses(channels, h.Service))
 }
 
 func (h *NotificationHandler) CreateChannel(c echo.Context) error {
@@ -39,7 +52,7 @@ func (h *NotificationHandler) CreateChannel(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusCreated, channel)
+	return c.JSON(http.StatusCreated, mapNotificationChannelResponse(*channel, h.Service))
 }
 
 func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
@@ -61,7 +74,7 @@ func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 		}
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, channel)
+	return c.JSON(http.StatusOK, mapNotificationChannelResponse(*channel, h.Service))
 }
 
 func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
@@ -130,4 +143,26 @@ func (h *NotificationHandler) ListLogs(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, logs)
+}
+
+func mapNotificationChannelResponses(channels []model.NotificationChannel, notificationService *service.NotificationService) []notificationChannelResponse {
+	responses := make([]notificationChannelResponse, 0, len(channels))
+	for _, channel := range channels {
+		responses = append(responses, mapNotificationChannelResponse(channel, notificationService))
+	}
+	return responses
+}
+
+func mapNotificationChannelResponse(channel model.NotificationChannel, notificationService *service.NotificationService) notificationChannelResponse {
+	sanitized, configuredSecretFields, configuredWebhookHeaderKeys := notificationService.SanitizeChannelForResponse(channel)
+	return notificationChannelResponse{
+		ID:                          sanitized.ID,
+		Type:                        sanitized.Type,
+		Enabled:                     sanitized.Enabled,
+		Config:                      sanitized.Config,
+		ConfiguredSecretFields:      configuredSecretFields,
+		ConfiguredWebhookHeaderKeys: configuredWebhookHeaderKeys,
+		CreatedAt:                   sanitized.CreatedAt,
+		UpdatedAt:                   sanitized.UpdatedAt,
+	}
 }

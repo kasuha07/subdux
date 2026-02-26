@@ -382,6 +382,8 @@ export interface NotificationChannel {
   type: "smtp" | "resend" | "telegram" | "webhook" | "gotify" | "ntfy" | "bark" | "serverchan" | "feishu" | "wecom" | "dingtalk" | "pushdeer" | "pushplus" | "pushover" | "napcat"
   enabled: boolean
   config: string
+  configured_secret_fields?: string[]
+  configured_webhook_header_keys?: string[]
   created_at: string
   updated_at: string
 }

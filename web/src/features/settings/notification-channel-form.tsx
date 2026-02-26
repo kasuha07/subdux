@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useMemo, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,11 @@ import type {
   NotificationChannelFormProps,
   NotificationChannelFormValues,
 } from "./notification-channel-form/types"
-import { buildConfig, createInitialValues } from "./notification-channel-form/utils"
+import {
+  buildConfig,
+  createConfiguredSecretFormFields,
+  createInitialValues,
+} from "./notification-channel-form/utils"
 
 export function NotificationChannelForm({ channel, onClose, onSave, open, saving }: NotificationChannelFormProps) {
   const { t } = useTranslation()
@@ -24,6 +28,10 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
 
   const [type, setType] = useState<ChannelType>(channel?.type as ChannelType ?? "smtp")
   const [values, setValues] = useState<NotificationChannelFormValues>(() => createInitialValues(channel))
+  const configuredSecretFields = useMemo(
+    () => createConfiguredSecretFormFields(channel),
+    [channel]
+  )
 
   function handleValueChange<K extends keyof NotificationChannelFormValues>(
     key: K,
@@ -49,7 +57,10 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+      <DialogContent
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
+      >
         <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
           <DialogTitle>
             {isEditing ? t("settings.notifications.channels.edit") : t("settings.notifications.channels.addButton")}
@@ -63,6 +74,7 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
               values={values}
               onTypeChange={setType}
               onValueChange={handleValueChange}
+              isSecretFieldConfigured={(field) => configuredSecretFields.has(field)}
               t={t}
             />
           </div>

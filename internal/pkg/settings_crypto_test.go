@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,11 +38,29 @@ func TestDecryptSystemSettingValueLegacyPlaintext(t *testing.T) {
 	}
 }
 
-func TestEncryptSystemSettingValueRequiresKey(t *testing.T) {
+func TestEncryptSystemSettingValueUsesLocalKeyFileFallback(t *testing.T) {
 	t.Setenv("SETTINGS_ENCRYPTION_KEY", "")
 	t.Setenv("JWT_SECRET", "")
+	t.Setenv("DATA_PATH", t.TempDir())
 
-	if _, err := EncryptSystemSettingValue("secret"); err == nil {
-		t.Fatal("expected missing-key error, got nil")
+	encrypted, err := EncryptSystemSettingValue("secret")
+	if err != nil {
+		t.Fatalf("EncryptSystemSettingValue() error = %v", err)
+	}
+	decrypted, err := DecryptSystemSettingValue(encrypted)
+	if err != nil {
+		t.Fatalf("DecryptSystemSettingValue() error = %v", err)
+	}
+	if decrypted != "secret" {
+		t.Fatalf("decrypted value = %q, want %q", decrypted, "secret")
+	}
+
+	keyPath := filepath.Join(GetDataPath(), settingsKeyFileName)
+	content, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile(local settings key) error = %v", err)
+	}
+	if strings.TrimSpace(string(content)) == "" {
+		t.Fatal("local settings key file should not be empty")
 	}
 }

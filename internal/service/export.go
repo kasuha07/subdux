@@ -17,14 +17,14 @@ func NewExportService(db *gorm.DB) *ExportService {
 }
 
 type UserExportData struct {
-	ExportedAt     time.Time                `json:"exported_at"`
-	User           UserExportInfo           `json:"user"`
-	Subscriptions  []model.Subscription     `json:"subscriptions"`
-	Categories     []model.Category         `json:"categories"`
-	PaymentMethods []model.PaymentMethod    `json:"payment_methods"`
-	Currencies     []model.UserCurrency     `json:"currencies"`
-	Preference     *model.UserPreference    `json:"preference"`
-	Notifications  UserNotificationExport   `json:"notifications"`
+	ExportedAt     time.Time              `json:"exported_at"`
+	User           UserExportInfo         `json:"user"`
+	Subscriptions  []model.Subscription   `json:"subscriptions"`
+	Categories     []model.Category       `json:"categories"`
+	PaymentMethods []model.PaymentMethod  `json:"payment_methods"`
+	Currencies     []model.UserCurrency   `json:"currencies"`
+	Preference     *model.UserPreference  `json:"preference"`
+	Notifications  UserNotificationExport `json:"notifications"`
 }
 
 type UserExportInfo struct {
@@ -97,6 +97,14 @@ func (s *ExportService) ExportUserData(userID uint) (*UserExportData, error) {
 	}
 	if channels == nil {
 		channels = []model.NotificationChannel{}
+	} else {
+		for i := range channels {
+			decrypted, err := decryptNotificationChannelConfig(channels[i].Config)
+			if err != nil {
+				return nil, err
+			}
+			channels[i].Config = decrypted
+		}
 	}
 
 	var policy model.NotificationPolicy

@@ -9,18 +9,21 @@ import {
 } from "@/components/ui/select"
 
 import type { BaseChannelConfigFieldProps } from "./field-props"
+import { SecretInput } from "./secret-input"
 import { parseWebhookMethod } from "./utils"
 
-export function TelegramConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function TelegramConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
         <Label htmlFor="tg-token">{t("settings.notifications.channels.configFields.botToken")}</Label>
-        <Input
+        <SecretInput
           id="tg-token"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.botTokenPlaceholder")}
           value={values.botToken}
-          onChange={(e) => onValueChange("botToken", e.target.value)}
+          configured={isSecretFieldConfigured("botToken")}
+          onValueChange={(value) => onValueChange("botToken", value)}
           required
         />
       </div>
@@ -38,7 +41,7 @@ export function TelegramConfigFields({ onValueChange, t, values }: BaseChannelCo
   )
 }
 
-export function WebhookConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function WebhookConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
@@ -68,11 +71,13 @@ export function WebhookConfigFields({ onValueChange, t, values }: BaseChannelCon
       </div>
       <div className="space-y-2">
         <Label htmlFor="wh-secret">{t("settings.notifications.channels.configFields.secret")}</Label>
-        <Input
+        <SecretInput
           id="wh-secret"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.secretPlaceholder")}
           value={values.webhookSecret}
-          onChange={(e) => onValueChange("webhookSecret", e.target.value)}
+          configured={isSecretFieldConfigured("webhookSecret")}
+          onValueChange={(value) => onValueChange("webhookSecret", value)}
         />
       </div>
       <div className="space-y-2">
@@ -90,7 +95,7 @@ export function WebhookConfigFields({ onValueChange, t, values }: BaseChannelCon
   )
 }
 
-export function NapcatConfigFields({ onValueChange, t, values }: BaseChannelConfigFieldProps) {
+export function NapcatConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (
     <>
       <div className="space-y-2">
@@ -106,11 +111,13 @@ export function NapcatConfigFields({ onValueChange, t, values }: BaseChannelConf
       </div>
       <div className="space-y-2">
         <Label htmlFor="nc-token">{t("settings.notifications.channels.configFields.napcatAccessToken")}</Label>
-        <Input
+        <SecretInput
           id="nc-token"
+          type="password"
           placeholder={t("settings.notifications.channels.configFields.napcatAccessTokenPlaceholder")}
           value={values.napcatAccessToken}
-          onChange={(e) => onValueChange("napcatAccessToken", e.target.value)}
+          configured={isSecretFieldConfigured("napcatAccessToken")}
+          onValueChange={(value) => onValueChange("napcatAccessToken", value)}
         />
       </div>
       <div className="space-y-2">

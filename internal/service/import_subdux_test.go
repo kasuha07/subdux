@@ -13,6 +13,7 @@ import (
 
 func newImportTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "import-subdux-test-key")
 
 	dbPath := filepath.Join(t.TempDir(), "subdux-import-test.db")
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
