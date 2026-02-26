@@ -249,6 +249,74 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 	}
 }
 
+func TestValidateChannelConfigRejectsUnknownFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		channelType string
+		config      string
+		wantErr     string
+	}{
+		{
+			name:        "smtp allows supported optional fields",
+			channelType: "smtp",
+			config:      `{"host":"smtp.example.com","port":587,"username":"user","password":"pass","from_email":"from@example.com","from_name":"Subdux","to_email":"to@example.com","encryption":"starttls","skip_tls_verify":false}`,
+		},
+		{
+			name:        "reject unknown smtp field",
+			channelType: "smtp",
+			config:      `{"host":"smtp.example.com","from_email":"from@example.com","to_email":"to@example.com","extra":"value"}`,
+			wantErr:     "invalid smtp config format",
+		},
+		{
+			name:        "ntfy allows supported extended fields",
+			channelType: "ntfy",
+			config:      `{"url":"https://ntfy.sh","topic":"subdux","token":"token","username":"user","password":"pass","priority":"5","tags":"calendar","click":"https://example.com","icon":"https://example.com/icon.png"}`,
+		},
+		{
+			name:        "reject unknown ntfy field",
+			channelType: "ntfy",
+			config:      `{"topic":"subdux","bogus":"value"}`,
+			wantErr:     "invalid ntfy config format",
+		},
+		{
+			name:        "pushplus allows fields used by sender",
+			channelType: "pushplus",
+			config:      `{"token":"token","endpoint":"https://www.pushplus.plus/send","template":"markdown","channel":"wechat","topic":"team"}`,
+		},
+		{
+			name:        "reject unknown pushplus field",
+			channelType: "pushplus",
+			config:      `{"token":"token","unknown":"value"}`,
+			wantErr:     "invalid pushplus config format",
+		},
+		{
+			name:        "reject unknown webhook field",
+			channelType: "webhook",
+			config:      `{"url":"https://example.com/webhook","method":"POST","foo":"bar"}`,
+			wantErr:     "invalid webhook config format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateChannelConfig(tt.channelType, tt.config)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateChannelConfig() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("validateChannelConfig() error = nil, want %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("validateChannelConfig() error = %q, want to contain %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestDoNotificationRequestRejectsRedirectToPrivateHost(t *testing.T) {
 	originalLookup := lookupOutboundHostIPs
 	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
