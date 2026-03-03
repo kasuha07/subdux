@@ -1,73 +1,50 @@
-# React + TypeScript + Vite
+# Subdux Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Subdux 前端基于 React 19 + Vite + TypeScript，作为 SPA 构建后会被嵌入后端二进制。
 
-Currently, two official plugins are available:
+> 完整项目说明（后端、部署、环境变量）请查看根目录 [`README.md`](../README.md)。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 技术栈
 
-## React Compiler
+- React 19
+- Vite 7
+- TypeScript 5
+- Tailwind CSS v4
+- Shadcn/UI
+- i18next
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 开发命令
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd web
+bun install
+bun dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- 默认开发地址：`http://localhost:5173`
+- `/api` 请求会代理到 `http://localhost:8080`
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 构建与检查
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd web
+bun run build
+bun run lint
+bun run preview
 ```
+
+## 目录约定
+
+```text
+web/src/
+├── features/         # 业务模块（auth/dashboard/settings/admin/...）
+├── components/ui/    # Shadcn 生成组件（不要手改）
+├── lib/              # API 封装、工具函数、图标映射
+└── types/            # 全局类型定义
+```
+
+## 开发注意事项
+
+- API 调用统一走 `src/lib/api.ts`
+- 不要直接修改 `src/components/ui/*`
+- 新页面放在 `src/features/{domain}/` 下，并在 `src/App.tsx` 注册路由
