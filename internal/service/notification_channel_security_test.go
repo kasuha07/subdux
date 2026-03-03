@@ -19,7 +19,7 @@ func TestMergeNotificationConfigWithExistingSecretsPreservesBlankSecret(t *testi
 		t.Fatalf("EncryptNotificationChannelConfig() error = %v", err)
 	}
 
-	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://example.com/new-hook","secret":""}`)
+	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://example.com/new-hook","secret":""}`, nil, nil)
 	if err != nil {
 		t.Fatalf("mergeNotificationConfigWithExistingSecrets() error = %v", err)
 	}
@@ -238,5 +238,86 @@ func TestUpdateChannelPreservesExistingWebhookHeaderValuesWhenInputBlank(t *test
 	}
 	if parsed.Headers["X-Env"] != "prod" {
 		t.Fatalf("headers.X-Env = %q, want %q", parsed.Headers["X-Env"], "prod")
+	}
+}
+
+func TestMergeNotificationConfigClearsSecretWhenExplicitlyCleared(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-security-test-key")
+
+	existingPlain := `{"url":"https://example.com/hook","secret":"old-secret"}`
+	existingEncrypted, err := pkg.EncryptNotificationChannelConfig(existingPlain)
+	if err != nil {
+		t.Fatalf("EncryptNotificationChannelConfig() error = %v", err)
+	}
+
+	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://example.com/hook","secret":""}`, []string{"secret"}, nil)
+	if err != nil {
+		t.Fatalf("mergeNotificationConfigWithExistingSecrets() error = %v", err)
+	}
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(merged), &parsed); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if parsed["secret"] != "" {
+		t.Fatalf("secret = %q, want empty string (explicitly cleared)", parsed["secret"])
+	}
+	if parsed["url"] != "https://example.com/hook" {
+		t.Fatalf("url = %q, want %q", parsed["url"], "https://example.com/hook")
+	}
+}
+
+func TestMergeNotificationConfigPreservesSecretWhenNotInClearedList(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-security-test-key")
+
+	existingPlain := `{"url":"https://example.com/hook","secret":"keep-me"}`
+	existingEncrypted, err := pkg.EncryptNotificationChannelConfig(existingPlain)
+	if err != nil {
+		t.Fatalf("EncryptNotificationChannelConfig() error = %v", err)
+	}
+
+	// ClearedFields lists a different field, so "secret" should be preserved
+	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://example.com/hook","secret":""}`, []string{"other_field"}, nil)
+	if err != nil {
+		t.Fatalf("mergeNotificationConfigWithExistingSecrets() error = %v", err)
+	}
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(merged), &parsed); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if parsed["secret"] != "keep-me" {
+		t.Fatalf("secret = %q, want %q (should be preserved)", parsed["secret"], "keep-me")
+	}
+}
+
+func TestMergeWebhookHeadersClearsWhenExplicitlyCleared(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "notification-channel-security-test-key")
+
+	existingPlain := `{"url":"https://example.com/hook","headers":{"X-Token":"keep-me","X-Env":"prod"}}`
+	existingEncrypted, err := pkg.EncryptNotificationChannelConfig(existingPlain)
+	if err != nil {
+		t.Fatalf("EncryptNotificationChannelConfig() error = %v", err)
+	}
+
+	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://example.com/hook","headers":{"X-Token":"","X-Env":""}}`, nil, []string{"X-Token"})
+	if err != nil {
+		t.Fatalf("mergeNotificationConfigWithExistingSecrets() error = %v", err)
+	}
+
+	var parsed struct {
+		URL     string            `json:"url"`
+		Headers map[string]string `json:"headers"`
+	}
+	if err := json.Unmarshal([]byte(merged), &parsed); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	// X-Token was in clearedHeaderKeys, so it should be cleared
+	if parsed.Headers["X-Token"] != "" {
+		t.Fatalf("headers.X-Token = %q, want empty (explicitly cleared)", parsed.Headers["X-Token"])
+	}
+	// X-Env was NOT in clearedHeaderKeys, so it should be preserved
+	if parsed.Headers["X-Env"] != "prod" {
+		t.Fatalf("headers.X-Env = %q, want %q (should be preserved)", parsed.Headers["X-Env"], "prod")
 	}
 }

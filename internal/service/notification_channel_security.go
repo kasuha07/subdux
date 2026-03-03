@@ -100,7 +100,7 @@ func sanitizeNotificationConfig(channelType, config string) (string, []string, [
 	return string(encoded), configuredSecretFields, configuredWebhookHeaderKeys
 }
 
-func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, incomingConfig string) (string, error) {
+func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, incomingConfig string, clearedFields []string, clearedHeaderKeys []string) (string, error) {
 	incomingParsed, err := parseNotificationConfigMap(incomingConfig)
 	if err != nil {
 		return "", err
@@ -125,6 +125,11 @@ func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, inc
 	}
 
 	for field := range secretFields {
+		if sliceContains(clearedFields, field) {
+			incomingParsed[field] = ""
+			continue
+		}
+
 		rawIncoming, hasIncoming := incomingParsed[field]
 		if !hasIncoming {
 			if rawExisting, ok := existingParsed[field]; ok {
@@ -152,7 +157,7 @@ func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, inc
 		}
 	}
 	if strings.EqualFold(strings.TrimSpace(channelType), "webhook") {
-		mergeWebhookHeadersWithExisting(existingParsed, incomingParsed)
+		mergeWebhookHeadersWithExisting(existingParsed, incomingParsed, clearedHeaderKeys)
 	}
 
 	encoded, err := json.Marshal(incomingParsed)
@@ -160,6 +165,15 @@ func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, inc
 		return "", err
 	}
 	return string(encoded), nil
+}
+
+func sliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 func maskWebhookHeaders(config map[string]interface{}) []string {
@@ -185,7 +199,7 @@ func maskWebhookHeaders(config map[string]interface{}) []string {
 	return maskedHeaderKeys
 }
 
-func mergeWebhookHeadersWithExisting(existingConfig map[string]interface{}, incomingConfig map[string]interface{}) {
+func mergeWebhookHeadersWithExisting(existingConfig map[string]interface{}, incomingConfig map[string]interface{}, clearedHeaderKeys []string) {
 	existingRawHeaders, hasExistingHeaders := existingConfig["headers"]
 	if !hasExistingHeaders {
 		return
@@ -210,6 +224,10 @@ func mergeWebhookHeadersWithExisting(existingConfig map[string]interface{}, inco
 	}
 
 	for key, rawIncoming := range incomingHeaders {
+		if sliceContains(clearedHeaderKeys, key) {
+			incomingHeaders[key] = ""
+			continue
+		}
 		incomingValue, ok := rawIncoming.(string)
 		if !ok {
 			continue

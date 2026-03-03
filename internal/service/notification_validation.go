@@ -4,11 +4,114 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/mail"
 	"strings"
 )
+
+// --- Channel config types for strict decoding and validation ---
+
+type smtpChannelConfig struct {
+	Host          string `json:"host"`
+	Port          int64  `json:"port"`
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	FromEmail     string `json:"from_email"`
+	FromName      string `json:"from_name"`
+	ToEmail       string `json:"to_email"`
+	Encryption    string `json:"encryption"`
+	SkipTLSVerify bool   `json:"skip_tls_verify"`
+}
+
+type resendChannelConfig struct {
+	APIKey    string `json:"api_key"`
+	FromEmail string `json:"from_email"`
+	ToEmail   string `json:"to_email"`
+}
+
+type telegramChannelConfig struct {
+	BotToken string `json:"bot_token"`
+	ChatID   string `json:"chat_id"`
+}
+
+type webhookChannelConfig struct {
+	URL     string            `json:"url"`
+	Secret  string            `json:"secret"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers"`
+}
+
+type gotifyChannelConfig struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
+
+type ntfyChannelConfig struct {
+	URL      string `json:"url"`
+	Topic    string `json:"topic"`
+	Token    string `json:"token"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Priority string `json:"priority"`
+	Tags     string `json:"tags"`
+	Click    string `json:"click"`
+	Icon     string `json:"icon"`
+}
+
+type barkChannelConfig struct {
+	DeviceKey string `json:"device_key"`
+	URL       string `json:"url"`
+}
+
+type serverchanChannelConfig struct {
+	SendKey string `json:"send_key"`
+}
+
+type feishuChannelConfig struct {
+	WebhookURL string `json:"webhook_url"`
+	Secret     string `json:"secret"`
+}
+
+type wecomChannelConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
+type dingtalkChannelConfig struct {
+	WebhookURL string `json:"webhook_url"`
+	Secret     string `json:"secret"`
+}
+
+type pushdeerChannelConfig struct {
+	PushKey   string `json:"push_key"`
+	ServerURL string `json:"server_url"`
+}
+
+type pushplusChannelConfig struct {
+	Token    string `json:"token"`
+	Endpoint string `json:"endpoint"`
+	Template string `json:"template"`
+	Channel  string `json:"channel"`
+	Topic    string `json:"topic"`
+}
+
+type pushoverChannelConfig struct {
+	Token    string `json:"token"`
+	User     string `json:"user"`
+	Device   string `json:"device"`
+	Priority *int   `json:"priority"`
+	Sound    string `json:"sound"`
+	Endpoint string `json:"endpoint"`
+}
+
+type napcatChannelConfig struct {
+	URL         string `json:"url"`
+	AccessToken string `json:"access_token"`
+	MessageType string `json:"message_type"`
+	UserID      string `json:"user_id"`
+	GroupID     string `json:"group_id"`
+}
+
+// --- Validation helpers ---
 
 func isValidChannelType(t string) bool {
 	switch t {
@@ -91,17 +194,7 @@ func validateChannelConfig(channelType, config string) error {
 
 	switch channelType {
 	case "smtp":
-		var cfg struct {
-			Host          string `json:"host"`
-			Port          int64  `json:"port"`
-			Username      string `json:"username"`
-			Password      string `json:"password"`
-			FromEmail     string `json:"from_email"`
-			FromName      string `json:"from_name"`
-			ToEmail       string `json:"to_email"`
-			Encryption    string `json:"encryption"`
-			SkipTLSVerify bool   `json:"skip_tls_verify"`
-		}
+		var cfg smtpChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid smtp config format")
 		}
@@ -125,11 +218,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "resend":
-		var cfg struct {
-			APIKey    string `json:"api_key"`
-			FromEmail string `json:"from_email"`
-			ToEmail   string `json:"to_email"`
-		}
+		var cfg resendChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid resend config format")
 		}
@@ -150,10 +239,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "telegram":
-		var cfg struct {
-			BotToken string `json:"bot_token"`
-			ChatID   string `json:"chat_id"`
-		}
+		var cfg telegramChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid telegram config format")
 		}
@@ -165,12 +251,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "webhook":
-		var cfg struct {
-			URL     string            `json:"url"`
-			Secret  string            `json:"secret"`
-			Method  string            `json:"method"`
-			Headers map[string]string `json:"headers"`
-		}
+		var cfg webhookChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid webhook config format")
 		}
@@ -192,10 +273,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "gotify":
-		var cfg struct {
-			URL   string `json:"url"`
-			Token string `json:"token"`
-		}
+		var cfg gotifyChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid gotify config format")
 		}
@@ -210,17 +288,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "ntfy":
-		var cfg struct {
-			URL      string `json:"url"`
-			Topic    string `json:"topic"`
-			Token    string `json:"token"`
-			Username string `json:"username"`
-			Password string `json:"password"`
-			Priority string `json:"priority"`
-			Tags     string `json:"tags"`
-			Click    string `json:"click"`
-			Icon     string `json:"icon"`
-		}
+		var cfg ntfyChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid ntfy config format")
 		}
@@ -234,10 +302,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "bark":
-		var cfg struct {
-			DeviceKey string `json:"device_key"`
-			URL       string `json:"url"`
-		}
+		var cfg barkChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid bark config format")
 		}
@@ -251,9 +316,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "serverchan":
-		var cfg struct {
-			SendKey string `json:"send_key"`
-		}
+		var cfg serverchanChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid serverchan config format")
 		}
@@ -262,10 +325,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "feishu":
-		var cfg struct {
-			WebhookURL string `json:"webhook_url"`
-			Secret     string `json:"secret"`
-		}
+		var cfg feishuChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid feishu config format")
 		}
@@ -277,9 +337,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "wecom":
-		var cfg struct {
-			WebhookURL string `json:"webhook_url"`
-		}
+		var cfg wecomChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid wecom config format")
 		}
@@ -291,10 +349,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "dingtalk":
-		var cfg struct {
-			WebhookURL string `json:"webhook_url"`
-			Secret     string `json:"secret"`
-		}
+		var cfg dingtalkChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid dingtalk config format")
 		}
@@ -306,10 +361,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "pushdeer":
-		var cfg struct {
-			PushKey   string `json:"push_key"`
-			ServerURL string `json:"server_url"`
-		}
+		var cfg pushdeerChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid pushdeer config format")
 		}
@@ -324,13 +376,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "pushplus":
-		var cfg struct {
-			Token    string `json:"token"`
-			Endpoint string `json:"endpoint"`
-			Template string `json:"template"`
-			Channel  string `json:"channel"`
-			Topic    string `json:"topic"`
-		}
+		var cfg pushplusChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid pushplus config format")
 		}
@@ -345,14 +391,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "pushover":
-		var cfg struct {
-			Token    string `json:"token"`
-			User     string `json:"user"`
-			Device   string `json:"device"`
-			Priority *int   `json:"priority"`
-			Sound    string `json:"sound"`
-			Endpoint string `json:"endpoint"`
-		}
+		var cfg pushoverChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid pushover config format")
 		}
@@ -370,13 +409,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		return nil
 	case "napcat":
-		var cfg struct {
-			URL         string `json:"url"`
-			AccessToken string `json:"access_token"`
-			MessageType string `json:"message_type"`
-			UserID      string `json:"user_id"`
-			GroupID     string `json:"group_id"`
-		}
+		var cfg napcatChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
 			return errors.New("invalid napcat config format")
 		}
@@ -412,7 +445,7 @@ func decodeChannelConfigStrict(config string, out interface{}) error {
 	if err := decoder.Decode(out); err != nil {
 		return err
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+	if decoder.More() {
 		return errors.New("config must contain a single JSON object")
 	}
 	return nil

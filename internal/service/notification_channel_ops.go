@@ -74,7 +74,7 @@ func (s *NotificationService) UpdateChannel(userID, channelID uint, input Update
 		updates["enabled"] = *input.Enabled
 	}
 	if input.Config != nil {
-		mergedConfig, err := mergeNotificationConfigWithExistingSecrets(channel.Type, channel.Config, *input.Config)
+		mergedConfig, err := mergeNotificationConfigWithExistingSecrets(channel.Type, channel.Config, *input.Config, input.ClearedSecretFields, input.ClearedWebhookHeaderKeys)
 		if err != nil {
 			return nil, err
 		}
