@@ -110,8 +110,9 @@ func (h *AuthHandler) FinishPasskeyLogin(c echo.Context) error {
 
 	resp, err := h.Service.FinishPasskeyLogin(input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
+		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, mapAuthResponse(resp))
+	return writeAuthSuccess(c, http.StatusOK, resp)
 }

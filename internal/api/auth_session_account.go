@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -68,7 +69,7 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 		return writeAuthServiceError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, mapAuthResponse(resp))
+	return writeAuthSuccess(c, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {
@@ -83,32 +84,38 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	resp, err := h.Service.Login(input)
 	if err != nil {
+		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, mapLoginResponse(resp))
+	return writeLoginSuccess(c, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) RefreshSession(c echo.Context) error {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	if err := c.Bind(&input); err != nil {
+	if err := c.Bind(&input); err != nil && !errors.Is(err, io.EOF) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
 	input.RefreshToken = strings.TrimSpace(input.RefreshToken)
 	if input.RefreshToken == "" {
+		input.RefreshToken = getCookieValue(c, refreshTokenCookieName)
+	}
+	if input.RefreshToken == "" {
+		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "refresh token is required"})
 	}
 
 	resp, err := h.Service.RefreshSession(input.RefreshToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidRefreshToken) {
+			clearRefreshTokenCookie(c)
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid refresh token"})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to refresh session"})
 	}
 
-	return c.JSON(http.StatusOK, mapAuthResponse(resp))
+	return writeAuthSuccess(c, http.StatusOK, resp)
 }

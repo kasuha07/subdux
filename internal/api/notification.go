@@ -33,7 +33,7 @@ func (h *NotificationHandler) ListChannels(c echo.Context) error {
 	userID := getUserID(c)
 	channels, err := h.Service.ListChannels(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapNotificationChannelResponses(channels, h.Service))
 }
@@ -88,7 +88,7 @@ func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
 		if err.Error() == "channel not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -110,7 +110,7 @@ func (h *NotificationHandler) GetPolicy(c echo.Context) error {
 	userID := getUserID(c)
 	policy, err := h.Service.GetPolicy(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, policy)
 }
@@ -140,7 +140,7 @@ func (h *NotificationHandler) ListLogs(c echo.Context) error {
 
 	logs, err := h.Service.ListLogs(userID, limit)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, logs)
 }

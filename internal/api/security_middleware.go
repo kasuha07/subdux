@@ -251,6 +251,9 @@ func totpAccountKey(c echo.Context) string {
 func refreshTokenAccountKey(c echo.Context) string {
 	refreshToken := strings.TrimSpace(readInputField(c, "refresh_token"))
 	if refreshToken == "" {
+		refreshToken = getCookieValue(c, refreshTokenCookieName)
+	}
+	if refreshToken == "" {
 		return ""
 	}
 	return "refresh:" + pkg.HashRefreshToken(refreshToken)
@@ -323,7 +326,7 @@ func isReadOnlyMethod(method string) bool {
 	}
 }
 
-func securityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+func SecurityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		h := c.Response().Header()
 		h.Set(echo.HeaderXContentTypeOptions, "nosniff")
@@ -331,9 +334,35 @@ func securityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		h.Set(echo.HeaderContentSecurityPolicy, "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if isHTTPSRequest(c) {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 
 		return next(c)
 	}
+}
+
+func isHTTPSRequest(c echo.Context) bool {
+	if c.IsTLS() || strings.EqualFold(c.Scheme(), "https") {
+		return true
+	}
+
+	req := c.Request()
+	if req == nil {
+		return false
+	}
+
+	if strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https") {
+		return true
+	}
+	if strings.EqualFold(req.Header.Get("X-Forwarded-Ssl"), "on") {
+		return true
+	}
+	if strings.EqualFold(req.Header.Get("Front-End-Https"), "on") {
+		return true
+	}
+
+	return false
 }
 
 func requestBodyLimitMiddleware(maxBytes int64, skipper func(echo.Context) bool) echo.MiddlewareFunc {

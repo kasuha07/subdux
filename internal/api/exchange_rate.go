@@ -30,7 +30,7 @@ func (h *ExchangeRateHandler) ListRates(c echo.Context) error {
 	base := c.QueryParam("base")
 	rates, err := h.Service.ListRates(base)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, rates)
 }
@@ -58,14 +58,14 @@ func (h *ExchangeRateHandler) GetRate(c echo.Context) error {
 func (h *ExchangeRateHandler) GetStatus(c echo.Context) error {
 	status, err := h.Service.GetStatus()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, status)
 }
 
 func (h *ExchangeRateHandler) RefreshRates(c echo.Context) error {
 	if err := h.Service.RefreshRates(); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "rates refreshed"})
 }
@@ -74,7 +74,7 @@ func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
 	userID := getUserID(c)
 	pref, err := h.Service.GetUserPreference(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapUserPreferenceResponse(*pref))
 }
@@ -92,7 +92,7 @@ func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
 
 	pref, err := h.Service.UpdateUserPreference(userID, input)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapUserPreferenceResponse(*pref))
 }

@@ -14,7 +14,7 @@ func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 	userID := getUserID(c)
 	result, err := h.TOTPService.GenerateSetup(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, result)
 }
@@ -73,23 +73,27 @@ func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 
 	userID, err := pkg.ValidateTOTPPendingToken(input.TotpToken)
 	if err != nil {
+		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
 	}
 
 	if !h.TOTPService.VerifyLogin(userID, input.Code) && !h.TOTPService.VerifyBackupCode(userID, input.Code) {
+		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid code"})
 	}
 
 	resp, err := h.Service.CreateSession(userID)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
+			clearRefreshTokenCookie(c)
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
 		}
 		if strings.Contains(strings.ToLower(err.Error()), "disabled") {
+			clearRefreshTokenCookie(c)
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "account is disabled"})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create session"})
 	}
 
-	return c.JSON(http.StatusOK, mapAuthResponse(resp))
+	return writeAuthSuccess(c, http.StatusOK, resp)
 }

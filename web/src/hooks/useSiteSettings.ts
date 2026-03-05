@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react"
-import { api, isAdmin } from "@/lib/api"
+import { api, isAdmin, isAuthenticated } from "@/lib/api"
 import type { SystemSettings } from "@/types"
 
 export function useSiteSettings() {
   const [settings, setSettings] = useState<SystemSettings | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    if (!token) return
+    if (!isAuthenticated()) return
 
     // Fetch site name for all users via public endpoint
     api.get<{ site_name: string }>("/site-info")

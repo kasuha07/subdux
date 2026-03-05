@@ -149,7 +149,7 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 	}
 
 	if err := h.Service.DeleteUser(uint(userID)); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "user deleted"})
@@ -181,7 +181,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		if errors.Is(err, service.ErrInvalidEmailDomainWhitelist) || errors.Is(err, service.ErrEmailDomainWhitelistTooLong) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})

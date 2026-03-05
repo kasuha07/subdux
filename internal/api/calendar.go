@@ -21,7 +21,7 @@ func (h *CalendarHandler) ListTokens(c echo.Context) error {
 	userID := getUserID(c)
 	tokens, err := h.Service.ListTokens(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	for i := range tokens {
 		tokens[i].MaskToken()
@@ -47,7 +47,7 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 
 	existing, err := h.Service.ListTokens(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	if len(existing) >= 5 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Maximum of 5 calendar links reached"})
@@ -55,7 +55,7 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 
 	token, err := h.Service.GenerateToken(userID, input.Name)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusCreated, token)
 }
@@ -68,7 +68,7 @@ func (h *CalendarHandler) DeleteToken(c echo.Context) error {
 	}
 
 	if err := h.Service.DeleteToken(userID, uint(id)); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -86,7 +86,7 @@ func (h *CalendarHandler) GetCalendarFeed(c echo.Context) error {
 
 	ics, err := h.Service.GenerateICalFeed(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	c.Response().Header().Set("Content-Type", "text/calendar; charset=utf-8")

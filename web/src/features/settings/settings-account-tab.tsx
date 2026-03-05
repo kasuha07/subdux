@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
+import { api } from "@/lib/api"
 import type { User } from "@/types"
 
 import OIDCSection from "./oidc-section"
@@ -167,10 +168,7 @@ export default function SettingsAccountTab({
   async function handleExport() {
     setExportLoading(true)
     try {
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/export", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
+      const res = await api.fetch("/export")
       if (!res.ok) throw new Error("Export failed")
       const blob = await res.blob()
       const disposition = res.headers.get("Content-Disposition")
@@ -208,13 +206,8 @@ export default function SettingsAccountTab({
         return
       }
 
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/import/wallos", {
+      const res = await api.fetch("/import/wallos", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ data, confirm: false }),
       })
 
@@ -243,13 +236,8 @@ export default function SettingsAccountTab({
 
     setImportLoading(true)
     try {
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/import/wallos", {
+      const res = await api.fetch("/import/wallos", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ data: importRawData, confirm: true }),
       })
 
@@ -290,13 +278,8 @@ export default function SettingsAccountTab({
         return
       }
 
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/import/subdux", {
+      const res = await api.fetch("/import/subdux", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ data, confirm: false }),
       })
 
@@ -325,13 +308,8 @@ export default function SettingsAccountTab({
 
     setSubduxImportLoading(true)
     try {
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/import/subdux", {
+      const res = await api.fetch("/import/subdux", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ data: subduxImportRawData, confirm: true }),
       })
 

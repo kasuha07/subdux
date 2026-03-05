@@ -80,6 +80,16 @@ func mapAuthResponse(resp *service.AuthResponse) authResponse {
 	}
 }
 
+func writeAuthSuccess(c echo.Context, status int, resp *service.AuthResponse) error {
+	setRefreshTokenCookie(c, resp.RefreshToken)
+	return c.JSON(status, mapAuthResponse(resp))
+}
+
+func writeLoginSuccess(c echo.Context, status int, resp *service.LoginResponse) error {
+	setRefreshTokenCookie(c, resp.RefreshToken)
+	return c.JSON(status, mapLoginResponse(resp))
+}
+
 func authServiceErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, service.ErrRegistrationDisabled):
@@ -110,7 +120,7 @@ func authServiceErrorStatus(err error) int {
 func writeAuthServiceError(c echo.Context, err error) error {
 	status := authServiceErrorStatus(err)
 	if status == http.StatusInternalServerError {
-		return c.JSON(status, echo.Map{"error": "internal server error"})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(status, echo.Map{"error": err.Error()})
 }

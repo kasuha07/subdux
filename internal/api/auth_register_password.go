@@ -38,7 +38,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return writeAuthServiceError(c, err)
 	}
 
-	return c.JSON(http.StatusCreated, mapAuthResponse(resp))
+	return writeAuthSuccess(c, http.StatusCreated, resp)
 }
 
 func (h *AuthHandler) GetRegistrationConfig(c echo.Context) error {

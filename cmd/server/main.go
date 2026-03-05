@@ -30,7 +30,8 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 
-	e.Use(middleware.Logger())
+	e.Use(requestLoggerMiddleware())
+	e.Use(api.SecurityHeadersMiddleware)
 	e.Use(middleware.Recover())
 
 	allowedOrigins := loadCORSOrigins(db)
@@ -61,6 +62,104 @@ func main() {
 
 	log.Printf("Subdux starting on :%s", port)
 	e.Logger.Fatal(e.Start(":" + port))
+}
+
+var sensitiveQueryParams = map[string]struct{}{
+	"access_token": {},
+	"api_key":      {},
+	"apikey":       {},
+	"code":         {},
+	"id_token":     {},
+	"key":          {},
+	"otp":          {},
+	"password":     {},
+	"refresh_token": {},
+	"secret":       {},
+	"token":        {},
+	"totp_token":   {},
+}
+
+func requestLoggerMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			req := c.Request()
+			start := time.Now()
+
+			err := next(c)
+			if err != nil {
+				c.Error(err)
+			}
+
+			status := c.Response().Status
+			if status == 0 {
+				status = http.StatusOK
+			}
+
+			log.Printf("%s %s status=%d ip=%s latency=%s",
+				req.Method,
+				sanitizedRequestURI(req),
+				status,
+				c.RealIP(),
+				time.Since(start).Round(time.Millisecond),
+			)
+
+			return nil
+		}
+	}
+}
+
+func sanitizedRequestURI(req *http.Request) string {
+	if req == nil || req.URL == nil {
+		return ""
+	}
+
+	path := req.URL.Path
+	if path == "" {
+		path = "/"
+	}
+
+	rawQuery := sanitizeRawQuery(req.URL.Query())
+	if rawQuery == "" {
+		return path
+	}
+
+	return path + "?" + rawQuery
+}
+
+func sanitizeRawQuery(query url.Values) string {
+	if len(query) == 0 {
+		return ""
+	}
+
+	sanitized := make(url.Values, len(query))
+	for key, values := range query {
+		if isSensitiveQueryParam(key) {
+			sanitized[key] = []string{"[REDACTED]"}
+			continue
+		}
+
+		sanitizedValues := make([]string, len(values))
+		copy(sanitizedValues, values)
+		sanitized[key] = sanitizedValues
+	}
+
+	return sanitized.Encode()
+}
+
+func isSensitiveQueryParam(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	if normalized == "" {
+		return false
+	}
+
+	if _, ok := sensitiveQueryParams[normalized]; ok {
+		return true
+	}
+
+	return strings.HasSuffix(normalized, "_token") ||
+		strings.HasSuffix(normalized, "_secret") ||
+		strings.HasSuffix(normalized, "_password") ||
+		strings.HasSuffix(normalized, "_key")
 }
 
 func loadCORSOrigins(db *gorm.DB) []string {

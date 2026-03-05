@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -39,6 +38,11 @@ func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionRespon
 	}
 }
 
+func writeOIDCSessionSuccess(c echo.Context, status int, result *service.OIDCSessionResult) error {
+	setRefreshTokenCookie(c, result.RefreshToken)
+	return c.JSON(status, mapOIDCSessionResponse(result))
+}
+
 func (h *AuthHandler) GetOIDCConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, h.Service.GetOIDCPublicConfig())
 }
@@ -70,28 +74,38 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 		c.QueryParam("error_description"),
 	)
 	if err != nil {
+		clearOIDCSessionCookie(c)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to process oidc callback"})
 	}
+	if callbackResult.SessionID == "" {
+		clearOIDCSessionCookie(c)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to finalize oidc callback"})
+	}
+
+	setOIDCSessionCookie(c, callbackResult.SessionID)
 
 	redirectPath := "/login"
 	if callbackResult.Purpose == "connect" {
 		redirectPath = "/settings"
 	}
 
-	query := url.Values{}
-	query.Set("oidc_action", callbackResult.Purpose)
-	query.Set("oidc_session", callbackResult.SessionID)
-	return c.Redirect(http.StatusFound, redirectPath+"?"+query.Encode())
+	return c.Redirect(http.StatusFound, redirectPath+"?oidc_action="+callbackResult.Purpose)
 }
 
 func (h *AuthHandler) GetOIDCSession(c echo.Context) error {
-	sessionID := c.Param("id")
+	sessionID := getCookieValue(c, oidcSessionCookieName)
+	if sessionID == "" {
+		clearOIDCSessionCookie(c)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "oidc session cookie is required"})
+	}
+
 	result, err := h.Service.ConsumeOIDCSessionResult(sessionID)
+	clearOIDCSessionCookie(c)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, mapOIDCSessionResponse(result))
+	return writeOIDCSessionSuccess(c, http.StatusOK, result)
 }
 
 func (h *AuthHandler) ListOIDCConnections(c echo.Context) error {

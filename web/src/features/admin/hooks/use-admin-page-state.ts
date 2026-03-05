@@ -402,16 +402,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   async function handleDownloadBackup() {
     try {
-      const token = localStorage.getItem("token")
       const params = new URLSearchParams()
       if (includeAssetsInBackup) {
         params.set("include_assets", "true")
       }
-      const endpoint = params.size > 0 ? `/api/admin/backup?${params.toString()}` : "/api/admin/backup"
+      const endpoint = params.size > 0 ? `/admin/backup?${params.toString()}` : "/admin/backup"
 
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await api.fetch(endpoint)
       if (!res.ok) {
         throw new Error()
       }
@@ -443,10 +440,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     formData.append("backup", restoreFile)
 
     try {
-      const token = localStorage.getItem("token")
-      const res = await fetch("/api/admin/restore", {
+      const res = await api.fetch("/admin/restore", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
       if (!res.ok) {

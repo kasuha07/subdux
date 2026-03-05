@@ -93,7 +93,7 @@ func (h *SubscriptionHandler) List(c echo.Context) error {
 	userID := getUserID(c)
 	subs, err := h.Service.List(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapSubscriptionResponses(subs))
 }
@@ -138,7 +138,7 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusCreated, mapSubscriptionResponse(*sub))
@@ -167,7 +167,7 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
@@ -181,7 +181,7 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.Service.Delete(userID, uint(id)); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -215,7 +215,7 @@ func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 		if isIconUploadBadRequestError(err) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})
@@ -229,7 +229,7 @@ func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 
 	summary, err := h.Service.GetDashboardSummary(userID, targetCurrency, h.ERService)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, summary)
 }

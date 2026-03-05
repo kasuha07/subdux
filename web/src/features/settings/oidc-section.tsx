@@ -36,13 +36,12 @@ export default function OIDCSection() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const action = params.get("oidc_action")
-    const sessionID = params.get("oidc_session")
-    if (action !== "connect" || !sessionID) {
+    if (action !== "connect") {
       return
     }
 
     setProcessingCallback(true)
-    api.get<OIDCSessionResult>(`/auth/oidc/session/${encodeURIComponent(sessionID)}`)
+    api.get<OIDCSessionResult>("/auth/oidc/session")
       .then((result) => {
         if (result.error) {
           setError(result.error)

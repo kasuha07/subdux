@@ -50,7 +50,7 @@ func (h *PaymentMethodHandler) List(c echo.Context) error {
 	userID := getUserID(c)
 	methods, err := h.Service.List(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapPaymentMethodResponses(methods))
 }
@@ -77,7 +77,7 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 		if err.Error() == "name must be 1-50 characters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusCreated, mapPaymentMethodResponse(*method))
@@ -109,7 +109,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 		if err.Error() == "name must be 1-50 characters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, mapPaymentMethodResponse(*method))
@@ -129,7 +129,7 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 		if errors.Is(err, service.ErrPaymentMethodInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -142,7 +142,7 @@ func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 	}
 
 	if err := h.Service.Reorder(userID, items); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
 }
@@ -174,7 +174,7 @@ func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 		if isIconUploadBadRequestError(err) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})

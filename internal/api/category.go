@@ -48,7 +48,7 @@ func (h *CategoryHandler) List(c echo.Context) error {
 	userID := getUserID(c)
 	categories, err := h.Service.List(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapCategoryResponses(categories))
 }
@@ -70,7 +70,7 @@ func (h *CategoryHandler) Create(c echo.Context) error {
 		if err.Error() == "name must be 1-30 characters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusCreated, mapCategoryResponse(*category))
 }
@@ -96,7 +96,7 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 		if err.Error() == "name must be 1-30 characters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapCategoryResponse(*category))
 }
@@ -114,7 +114,7 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 		if errors.Is(err, service.ErrCategoryInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
@@ -126,7 +126,7 @@ func (h *CategoryHandler) Reorder(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 	if err := h.Service.Reorder(userID, items); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
 }

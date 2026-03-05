@@ -49,7 +49,7 @@ func (h *CurrencyHandler) List(c echo.Context) error {
 	userID := getUserID(c)
 	currencies, err := h.Service.List(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapUserCurrencyResponses(currencies))
 }
@@ -71,7 +71,7 @@ func (h *CurrencyHandler) Create(c echo.Context) error {
 		if err.Error() == "code must be 1-10 characters" || err.Error() == "code must contain only uppercase letters" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusCreated, mapUserCurrencyResponse(*currency))
 }
@@ -91,7 +91,7 @@ func (h *CurrencyHandler) Update(c echo.Context) error {
 		if err.Error() == "currency not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, mapUserCurrencyResponse(*currency))
 }
@@ -104,7 +104,7 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 	}
 	pref, err := h.ERService.GetUserPreference(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	if err := h.Service.Delete(userID, uint(id), pref.PreferredCurrency); err != nil {
 		if err.Error() == "currency not found" {
@@ -116,7 +116,7 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 		if errors.Is(err, service.ErrCurrencyInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
@@ -128,7 +128,7 @@ func (h *CurrencyHandler) Reorder(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 	if err := h.Service.Reorder(userID, items); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
 }

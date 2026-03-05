@@ -136,7 +136,6 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	importHandler := NewImportHandler(importService)
 
 	api := e.Group("/api")
-	api.Use(securityHeadersMiddleware)
 	api.Use(requestBodyLimitMiddleware(1<<20, func(c echo.Context) bool {
 		path := c.Path()
 		if path == "" {
@@ -200,7 +199,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	auth.GET("/oidc/config", authHandler.GetOIDCConfig)
 	auth.POST("/oidc/login/start", authHandler.BeginOIDCLogin)
 	auth.GET("/oidc/callback", authHandler.OIDCCallback)
-	auth.GET("/oidc/session/:id", authHandler.GetOIDCSession)
+	auth.GET("/oidc/session", authHandler.GetOIDCSession)
 
 	jwtConfig := echojwt.Config{
 		SigningKey: pkg.GetJWTSecret(),

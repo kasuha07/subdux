@@ -36,7 +36,7 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 		if errors.Is(err, service.ErrWallosImportTooLarge) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -59,7 +59,7 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 		if errors.Is(err, service.ErrInvalidSubduxImportFormat) || errors.Is(err, service.ErrSubduxImportTooLarge) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, result)

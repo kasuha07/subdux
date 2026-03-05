@@ -20,7 +20,7 @@ func (h *NotificationTemplateHandler) ListTemplates(c echo.Context) error {
 	userID := getUserID(c)
 	templates, err := h.Service.ListTemplates(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, templates)
 }
@@ -37,7 +37,7 @@ func (h *NotificationTemplateHandler) GetTemplate(c echo.Context) error {
 		if err.Error() == "template not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, template)
 }
@@ -89,7 +89,7 @@ func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 		if err.Error() == "template not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

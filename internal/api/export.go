@@ -23,7 +23,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 
 	data, err := h.Service.ExportUserData(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+		return writeInternalServerError(c, err)
 	}
 
 	out, err := json.MarshalIndent(data, "", "  ")

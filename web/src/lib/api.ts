@@ -4,33 +4,76 @@ import type { AuthResponse, User } from "@/types"
 
 const API_BASE = "/api"
 const ACCESS_TOKEN_KEY = "token"
-const REFRESH_TOKEN_KEY = "refresh_token"
+const USER_KEY = "user"
 
 let refreshRequest: Promise<boolean> | null = null
+let cachedAccessToken: string | null = null
+let cachedUser: User | null = null
+let accessTokenLoaded = false
+let userLoaded = false
+
 const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
   "you can enable at most 3 notification channels": "common.backendErrors.maxNotificationChannels",
 }
 
-function getToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY)
+function readSessionStorage(key: string): string | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    return window.sessionStorage.getItem(key)
+  } catch {
+    return null
+  }
 }
 
-function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY)
+function writeSessionStorage(key: string, value: string): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(key, value)
+  } catch {
+    void 0
+  }
+}
+
+function removeSessionStorage(key: string): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    window.sessionStorage.removeItem(key)
+  } catch {
+    void 0
+  }
+}
+
+function getToken(): string | null {
+  if (!accessTokenLoaded) {
+    cachedAccessToken = readSessionStorage(ACCESS_TOKEN_KEY)
+    accessTokenLoaded = true
+  }
+
+  return cachedAccessToken
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, token)
-}
-
-export function setRefreshToken(token: string): void {
-  localStorage.setItem(REFRESH_TOKEN_KEY, token)
+  cachedAccessToken = token
+  accessTokenLoaded = true
+  writeSessionStorage(ACCESS_TOKEN_KEY, token)
 }
 
 export function clearToken(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
-  localStorage.removeItem("user")
+  cachedAccessToken = null
+  cachedUser = null
+  accessTokenLoaded = true
+  userLoaded = true
+  removeSessionStorage(ACCESS_TOKEN_KEY)
+  removeSessionStorage(USER_KEY)
 }
 
 export function isAuthenticated(): boolean {
@@ -38,30 +81,38 @@ export function isAuthenticated(): boolean {
 }
 
 export function setUser(user: User): void {
-  localStorage.setItem("user", JSON.stringify(user))
+  cachedUser = user
+  userLoaded = true
+  writeSessionStorage(USER_KEY, JSON.stringify(user))
 }
 
 export function getUser(): User | null {
-  const raw = localStorage.getItem("user")
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as User
-  } catch {
-    return null
+  if (!userLoaded) {
+    const raw = readSessionStorage(USER_KEY)
+    if (!raw) {
+      cachedUser = null
+      userLoaded = true
+      return cachedUser
+    }
+
+    try {
+      cachedUser = JSON.parse(raw) as User
+    } catch {
+      cachedUser = null
+      removeSessionStorage(USER_KEY)
+    }
+    userLoaded = true
   }
+
+  return cachedUser
 }
 
 export function isAdmin(): boolean {
   return getUser()?.role === "admin"
 }
 
-export function setAuth(token: string, user: User, refreshToken?: string): void {
+export function setAuth(token: string, user: User): void {
   setToken(token)
-  if (refreshToken) {
-    setRefreshToken(refreshToken)
-  } else {
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-  }
   setUser(user)
 }
 
@@ -77,7 +128,7 @@ function handleUnauthorized(): never {
 }
 
 function canRefresh(path: string, hasAccessToken: boolean): boolean {
-  return hasAccessToken && path !== "/auth/refresh" && !!getRefreshToken()
+  return hasAccessToken && path !== "/auth/refresh"
 }
 
 function localizeBackendError(error: unknown): string {
@@ -89,28 +140,61 @@ function localizeBackendError(error: unknown): string {
   return translationKey ? i18n.t(translationKey) : error
 }
 
-async function performRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
+function buildHeaders(options: RequestInit): Headers {
+  const headers = new Headers(options.headers)
+  const hasBody = options.body !== undefined && options.body !== null
+  const isFormDataBody =
+    typeof FormData !== "undefined" && options.body instanceof FormData
 
+  if (hasBody && !isFormDataBody && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
+  }
+
+  const token = getToken()
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
+  }
+
+  return headers
+}
+
+async function parseJSON<T>(res: Response): Promise<T | null> {
+  const contentType = res.headers.get("content-type") ?? ""
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return null
+  }
+
+  try {
+    return (await res.json()) as T
+  } catch {
+    return null
+  }
+}
+
+async function performRefresh(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: "{}",
     })
 
     if (!res.ok) {
       return false
     }
 
-    const data = await res.json() as AuthResponse
+    const data = await parseJSON<AuthResponse>(res)
+    if (!data) {
+      return false
+    }
+
     const accessToken = resolveAccessToken(data)
     if (!accessToken || !data.user) {
       return false
     }
 
-    setAuth(accessToken, data.user, data.refresh_token)
+    setAuth(accessToken, data.user)
     return true
   } catch {
     return false
@@ -126,41 +210,51 @@ async function refreshSession(): Promise<boolean> {
   return refreshRequest
 }
 
-async function request<T>(
+async function requestRaw(
   path: string,
   options: RequestInit = {},
   retryOnUnauthorized = true
-): Promise<T> {
+): Promise<Response> {
   const token = getToken()
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((options.headers as Record<string, string>) || {}),
-  }
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`
-  }
+  const headers = buildHeaders(options)
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    credentials: "include",
     headers,
   })
 
   if (res.status === 401) {
     if (retryOnUnauthorized && canRefresh(path, !!token) && (await refreshSession())) {
-      return request<T>(path, options, false)
+      return requestRaw(path, options, false)
     }
     return handleUnauthorized()
   }
+
+  return res
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  retryOnUnauthorized = true
+): Promise<T> {
+  const res = await requestRaw(path, options, retryOnUnauthorized)
 
   if (res.status === 204) {
     return undefined as T
   }
 
-  const data = await res.json()
+  const data = await parseJSON<T & { error?: unknown }>(res)
 
   if (!res.ok) {
-    const errorMsg = localizeBackendError(data.error)
+    const errorMsg = localizeBackendError(data?.error)
+    toast.error(errorMsg)
+    throw new Error(errorMsg)
+  }
+
+  if (!data) {
+    const errorMsg = i18n.t("common.requestFailed")
     toast.error(errorMsg)
     throw new Error(errorMsg)
   }
@@ -169,6 +263,7 @@ async function request<T>(
 }
 
 export const api = {
+  fetch: (path: string, options?: RequestInit) => requestRaw(path, options),
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
@@ -176,31 +271,26 @@ export const api = {
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   uploadFile: async <T>(path: string, formData: FormData, retryOnUnauthorized = true): Promise<T> => {
-    const token = getToken()
-    const headers: Record<string, string> = {}
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`
-    }
-    const res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    })
-    if (res.status === 401) {
-      if (retryOnUnauthorized && canRefresh(path, !!token) && (await refreshSession())) {
-        return api.uploadFile<T>(path, formData, false)
-      }
-      return handleUnauthorized()
-    }
+    const res = await requestRaw(path, { method: "POST", body: formData }, retryOnUnauthorized)
+
     if (res.status === 204) {
       return undefined as T
     }
-    const data = await res.json()
+
+    const data = await parseJSON<T & { error?: unknown }>(res)
+
     if (!res.ok) {
-      const errorMsg = localizeBackendError(data.error)
+      const errorMsg = localizeBackendError(data?.error)
       toast.error(errorMsg)
       throw new Error(errorMsg)
     }
+
+    if (!data) {
+      const errorMsg = i18n.t("common.requestFailed")
+      toast.error(errorMsg)
+      throw new Error(errorMsg)
+    }
+
     return data as T
   },
 }
