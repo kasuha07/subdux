@@ -86,8 +86,8 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "username, email and password are required"})
 	}
 
-	if len(input.Password) < 6 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 6 characters"})
+	if len(input.Password) < 8 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 8 characters"})
 	}
 	if len([]byte(input.Password)) > 72 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must not exceed 72 bytes"})

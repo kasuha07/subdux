@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -202,7 +203,22 @@ func (s *ExchangeRateService) RefreshRates() error {
 	var apiKey string
 	var keySetting model.SystemSetting
 	if err := s.DB.Where("key = ?", "currencyapi_key").First(&keySetting).Error; err == nil {
-		apiKey = keySetting.Value
+		decryptedKey, decryptErr := decryptSystemSettingValueIfNeeded("currencyapi_key", keySetting.Value)
+		switch {
+		case decryptErr == nil:
+			apiKey = strings.TrimSpace(decryptedKey)
+		case !pkg.IsSystemSettingEncrypted(keySetting.Value):
+			apiKey = strings.TrimSpace(keySetting.Value)
+		default:
+			return fmt.Errorf("decrypt currency API key: %w", decryptErr)
+		}
+
+		if !pkg.IsSystemSettingEncrypted(keySetting.Value) && apiKey != "" {
+			encryptedKey, encryptErr := encryptSystemSettingValueIfNeeded("currencyapi_key", apiKey)
+			if encryptErr == nil {
+				_ = s.DB.Model(&model.SystemSetting{}).Where("key = ?", "currencyapi_key").Update("value", encryptedKey).Error
+			}
+		}
 	}
 
 	switch source {

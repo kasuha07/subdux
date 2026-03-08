@@ -67,6 +67,40 @@ func TestUpdateSettingsEncryptsSMTPPasswordAndDecryptsOnRead(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsEncryptsCurrencyAPIKey(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	service := NewAdminService(db)
+	apiKey := "currency-api-secret"
+	if err := service.UpdateSettings(UpdateSettingsInput{CurrencyAPIKey: &apiKey}); err != nil {
+		t.Fatalf("UpdateSettings() failed: %v", err)
+	}
+
+	var stored model.SystemSetting
+	if err := db.Where("key = ?", "currencyapi_key").First(&stored).Error; err != nil {
+		t.Fatalf("failed to read stored currency API key: %v", err)
+	}
+	if stored.Value == apiKey {
+		t.Fatal("currency API key should not be stored in plaintext")
+	}
+	if !strings.HasPrefix(stored.Value, "enc:v1:") {
+		t.Fatalf("expected encrypted currency API key prefix, got %q", stored.Value)
+	}
+
+	decrypted, err := decryptSystemSettingValueIfNeeded("currencyapi_key", stored.Value)
+	if err != nil {
+		t.Fatalf("decryptSystemSettingValueIfNeeded() failed: %v", err)
+	}
+	if decrypted != apiKey {
+		t.Fatalf("decrypted currency API key = %q, want %q", decrypted, apiKey)
+	}
+}
+
 func TestLoadSMTPRuntimeConfigSupportsLegacyPlaintextPassword(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {

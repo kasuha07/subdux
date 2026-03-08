@@ -901,6 +901,10 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 		return nil, errors.New("oidc access token is missing")
 	}
 
+	if err := validateOutboundChannelURL(userInfoEndpoint, "oidc userinfo endpoint", false); err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, userInfoEndpoint, nil)
 	if err != nil {
 		return nil, err
@@ -908,7 +912,7 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 	req.Header.Set("Authorization", "Bearer "+oauthToken.AccessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := doNotificationRequest(http.DefaultClient, req)
 	if err != nil {
 		return nil, err
 	}

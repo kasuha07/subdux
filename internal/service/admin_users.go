@@ -104,8 +104,8 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 		return nil, errors.New("username, email and password are required")
 	}
 
-	if len(input.Password) < 6 {
-		return nil, errors.New("password must be at least 6 characters")
+	if len(input.Password) < 8 {
+		return nil, errors.New("password must be at least 8 characters")
 	}
 	if err := validateBcryptPasswordLength(input.Password); err != nil {
 		return nil, err

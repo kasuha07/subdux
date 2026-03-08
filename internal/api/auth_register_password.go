@@ -26,8 +26,8 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
-	if len(input.Password) < 6 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must be at least 6 characters"})
+	if len(input.Password) < 8 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must be at least 8 characters"})
 	}
 	if len([]byte(input.Password)) > 72 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must not exceed 72 bytes"})
@@ -114,8 +114,8 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	if _, err := mail.ParseAddress(input.Email); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
-	if len(input.NewPassword) < 6 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 6 characters"})
+	if len(input.NewPassword) < 8 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 8 characters"})
 	}
 	if len([]byte(input.NewPassword)) > 72 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
@@ -137,8 +137,8 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	if input.CurrentPassword == "" || input.NewPassword == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Current and new passwords are required"})
 	}
-	if len(input.NewPassword) < 6 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 6 characters"})
+	if len(input.NewPassword) < 8 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 8 characters"})
 	}
 	if len([]byte(input.NewPassword)) > 72 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})

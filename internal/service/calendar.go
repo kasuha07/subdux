@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -26,16 +27,18 @@ func (s *CalendarService) GenerateToken(userID uint, name string) (*model.Calend
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 	token := hex.EncodeToString(b)
+	tokenHash := hashCalendarToken(token)
 
 	ct := model.CalendarToken{
 		UserID:    userID,
-		Token:     token,
+		Token:     tokenHash,
 		Name:      name,
 		CreatedAt: time.Now().UTC(),
 	}
 	if err := s.DB.Create(&ct).Error; err != nil {
 		return nil, err
 	}
+	ct.Token = token
 	return &ct, nil
 }
 
@@ -43,6 +46,9 @@ func (s *CalendarService) ListTokens(userID uint) ([]model.CalendarToken, error)
 	var tokens []model.CalendarToken
 	if err := s.DB.Where("user_id = ?", userID).Order("created_at ASC").Find(&tokens).Error; err != nil {
 		return nil, err
+	}
+	for i := range tokens {
+		tokens[i].Token = ""
 	}
 	return tokens, nil
 }
@@ -59,14 +65,31 @@ func (s *CalendarService) DeleteToken(userID uint, tokenID uint) error {
 }
 
 func (s *CalendarService) ValidateToken(token string) (uint, error) {
+	tokenHash := hashCalendarToken(token)
+
 	var ct model.CalendarToken
-	if err := s.DB.Where("token = ?", token).First(&ct).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, errors.New("invalid token")
+	if err := s.DB.Where("token = ?", tokenHash).First(&ct).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, err
 		}
-		return 0, err
+
+		if err := s.DB.Where("token = ?", token).First(&ct).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return 0, errors.New("invalid token")
+			}
+			return 0, err
+		}
+
+		if migrateErr := s.DB.Model(&ct).Update("token", tokenHash).Error; migrateErr != nil {
+			return 0, migrateErr
+		}
 	}
 	return ct.UserID, nil
+}
+
+func hashCalendarToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subscription, error) {

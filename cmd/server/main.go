@@ -174,6 +174,8 @@ func loadCORSOrigins(db *gorm.DB) []string {
 		}
 	}
 
+	log.Printf("warning: no CORS_ALLOW_ORIGINS or site_url configured; falling back to localhost development origins")
+
 	return []string{
 		"http://localhost:5173",
 		"http://127.0.0.1:5173",

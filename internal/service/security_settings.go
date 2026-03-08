@@ -11,6 +11,7 @@ const bcryptMaxPasswordBytes = 72
 var encryptedSystemSettingKeys = map[string]struct{}{
 	"smtp_password":      {},
 	"oidc_client_secret": {},
+	"currencyapi_key":    {},
 }
 
 func isEncryptedSystemSettingKey(key string) bool {

@@ -196,8 +196,12 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.CurrencyAPIKey != nil {
+			encryptedCurrencyAPIKey, err := encryptSystemSettingValueIfNeeded("currencyapi_key", *input.CurrencyAPIKey)
+			if err != nil {
+				return err
+			}
 			if err := tx.Where("key = ?", "currencyapi_key").
-				Assign(model.SystemSetting{Value: *input.CurrencyAPIKey}).
+				Assign(model.SystemSetting{Value: encryptedCurrencyAPIKey}).
 				FirstOrCreate(&model.SystemSetting{Key: "currencyapi_key"}).Error; err != nil {
 				return err
 			}
