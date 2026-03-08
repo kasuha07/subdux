@@ -277,7 +277,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     if (!newUsername || !newEmail || !newPassword) {
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       toast.error(t("admin.users.passwordTooShort"))
       return
     }

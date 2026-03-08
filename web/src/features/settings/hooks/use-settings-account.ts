@@ -81,7 +81,7 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
       setPasswordError(t("settings.account.passwordMismatch"))
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       setPasswordError(t("settings.account.passwordTooShort"))
       return
     }

@@ -138,7 +138,7 @@ export default function AdminUsersTab({
                   <Button
                     type="submit"
                     onClick={() => void onCreateUser()}
-                    disabled={!newUsername || !newEmail || !newPassword || newPassword.length < 6}
+                    disabled={!newUsername || !newEmail || !newPassword || newPassword.length < 8}
                   >
                     {t("admin.users.create")}
                   </Button>

@@ -133,7 +133,7 @@ const settings = {
     "newPassword": "新密码",
     "confirmPassword": "确认新密码",
     "passwordMismatch": "两次密码输入不一致",
-    "passwordTooShort": "密码至少需要6个字符",
+    "passwordTooShort": "密码至少需要8个字符",
     "passwordChanged": "密码修改成功",
     "passwordError": "密码修改失败",
     "updating": "更新中...",

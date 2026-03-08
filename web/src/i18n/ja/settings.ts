@@ -133,7 +133,7 @@ const settings = {
     "newPassword": "新しいパスワード",
     "confirmPassword": "新しいパスワードを確認",
     "passwordMismatch": "パスワードが一致しません",
-    "passwordTooShort": "パスワードは6文字以上必要です",
+    "passwordTooShort": "パスワードは8文字以上必要です",
     "passwordChanged": "パスワードを変更しました",
     "passwordError": "パスワードの変更に失敗しました",
     "updating": "更新中...",

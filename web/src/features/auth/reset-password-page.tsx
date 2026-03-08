@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
       setError(t("auth.resetPassword.passwordMismatch"))
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       setError(t("auth.resetPassword.passwordTooShort"))
       return
     }

@@ -133,7 +133,7 @@ const settings = {
     "newPassword": "New password",
     "confirmPassword": "Confirm new password",
     "passwordMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordTooShort": "Password must be at least 8 characters",
     "passwordChanged": "Password changed successfully",
     "passwordError": "Failed to change password",
     "updating": "Updating...",
