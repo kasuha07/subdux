@@ -26,6 +26,19 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-$(go env GOARCH)}
 
 # Stage 3: Minimal runtime
 FROM gcr.io/distroless/static-debian12:nonroot
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG REPOSITORY_URL=https://github.com/kasuha07/subdux
+LABEL org.opencontainers.image.title="Subdux" \
+      org.opencontainers.image.description="Self-hosted subscription tracker with notifications, multi-currency, and modern auth." \
+      org.opencontainers.image.source="${REPOSITORY_URL}" \
+      org.opencontainers.image.url="${REPOSITORY_URL}" \
+      org.opencontainers.image.documentation="${REPOSITORY_URL}#readme" \
+      org.opencontainers.image.licenses="GPL-3.0-or-later" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 COPY --from=backend /subdux /subdux
 EXPOSE 8080
 ENTRYPOINT ["/subdux"]

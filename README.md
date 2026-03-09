@@ -139,6 +139,48 @@ docker compose up --build -d
 - 将数据目录挂载到命名卷 `subdux-data`
 - 通过 `DATA_PATH=/data` 把 SQLite、上传文件和密钥文件保存在容器卷中
 
+## GitHub Packages / GHCR
+
+Subdux 会在推送语义化版本标签（例如 `v0.8.0`）时，通过 GitHub Actions 自动发布容器镜像到 GitHub Container Registry（GHCR）。
+
+- 包地址：`ghcr.io/kasuha07/subdux`
+- 发布触发器：`.github/workflows/docker-publish.yml` 中的 `push.tags: ["v*"]`
+- 生成的主要镜像标签：`0.8.0`、`0.8`（由 Git 标签 `v0.8.0` 映射而来）
+
+### 拉取镜像
+
+```bash
+docker pull ghcr.io/kasuha07/subdux:0.8.0
+```
+
+如果包保持私有，请先登录 GHCR：
+
+```bash
+echo "<YOUR_GITHUB_TOKEN>" | docker login ghcr.io -u <YOUR_GITHUB_USERNAME> --password-stdin
+```
+
+### 运行 GHCR 镜像
+
+```bash
+docker run -d \
+  --name subdux \
+  -p 8080:8080 \
+  -e DATA_PATH=/data \
+  -v subdux-data:/data \
+  ghcr.io/kasuha07/subdux:0.8.0
+```
+
+### 维护者发布步骤
+
+```bash
+git tag v0.8.0
+git push origin v0.8.0
+```
+
+发布出的镜像会写入 OCI 元数据（仓库来源、文档链接、许可证、版本和提交信息），便于在 GHCR 页面中追溯来源。
+
+首次发布后，GitHub Package 可能默认是私有可见；如果需要匿名 `docker pull`，请到 GitHub 仓库的 **Packages / Package settings** 中将其切换为 **Public**。
+
 ## 关键环境变量
 
 | 变量 | 默认值 | 说明 |
