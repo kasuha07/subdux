@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -22,12 +23,12 @@ func GetDataPath() string {
 }
 
 func InitDB() *gorm.DB {
-	dbPath := filepath.Join(GetDataPath(), "subdux.db")
-
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		log.Fatalf("Failed to create database directory: %v", err)
+	dataPath := GetDataPath()
+	if err := ensureDataPathWritable(dataPath); err != nil {
+		log.Fatalf("Failed to prepare data directory %q: %v", dataPath, err)
 	}
+
+	dbPath := filepath.Join(dataPath, "subdux.db")
 
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -60,4 +61,37 @@ func InitDB() *gorm.DB {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 	return db
+}
+
+func ensureDataPathWritable(dataPath string) error {
+	info, err := os.Stat(dataPath)
+	switch {
+	case err == nil:
+		if !info.IsDir() {
+			return fmt.Errorf("path exists but is not a directory")
+		}
+	case os.IsNotExist(err):
+		if err := os.MkdirAll(dataPath, 0o755); err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
+		}
+	default:
+		return fmt.Errorf("failed to inspect directory: %w", err)
+	}
+
+	probe, err := os.CreateTemp(dataPath, ".subdux-write-check-*")
+	if err != nil {
+		return fmt.Errorf("directory is not writable: %w", err)
+	}
+	probePath := probe.Name()
+
+	if err := probe.Close(); err != nil {
+		_ = os.Remove(probePath)
+		return fmt.Errorf("failed to close write probe: %w", err)
+	}
+
+	if err := os.Remove(probePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean up write probe: %w", err)
+	}
+
+	return nil
 }

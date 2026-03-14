@@ -20,6 +20,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /app/web/dist ./web/dist
+RUN mkdir -p /runtime-data && chown 65532:65532 /runtime-data && chmod 0755 /runtime-data
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-$(go env GOARCH)} go build \
     -ldflags="-s -w -X github.com/shiroha/subdux/internal/version.Version=${VERSION} -X github.com/shiroha/subdux/internal/version.Commit=${COMMIT} -X github.com/shiroha/subdux/internal/version.BuildDate=${BUILD_DATE}" \
     -o /subdux ./cmd/server
@@ -39,6 +40,7 @@ LABEL org.opencontainers.image.title="Subdux" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}"
+COPY --from=backend --chown=nonroot:nonroot /runtime-data /data
 COPY --from=backend /subdux /subdux
 EXPOSE 8080
 ENTRYPOINT ["/subdux"]
