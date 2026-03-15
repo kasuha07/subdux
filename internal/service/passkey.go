@@ -244,21 +244,12 @@ func (s *AuthService) FinishPasskeyLogin(sessionID string, parsedResponse *proto
 	}
 	user := resolved.account
 
-	now := time.Now().UTC()
-	payload, marshalErr := json.Marshal(credential)
-	if marshalErr == nil {
-		_ = s.DB.Model(&model.PasskeyCredential{}).
-			Where("user_id = ? AND credential_id = ?", user.ID, encodeCredentialID(credential.ID)).
-			Updates(map[string]interface{}{
-				"credential":   payload,
-				"last_used_at": &now,
-			}).Error
-	}
-
 	authResp, err := s.issueAuthResponse(user)
 	if err != nil {
 		return nil, err
 	}
+
+	s.recordPasskeyLoginMetadataAsync(user.ID, credential, time.Now().UTC())
 
 	return authResp, nil
 }
@@ -476,6 +467,29 @@ func extractHostName(host string) string {
 
 func encodeCredentialID(data []byte) string {
 	return base64.RawURLEncoding.EncodeToString(data)
+}
+
+func (s *AuthService) recordPasskeyLoginMetadataAsync(userID uint, credential *webauthn.Credential, usedAt time.Time) {
+	if s == nil || s.DB == nil || credential == nil {
+		return
+	}
+
+	payload, err := json.Marshal(credential)
+	if err != nil {
+		return
+	}
+
+	credentialID := encodeCredentialID(credential.ID)
+	usedAt = usedAt.UTC()
+
+	go func() {
+		_ = s.DB.Model(&model.PasskeyCredential{}).
+			Where("user_id = ? AND credential_id = ?", userID, credentialID).
+			Updates(map[string]interface{}{
+				"credential":   payload,
+				"last_used_at": &usedAt,
+			}).Error
+	}()
 }
 
 func (s *AuthService) storePasskeySession(session passkeySession) string {
