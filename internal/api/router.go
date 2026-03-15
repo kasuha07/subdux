@@ -108,6 +108,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)
+	iconProxyService := service.NewIconProxyService(db)
 	erService := service.NewExchangeRateService(db)
 	currencyService := service.NewCurrencyService(db)
 	categoryService := service.NewCategoryService(db)
@@ -124,6 +125,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
 	adminHandler := NewAdminHandler(adminService)
+	iconProxyHandler := NewIconProxyHandler(iconProxyService)
 	erHandler := NewExchangeRateHandler(erService)
 	currencyHandler := NewCurrencyHandler(currencyService, erService)
 	categoryHandler := NewCategoryHandler(categoryService)
@@ -150,6 +152,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	passwordAccountLimiter := authAccountRateLimit(6, 10*time.Minute, emailAccountKey)
 	totpAccountLimiter := authAccountRateLimit(8, 5*time.Minute, totpAccountKey)
 	refreshTokenLimiter := authAccountRateLimit(20, time.Minute, refreshTokenAccountKey)
+	iconProxyLimiter := authIPRateLimit(600, time.Minute)
 
 	api.GET("/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, version.Get())
@@ -183,6 +186,8 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 		return c.JSON(http.StatusOK, echo.Map{"tag_name": release.TagName})
 	})
+
+	api.GET("/icon-proxy/:provider", iconProxyHandler.Get, iconProxyLimiter)
 
 	auth := api.Group("/auth")
 	auth.Use(requestBodyLimitMiddleware(maxAuthRequestBodyBytes, nil))
@@ -331,6 +336,8 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "exchange_rate_source", Value: "auto"},
 		{Key: "allow_image_upload", Value: "true"},
 		{Key: "max_icon_file_size", Value: "65536"},
+		{Key: "icon_proxy_enabled", Value: "true"},
+		{Key: "icon_proxy_domain_whitelist", Value: "google.com\nicon.horse"},
 		{Key: "smtp_enabled", Value: "false"},
 		{Key: "smtp_host", Value: ""},
 		{Key: "smtp_port", Value: "587"},

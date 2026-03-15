@@ -10,9 +10,13 @@ import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 export default function AdminSettingsTab({
   allowImageUpload,
   emailDomainWhitelist,
+  iconProxyDomainWhitelist,
+  iconProxyEnabled,
   maxIconFileSize,
   onAllowImageUploadChange,
   onEmailDomainWhitelistChange,
+  onIconProxyDomainWhitelistChange,
+  onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
@@ -31,9 +35,13 @@ export default function AdminSettingsTab({
       <AdminSettingsGeneralSection
         allowImageUpload={allowImageUpload}
         emailDomainWhitelist={emailDomainWhitelist}
+        iconProxyDomainWhitelist={iconProxyDomainWhitelist}
+        iconProxyEnabled={iconProxyEnabled}
         maxIconFileSize={maxIconFileSize}
         onAllowImageUploadChange={onAllowImageUploadChange}
         onEmailDomainWhitelistChange={onEmailDomainWhitelistChange}
+        onIconProxyDomainWhitelistChange={onIconProxyDomainWhitelistChange}
+        onIconProxyEnabledChange={onIconProxyEnabledChange}
         onMaxIconFileSizeChange={onMaxIconFileSizeChange}
         onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
         onRegistrationEnabledChange={onRegistrationEnabledChange}

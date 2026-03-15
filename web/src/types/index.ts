@@ -210,6 +210,8 @@ export interface SystemSettings {
   email_domain_whitelist: string
   site_name: string
   site_url: string
+  icon_proxy_enabled: boolean
+  icon_proxy_domain_whitelist: string
   currencyapi_key_configured: boolean
   exchange_rate_source: string
   allow_image_upload: boolean
@@ -248,6 +250,8 @@ export interface UpdateSettingsInput {
   email_domain_whitelist?: string
   site_name?: string
   site_url?: string
+  icon_proxy_enabled?: boolean
+  icon_proxy_domain_whitelist?: string
   currencyapi_key?: string
   exchange_rate_source?: string
   allow_image_upload?: boolean

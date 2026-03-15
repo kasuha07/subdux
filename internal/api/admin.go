@@ -178,7 +178,10 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	}
 
 	if err := h.Service.UpdateSettings(input); err != nil {
-		if errors.Is(err, service.ErrInvalidEmailDomainWhitelist) || errors.Is(err, service.ErrEmailDomainWhitelistTooLong) {
+		if errors.Is(err, service.ErrInvalidEmailDomainWhitelist) ||
+			errors.Is(err, service.ErrEmailDomainWhitelistTooLong) ||
+			errors.Is(err, service.ErrInvalidIconProxyDomainWhitelist) ||
+			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)

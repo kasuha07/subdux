@@ -98,6 +98,8 @@ export default function AdminPage() {
 
             <AdminSettingsTab
               allowImageUpload={settingsForm.allowImageUpload}
+              iconProxyEnabled={settingsForm.iconProxyEnabled}
+              iconProxyDomainWhitelist={settingsForm.iconProxyDomainWhitelist}
               siteName={settingsForm.siteName}
               onSiteNameChange={(value) => admin.setSettingsField("siteName", value)}
               siteUrl={settingsForm.siteUrl}
@@ -117,6 +119,12 @@ export default function AdminPage() {
               maxIconFileSize={settingsForm.maxIconFileSize}
               onAllowImageUploadChange={(enabled) =>
                 admin.setSettingsField("allowImageUpload", enabled)
+              }
+              onIconProxyEnabledChange={(enabled) =>
+                admin.setSettingsField("iconProxyEnabled", enabled)
+              }
+              onIconProxyDomainWhitelistChange={(value) =>
+                admin.setSettingsField("iconProxyDomainWhitelist", value)
               }
               onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
               onSave={admin.handleSaveSettings}

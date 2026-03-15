@@ -69,3 +69,45 @@ func TestUpdateSettingsRejectsTooLongEmailDomainWhitelist(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }
+
+func TestUpdateSettingsRejectsInvalidIconProxyDomainWhitelist(t *testing.T) {
+	e := echo.New()
+	body := `{"icon_proxy_domain_whitelist":"https://www.google.com"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	db := newAdminSettingsTestDB(t)
+	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	if err := handler.UpdateSettings(c); err != nil {
+		t.Fatalf("UpdateSettings() returned error: %v", err)
+	}
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUpdateSettingsRejectsTooLongIconProxyDomainWhitelist(t *testing.T) {
+	e := echo.New()
+	domains := make([]string, 0, 9)
+	for i := 0; i < 9; i++ {
+		domains = append(domains, strings.Repeat("a", 59)+string(rune('a'+i))+".example.com")
+	}
+	body := `{"icon_proxy_domain_whitelist":"` + strings.Join(domains, ";") + `"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	db := newAdminSettingsTestDB(t)
+	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	if err := handler.UpdateSettings(c); err != nil {
+		t.Fatalf("UpdateSettings() returned error: %v", err)
+	}
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}

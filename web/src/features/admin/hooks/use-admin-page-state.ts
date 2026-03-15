@@ -17,6 +17,8 @@ interface AdminSettingsFormState {
   currencyApiKeyConfigured: boolean
   emailDomainWhitelist: string
   exchangeRateSource: string
+  iconProxyDomainWhitelist: string
+  iconProxyEnabled: boolean
   maxIconFileSize: number
   oidcAudience: string
   oidcAuthorizationEndpoint: string
@@ -105,6 +107,8 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
     emailDomainWhitelist: settings?.email_domain_whitelist || "",
     exchangeRateSource: settings?.exchange_rate_source || "auto",
+    iconProxyDomainWhitelist: settings?.icon_proxy_domain_whitelist || "",
+    iconProxyEnabled: settings?.icon_proxy_enabled ?? true,
     maxIconFileSize: settings?.max_icon_file_size
       ? Math.round(settings.max_icon_file_size / 1024)
       : 64,
@@ -309,6 +313,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         email_domain_whitelist: settingsForm.emailDomainWhitelist,
         site_name: settingsForm.siteName,
         site_url: settingsForm.siteUrl,
+        icon_proxy_enabled: settingsForm.iconProxyEnabled,
+        icon_proxy_domain_whitelist: settingsForm.iconProxyDomainWhitelist,
         exchange_rate_source: settingsForm.exchangeRateSource,
         allow_image_upload: settingsForm.allowImageUpload,
         max_icon_file_size: settingsForm.maxIconFileSize * 1024,

@@ -87,3 +87,31 @@ func TestValidateSubscriptionIconRejectsInvalidExternalURL(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateSubscriptionIconAllowsManagedProxyURL(t *testing.T) {
+	tests := []string{
+		"/api/icon-proxy/google?domain=example.com",
+		"/api/icon-proxy/icon-horse?domain=sub.example.com",
+	}
+
+	for _, icon := range tests {
+		if !validateSubscriptionIcon(icon) {
+			t.Fatalf("validateSubscriptionIcon() should accept managed proxy url %q", icon)
+		}
+	}
+}
+
+func TestValidateSubscriptionIconRejectsInvalidManagedProxyURL(t *testing.T) {
+	tests := []string{
+		"/api/icon-proxy/google",
+		"/api/icon-proxy/google?domain=http://example.com",
+		"/api/icon-proxy/icon-horse?domain=localhost",
+		"/api/icon-proxy/unknown?domain=example.com",
+	}
+
+	for _, icon := range tests {
+		if validateSubscriptionIcon(icon) {
+			t.Fatalf("validateSubscriptionIcon() should reject managed proxy url %q", icon)
+		}
+	}
+}

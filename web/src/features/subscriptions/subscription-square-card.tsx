@@ -27,7 +27,7 @@ function renderIcon(icon: string, name: string): ReactNode {
     return <Icon size={22} color="default" />
   }
 
-  if (icon.startsWith("http://") || icon.startsWith("https://")) {
+  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
     return <img src={icon} alt={name} className="h-7 w-7 object-contain" />
   }
 

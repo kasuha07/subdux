@@ -20,6 +20,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		ExchangeRateSource:                   "auto",
 		AllowImageUpload:                     true,
 		MaxIconFileSize:                      65536,
+		IconProxyEnabled:                     true,
+		IconProxyDomainWhitelist:             defaultIconProxyDomainWhitelist,
 		SMTPEnabled:                          false,
 		SMTPHost:                             "",
 		SMTPPort:                             587,
@@ -79,6 +81,10 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
 				settings.MaxIconFileSize = v
 			}
+		case "icon_proxy_enabled":
+			settings.IconProxyEnabled = settingValue == "true"
+		case "icon_proxy_domain_whitelist":
+			settings.IconProxyDomainWhitelist = settingValue
 		case "smtp_enabled":
 			settings.SMTPEnabled = settingValue == "true"
 		case "smtp_host":
@@ -232,6 +238,30 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "max_icon_file_size").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "max_icon_file_size"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.IconProxyEnabled != nil {
+			value := "false"
+			if *input.IconProxyEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "icon_proxy_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "icon_proxy_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.IconProxyDomainWhitelist != nil {
+			normalized, err := normalizeIconProxyDomainWhitelist(*input.IconProxyDomainWhitelist)
+			if err != nil {
+				return err
+			}
+			if err := tx.Where("key = ?", "icon_proxy_domain_whitelist").
+				Assign(model.SystemSetting{Value: normalized}).
+				FirstOrCreate(&model.SystemSetting{Key: "icon_proxy_domain_whitelist"}).Error; err != nil {
 				return err
 			}
 		}

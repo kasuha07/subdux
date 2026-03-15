@@ -11,9 +11,13 @@ import type { AdminSettingsBasicSectionProps } from "./admin-settings-types"
 export default function AdminSettingsGeneralSection({
   allowImageUpload,
   emailDomainWhitelist,
+  iconProxyDomainWhitelist,
+  iconProxyEnabled,
   maxIconFileSize,
   onAllowImageUploadChange,
   onEmailDomainWhitelistChange,
+  onIconProxyDomainWhitelistChange,
+  onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
@@ -113,6 +117,36 @@ export default function AdminSettingsGeneralSection({
           checked={allowImageUpload}
           onCheckedChange={onAllowImageUploadChange}
         />
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="icon-proxy-enabled">{t("admin.settings.iconProxyEnabled")}</Label>
+          <p className="text-sm text-muted-foreground">{t("admin.settings.iconProxyEnabledDescription")}</p>
+        </div>
+        <Switch
+          id="icon-proxy-enabled"
+          checked={iconProxyEnabled}
+          onCheckedChange={onIconProxyEnabledChange}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Label htmlFor="icon-proxy-domain-whitelist">{t("admin.settings.iconProxyDomainWhitelist")}</Label>
+        <Textarea
+          id="icon-proxy-domain-whitelist"
+          value={iconProxyDomainWhitelist}
+          onChange={(event) => onIconProxyDomainWhitelistChange(event.target.value)}
+          placeholder={t("admin.settings.iconProxyDomainWhitelistPlaceholder")}
+          rows={3}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("admin.settings.iconProxyDomainWhitelistDescription")}
+        </p>
       </div>
 
       <Separator />

@@ -34,6 +34,8 @@ type SystemSettings struct {
 	ExchangeRateSource                   string `json:"exchange_rate_source"`
 	AllowImageUpload                     bool   `json:"allow_image_upload"`
 	MaxIconFileSize                      int64  `json:"max_icon_file_size"`
+	IconProxyEnabled                     bool   `json:"icon_proxy_enabled"`
+	IconProxyDomainWhitelist             string `json:"icon_proxy_domain_whitelist"`
 	SMTPEnabled                          bool   `json:"smtp_enabled"`
 	SMTPHost                             string `json:"smtp_host"`
 	SMTPPort                             int64  `json:"smtp_port"`
@@ -72,6 +74,8 @@ type UpdateSettingsInput struct {
 	ExchangeRateSource                   *string `json:"exchange_rate_source"`
 	AllowImageUpload                     *bool   `json:"allow_image_upload"`
 	MaxIconFileSize                      *int64  `json:"max_icon_file_size"`
+	IconProxyEnabled                     *bool   `json:"icon_proxy_enabled"`
+	IconProxyDomainWhitelist             *string `json:"icon_proxy_domain_whitelist"`
 	SMTPEnabled                          *bool   `json:"smtp_enabled"`
 	SMTPHost                             *string `json:"smtp_host"`
 	SMTPPort                             *int64  `json:"smtp_port"`

@@ -45,7 +45,7 @@ func validateSubscriptionIcon(icon string) bool {
 	if validateIcon(icon) {
 		return true
 	}
-	return isExternalImageIconURL(icon)
+	return isExternalImageIconURL(icon) || isManagedProxyImageIconURL(icon)
 }
 
 func isManagedAssetIcon(icon string) bool {
@@ -81,6 +81,63 @@ func isExternalImageIconURL(icon string) bool {
 		return false
 	}
 	return parsed.Host != ""
+}
+
+func isManagedProxyImageIconURL(icon string) bool {
+	parsed, err := url.ParseRequestURI(icon)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "" || parsed.Host != "" {
+		return false
+	}
+
+	switch parsed.Path {
+	case "/api/icon-proxy/google", "/api/icon-proxy/icon-horse":
+	default:
+		return false
+	}
+
+	domain := strings.ToLower(strings.TrimSpace(parsed.Query().Get("domain")))
+	if domain == "" || strings.Contains(domain, "://") || strings.Contains(domain, "/") {
+		return false
+	}
+
+	normalized := strings.TrimRight(domain, ".")
+	if normalized == "" {
+		return false
+	}
+	return isValidDomainLike(normalized)
+}
+
+func isValidDomainLike(domain string) bool {
+	if strings.Contains(domain, "..") || strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") {
+		return false
+	}
+
+	labels := strings.Split(domain, ".")
+	if len(labels) < 2 {
+		return false
+	}
+
+	for _, label := range labels {
+		if label == "" || len(label) > 63 {
+			return false
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for i := 0; i < len(label); i++ {
+			ch := label[i]
+			if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
+				continue
+			}
+			return false
+		}
+	}
+
+	tld := labels[len(labels)-1]
+	return len(tld) >= 2
 }
 
 func isIconGoIcon(icon string) bool {

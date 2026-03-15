@@ -26,7 +26,7 @@ function renderIcon(icon: string, name: string): ReactNode {
     return <Icon size={24} color="default" />
   }
 
-  if (icon.startsWith("http://") || icon.startsWith("https://")) {
+  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
     return (
       <img
         src={icon}
@@ -97,7 +97,7 @@ function renderInlineIcon(icon: string, name: string): ReactNode {
     return <Icon size={12} color="default" />
   }
 
-  if (icon.startsWith("http://") || icon.startsWith("https://")) {
+  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
     return (
       <img
         src={icon}

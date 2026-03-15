@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { brandIcons, getBrandIconFromValue } from "@/lib/brand-icons"
 import { emojiCategories } from "@/lib/emoji-data"
+import { buildIconProxySuggestionURL, isRenderableImageURL } from "@/lib/icon-proxy"
 
 interface IconPickerProps {
   value: string
@@ -29,7 +30,7 @@ function renderPreview(value: string): ReactNode {
     return <brand.Icon size={20} color="default" />
   }
 
-  if (value.startsWith("http://") || value.startsWith("https://")) {
+  if (isRenderableImageURL(value)) {
     return <img src={value} alt="" className="h-6 w-6 object-contain rounded" />
   }
 
@@ -51,13 +52,14 @@ function isNonEmojiValue(v: string) {
   return (
     v.startsWith("http://") ||
     v.startsWith("https://") ||
+    v.startsWith("/api/icon-proxy/") ||
     v.startsWith("file:") ||
     Boolean(getBrandIconFromValue(v))
   )
 }
 
 function isImageURLValue(value: string): boolean {
-  return value.startsWith("http://") || value.startsWith("https://")
+  return isRenderableImageURL(value)
 }
 
 const suggestionServiceDomains = new Set(["google.com", "www.google.com", "icon.horse"])
@@ -190,12 +192,12 @@ export default function IconPicker({
       {
         key: "google",
         label: t("subscription.form.iconPicker.suggestions.google"),
-        url: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(imageDomain)}&sz=64`,
+        url: buildIconProxySuggestionURL("google", imageDomain),
       },
       {
         key: "iconHorse",
         label: t("subscription.form.iconPicker.suggestions.iconHorse"),
-        url: `https://icon.horse/icon/${encodeURIComponent(imageDomain)}`,
+        url: buildIconProxySuggestionURL("icon-horse", imageDomain),
       },
     ]
   }, [imageDomain, t])

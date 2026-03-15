@@ -1,7 +1,11 @@
 export interface AdminSettingsTabProps {
   allowImageUpload: boolean
+  iconProxyEnabled: boolean
+  iconProxyDomainWhitelist: string
   maxIconFileSize: number
   onAllowImageUploadChange: (enabled: boolean) => void
+  onIconProxyEnabledChange: (enabled: boolean) => void
+  onIconProxyDomainWhitelistChange: (value: string) => void
   onMaxIconFileSizeChange: (value: number) => void
   onOIDCAutoCreateUserChange: (enabled: boolean) => void
   onOIDCAudienceChange: (value: string) => void
@@ -78,9 +82,13 @@ export type AdminSettingsBasicSectionProps = Pick<
   AdminSettingsTabProps,
   | "allowImageUpload"
   | "emailDomainWhitelist"
+  | "iconProxyDomainWhitelist"
+  | "iconProxyEnabled"
   | "maxIconFileSize"
   | "onEmailDomainWhitelistChange"
   | "onAllowImageUploadChange"
+  | "onIconProxyDomainWhitelistChange"
+  | "onIconProxyEnabledChange"
   | "onMaxIconFileSizeChange"
   | "onRegistrationEnabledChange"
   | "onRegistrationEmailVerificationEnabledChange"

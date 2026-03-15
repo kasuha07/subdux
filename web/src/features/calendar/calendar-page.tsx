@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { api } from "@/lib/api"
+import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { cn } from "@/lib/utils"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
@@ -27,6 +28,51 @@ interface CalendarToken {
   token: string
   name: string
   created_at: string
+}
+
+function renderCalendarIcon(icon: string, name: string) {
+  const fallback = (
+    <div className="size-8 rounded bg-muted flex items-center justify-center shrink-0">
+      <span className="text-xs font-medium text-muted-foreground">
+        {name.charAt(0).toUpperCase()}
+      </span>
+    </div>
+  )
+
+  if (!icon) {
+    return fallback
+  }
+
+  const brand = getBrandIconFromValue(icon)
+  if (brand) {
+    const { Icon } = brand
+    return (
+      <div className="size-8 rounded bg-muted/40 flex items-center justify-center shrink-0">
+        <Icon size={20} color="default" />
+      </div>
+    )
+  }
+
+  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
+    return <img src={icon} alt="" className="size-8 rounded object-contain shrink-0" />
+  }
+
+  if (icon.startsWith("file:")) {
+    const filename = icon.slice("file:".length)
+    if (filename && !filename.includes("/") && !filename.includes("\\")) {
+      return <img src={`/uploads/icons/${filename}`} alt="" className="size-8 rounded object-contain shrink-0" />
+    }
+  }
+
+  if (!icon.includes(":")) {
+    return (
+      <div className="size-8 rounded bg-muted flex items-center justify-center shrink-0">
+        <span className="text-base leading-none">{icon}</span>
+      </div>
+    )
+  }
+
+  return fallback
 }
 
 // Returns all dates (as YYYY-MM-DD strings) within the given year/month
@@ -402,15 +448,7 @@ export default function CalendarPage() {
                       className="flex items-center gap-3 rounded-md border p-2 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => { setEditingSub(sub); setFormOpen(true) }}
                     >
-                      {sub.icon ? (
-                        <img src={sub.icon} alt="" className="size-8 rounded object-contain shrink-0" />
-                      ) : (
-                        <div className="size-8 rounded bg-muted flex items-center justify-center shrink-0">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {sub.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
+                      {renderCalendarIcon(sub.icon, sub.name)}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{sub.name}</p>
                       </div>
