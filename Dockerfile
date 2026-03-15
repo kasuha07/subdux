@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-$(go env GOARCH)}
     -o /subdux ./cmd/server
 
 # Stage 3: Minimal runtime
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown

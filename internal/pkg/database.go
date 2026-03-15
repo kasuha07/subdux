@@ -24,6 +24,9 @@ func GetDataPath() string {
 
 func InitDB() *gorm.DB {
 	dataPath := GetDataPath()
+	if err := prepareDataPathRuntimeOwnership(dataPath); err != nil {
+		log.Fatalf("Failed to prepare runtime ownership for data directory %q: %v", dataPath, err)
+	}
 	if err := ensureDataPathWritable(dataPath); err != nil {
 		log.Fatalf("Failed to prepare data directory %q: %v", dataPath, err)
 	}
