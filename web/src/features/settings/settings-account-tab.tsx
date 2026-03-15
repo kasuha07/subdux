@@ -391,6 +391,7 @@ export default function SettingsAccountTab({
                         <Input
                           id="new-email"
                           type="email"
+                          autoComplete="email"
                           placeholder={t("auth.register.emailPlaceholder")}
                           value={newEmail}
                           onChange={(event) => onNewEmailChange(event.target.value)}
@@ -402,6 +403,7 @@ export default function SettingsAccountTab({
                         <Input
                           id="email-change-password"
                           type="password"
+                          autoComplete="current-password"
                           placeholder="••••••••"
                           value={emailChangePassword}
                           onChange={(event) => onEmailChangePasswordChange(event.target.value)}
@@ -421,6 +423,7 @@ export default function SettingsAccountTab({
                           <Input
                             id="email-verification-code"
                             type="text"
+                            autoComplete="one-time-code"
                             inputMode="numeric"
                             maxLength={6}
                             placeholder={t("auth.register.verificationCodePlaceholder")}
@@ -565,6 +568,7 @@ export default function SettingsAccountTab({
               <Input
                 id="current-password"
                 type="password"
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(event) => onCurrentPasswordChange(event.target.value)}
@@ -576,6 +580,7 @@ export default function SettingsAccountTab({
               <Input
                 id="new-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(event) => onNewPasswordChange(event.target.value)}
@@ -587,6 +592,7 @@ export default function SettingsAccountTab({
               <Input
                 id="confirm-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(event) => onConfirmPasswordChange(event.target.value)}

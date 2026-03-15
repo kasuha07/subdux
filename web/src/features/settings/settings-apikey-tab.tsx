@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -118,6 +119,11 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>{t("settings.apiKeys.create")}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  {newKey
+                    ? t("settings.apiKeys.dialogDescriptionCreated")
+                    : t("settings.apiKeys.dialogDescriptionCreate")}
+                </DialogDescription>
               </DialogHeader>
               {newKey ? (
                 <div className="space-y-3">

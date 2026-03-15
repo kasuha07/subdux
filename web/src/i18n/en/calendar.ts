@@ -45,6 +45,8 @@ const calendar = {
     "copyLink": "Copy Link",
     "copied": "Link copied to clipboard",
     "copyWarning": "Copy this URL now. You won't be able to see the full token again.",
+    "dialogDescriptionCreate": "Enter a name to create a calendar subscription link for your billing reminders.",
+    "dialogDescriptionCreated": "Copy the generated calendar subscription link now because the full token is only shown once.",
     "urlLabel": "Subscription URL",
     "usageTitle": "How to use",
     "usageDescription": "Paste this URL into your calendar app's \"Subscribe to calendar\" or \"Add by URL\" feature.",

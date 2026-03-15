@@ -299,6 +299,8 @@ const settings = {
     "empty": "APIキーがありません",
     "emptyDescription": "APIキーを作成して、外部プログラムがサブスクリプションデータにアクセスできるようにします。",
     "copyWarning": "APIキーを今すぐコピーしてください。再度表示することはできません。",
+    "dialogDescriptionCreate": "外部プログラムがサブスクリプションデータにアクセスできるように API キーを作成します。",
+    "dialogDescriptionCreated": "生成された API キーは一度しか表示されないため、今すぐコピーしてください。",
     "copied": "クリップボードにコピーしました",
     "usage": "使用方法",
     "usageDescription": "リクエスト時にX-API-KeyヘッダーにAPIキーを設定してください。",
@@ -309,6 +311,8 @@ const settings = {
     "channels": {
       "title": "通知チャネル",
       "description": "サブスクリプション更新リマインダーの受信方法を設定",
+      "dialogDescriptionCreate": "通知チャネルの種類を選択し、更新リマインダーの配信方法を設定してください。",
+      "dialogDescriptionEdit": "この通知チャネル設定を更新して変更を保存してください。",
       "empty": "通知チャネルはまだ設定されていません。",
       "addButton": "チャネルを追加",
       "adding": "追加中...",
@@ -534,6 +538,8 @@ const settings = {
     templates: {
       title: "通知テンプレート",
       description: "各チャネルの通知メッセージテンプレートをカスタマイズ",
+      dialogDescriptionCreate: "チャネルごとのリマインダーメッセージをカスタマイズする通知テンプレートを作成します。",
+      dialogDescriptionEdit: "この通知テンプレートを更新して変更を保存してください。",
       empty: "通知テンプレートはまだ設定されていません。",
       addButton: "テンプレートを追加",
       editButton: "編集",

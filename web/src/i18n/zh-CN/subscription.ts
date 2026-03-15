@@ -33,6 +33,8 @@ const subscription = {
   "form": {
     "editTitle": "编辑订阅",
     "addTitle": "添加订阅",
+    "editDescription": "请检查下方订阅信息，并保存你的修改。",
+    "addDescription": "请填写下方订阅信息，将其添加到你的追踪列表中。",
     "nameLabel": "名称",
     "namePlaceholder": "Netflix, Spotify...",
     "amountLabel": "金额",

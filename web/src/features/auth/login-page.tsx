@@ -212,6 +212,7 @@ export default function LoginPage() {
                 <Input
                   id="totp-code"
                   type="text"
+                  autoComplete="one-time-code"
                   inputMode="numeric"
                   pattern="[0-9a-fA-F]*"
                   maxLength={8}
@@ -258,6 +259,7 @@ export default function LoginPage() {
               <Input
                 id="identifier"
                 type="text"
+                autoComplete="username"
                 placeholder={t("auth.login.identifierPlaceholder")}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -269,6 +271,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -65,6 +66,11 @@ export function NotificationChannelForm({ channel, onClose, onSave, open, saving
           <DialogTitle>
             {isEditing ? t("settings.notifications.channels.edit") : t("settings.notifications.channels.addButton")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEditing
+              ? t("settings.notifications.channels.dialogDescriptionEdit")
+              : t("settings.notifications.channels.dialogDescriptionCreate")}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">

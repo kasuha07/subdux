@@ -140,6 +140,7 @@ export default function RegisterPage() {
               <Input
                 id="username"
                 type="text"
+                autoComplete="username"
                 placeholder={t("auth.register.usernamePlaceholder")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -152,6 +153,7 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
                 placeholder={t("auth.register.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -167,6 +169,7 @@ export default function RegisterPage() {
                   <Input
                     id="verification-code"
                     type="text"
+                    autoComplete="one-time-code"
                     inputMode="numeric"
                     maxLength={6}
                     placeholder={t("auth.register.verificationCodePlaceholder")}
@@ -202,6 +205,7 @@ export default function RegisterPage() {
               <Input
                 id="password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -215,6 +219,7 @@ export default function RegisterPage() {
               <Input
                 id="confirm-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

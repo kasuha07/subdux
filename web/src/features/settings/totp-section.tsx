@@ -107,6 +107,7 @@ export default function TotpSection({ user, onUserChange }: Props) {
               <Input
                 id="disable-totp-password"
                 type="password"
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={disablePassword}
                 onChange={(e) => setDisablePassword(e.target.value)}
@@ -117,6 +118,7 @@ export default function TotpSection({ user, onUserChange }: Props) {
               <Input
                 id="disable-totp-code"
                 type="text"
+                autoComplete="one-time-code"
                 inputMode="numeric"
                 placeholder={t("settings.twoFactor.codePlaceholder")}
                 value={disableCode}

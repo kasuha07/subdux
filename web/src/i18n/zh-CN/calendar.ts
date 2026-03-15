@@ -45,6 +45,8 @@ const calendar = {
     "copyLink": "复制链接",
     "copied": "链接已复制到剪贴板",
     "copyWarning": "请立即复制此链接，之后将无法再次查看完整令牌。",
+    "dialogDescriptionCreate": "请输入链接名称，以创建用于账单提醒的日历订阅链接。",
+    "dialogDescriptionCreated": "生成的日历订阅链接完整令牌只会显示一次，请立即复制。",
     "urlLabel": "订阅链接",
     "usageTitle": "使用方法",
     "usageDescription": "将此链接粘贴到日历应用的「订阅日历」或「通过 URL 添加」功能中。",

@@ -45,6 +45,8 @@ const calendar = {
     "copyLink": "リンクをコピー",
     "copied": "リンクをクリップボードにコピーしました",
     "copyWarning": "この URL を今すぐコピーしてください。完全なトークンは再表示できません。",
+    "dialogDescriptionCreate": "請求リマインダー用のカレンダー購読リンクを作成するため、リンク名を入力してください。",
+    "dialogDescriptionCreated": "生成されたカレンダー購読リンクは完全なトークンが一度しか表示されないため、今すぐコピーしてください。",
     "urlLabel": "購読URL",
     "usageTitle": "使い方",
     "usageDescription": "この URL をカレンダーアプリの「カレンダーを購読」または「URL で追加」機能に貼り付けてください。",

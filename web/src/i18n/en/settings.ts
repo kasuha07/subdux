@@ -299,6 +299,8 @@ const settings = {
     "empty": "No API keys yet",
     "emptyDescription": "Create an API key to allow external programs to access your subscription data.",
     "copyWarning": "Make sure to copy the API key now. You won't be able to see it again.",
+    "dialogDescriptionCreate": "Create an API key for external programs to access your subscription data.",
+    "dialogDescriptionCreated": "Copy the generated API key now because it will only be shown once.",
     "copied": "Copied to clipboard",
     "usage": "Usage",
     "usageDescription": "Use the API key in the X-API-Key header when making requests.",
@@ -309,6 +311,8 @@ const settings = {
     "channels": {
       "title": "Notification Channels",
       "description": "Configure how you receive subscription renewal reminders",
+      "dialogDescriptionCreate": "Choose a notification channel type and configure how renewal reminders are delivered.",
+      "dialogDescriptionEdit": "Update this notification channel configuration and save your changes.",
       "empty": "No notification channels configured yet.",
       "addButton": "Add Channel",
       "adding": "Adding...",
@@ -534,6 +538,8 @@ const settings = {
     "templates": {
       "title": "Notification Templates",
       "description": "Customize notification message templates for each channel",
+      "dialogDescriptionCreate": "Create a notification template to customize reminder messages for a channel.",
+      "dialogDescriptionEdit": "Update this notification template and save your changes.",
       "empty": "No notification templates configured yet.",
       "addButton": "Add Template",
       "editButton": "Edit",

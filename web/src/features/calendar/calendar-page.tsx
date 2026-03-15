@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -451,6 +452,11 @@ export default function CalendarPage() {
               <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>{t("calendar.token.createLink")}</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    {newlyCreatedUrl
+                      ? t("calendar.token.dialogDescriptionCreated")
+                      : t("calendar.token.dialogDescriptionCreate")}
+                  </DialogDescription>
                 </DialogHeader>
                 {newlyCreatedUrl ? (
                   <div className="space-y-3">

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -67,6 +68,11 @@ export function NotificationTemplateFormDialog({
               ? t("settings.notifications.templates.editButton")
               : t("settings.notifications.templates.addButton")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {editingTemplate
+              ? t("settings.notifications.templates.dialogDescriptionEdit")
+              : t("settings.notifications.templates.dialogDescriptionCreate")}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">

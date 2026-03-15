@@ -2,7 +2,7 @@ import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -92,6 +92,9 @@ export default function SubscriptionForm({
           <DialogTitle>
             {isEditing ? t("subscription.form.editTitle") : t("subscription.form.addTitle")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEditing ? t("subscription.form.editDescription") : t("subscription.form.addDescription")}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={(event) => void handleSubmit(event)} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">

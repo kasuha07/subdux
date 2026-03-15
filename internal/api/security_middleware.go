@@ -331,7 +331,10 @@ func SecurityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		h := c.Response().Header()
 		h.Set(echo.HeaderXContentTypeOptions, "nosniff")
 		h.Set(echo.HeaderXFrameOptions, "DENY")
-		h.Set(echo.HeaderContentSecurityPolicy, "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		h.Set(
+			echo.HeaderContentSecurityPolicy,
+			"default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+		)
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		if isHTTPSRequest(c) {

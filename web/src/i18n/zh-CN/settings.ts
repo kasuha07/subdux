@@ -299,6 +299,8 @@ const settings = {
     "empty": "暂无 API 密钥",
     "emptyDescription": "创建一个 API 密钥，允许外部程序访问你的订阅数据。",
     "copyWarning": "请立即复制 API 密钥，之后将无法再次查看。",
+    "dialogDescriptionCreate": "创建一个 API 密钥，供外部程序访问你的订阅数据。",
+    "dialogDescriptionCreated": "生成的 API 密钥只会显示一次，请立即复制。",
     "copied": "已复制到剪贴板",
     "usage": "使用方法",
     "usageDescription": "在请求时将 API 密钥放入 X-API-Key 请求头中。",
@@ -309,6 +311,8 @@ const settings = {
     "channels": {
       "title": "通知渠道",
       "description": "配置订阅续费提醒的接收方式",
+      "dialogDescriptionCreate": "请选择通知渠道类型，并配置续费提醒的发送方式。",
+      "dialogDescriptionEdit": "更新此通知渠道配置并保存修改。",
       "empty": "尚未配置通知渠道。",
       "addButton": "添加渠道",
       "adding": "添加中...",
@@ -534,6 +538,8 @@ const settings = {
     templates: {
       title: "通知模板",
       description: "为每个渠道自定义通知消息模板",
+      dialogDescriptionCreate: "创建通知模板，以自定义某个渠道的提醒消息。",
+      dialogDescriptionEdit: "更新此通知模板并保存修改。",
       empty: "尚未配置通知模板。",
       addButton: "添加模板",
       editButton: "编辑",

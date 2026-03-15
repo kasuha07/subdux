@@ -74,6 +74,7 @@ export default function ResetPasswordPage() {
               <Input
                 id="reset-email"
                 type="email"
+                autoComplete="email"
                 placeholder={t("auth.resetPassword.emailPlaceholder")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -86,6 +87,7 @@ export default function ResetPasswordPage() {
               <Input
                 id="reset-code"
                 type="text"
+                autoComplete="one-time-code"
                 inputMode="numeric"
                 placeholder={t("auth.resetPassword.codePlaceholder")}
                 value={verificationCode}
@@ -100,6 +102,7 @@ export default function ResetPasswordPage() {
               <Input
                 id="reset-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
@@ -113,6 +116,7 @@ export default function ResetPasswordPage() {
               <Input
                 id="reset-confirm-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}

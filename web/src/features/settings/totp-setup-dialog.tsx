@@ -133,6 +133,7 @@ export default function TotpSetupDialog({ open, onOpenChange, onEnabled }: Props
                 <Input
                   id="totp-confirm-code"
                   type="text"
+                  autoComplete="one-time-code"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={6}

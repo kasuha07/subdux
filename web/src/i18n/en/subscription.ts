@@ -33,6 +33,8 @@ const subscription = {
   "form": {
     "editTitle": "Edit subscription",
     "addTitle": "Add subscription",
+    "editDescription": "Review the subscription details below and save your changes.",
+    "addDescription": "Fill in the subscription details below to add it to your tracker.",
     "nameLabel": "Name",
     "namePlaceholder": "Netflix, Spotify...",
     "amountLabel": "Amount",

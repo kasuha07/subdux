@@ -33,6 +33,8 @@ const subscription = {
   "form": {
     "editTitle": "サブスクリプションを編集",
     "addTitle": "サブスクリプションを追加",
+    "editDescription": "以下のサブスクリプション情報を確認し、変更内容を保存してください。",
+    "addDescription": "以下のサブスクリプション情報を入力して、トラッカーに追加してください。",
     "nameLabel": "名前",
     "namePlaceholder": "Netflix, Spotify...",
     "amountLabel": "金額",
