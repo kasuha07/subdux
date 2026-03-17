@@ -115,6 +115,7 @@ const settings = {
     "username": "ユーザー名",
     "email": "メールアドレス",
     "changeEmail": "メールアドレス変更",
+    "changeEmailDescription": "アカウントのメールアドレスを更新し、認証コードで新しいアドレスを確認します。",
     "newEmail": "新しいメールアドレス",
     "newEmailRequired": "新しいメールアドレスを入力してください",
     "newEmailMustBeDifferent": "新しいメールアドレスは現在と異なる必要があります",

@@ -368,6 +368,9 @@ export default function SettingsAccountTab({
               <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
                 <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
                   <DialogTitle>{t("settings.account.changeEmail")}</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    {t("settings.account.changeEmailDescription")}
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">

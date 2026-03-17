@@ -115,6 +115,7 @@ const settings = {
     "username": "用户名",
     "email": "邮箱",
     "changeEmail": "修改邮箱",
+    "changeEmailDescription": "更新账户邮箱地址，并使用验证码验证新邮箱。",
     "newEmail": "新邮箱",
     "newEmailRequired": "请输入新邮箱",
     "newEmailMustBeDifferent": "新邮箱不能与当前邮箱相同",

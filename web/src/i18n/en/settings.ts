@@ -115,6 +115,7 @@ const settings = {
     "username": "Username",
     "email": "Email",
     "changeEmail": "Change email",
+    "changeEmailDescription": "Update the email address on your account and verify the new address with a code.",
     "newEmail": "New email",
     "newEmailRequired": "New email is required",
     "newEmailMustBeDifferent": "New email must be different from current email",
