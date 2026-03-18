@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const defaultIconProxyDomainWhitelist = "google.com\nicon.horse"
+const defaultIconProxyDomainWhitelist = "google.com\ngstatic.com\nicon.horse"
 
 var (
 	ErrInvalidIconProxyDomainWhitelist = errors.New("invalid icon proxy domain whitelist")
@@ -94,6 +94,7 @@ func isIconProxyDomainAllowed(hostname string, whitelist string) bool {
 	if err != nil || len(allowedDomains) == 0 {
 		return false
 	}
+	allowedDomains = expandIconProxyAllowedDomains(allowedDomains)
 
 	normalized, err := normalizeIconProxyDomain(hostname)
 	if err != nil || normalized == "" {
@@ -106,4 +107,36 @@ func isIconProxyDomainAllowed(hostname string, whitelist string) bool {
 		}
 	}
 	return false
+}
+
+func expandIconProxyAllowedDomains(domains []string) []string {
+	if len(domains) == 0 {
+		return nil
+	}
+
+	expanded := make([]string, 0, len(domains)+1)
+	seen := make(map[string]struct{}, len(domains)+1)
+	addDomain := func(domain string) {
+		if domain == "" {
+			return
+		}
+		if _, exists := seen[domain]; exists {
+			return
+		}
+		seen[domain] = struct{}{}
+		expanded = append(expanded, domain)
+	}
+
+	for _, domain := range domains {
+		addDomain(domain)
+		if domain == "google.com" {
+			// Google's favicon endpoint redirects to *.gstatic.com. Keep older
+			// google.com-only configs working without requiring a manual setting
+			// migration first.
+			addDomain("gstatic.com")
+		}
+	}
+
+	sort.Strings(expanded)
+	return expanded
 }

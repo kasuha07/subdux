@@ -101,6 +101,12 @@ func TestIconProxyServiceResolveRejectsDisallowedUpstreamHost(t *testing.T) {
 	}
 }
 
+func TestIsIconProxyDomainAllowedAllowsGoogleRedirectCompat(t *testing.T) {
+	if !isIconProxyDomainAllowed("t2.gstatic.com", "google.com\nicon.horse") {
+		t.Fatal("isIconProxyDomainAllowed() should allow *.gstatic.com when google.com is whitelisted")
+	}
+}
+
 func TestIconProxyServiceFetchStreamsWhenUpstreamAllowed(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
