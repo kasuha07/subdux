@@ -11,12 +11,15 @@ import {
   type SortDirection,
   type SortField,
 } from "@/features/dashboard/dashboard-filter-constants"
+import { getComparableSubscriptionAmount } from "@/features/dashboard/dashboard-amount-utils"
 
 interface UseDashboardFiltersOptions {
   categories: Category[]
   displayDisabledSubscriptionsLast: boolean
+  exchangeRates: Record<string, number>
   language: string
   paymentMethods: PaymentMethod[]
+  preferredCurrency: string
   subscriptions: Subscription[]
   t: TFunction<"translation", undefined>
 }
@@ -57,8 +60,10 @@ function toTimestamp(value: string | null): number {
 export function useDashboardFilters({
   categories,
   displayDisabledSubscriptionsLast,
+  exchangeRates,
   language,
   paymentMethods,
+  preferredCurrency,
   subscriptions,
   t,
 }: UseDashboardFiltersOptions): UseDashboardFiltersResult {
@@ -167,7 +172,9 @@ export function useDashboardFilters({
       } else if (sortField === "created_at") {
         result = toTimestamp(a.created_at) - toTimestamp(b.created_at)
       } else if (sortField === "amount") {
-        result = a.amount - b.amount
+        result =
+          getComparableSubscriptionAmount(a, preferredCurrency, exchangeRates) -
+          getComparableSubscriptionAmount(b, preferredCurrency, exchangeRates)
       } else {
         result = toTimestamp(a.next_billing_date) - toTimestamp(b.next_billing_date)
       }
@@ -189,8 +196,10 @@ export function useDashboardFilters({
     sortField,
     sortDirection,
     displayDisabledSubscriptionsLast,
+    exchangeRates,
     getSubscriptionCategoryName,
     language,
+    preferredCurrency,
   ])
 
   const hasActiveFilters =

@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
+import { getMonthlyAmountFactor } from "@/features/dashboard/dashboard-amount-utils"
 import { api, isAdmin } from "@/lib/api"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
@@ -29,42 +30,6 @@ import SubscriptionSquareCard from "@/features/subscriptions/subscription-square
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
-
-function getMonthlyAmountFactor(subscription: Subscription): number | null {
-  if (subscription.billing_type !== "recurring") {
-    return null
-  }
-
-  if (subscription.recurrence_type === "interval") {
-    const intervalCount = subscription.interval_count
-    if (!intervalCount || intervalCount <= 0) {
-      return null
-    }
-
-    switch (subscription.interval_unit) {
-      case "day":
-        return 30.436875 / intervalCount
-      case "week":
-        return 4.348125 / intervalCount
-      case "month":
-        return 1 / intervalCount
-      case "year":
-        return 1 / (12 * intervalCount)
-      default:
-        return null
-    }
-  }
-
-  if (subscription.recurrence_type === "monthly_date") {
-    return 1
-  }
-
-  if (subscription.recurrence_type === "yearly_date") {
-    return 1 / 12
-  }
-
-  return null
-}
 
 function DashboardSkeleton() {
   return (
@@ -165,8 +130,10 @@ export default function DashboardPage() {
   } = useDashboardFilters({
     categories,
     displayDisabledSubscriptionsLast,
+    exchangeRates,
     language: i18n.language,
     paymentMethods,
+    preferredCurrency,
     subscriptions,
     t,
   })
@@ -200,7 +167,7 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    if (!displayAllAmountsInPrimaryCurrency) {
+    if (!displayAllAmountsInPrimaryCurrency && sortField !== "amount") {
       return
     }
 
@@ -236,7 +203,7 @@ export default function DashboardPage() {
     return () => {
       active = false
     }
-  }, [displayAllAmountsInPrimaryCurrency, preferredCurrency, subscriptions])
+  }, [displayAllAmountsInPrimaryCurrency, preferredCurrency, sortField, subscriptions])
 
   function handleEdit(sub: Subscription) {
     setEditingSub(sub)
