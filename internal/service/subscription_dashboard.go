@@ -9,12 +9,12 @@ import (
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
 	now := time.Now().In(pkg.GetSystemTimezone())
-	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, now); err != nil {
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}
 
 	var subs []model.Subscription
-	if err := s.DB.Where("user_id = ? AND enabled = ?", userID, true).Find(&subs).Error; err != nil {
+	if err := s.DB.Where("user_id = ? AND status = ?", userID, subscriptionStatusActive).Find(&subs).Error; err != nil {
 		return nil, err
 	}
 
@@ -27,6 +27,7 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 	startOfNextMonth := startOfThisMonth.AddDate(0, 1, 0)
 
 	var totalMonthly float64
+	var committedMonthly float64
 	var dueThisMonth float64
 	for _, sub := range subs {
 		amount := sub.Amount
@@ -44,6 +45,9 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 		}
 
 		totalMonthly += amount * factor
+		if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
+			committedMonthly += amount * factor
+		}
 
 		occurrences := countSubscriptionOccurrencesInRange(sub, today, startOfNextMonth)
 		if occurrences > 0 {
@@ -54,9 +58,9 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 	sevenDays := today.AddDate(0, 0, 7)
 	var upcomingRenewalCount int64
 	if err := s.DB.Model(&model.Subscription{}).Where(
-		"user_id = ? AND enabled = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date >= ? AND next_billing_date <= ?",
+		"user_id = ? AND status = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date >= ? AND next_billing_date <= ?",
 		userID,
-		true,
+		subscriptionStatusActive,
 		billingTypeRecurring,
 		today,
 		sevenDays,
@@ -67,8 +71,10 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 	return &DashboardSummary{
 		TotalMonthly:         totalMonthly,
 		TotalYearly:          totalMonthly * 12,
+		CommittedMonthly:     committedMonthly,
+		CommittedYearly:      committedMonthly * 12,
 		DueThisMonth:         dueThisMonth,
-		EnabledCount:         int64(len(subs)),
+		ActiveCount:          int64(len(subs)),
 		UpcomingRenewalCount: upcomingRenewalCount,
 		Currency:             targetCurrency,
 	}, nil

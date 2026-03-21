@@ -3,8 +3,10 @@ const dashboard = {
   "add": "追加",
   "loading": "読み込み中...",
   "stats": {
-    "monthly": "月額",
-    "yearly": "年額",
+    "activeMonthly": "有効な月額",
+    "activeYearly": "有効な年額",
+    "committedMonthly": "自動更新確約（月額）",
+    "committedYearly": "自動更新確約（年額）",
     "thisMonth": "今月",
     "upcoming": "更新予定"
   },
@@ -24,6 +26,7 @@ const dashboard = {
     "searchPlaceholder": "名前・カテゴリ・メモで検索...",
     "filterButton": "フィルター",
     "status": "ステータス",
+    "renewalMode": "更新方法",
     "category": "カテゴリ",
     "noCategory": "カテゴリ未設定",
     "paymentMethod": "支払い方法",

@@ -1,7 +1,7 @@
 const subscription = {
   "card": {
     "billingType": {
-      "one_time": "買い切り制"
+      "legacy": "旧買い切り"
     },
     "recurrence": {
       "interval": {
@@ -23,11 +23,18 @@ const subscription = {
       "on": "{{days}}日前にリマインド",
       "off": "リマインドオフ"
     },
+    "endsOn": "{{date}} に終了",
+    "endedOn": "{{date}} に終了済み",
     "notes": "メモ: {{content}}",
     "cycleProgressAria": "現在のサイクル進捗: {{progress}}%",
     "status": {
-      "enabled": "有効",
-      "disabled": "無効"
+      "active": "有効",
+      "ended": "終了"
+    },
+    "renewalMode": {
+      "auto_renew": "自動更新",
+      "manual_renew": "手動更新",
+      "cancel_at_period_end": "今期終了で終了"
     }
   },
   "form": {
@@ -43,11 +50,20 @@ const subscription = {
     "billingTypeLabel": "課金タイプ",
     "billingType": {
       "recurring": "サブスク制",
-      "one_time": "買い切り制"
+      "one_time": "旧買い切り（非推奨）"
     },
-    "enabledLabel": "有効状態",
-    "enabled": "有効",
-    "disabled": "無効",
+    "statusLabel": "ライフサイクル",
+    "status": {
+      "active": "有効",
+      "ended": "終了"
+    },
+    "renewalModeLabel": "更新方法",
+    "renewalMode": {
+      "auto_renew": "自動更新",
+      "manual_renew": "手動更新",
+      "cancel_at_period_end": "今期終了で終了"
+    },
+    "endsAtLabel": "終了日",
     "purchaseDateLabel": "購入日",
     "nextBillingDateLabel": "次回請求日",
     "recurrenceTypeLabel": "繰り返しルール",
@@ -117,6 +133,7 @@ const subscription = {
     "notesLabel": "メモ",
     "notesPlaceholder": "メモ（任意）...",
     "cancel": "キャンセル",
+    "markRenewed": "更新済みにする",
     "saving": "保存中...",
     "update": "更新",
     "addButton": "サブスクリプションを追加",

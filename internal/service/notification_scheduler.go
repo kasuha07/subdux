@@ -106,7 +106,7 @@ func shouldScheduleNotificationDispatch(
 
 func (s *NotificationService) processUserNotifications(userID uint) error {
 	now := time.Now().In(pkg.GetSystemTimezone())
-	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, now); err != nil {
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return err
 	}
 
@@ -116,8 +116,8 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 	}
 
 	var subs []model.Subscription
-	if err := s.DB.Where("user_id = ? AND enabled = ? AND billing_type = ? AND next_billing_date IS NOT NULL",
-		userID, true, "recurring").Find(&subs).Error; err != nil {
+	if err := s.DB.Where("user_id = ? AND status = ? AND billing_type = ? AND next_billing_date IS NOT NULL",
+		userID, subscriptionStatusActive, billingTypeRecurring).Find(&subs).Error; err != nil {
 		return err
 	}
 
@@ -188,7 +188,8 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 				continue
 			}
 
-			templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling)
+			eventType := notificationEventTypeForSubscription(sub)
+			templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling, eventType)
 			message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
 			if renderErr != nil {
 				fmt.Printf("failed to render template for user %d channel %s: %v\n", userID, channel.Type, renderErr)

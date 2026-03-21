@@ -18,6 +18,9 @@ type TemplateData struct {
 	Amount           float64
 	Currency         string
 	DaysUntil        int
+	EventType        string
+	RenewalMode      string
+	Status           string
 	Category         string
 	PaymentMethod    string
 	URL              string
@@ -52,6 +55,9 @@ func (tr *TemplateRenderer) RenderTemplate(tmplStr string, data TemplateData) (s
 		"Amount":           strconv.FormatFloat(data.Amount, 'f', -1, 64),
 		"Currency":         data.Currency,
 		"DaysUntil":        strconv.Itoa(data.DaysUntil),
+		"EventType":        data.EventType,
+		"RenewalMode":      data.RenewalMode,
+		"Status":           data.Status,
 		"Category":         data.Category,
 		"PaymentMethod":    data.PaymentMethod,
 		"URL":              data.URL,

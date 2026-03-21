@@ -13,6 +13,13 @@ const (
 	billingTypeOneTime   = "one_time"
 	billingTypeLifetime  = "lifetime"
 
+	subscriptionStatusActive = "active"
+	subscriptionStatusEnded  = "ended"
+
+	renewalModeAutoRenew         = "auto_renew"
+	renewalModeManualRenew       = "manual_renew"
+	renewalModeCancelAtPeriodEnd = "cancel_at_period_end"
+
 	recurrenceTypeInterval    = "interval"
 	recurrenceTypeMonthlyDate = "monthly_date"
 	recurrenceTypeYearlyDate  = "yearly_date"
@@ -39,7 +46,9 @@ type CreateSubscriptionInput struct {
 	Name             string  `json:"name"`
 	Amount           float64 `json:"amount"`
 	Currency         string  `json:"currency"`
-	Enabled          *bool   `json:"enabled"`
+	Status           string  `json:"status"`
+	RenewalMode      string  `json:"renewal_mode"`
+	EndsAt           string  `json:"ends_at"`
 	BillingType      string  `json:"billing_type"`
 	RecurrenceType   string  `json:"recurrence_type"`
 	IntervalCount    *int    `json:"interval_count"`
@@ -62,7 +71,9 @@ type UpdateSubscriptionInput struct {
 	Name             *string  `json:"name"`
 	Amount           *float64 `json:"amount"`
 	Currency         *string  `json:"currency"`
-	Enabled          *bool    `json:"enabled"`
+	Status           *string  `json:"status"`
+	RenewalMode      *string  `json:"renewal_mode"`
+	EndsAt           *string  `json:"ends_at"`
 	BillingType      *string  `json:"billing_type"`
 	RecurrenceType   *string  `json:"recurrence_type"`
 	IntervalCount    *int     `json:"interval_count"`
@@ -110,8 +121,10 @@ func (input *UpdateSubscriptionInput) UnmarshalJSON(data []byte) error {
 type DashboardSummary struct {
 	TotalMonthly         float64 `json:"total_monthly"`
 	TotalYearly          float64 `json:"total_yearly"`
+	CommittedMonthly     float64 `json:"committed_monthly"`
+	CommittedYearly      float64 `json:"committed_yearly"`
 	DueThisMonth         float64 `json:"due_this_month"`
-	EnabledCount         int64   `json:"enabled_count"`
+	ActiveCount          int64   `json:"active_count"`
 	UpcomingRenewalCount int64   `json:"upcoming_renewal_count"`
 	Currency             string  `json:"currency"`
 }

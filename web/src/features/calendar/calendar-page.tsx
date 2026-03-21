@@ -22,6 +22,10 @@ import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { cn } from "@/lib/utils"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
+import {
+  hasFutureRecurringSchedule,
+  isSubscriptionActive,
+} from "@/features/subscriptions/subscription-lifecycle"
 
 interface CalendarToken {
   id: number
@@ -81,7 +85,8 @@ function getBillingDatesInMonth(sub: Subscription, year: number, month: number):
   const days = new Set<number>()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
-  if (sub.billing_type === "one_time") {
+  // recurring auto-renew schedules keep future recurrence expansion
+  if (!hasFutureRecurringSchedule(sub)) {
     if (!sub.next_billing_date) return days
     const d = new Date(sub.next_billing_date + "T00:00:00")
     if (d.getFullYear() === year && d.getMonth() === month) {
@@ -90,7 +95,7 @@ function getBillingDatesInMonth(sub: Subscription, year: number, month: number):
     return days
   }
 
-  // recurring
+  // recurring auto-renew
   if (sub.recurrence_type === "monthly_date" && sub.monthly_day !== null) {
     const day = sub.monthly_day
     if (day >= 1 && day <= daysInMonth) {
@@ -210,7 +215,7 @@ export default function CalendarPage() {
   // Map: day number -> subscriptions billing on that day
   const billingMap = useMemo(() => {
     const map = new Map<number, Subscription[]>()
-    for (const sub of subscriptions.filter(s => s.enabled)) {
+    for (const sub of subscriptions.filter((item) => isSubscriptionActive(item))) {
       const days = getBillingDatesInMonth(sub, viewYear, viewMonth)
       for (const day of days) {
         const existing = map.get(day) ?? []
@@ -306,6 +311,18 @@ export default function CalendarPage() {
     setEditingSub(null)
     setFormOpen(false)
     return created
+  }
+
+  async function handleMarkRenewed(sub: Subscription) {
+    const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
+    toast.success(t("dashboard.updateSuccess"))
+    setEditingSub(null)
+    setFormOpen(false)
+    const [subs] = await Promise.all([
+      api.get<Subscription[]>("/subscriptions"),
+    ])
+    setSubscriptions(subs || [])
+    return renewed
   }
 
   const selectedSubs = selectedDay !== null ? (billingMap.get(selectedDay) ?? []) : []
@@ -605,6 +622,7 @@ export default function CalendarPage() {
         }}
         subscription={editingSub}
         onSubmit={handleFormSubmit}
+        onMarkRenewed={handleMarkRenewed}
         userCurrencies={userCurrencies}
         categories={categories}
         paymentMethods={paymentMethods}

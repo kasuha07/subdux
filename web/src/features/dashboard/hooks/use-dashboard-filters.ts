@@ -2,16 +2,25 @@ import { useCallback, useMemo, useState } from "react"
 import type { TFunction } from "i18next"
 
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
-import type { Category, PaymentMethod, Subscription } from "@/types"
+import type {
+  Category,
+  PaymentMethod,
+  Subscription,
+  SubscriptionRenewalMode,
+} from "@/types"
 
 import {
   defaultSortDirection,
   defaultSortField,
-  type EnabledFilter,
   type SortDirection,
   type SortField,
+  type StatusFilter,
 } from "@/features/dashboard/dashboard-filter-constants"
 import { getComparableSubscriptionAmount } from "@/features/dashboard/dashboard-amount-utils"
+import {
+  getSubscriptionRenewalMode,
+  getSubscriptionStatus,
+} from "@/features/subscriptions/subscription-lifecycle"
 
 interface UseDashboardFiltersOptions {
   categories: Category[]
@@ -31,7 +40,8 @@ interface UseDashboardFiltersResult {
   getSubscriptionCategoryName: (sub: Subscription) => string
   handleSortFieldSelect: (field: SortField) => void
   handleToggleCategory: (category: string, checked: boolean) => void
-  handleToggleEnabledState: (status: EnabledFilter, checked: boolean) => void
+  handleToggleRenewalMode: (mode: SubscriptionRenewalMode, checked: boolean) => void
+  handleToggleStatus: (status: StatusFilter, checked: boolean) => void
   handleTogglePaymentMethod: (paymentMethodID: number, checked: boolean) => void
   hasActiveFilters: boolean
   includeNoCategory: boolean
@@ -42,8 +52,9 @@ interface UseDashboardFiltersResult {
   resetFiltersAndSorting: () => void
   searchTerm: string
   selectedCategories: Set<string>
-  selectedEnabledStates: Set<EnabledFilter>
   selectedPaymentMethodIDs: Set<number>
+  selectedRenewalModes: Set<SubscriptionRenewalMode>
+  selectedStatuses: Set<StatusFilter>
   setSearchTerm: (value: string) => void
   sortDirection: SortDirection
   sortField: SortField
@@ -68,10 +79,11 @@ export function useDashboardFilters({
   t,
 }: UseDashboardFiltersOptions): UseDashboardFiltersResult {
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedEnabledStates, setSelectedEnabledStates] = useState<Set<EnabledFilter>>(new Set())
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<StatusFilter>>(new Set(["active"]))
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [includeNoCategory, setIncludeNoCategory] = useState(false)
   const [selectedPaymentMethodIDs, setSelectedPaymentMethodIDs] = useState<Set<number>>(new Set())
+  const [selectedRenewalModes, setSelectedRenewalModes] = useState<Set<SubscriptionRenewalMode>>(new Set())
   const [includeNoPaymentMethod, setIncludeNoPaymentMethod] = useState(false)
   const [sortField, setSortField] = useState<SortField>(defaultSortField)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection)
@@ -128,9 +140,14 @@ export function useDashboardFilters({
         }
       }
 
-      if (selectedEnabledStates.size > 0) {
-        const enabledKey: EnabledFilter = sub.enabled ? "enabled" : "disabled"
-        if (!selectedEnabledStates.has(enabledKey)) {
+      const status = getSubscriptionStatus(sub)
+      if (!selectedStatuses.has(status)) {
+        return false
+      }
+
+      if (selectedRenewalModes.size > 0 && sub.billing_type === "recurring") {
+        const renewalMode = getSubscriptionRenewalMode(sub)
+        if (!selectedRenewalModes.has(renewalMode)) {
           return false
         }
       }
@@ -160,8 +177,10 @@ export function useDashboardFilters({
 
     return [...filtered].sort((a, b) => {
       if (displayDisabledSubscriptionsLast) {
-        if (a.enabled !== b.enabled) {
-          return a.enabled ? -1 : 1
+        const aStatus = getSubscriptionStatus(a)
+        const bStatus = getSubscriptionStatus(b)
+        if (aStatus !== bStatus) {
+          return aStatus === "active" ? -1 : 1
         }
       }
 
@@ -188,10 +207,11 @@ export function useDashboardFilters({
   }, [
     subscriptions,
     searchTerm,
-    selectedEnabledStates,
+    selectedStatuses,
     selectedCategories,
     includeNoCategory,
     selectedPaymentMethodIDs,
+    selectedRenewalModes,
     includeNoPaymentMethod,
     sortField,
     sortDirection,
@@ -204,20 +224,23 @@ export function useDashboardFilters({
 
   const hasActiveFilters =
     searchTerm.trim().length > 0 ||
-    selectedEnabledStates.size > 0 ||
+    selectedStatuses.size !== 1 ||
+    !selectedStatuses.has("active") ||
     selectedCategories.size > 0 ||
     includeNoCategory ||
     selectedPaymentMethodIDs.size > 0 ||
+    selectedRenewalModes.size > 0 ||
     includeNoPaymentMethod ||
     sortField !== defaultSortField ||
     sortDirection !== defaultSortDirection
 
   const resetFiltersAndSorting = useCallback(() => {
     setSearchTerm("")
-    setSelectedEnabledStates(new Set())
+    setSelectedStatuses(new Set(["active"]))
     setSelectedCategories(new Set())
     setIncludeNoCategory(false)
     setSelectedPaymentMethodIDs(new Set())
+    setSelectedRenewalModes(new Set())
     setIncludeNoPaymentMethod(false)
     setSortField(defaultSortField)
     setSortDirection(defaultSortDirection)
@@ -246,13 +269,28 @@ export function useDashboardFilters({
     [sortField]
   )
 
-  const handleToggleEnabledState = useCallback((status: EnabledFilter, checked: boolean) => {
-    setSelectedEnabledStates((prev) => {
+  const handleToggleStatus = useCallback((status: StatusFilter, checked: boolean) => {
+    setSelectedStatuses((prev) => {
       const next = new Set(prev)
       if (checked) {
         next.add(status)
       } else {
         next.delete(status)
+      }
+      if (next.size === 0) {
+        next.add("active")
+      }
+      return next
+    })
+  }, [])
+
+  const handleToggleRenewalMode = useCallback((mode: SubscriptionRenewalMode, checked: boolean) => {
+    setSelectedRenewalModes((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(mode)
+      } else {
+        next.delete(mode)
       }
       return next
     })
@@ -289,7 +327,8 @@ export function useDashboardFilters({
     getSubscriptionCategoryName,
     handleSortFieldSelect,
     handleToggleCategory,
-    handleToggleEnabledState,
+    handleToggleRenewalMode,
+    handleToggleStatus,
     handleTogglePaymentMethod,
     hasActiveFilters,
     includeNoCategory,
@@ -300,8 +339,9 @@ export function useDashboardFilters({
     resetFiltersAndSorting,
     searchTerm,
     selectedCategories,
-    selectedEnabledStates,
     selectedPaymentMethodIDs,
+    selectedRenewalModes,
+    selectedStatuses,
     setSearchTerm,
     sortDirection,
     sortField,

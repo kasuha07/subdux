@@ -44,7 +44,7 @@ const settings = {
     "toggle": "Display all amounts in primary currency",
     "monthlyCostToggle": "Display recurring subscriptions as monthly cost",
     "cycleProgressToggle": "Show subscription cycle progress bar",
-    "disabledLastToggle": "Show disabled subscriptions at the end"
+    "disabledLastToggle": "Show ended subscriptions at the end"
   },
   "currencyManagement": {
     "title": "Currency Management",

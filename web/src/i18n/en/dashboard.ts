@@ -3,8 +3,10 @@ const dashboard = {
   "add": "Add",
   "loading": "Loading...",
   "stats": {
-    "monthly": "Monthly",
-    "yearly": "Yearly",
+    "activeMonthly": "Active monthly",
+    "activeYearly": "Active yearly",
+    "committedMonthly": "Committed monthly",
+    "committedYearly": "Committed yearly",
     "thisMonth": "This month",
     "upcoming": "Upcoming"
   },
@@ -24,6 +26,7 @@ const dashboard = {
     "searchPlaceholder": "Search by name, category, or notes...",
     "filterButton": "Filter",
     "status": "Status",
+    "renewalMode": "Renewal mode",
     "category": "Category",
     "noCategory": "No category",
     "paymentMethod": "Payment method",

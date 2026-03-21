@@ -63,6 +63,9 @@ func InitDB() *gorm.DB {
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
+	if err := backfillSubscriptionLifecycleFields(db); err != nil {
+		log.Fatalf("Failed to backfill subscription lifecycle fields: %v", err)
+	}
 	return db
 }
 

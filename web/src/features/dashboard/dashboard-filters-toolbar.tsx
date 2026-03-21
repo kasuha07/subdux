@@ -23,13 +23,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import type { PaymentMethod } from "@/types"
+import type { PaymentMethod, SubscriptionRenewalMode } from "@/types"
 import {
-  enabledOptions,
+  renewalModeOptions,
   sortFieldOptions,
-  type EnabledFilter,
   type SortDirection,
   type SortField,
+  statusOptions,
+  type StatusFilter,
 } from "./dashboard-filter-constants"
 
 interface DashboardFiltersToolbarProps {
@@ -42,7 +43,8 @@ interface DashboardFiltersToolbarProps {
   onSearchTermChange: (value: string) => void
   onSortFieldSelect: (field: SortField) => void
   onToggleCategory: (category: string, checked: boolean) => void
-  onToggleEnabledState: (status: EnabledFilter, checked: boolean) => void
+  onToggleRenewalMode: (mode: SubscriptionRenewalMode, checked: boolean) => void
+  onToggleStatus: (status: StatusFilter, checked: boolean) => void
   onToggleNoCategory: (checked: boolean) => void
   onToggleNoPaymentMethod: (checked: boolean) => void
   onTogglePaymentMethod: (paymentMethodID: number, checked: boolean) => void
@@ -51,8 +53,9 @@ interface DashboardFiltersToolbarProps {
   searchTerm: string
   subscriptionView: "list" | "cards"
   selectedCategories: Set<string>
-  selectedEnabledStates: Set<EnabledFilter>
   selectedPaymentMethodIDs: Set<number>
+  selectedRenewalModes: Set<SubscriptionRenewalMode>
+  selectedStatuses: Set<StatusFilter>
   onToggleSubscriptionView: () => void
   viewToggleDisabled?: boolean
   sortDirection: SortDirection
@@ -69,7 +72,8 @@ export default function DashboardFiltersToolbar({
   onSearchTermChange,
   onSortFieldSelect,
   onToggleCategory,
-  onToggleEnabledState,
+  onToggleRenewalMode,
+  onToggleStatus,
   onToggleNoCategory,
   onToggleNoPaymentMethod,
   onTogglePaymentMethod,
@@ -78,8 +82,9 @@ export default function DashboardFiltersToolbar({
   searchTerm,
   subscriptionView,
   selectedCategories,
-  selectedEnabledStates,
   selectedPaymentMethodIDs,
+  selectedRenewalModes,
+  selectedStatuses,
   onToggleSubscriptionView,
   viewToggleDisabled = false,
   sortDirection,
@@ -88,10 +93,11 @@ export default function DashboardFiltersToolbar({
   const { t } = useTranslation()
 
   const activeFilterCount =
-    selectedEnabledStates.size +
+    (selectedStatuses.size === 1 && selectedStatuses.has("active") ? 0 : 1) +
     selectedCategories.size +
     (includeNoCategory ? 1 : 0) +
     selectedPaymentMethodIDs.size +
+    selectedRenewalModes.size +
     (includeNoPaymentMethod ? 1 : 0)
 
   return (
@@ -118,16 +124,34 @@ export default function DashboardFiltersToolbar({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-48">
-              {enabledOptions.map((status) => (
+              {statusOptions.map((status) => (
                 <DropdownMenuCheckboxItem
                   key={status}
-                  checked={selectedEnabledStates.has(status)}
+                  checked={selectedStatuses.has(status)}
                   onSelect={(event) => event.preventDefault()}
                   onCheckedChange={(checked) => {
-                    onToggleEnabledState(status, checked === true)
+                    onToggleStatus(status, checked === true)
                   }}
                 >
                   {t(`subscription.card.status.${status}`)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>{t("dashboard.filters.renewalMode")}</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-56">
+              {renewalModeOptions.map((mode) => (
+                <DropdownMenuCheckboxItem
+                  key={mode}
+                  checked={selectedRenewalModes.has(mode)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    onToggleRenewalMode(mode, checked === true)
+                  }}
+                >
+                  {t(`subscription.card.renewalMode.${mode}`)}
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuSubContent>

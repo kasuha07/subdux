@@ -5,6 +5,12 @@ import { BellOff, ExternalLink, Pencil } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  getSubscriptionEndsAt,
+  getSubscriptionRenewalMode,
+  getSubscriptionStatus,
+  isSubscriptionEnded,
+} from "@/features/subscriptions/subscription-lifecycle"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
@@ -59,8 +65,14 @@ interface SubscriptionSquareCardProps {
 }
 
 const statusStyles: Record<string, string> = {
-  enabled: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  disabled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
+  active: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  ended: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
+}
+
+const renewalModeStyles: Record<string, string> = {
+  auto_renew: "bg-sky-500/10 text-sky-700 border-sky-200",
+  manual_renew: "bg-amber-500/10 text-amber-700 border-amber-200",
+  cancel_at_period_end: "bg-violet-500/10 text-violet-700 border-violet-200",
 }
 
 export default function SubscriptionSquareCard({
@@ -79,6 +91,10 @@ export default function SubscriptionSquareCard({
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
+  const status = getSubscriptionStatus(subscription)
+  const renewalMode = getSubscriptionRenewalMode(subscription)
+  const endsAt = getSubscriptionEndsAt(subscription)
+  const ended = isSubscriptionEnded(subscription)
   const categoryLabel = categoryName?.trim() || subscription.category
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days < 7
@@ -89,8 +105,8 @@ export default function SubscriptionSquareCard({
       return t("subscription.card.recurrence.monthlyCost")
     }
 
-    if (subscription.billing_type === "one_time") {
-      return t("subscription.card.billingType.one_time")
+    if (!subscription.recurrence_type) {
+      return t("subscription.card.billingType.legacy")
     }
 
     if (subscription.recurrence_type === "monthly_date") {
@@ -108,6 +124,19 @@ export default function SubscriptionSquareCard({
   }
 
   function renderDueText(): string {
+    if (ended) {
+      if (endsAt) {
+        return t("subscription.card.endedOn", {
+          date: formatDate(endsAt, i18n.language),
+        })
+      }
+      return t("subscription.card.status.ended")
+    }
+    if (subscription.billing_type === "recurring" && renewalMode === "cancel_at_period_end" && endsAt) {
+      return t("subscription.card.endsOn", {
+        date: formatDate(endsAt, i18n.language),
+      })
+    }
     if (!subscription.next_billing_date) {
       return t("subscription.card.noNextBilling")
     }
@@ -121,7 +150,9 @@ export default function SubscriptionSquareCard({
   }
 
   const details = [categoryLabel, paymentMethodName].filter(Boolean).join(" · ")
-  const dueBadgeClass = isUpcoming
+  const dueBadgeClass = ended
+    ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
+    : isUpcoming
     ? "bg-amber-500/10 text-amber-700 border-amber-200"
     : isOverdue
       ? "bg-destructive/10 text-destructive border-destructive/30"
@@ -129,7 +160,7 @@ export default function SubscriptionSquareCard({
   const reminderOff = subscription.notify_enabled === false
 
   return (
-    <Card className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${subscription.enabled ? "" : " grayscale opacity-60"}`}>
+    <Card className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}>
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -162,9 +193,14 @@ export default function SubscriptionSquareCard({
           </div>
 
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <Badge variant="outline" className={statusStyles[subscription.enabled ? "enabled" : "disabled"] || ""}>
-              {t(`subscription.card.status.${subscription.enabled ? "enabled" : "disabled"}`)}
+            <Badge variant="outline" className={statusStyles[status] || ""}>
+              {t(`subscription.card.status.${status}`)}
             </Badge>
+            {subscription.billing_type === "recurring" ? (
+              <Badge variant="outline" className={renewalModeStyles[renewalMode] || ""}>
+                {t(`subscription.card.renewalMode.${renewalMode}`)}
+              </Badge>
+            ) : null}
             <Badge
               variant="outline"
               className={`bg-zinc-500/10 text-zinc-600 border-zinc-200 px-1.5 ${reminderOff ? "" : "invisible"}`}

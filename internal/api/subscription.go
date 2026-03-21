@@ -25,7 +25,9 @@ type subscriptionResponse struct {
 	Name             string    `json:"name"`
 	Amount           float64   `json:"amount"`
 	Currency         string    `json:"currency"`
-	Enabled          bool      `json:"enabled"`
+	Status           string    `json:"status"`
+	RenewalMode      string    `json:"renewal_mode"`
+	EndsAt           *string   `json:"ends_at"`
 	BillingType      string    `json:"billing_type"`
 	RecurrenceType   string    `json:"recurrence_type"`
 	IntervalCount    *int      `json:"interval_count"`
@@ -51,7 +53,9 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 		Name:             sub.Name,
 		Amount:           sub.Amount,
 		Currency:         sub.Currency,
-		Enabled:          sub.Enabled,
+		Status:           sub.Status,
+		RenewalMode:      sub.RenewalMode,
+		EndsAt:           formatDateOnly(sub.EndsAt),
 		BillingType:      sub.BillingType,
 		RecurrenceType:   sub.RecurrenceType,
 		IntervalCount:    sub.IntervalCount,
@@ -123,9 +127,6 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if input.Name == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name is required"})
 	}
-	if input.BillingType == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Billing type is required"})
-	}
 	if input.Amount < 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must not be negative"})
 	}
@@ -181,10 +182,31 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.Service.Delete(userID, uint(id)); err != nil {
+		if isSubscriptionBadRequestError(err.Error()) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
 		return writeInternalServerError(c, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
+	userID := getUserID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	}
+
+	sub, err := h.Service.MarkManualRenewed(userID, uint(id))
+	if err != nil {
+		if isSubscriptionBadRequestError(err.Error()) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
+		return writeInternalServerError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
@@ -240,5 +262,8 @@ func isSubscriptionBadRequestError(message string) bool {
 	}
 	return strings.Contains(message, "required") ||
 		strings.Contains(message, "must be") ||
-		strings.Contains(message, "invalid date format")
+		strings.Contains(message, "invalid date format") ||
+		strings.Contains(message, "no longer supported") ||
+		strings.Contains(message, "read-only") ||
+		strings.Contains(message, "only ")
 }

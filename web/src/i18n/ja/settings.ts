@@ -44,7 +44,7 @@ const settings = {
     "toggle": "すべての金額を基準通貨で表示する",
     "monthlyCostToggle": "サブスク制の金額を月額換算で表示する",
     "cycleProgressToggle": "請求サイクルの進捗バーを表示する",
-    "disabledLastToggle": "無効なサブスクリプションを末尾に表示する"
+    "disabledLastToggle": "終了したサブスクリプションを末尾に表示する"
   },
   "currencyManagement": {
     "title": "通貨管理",

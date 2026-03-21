@@ -1,3 +1,6 @@
+export type SubscriptionStatus = "active" | "ended"
+export type SubscriptionRenewalMode = "auto_renew" | "manual_renew" | "cancel_at_period_end"
+
 export interface User {
   id: number
   username: string
@@ -20,8 +23,10 @@ export interface Subscription {
   name: string
   amount: number
   currency: string
-  enabled: boolean
-  billing_type: "recurring" | "one_time"
+  status: SubscriptionStatus
+  renewal_mode: SubscriptionRenewalMode
+  ends_at: string | null
+  billing_type: "recurring"
   recurrence_type: "interval" | "monthly_date" | "yearly_date" | ""
   interval_count: number | null
   interval_unit: "day" | "week" | "month" | "year" | ""
@@ -43,7 +48,10 @@ export interface Subscription {
 export interface DashboardSummary {
   total_monthly: number
   total_yearly: number
+  committed_monthly: number
+  committed_yearly: number
   due_this_month: number
+  active_count?: number
   upcoming_renewal_count: number
   currency: string
 }
@@ -131,8 +139,10 @@ export interface CreateSubscriptionInput {
   name: string
   amount: number
   currency: string
-  enabled?: boolean
-  billing_type: string
+  status: SubscriptionStatus
+  renewal_mode: SubscriptionRenewalMode
+  ends_at: string | null
+  billing_type: "recurring"
   recurrence_type: string
   interval_count: number | null
   interval_unit: string
@@ -154,8 +164,10 @@ export interface UpdateSubscriptionInput {
   name?: string
   amount?: number
   currency?: string
-  enabled?: boolean
-  billing_type?: string
+  status?: SubscriptionStatus
+  renewal_mode?: SubscriptionRenewalMode
+  ends_at?: string | null
+  billing_type?: "recurring"
   recurrence_type?: string
   interval_count?: number | null
   interval_unit?: string

@@ -7,6 +7,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff } from "lucide-react"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
+import {
+  getSubscriptionEndsAt,
+  getSubscriptionRenewalMode,
+  getSubscriptionStatus,
+  isSubscriptionEnded,
+} from "@/features/subscriptions/subscription-lifecycle"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
 
 function renderIcon(icon: string, name: string): ReactNode {
@@ -72,8 +78,14 @@ interface SubscriptionCardProps {
 }
 
 const statusStyles: Record<string, string> = {
-  enabled: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  disabled: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
+  active: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  ended: "bg-zinc-500/10 text-zinc-500 border-zinc-200",
+}
+
+const renewalModeStyles: Record<string, string> = {
+  auto_renew: "bg-sky-500/10 text-sky-700 border-sky-200",
+  manual_renew: "bg-amber-500/10 text-amber-700 border-amber-200",
+  cancel_at_period_end: "bg-violet-500/10 text-violet-700 border-violet-200",
 }
 
 const NOTE_PREVIEW_MAX_LENGTH = 56
@@ -145,6 +157,10 @@ export default function SubscriptionCard({
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
+  const status = getSubscriptionStatus(subscription)
+  const renewalMode = getSubscriptionRenewalMode(subscription)
+  const endsAt = getSubscriptionEndsAt(subscription)
+  const ended = isSubscriptionEnded(subscription)
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days < 7
   const categoryLabel = categoryName?.trim() || subscription.category
@@ -156,8 +172,8 @@ export default function SubscriptionCard({
       return t("subscription.card.recurrence.monthlyCost")
     }
 
-    if (subscription.billing_type === "one_time") {
-      return t("subscription.card.billingType.one_time")
+    if (!subscription.recurrence_type) {
+      return t("subscription.card.billingType.legacy")
     }
 
     if (subscription.recurrence_type === "monthly_date") {
@@ -175,6 +191,19 @@ export default function SubscriptionCard({
   }
 
   function renderDueText(): string {
+    if (ended) {
+      if (endsAt) {
+        return t("subscription.card.endedOn", {
+          date: formatDate(endsAt, i18n.language),
+        })
+      }
+      return t("subscription.card.status.ended")
+    }
+    if (subscription.billing_type === "recurring" && renewalMode === "cancel_at_period_end" && endsAt) {
+      return t("subscription.card.endsOn", {
+        date: formatDate(endsAt, i18n.language),
+      })
+    }
     if (!subscription.next_billing_date) {
       return t("subscription.card.noNextBilling")
     }
@@ -202,39 +231,19 @@ export default function SubscriptionCard({
   const reminderDisabledText = subscription.notify_enabled === false ? renderReminderText() : null
   const dueText = renderDueText()
   const isOverdue = (days ?? 0) < 0
-  const dueBadgeClass = isUpcoming
+  const dueBadgeClass = ended
+    ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
+    : isUpcoming
     ? "bg-amber-500/10 text-amber-700 border-amber-200"
     : isOverdue
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
-  const holdingDays = subscription.billing_type === "one_time" && subscription.next_billing_date
-    ? (() => {
-      const nextBillingDate = new Date(subscription.next_billing_date)
-      if (Number.isNaN(nextBillingDate.getTime())) {
-        return null
-      }
-      return Math.max(1, -daysUntil(subscription.next_billing_date))
-    })()
-    : null
-  const holdingCostText = holdingDays
-    ? t("subscription.card.holdingCost", {
-      amount: formatCurrencyWithSymbol(
-        amountToDisplay / holdingDays,
-        currencyToDisplay,
-        symbolToDisplay,
-        i18n.language
-      ),
-    })
-    : null
-  const showHoldingCostBadge = subscription.billing_type === "one_time" && Boolean(holdingCostText)
-  const secondaryBadgeText = showHoldingCostBadge && holdingCostText ? holdingCostText : dueText
-  const secondaryBadgeClass = showHoldingCostBadge
-    ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
-    : dueBadgeClass
+  const secondaryBadgeText = dueText
+  const secondaryBadgeClass = dueBadgeClass
   const secondaryBadgeTitle = secondaryBadgeText
 
   return (
-    <Card className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${subscription.enabled ? "" : " grayscale opacity-60"}`}>
+    <Card className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}>
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
@@ -312,9 +321,14 @@ export default function SubscriptionCard({
             </Badge>
           </div>
           <div className="flex max-w-[14rem] flex-wrap justify-end gap-1">
-            <Badge variant="outline" className={statusStyles[subscription.enabled ? "enabled" : "disabled"] || ""}>
-              {t(`subscription.card.status.${subscription.enabled ? "enabled" : "disabled"}`)}
+            <Badge variant="outline" className={statusStyles[status] || ""}>
+              {t(`subscription.card.status.${status}`)}
             </Badge>
+            {subscription.billing_type === "recurring" ? (
+              <Badge variant="outline" className={renewalModeStyles[renewalMode] || ""}>
+                {t(`subscription.card.renewalMode.${renewalMode}`)}
+              </Badge>
+            ) : null}
           </div>
         </div>
 

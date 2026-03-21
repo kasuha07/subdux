@@ -45,6 +45,10 @@ func createNotificationDaysBeforeTestUser(t *testing.T, db *gorm.DB) model.User 
 	return user
 }
 
+func intPtr(value int) *int {
+	return &value
+}
+
 func TestUpdatePolicyRejectsDaysBeforeAboveMax(t *testing.T) {
 	db := newNotificationDaysBeforeTestDB(t)
 	user := createNotificationDaysBeforeTestUser(t, db)
@@ -69,7 +73,10 @@ func TestCreateSubscriptionRejectsNotifyDaysBeforeAboveMax(t *testing.T) {
 	_, err := service.Create(user.ID, CreateSubscriptionInput{
 		Name:             "Example subscription",
 		Amount:           9.99,
-		BillingType:      billingTypeOneTime,
+		BillingType:      billingTypeRecurring,
+		RecurrenceType:   recurrenceTypeInterval,
+		IntervalCount:    intPtr(1),
+		IntervalUnit:     intervalUnitMonth,
 		NextBillingDate:  "2025-01-01",
 		NotifyDaysBefore: &invalid,
 	})
@@ -90,7 +97,10 @@ func TestUpdateSubscriptionRejectsNotifyDaysBeforeAboveMax(t *testing.T) {
 	sub, err := service.Create(user.ID, CreateSubscriptionInput{
 		Name:             "Example subscription",
 		Amount:           9.99,
-		BillingType:      billingTypeOneTime,
+		BillingType:      billingTypeRecurring,
+		RecurrenceType:   recurrenceTypeInterval,
+		IntervalCount:    intPtr(1),
+		IntervalUnit:     intervalUnitMonth,
 		NextBillingDate:  "2025-01-01",
 		NotifyDaysBefore: &initialNotifyDaysBefore,
 	})
@@ -120,7 +130,10 @@ func TestUpdateSubscriptionAllowsClearingNotifyOverridesWithNull(t *testing.T) {
 	sub, err := service.Create(user.ID, CreateSubscriptionInput{
 		Name:             "Example subscription",
 		Amount:           9.99,
-		BillingType:      billingTypeOneTime,
+		BillingType:      billingTypeRecurring,
+		RecurrenceType:   recurrenceTypeInterval,
+		IntervalCount:    intPtr(1),
+		IntervalUnit:     intervalUnitMonth,
 		NextBillingDate:  "2025-01-01",
 		NotifyEnabled:    &initialEnabled,
 		NotifyDaysBefore: &initialDays,

@@ -9,7 +9,7 @@ func (s *AdminService) GetStats() (*AdminStats, error) {
 	s.DB.Model(&model.Subscription{}).Count(&stats.TotalSubscriptions)
 
 	var subs []model.Subscription
-	if err := s.DB.Where("enabled = ?", true).Find(&subs).Error; err != nil {
+	if err := s.DB.Where("status = ?", subscriptionStatusActive).Find(&subs).Error; err != nil {
 		return nil, err
 	}
 

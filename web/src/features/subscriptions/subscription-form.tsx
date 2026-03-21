@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import {
   useSubscriptionFormState,
 } from "@/features/subscriptions/hooks/use-subscription-form-state"
@@ -31,6 +30,7 @@ import SubscriptionRecurrenceFields from "./subscription-recurrence-fields"
 
 interface SubscriptionFormProps {
   categories: Category[]
+  onMarkRenewed?: (subscription: Subscription) => Promise<Subscription>
   onOpenChange: (open: boolean) => void
   onSubmit: (data: CreateSubscriptionInput) => Promise<Subscription>
   open: boolean
@@ -41,6 +41,7 @@ interface SubscriptionFormProps {
 
 export default function SubscriptionForm({
   categories,
+  onMarkRenewed,
   onOpenChange,
   onSubmit,
   open,
@@ -55,6 +56,7 @@ export default function SubscriptionForm({
     error,
     handleIconChange,
     handleIconFileSelected,
+    handleMarkRenewed,
     handleSubmit,
     isEditing,
     loading,
@@ -62,6 +64,7 @@ export default function SubscriptionForm({
     values,
   } = useSubscriptionFormState({
     language: i18n.language,
+    onMarkRenewed,
     onOpenChange,
     onSubmit,
     open,
@@ -156,43 +159,40 @@ export default function SubscriptionForm({
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="billing-type">{t("subscription.form.billingTypeLabel")}</Label>
-                <Select
-                  value={values.billingType}
-                  onValueChange={(value) => setField("billingType", value)}
-                >
-                  <SelectTrigger id="billing-type">
+                <Label htmlFor="status">{t("subscription.form.statusLabel")}</Label>
+                <Select value={values.status} onValueChange={(value) => setField("status", value as typeof values.status)}>
+                  <SelectTrigger id="status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="recurring">
-                      {t("subscription.form.billingType.recurring")}
-                    </SelectItem>
-                    <SelectItem value="one_time">{t("subscription.form.billingType.one_time")}</SelectItem>
+                    <SelectItem value="active">{t("subscription.form.status.active")}</SelectItem>
+                    <SelectItem value="ended">{t("subscription.form.status.ended")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="enabled">{t("subscription.form.enabledLabel")}</Label>
-                <div className="inline-flex h-9 w-full items-center rounded-md border px-3 sm:w-fit">
-                  <Switch
-                    id="enabled"
-                    checked={values.enabled}
-                    onCheckedChange={(checked) => setField("enabled", checked)}
-                  />
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    {values.enabled ? t("subscription.form.enabled") : t("subscription.form.disabled")}
-                  </span>
-                </div>
+                <Label htmlFor="renewal-mode">{t("subscription.form.renewalModeLabel")}</Label>
+                <Select
+                  value={values.renewalMode}
+                  onValueChange={(value) => setField("renewalMode", value as typeof values.renewalMode)}
+                  disabled={values.status === "ended"}
+                >
+                  <SelectTrigger id="renewal-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto_renew">{t("subscription.form.renewalMode.auto_renew")}</SelectItem>
+                    <SelectItem value="manual_renew">{t("subscription.form.renewalMode.manual_renew")}</SelectItem>
+                    <SelectItem value="cancel_at_period_end">
+                      {t("subscription.form.renewalMode.cancel_at_period_end")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="next-billing-date">
-                {values.billingType === "one_time"
-                  ? t("subscription.form.purchaseDateLabel")
-                  : t("subscription.form.nextBillingDateLabel")}
-              </Label>
+              <Label htmlFor="next-billing-date">{t("subscription.form.nextBillingDateLabel")}</Label>
               <Input
                 id="next-billing-date"
                 type="date"
@@ -201,6 +201,19 @@ export default function SubscriptionForm({
                 required
               />
             </div>
+
+            {values.status === "ended" ? (
+              <div className="space-y-2">
+                <Label htmlFor="ends-at">{t("subscription.form.endsAtLabel")}</Label>
+                <Input
+                  id="ends-at"
+                  type="date"
+                  value={values.endsAt}
+                  onChange={(event) => setField("endsAt", event.target.value)}
+                  required
+                />
+              </div>
+            ) : null}
 
             <SubscriptionRecurrenceFields
               billingType={values.billingType}
@@ -249,6 +262,20 @@ export default function SubscriptionForm({
               >
                 {t("subscription.form.cancel")}
               </Button>
+              {isEditing &&
+              subscription &&
+              values.status === "active" &&
+              values.renewalMode === "manual_renew" ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full sm:flex-1"
+                  onClick={() => void handleMarkRenewed()}
+                  disabled={loading}
+                >
+                  {t("subscription.form.markRenewed")}
+                </Button>
+              ) : null}
               <Button type="submit" className="w-full sm:flex-1" disabled={loading}>
                 {loading
                   ? t("subscription.form.saving")

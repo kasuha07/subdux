@@ -390,7 +390,7 @@ func (s *ExchangeRateService) getActiveCurrencies() []string {
 	}
 
 	var subs []model.Subscription
-	s.DB.Select("DISTINCT currency").Where("enabled = ?", true).Find(&subs)
+	s.DB.Select("DISTINCT currency").Where("status = ?", subscriptionStatusActive).Find(&subs)
 	for _, sub := range subs {
 		currencySet[strings.ToLower(sub.Currency)] = true
 	}
@@ -417,7 +417,7 @@ func (s *ExchangeRateService) getTargetCurrencies(base string) []string {
 	}
 
 	var subs []model.Subscription
-	s.DB.Select("DISTINCT currency").Where("enabled = ?", true).Find(&subs)
+	s.DB.Select("DISTINCT currency").Where("status = ?", subscriptionStatusActive).Find(&subs)
 	for _, sub := range subs {
 		c := strings.ToLower(sub.Currency)
 		if c != base {

@@ -80,3 +80,53 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDashboardSummarySplitsCommittedSpend(t *testing.T) {
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	intervalCount := 1
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Auto renew monthly",
+		Amount:          10,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-20",
+	}); err != nil {
+		t.Fatalf("create auto renew subscription failed: %v", err)
+	}
+
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Manual renew monthly",
+		Amount:          5,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeManualRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-22",
+	}); err != nil {
+		t.Fatalf("create manual renew subscription failed: %v", err)
+	}
+
+	summary, err := service.GetDashboardSummary(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary() error = %v", err)
+	}
+
+	if got, want := summary.TotalMonthly, 15.0; got != want {
+		t.Fatalf("total_monthly = %v, want %v", got, want)
+	}
+	if got, want := summary.CommittedMonthly, 10.0; got != want {
+		t.Fatalf("committed_monthly = %v, want %v", got, want)
+	}
+	if got, want := summary.CommittedYearly, 120.0; got != want {
+		t.Fatalf("committed_yearly = %v, want %v", got, want)
+	}
+}

@@ -3,8 +3,10 @@ const dashboard = {
   "add": "添加",
   "loading": "加载中...",
   "stats": {
-    "monthly": "月度",
-    "yearly": "年度",
+    "activeMonthly": "当前活跃月度",
+    "activeYearly": "当前活跃年度",
+    "committedMonthly": "未来自动续费月度",
+    "committedYearly": "未来自动续费年度",
     "thisMonth": "本月",
     "upcoming": "即将到期"
   },
@@ -24,6 +26,7 @@ const dashboard = {
     "searchPlaceholder": "按名称、分类或备注搜索...",
     "filterButton": "筛选",
     "status": "状态",
+    "renewalMode": "续费方式",
     "category": "分类",
     "noCategory": "无分类",
     "paymentMethod": "支付方式",

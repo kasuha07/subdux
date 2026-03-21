@@ -93,8 +93,12 @@ func hashCalendarToken(token string) string {
 }
 
 func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subscription, error) {
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, time.Now()); err != nil {
+		return nil, err
+	}
+
 	var subs []model.Subscription
-	if err := s.DB.Where("user_id = ? AND enabled = ? AND next_billing_date IS NOT NULL", userID, true).
+	if err := s.DB.Where("user_id = ? AND status = ? AND next_billing_date IS NOT NULL", userID, subscriptionStatusActive).
 		Order("next_billing_date ASC").
 		Find(&subs).Error; err != nil {
 		return nil, err
@@ -128,18 +132,20 @@ func (s *CalendarService) GenerateICalFeed(userID uint) (string, error) {
 
 		sb.WriteString("BEGIN:VEVENT" + crlf)
 		sb.WriteString(icalFold(fmt.Sprintf("UID:subdux-sub-%d@subdux", sub.ID)) + crlf)
-		sb.WriteString(icalFold("DTSTART;VALUE=DATE:" + dateStr) + crlf)
-		sb.WriteString(icalFold("DTEND;VALUE=DATE:" + dateStr) + crlf)
-		sb.WriteString(icalFold("SUMMARY:" + icalEscape(summary)) + crlf)
+		sb.WriteString(icalFold("DTSTART;VALUE=DATE:"+dateStr) + crlf)
+		sb.WriteString(icalFold("DTEND;VALUE=DATE:"+dateStr) + crlf)
+		sb.WriteString(icalFold("SUMMARY:"+icalEscape(summary)) + crlf)
 
 		if sub.Notes != "" {
-			sb.WriteString(icalFold("DESCRIPTION:" + icalEscape(sub.Notes)) + crlf)
+			sb.WriteString(icalFold("DESCRIPTION:"+icalEscape(sub.Notes)) + crlf)
 		}
 
-		if sub.BillingType == billingTypeRecurring && isRecurringScheduleValid(sub) {
+		if sub.BillingType == billingTypeRecurring &&
+			normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew &&
+			isRecurringScheduleValid(sub) {
 			rrule := buildRRule(sub)
 			if rrule != "" {
-				sb.WriteString(icalFold("RRULE:" + rrule) + crlf)
+				sb.WriteString(icalFold("RRULE:"+rrule) + crlf)
 			}
 		}
 

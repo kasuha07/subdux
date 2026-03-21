@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { getMonthlyAmountFactor } from "@/features/dashboard/dashboard-amount-utils"
+import { isSubscriptionActive } from "@/features/subscriptions/subscription-lifecycle"
 import { api, isAdmin } from "@/lib/api"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
@@ -35,7 +36,7 @@ function DashboardSkeleton() {
   return (
     <>
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -111,7 +112,8 @@ export default function DashboardPage() {
     getSubscriptionCategoryName,
     handleSortFieldSelect,
     handleToggleCategory,
-    handleToggleEnabledState,
+    handleToggleRenewalMode,
+    handleToggleStatus,
     handleTogglePaymentMethod,
     hasActiveFilters,
     includeNoCategory,
@@ -122,8 +124,9 @@ export default function DashboardPage() {
     resetFiltersAndSorting,
     searchTerm,
     selectedCategories,
-    selectedEnabledStates,
     selectedPaymentMethodIDs,
+    selectedRenewalModes,
+    selectedStatuses,
     setSearchTerm,
     sortDirection,
     sortField,
@@ -243,6 +246,15 @@ export default function DashboardPage() {
     return created
   }
 
+  async function handleMarkRenewed(sub: Subscription) {
+    const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
+    toast.success(t("dashboard.updateSuccess"))
+    setEditingSub(null)
+    setFormOpen(false)
+    await fetchData()
+    return renewed
+  }
+
   function openNewForm() {
     setEditingSub(null)
     setFormOpen(true)
@@ -298,10 +310,11 @@ export default function DashboardPage() {
             <DashboardFiltersToolbar
               searchTerm={searchTerm}
               onSearchTermChange={setSearchTerm}
-              selectedEnabledStates={selectedEnabledStates}
+              selectedStatuses={selectedStatuses}
               selectedCategories={selectedCategories}
               includeNoCategory={includeNoCategory}
               selectedPaymentMethodIDs={selectedPaymentMethodIDs}
+              selectedRenewalModes={selectedRenewalModes}
               includeNoPaymentMethod={includeNoPaymentMethod}
               categoryOptions={categoryOptions}
               paymentMethods={paymentMethods}
@@ -312,10 +325,11 @@ export default function DashboardPage() {
               getSortFieldLabel={getSortFieldLabel}
               hasActiveFilters={hasActiveFilters}
               onResetFiltersAndSorting={resetFiltersAndSorting}
-              onToggleEnabledState={handleToggleEnabledState}
+              onToggleStatus={handleToggleStatus}
               onToggleCategory={handleToggleCategory}
               onToggleNoCategory={onToggleNoCategory}
               onTogglePaymentMethod={handleTogglePaymentMethod}
+              onToggleRenewalMode={handleToggleRenewalMode}
               onToggleNoPaymentMethod={onToggleNoPaymentMethod}
               subscriptionView={subscriptionView}
               onToggleSubscriptionView={() =>
@@ -384,7 +398,7 @@ export default function DashboardPage() {
                         displayCurrency={displayCurrency}
                         displayCurrencySymbol={displayCurrencySymbol}
                         showMonthlyAmount={monthlyFactor !== null}
-                        showCycleProgress={displaySubscriptionCycleProgress}
+                        showCycleProgress={displaySubscriptionCycleProgress && isSubscriptionActive(sub)}
                         paymentMethodName={
                           sub.payment_method_id
                             ? paymentMethodLabelMap.get(sub.payment_method_id)
@@ -411,7 +425,7 @@ export default function DashboardPage() {
                       displayCurrency={displayCurrency}
                       displayCurrencySymbol={displayCurrencySymbol}
                       showMonthlyAmount={monthlyFactor !== null}
-                      showCycleProgress={displaySubscriptionCycleProgress}
+                      showCycleProgress={displaySubscriptionCycleProgress && isSubscriptionActive(sub)}
                       paymentMethodName={
                         sub.payment_method_id
                           ? paymentMethodLabelMap.get(sub.payment_method_id)
@@ -436,6 +450,7 @@ export default function DashboardPage() {
         }}
         subscription={editingSub}
         onSubmit={handleFormSubmit}
+        onMarkRenewed={handleMarkRenewed}
         userCurrencies={userCurrencies}
         categories={categories}
         paymentMethods={paymentMethods}

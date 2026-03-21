@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -409,6 +410,10 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 				BillingType: billingType,
 				Category:    categoryName,
 			}
+			if billingType != billingTypeRecurring {
+				sub.Skipped = true
+				sub.SkipReason = "unsupported_billing_type"
+			}
 			if isDuplicate {
 				sub.Skipped = true
 				sub.SkipReason = "duplicate"
@@ -416,7 +421,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			preview.Subscriptions = append(preview.Subscriptions, sub)
 
 			// Skip actual import logic in preview mode or for duplicates
-			if !confirm || isDuplicate {
+			if !confirm || isDuplicate || billingType != billingTypeRecurring {
 				if confirm {
 					result.Skipped++
 				}
@@ -484,12 +489,25 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			}
 
 			notifyEnabled := parseEnabled(item.Notifications)
+			lifecycle := deriveLegacyLifecycle(enabled, billingType, nextBilling, nil, time.Now().UTC())
+			normalizedLifecycle, lifecycleErr := normalizeLifecycleDraft(
+				lifecycle,
+				billingType,
+				nextBilling,
+				time.Now().In(pkg.GetSystemTimezone()),
+			)
+			if lifecycleErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to normalize lifecycle for %q: %v", name, lifecycleErr))
+				continue
+			}
 			subscription := model.Subscription{
 				UserID:          userID,
 				Name:            name,
 				Amount:          amount,
 				Currency:        currency,
-				Enabled:         enabled,
+				Status:          normalizedLifecycle.Status,
+				RenewalMode:     normalizedLifecycle.RenewalMode,
+				EndsAt:          copyTimePointer(normalizedLifecycle.EndsAt),
 				BillingType:     billingType,
 				Category:        categoryName,
 				CategoryID:      categoryID,
@@ -508,18 +526,11 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			if nextBilling != nil {
 				subscription.NextBillingDate = nextBilling
 			}
+			syncLegacyEnabledForLifecycle(&subscription)
 
 			if err := tx.Create(&subscription).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to import %q: %v", name, err))
 				continue
-			}
-
-			// Force update enabled field to handle GORM default:true zero-value issue
-			if !enabled {
-				if err := tx.Model(&subscription).Update("enabled", false).Error; err != nil {
-					result.Errors = append(result.Errors, fmt.Sprintf("failed to update enabled for %q: %v", name, err))
-					continue
-				}
 			}
 
 			result.Imported++

@@ -7,6 +7,8 @@ import type {
   CreateSubscriptionInput,
   PaymentMethod,
   Subscription,
+  SubscriptionRenewalMode,
+  SubscriptionStatus,
   UploadIconResponse,
   UserCurrency,
 } from "@/types"
@@ -16,10 +18,10 @@ export type SubscriptionNotifySetting = "default" | "enabled" | "disabled"
 interface SubscriptionFormValues {
   amount: string
   nextBillingDate: string
+  endsAt: string
   billingType: string
   categoryId: string
   currency: string
-  enabled: boolean
   icon: string
   intervalCount: string
   intervalUnit: string
@@ -30,6 +32,8 @@ interface SubscriptionFormValues {
   notifyEnabled: SubscriptionNotifySetting
   paymentMethodId: string
   recurrenceType: string
+  renewalMode: SubscriptionRenewalMode
+  status: SubscriptionStatus
   url: string
   yearlyDay: string
   yearlyMonth: string
@@ -37,6 +41,7 @@ interface SubscriptionFormValues {
 
 interface UseSubscriptionFormStateOptions {
   language: string
+  onMarkRenewed?: (subscription: Subscription) => Promise<Subscription>
   onOpenChange: (open: boolean) => void
   onSubmit: (data: CreateSubscriptionInput) => Promise<Subscription>
   open: boolean
@@ -51,6 +56,7 @@ interface UseSubscriptionFormStateResult {
   error: string
   handleIconChange: (value: string) => void
   handleIconFileSelected: (file: File) => void
+  handleMarkRenewed: () => Promise<void>
   handleSubmit: (event: FormEvent) => Promise<void>
   iconFile: File | null
   isEditing: boolean
@@ -92,10 +98,10 @@ function buildInitialValues(
     return {
       amount: subscription.amount.toString(),
       nextBillingDate: formatDateInput(subscription.next_billing_date),
-      billingType: subscription.billing_type || "recurring",
+      endsAt: formatDateInput(subscription.ends_at || subscription.next_billing_date),
+      billingType: "recurring",
       categoryId: subscription.category_id?.toString() || "",
       currency: subscription.currency || fallbackCurrencyCode,
-      enabled: subscription.enabled,
       icon: subscription.icon || "",
       intervalCount: (subscription.interval_count ?? 1).toString(),
       intervalUnit: subscription.interval_unit || "month",
@@ -111,6 +117,9 @@ function buildInitialValues(
             : "disabled",
       paymentMethodId: subscription.payment_method_id?.toString() || "",
       recurrenceType: subscription.recurrence_type || "interval",
+      renewalMode:
+        subscription.renewal_mode || "auto_renew",
+      status: subscription.status || "active",
       url: subscription.url || "",
       yearlyDay: (subscription.yearly_day ?? today.getDate()).toString(),
       yearlyMonth: (subscription.yearly_month ?? today.getMonth() + 1).toString(),
@@ -120,10 +129,10 @@ function buildInitialValues(
   return {
     amount: "",
     nextBillingDate: todayDate,
+    endsAt: todayDate,
     billingType: "recurring",
     categoryId: "",
     currency: fallbackCurrencyCode,
-    enabled: true,
     icon: "",
     intervalCount: "1",
     intervalUnit: "month",
@@ -134,6 +143,8 @@ function buildInitialValues(
     notifyEnabled: "default",
     paymentMethodId: "",
     recurrenceType: "interval",
+    renewalMode: "auto_renew",
+    status: "active",
     url: "",
     yearlyDay: today.getDate().toString(),
     yearlyMonth: (today.getMonth() + 1).toString(),
@@ -142,6 +153,7 @@ function buildInitialValues(
 
 export function useSubscriptionFormState({
   language,
+  onMarkRenewed,
   onOpenChange,
   onSubmit,
   open,
@@ -234,6 +246,42 @@ export function useSubscriptionFormState({
     }
   }, [open, paymentMethods, setField, values.paymentMethodId])
 
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    if (values.status === "active") {
+      if (values.renewalMode === "cancel_at_period_end") {
+        if (values.endsAt !== values.nextBillingDate) {
+          setField("endsAt", values.nextBillingDate)
+        }
+      }
+      return
+    }
+
+    if (!values.endsAt) {
+      setField("endsAt", values.nextBillingDate || formatDateKey(new Date()))
+    }
+  }, [open, setField, values.endsAt, values.nextBillingDate, values.renewalMode, values.status])
+
+  const handleMarkRenewed = useCallback(async () => {
+    if (!subscription || !onMarkRenewed) {
+      return
+    }
+
+    setError("")
+    setLoading(true)
+    try {
+      await onMarkRenewed(subscription)
+      onOpenChange(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("subscription.form.error"))
+    } finally {
+      setLoading(false)
+    }
+  }, [onMarkRenewed, onOpenChange, subscription, t])
+
   const handleSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault()
     setError("")
@@ -252,34 +300,40 @@ export function useSubscriptionFormState({
         iconValue = result.icon
       }
 
-      const normalizedRecurrenceType = values.billingType === "recurring" ? values.recurrenceType : ""
       const parsedNotifyDaysBefore = parseInt(values.notifyDaysBefore, 10)
       const payload: CreateSubscriptionInput = {
         name: values.name,
         amount: parseFloat(values.amount),
         currency: values.currency,
-        enabled: values.enabled,
-        billing_type: values.billingType,
-        recurrence_type: normalizedRecurrenceType,
+        status: values.status,
+        renewal_mode: values.renewalMode,
+        ends_at:
+          values.status === "ended"
+            ? values.endsAt
+            : values.renewalMode === "cancel_at_period_end"
+              ? values.nextBillingDate
+              : null,
+        billing_type: "recurring",
+        recurrence_type: values.recurrenceType,
         interval_count:
-          values.billingType === "recurring" && values.recurrenceType === "interval"
+          values.recurrenceType === "interval"
             ? parseInt(values.intervalCount, 10)
             : null,
         interval_unit:
-          values.billingType === "recurring" && values.recurrenceType === "interval"
+          values.recurrenceType === "interval"
             ? values.intervalUnit
             : "",
         next_billing_date: values.nextBillingDate,
         monthly_day:
-          values.billingType === "recurring" && values.recurrenceType === "monthly_date"
+          values.recurrenceType === "monthly_date"
             ? parseInt(values.monthlyDay, 10)
             : null,
         yearly_month:
-          values.billingType === "recurring" && values.recurrenceType === "yearly_date"
+          values.recurrenceType === "yearly_date"
             ? parseInt(values.yearlyMonth, 10)
             : null,
         yearly_day:
-          values.billingType === "recurring" && values.recurrenceType === "yearly_date"
+          values.recurrenceType === "yearly_date"
             ? parseInt(values.yearlyDay, 10)
             : null,
         category: "",
@@ -324,6 +378,7 @@ export function useSubscriptionFormState({
     error,
     handleIconChange,
     handleIconFileSelected,
+    handleMarkRenewed,
     handleSubmit,
     iconFile,
     isEditing,

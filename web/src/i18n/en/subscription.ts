@@ -1,7 +1,7 @@
 const subscription = {
   "card": {
     "billingType": {
-      "one_time": "Buyout"
+      "legacy": "Legacy purchase"
     },
     "recurrence": {
       "interval": {
@@ -23,11 +23,18 @@ const subscription = {
       "on": "Reminder {{days}}d before",
       "off": "Reminder off"
     },
+    "endsOn": "Ends on {{date}}",
+    "endedOn": "Ended on {{date}}",
     "notes": "Note: {{content}}",
     "cycleProgressAria": "Current cycle progress: {{progress}}%",
     "status": {
-      "enabled": "enabled",
-      "disabled": "disabled"
+      "active": "active",
+      "ended": "ended"
+    },
+    "renewalMode": {
+      "auto_renew": "Auto renew",
+      "manual_renew": "Manual renew",
+      "cancel_at_period_end": "End at period end"
     }
   },
   "form": {
@@ -43,11 +50,20 @@ const subscription = {
     "billingTypeLabel": "Billing type",
     "billingType": {
       "recurring": "Subscription-based",
-      "one_time": "Buyout"
+      "one_time": "Legacy purchase (unsupported)"
     },
-    "enabledLabel": "Enabled",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
+    "statusLabel": "Lifecycle",
+    "status": {
+      "active": "Active",
+      "ended": "Ended"
+    },
+    "renewalModeLabel": "Renewal mode",
+    "renewalMode": {
+      "auto_renew": "Auto renew",
+      "manual_renew": "Manual renew",
+      "cancel_at_period_end": "End at period end"
+    },
+    "endsAtLabel": "Ended on",
     "purchaseDateLabel": "Purchase date",
     "nextBillingDateLabel": "Next billing date",
     "recurrenceTypeLabel": "Recurrence rule",
@@ -117,6 +133,7 @@ const subscription = {
     "notesLabel": "Notes",
     "notesPlaceholder": "Optional notes...",
     "cancel": "Cancel",
+    "markRenewed": "Mark as renewed",
     "saving": "Saving...",
     "update": "Update",
     "addButton": "Add subscription",

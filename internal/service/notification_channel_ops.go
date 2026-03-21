@@ -156,12 +156,14 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 	testSubName := "Test Subscription"
 	testBillingDate := time.Now().AddDate(0, 0, 3)
 	testSubscription := &model.Subscription{
-		Name:     testSubName,
-		Amount:   9.99,
-		Currency: "USD",
-		Category: "Entertainment",
-		URL:      "https://example.com/subscription",
-		Notes:    "Test notification",
+		Name:        testSubName,
+		Amount:      9.99,
+		Currency:    "USD",
+		Status:      subscriptionStatusActive,
+		RenewalMode: renewalModeAutoRenew,
+		Category:    "Entertainment",
+		URL:         "https://example.com/subscription",
+		Notes:       "Test notification",
 	}
 
 	templateData := s.buildTemplateData(
@@ -169,6 +171,7 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		&user,
 		testBillingDate,
 		3,
+		notificationEventTypeForSubscription(*testSubscription),
 	)
 
 	message, err := s.renderNotificationMessage(userID, channel.Type, templateData)

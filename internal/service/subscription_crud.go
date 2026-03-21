@@ -12,7 +12,7 @@ import (
 
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
 	now := time.Now().In(pkg.GetSystemTimezone())
-	if err := autoAdvanceRecurringNextBillingDatesForUser(s.DB, userID, now); err != nil {
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}
 
@@ -33,6 +33,11 @@ func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
 }
 
 func (s *SubscriptionService) GetByID(userID, id uint) (*model.Subscription, error) {
+	now := time.Now().In(pkg.GetSystemTimezone())
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
+		return nil, err
+	}
+
 	var sub model.Subscription
 	err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&sub).Error
 	if err == nil {
@@ -47,12 +52,11 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		currency = "USD"
 	}
 
-	enabled := true
-	if input.Enabled != nil {
-		enabled = *input.Enabled
-	}
-
 	nextBillingDate, err := parseOptionalDateString(input.NextBillingDate)
+	if err != nil {
+		return nil, err
+	}
+	endsAt, err := parseOptionalDateString(input.EndsAt)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +73,14 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 	}
 
 	normalizedDraft, nextBillingDate, err := normalizeBillingDraft(draft)
+	if err != nil {
+		return nil, err
+	}
+	lifecycle, err := normalizeLifecycleDraft(lifecycleDraft{
+		Status:      input.Status,
+		RenewalMode: input.RenewalMode,
+		EndsAt:      endsAt,
+	}, normalizedDraft.BillingType, nextBillingDate, time.Now().In(pkg.GetSystemTimezone()))
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +103,9 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		Name:             input.Name,
 		Amount:           input.Amount,
 		Currency:         currency,
-		Enabled:          enabled,
+		Status:           lifecycle.Status,
+		RenewalMode:      lifecycle.RenewalMode,
+		EndsAt:           copyTimePointer(lifecycle.EndsAt),
 		BillingType:      normalizedDraft.BillingType,
 		RecurrenceType:   normalizedDraft.RecurrenceType,
 		IntervalCount:    copyIntPointer(normalizedDraft.IntervalCount),
@@ -109,6 +123,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		URL:              input.URL,
 		Notes:            input.Notes,
 	}
+	syncLegacyEnabledForLifecycle(&sub)
 
 	if err := s.DB.Create(&sub).Error; err != nil {
 		return nil, err
@@ -132,9 +147,6 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	}
 	if input.Currency != nil {
 		updates["currency"] = strings.TrimSpace(*input.Currency)
-	}
-	if input.Enabled != nil {
-		updates["enabled"] = *input.Enabled
 	}
 	if input.Category != nil {
 		updates["category"] = *input.Category
@@ -243,6 +255,52 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		updates["next_billing_date"] = copyTimePointer(nextBillingDate)
 	}
 
+	if input.Status != nil || input.RenewalMode != nil || input.EndsAt != nil || hasScheduleUpdate {
+		nextBillingDate := sub.NextBillingDate
+		if nextBillingDateUpdate, ok := updates["next_billing_date"]; ok {
+			nextBillingDate = nextBillingDateUpdate.(*time.Time)
+		}
+
+		lifecycle := lifecycleDraft{
+			Status:      sub.Status,
+			RenewalMode: sub.RenewalMode,
+			EndsAt:      copyTimePointer(sub.EndsAt),
+		}
+		if input.Status != nil {
+			lifecycle.Status = *input.Status
+		}
+		if input.RenewalMode != nil {
+			lifecycle.RenewalMode = *input.RenewalMode
+		}
+		if input.EndsAt != nil {
+			parsed, err := parseOptionalDateString(*input.EndsAt)
+			if err != nil {
+				return nil, err
+			}
+			lifecycle.EndsAt = parsed
+		}
+
+		normalizedLifecycle, err := normalizeLifecycleDraft(
+			lifecycle,
+			func() string {
+				if billingTypeUpdate, ok := updates["billing_type"].(string); ok {
+					return billingTypeUpdate
+				}
+				return sub.BillingType
+			}(),
+			nextBillingDate,
+			time.Now().In(pkg.GetSystemTimezone()),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		updates["status"] = normalizedLifecycle.Status
+		updates["renewal_mode"] = normalizedLifecycle.RenewalMode
+		updates["ends_at"] = copyTimePointer(normalizedLifecycle.EndsAt)
+		updates["enabled"] = normalizedLifecycle.Status == subscriptionStatusActive
+	}
+
 	if err := s.DB.Model(sub).Updates(updates).Error; err != nil {
 		return nil, err
 	}
@@ -296,8 +354,15 @@ func normalizeSubscriptionForResponse(sub *model.Subscription) {
 	if sub == nil {
 		return
 	}
+	if !isValidSubscriptionStatus(normalizeStatus(sub.Status)) || !isValidRenewalMode(normalizeRenewalMode(sub.RenewalMode)) {
+		legacy := deriveLegacyLifecycle(sub.Enabled, sub.BillingType, sub.NextBillingDate, sub.EndsAt, sub.UpdatedAt)
+		sub.Status = legacy.Status
+		sub.RenewalMode = legacy.RenewalMode
+		sub.EndsAt = copyTimePointer(legacy.EndsAt)
+	}
+	syncLegacyEnabledForLifecycle(sub)
 	billingType := strings.ToLower(strings.TrimSpace(sub.BillingType))
 	if billingType == billingTypeLifetime || billingType == "payg" || billingType == billingTypeOneTime {
-		sub.BillingType = billingTypeOneTime
+		sub.BillingType = billingTypeRecurring
 	}
 }

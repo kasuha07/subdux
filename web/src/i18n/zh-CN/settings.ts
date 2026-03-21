@@ -44,7 +44,7 @@ const settings = {
     "toggle": "将所有金额显示为主货币",
     "monthlyCostToggle": "将订阅制金额显示为每月费用",
     "cycleProgressToggle": "显示订阅周期进度条",
-    "disabledLastToggle": "将已停用的订阅靠后显示"
+    "disabledLastToggle": "将已结束的订阅靠后显示"
   },
   "currencyManagement": {
     "title": "货币管理",

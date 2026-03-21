@@ -11,14 +11,12 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 	if draft.BillingType == "" {
 		draft.BillingType = billingTypeRecurring
 	}
+	if draft.BillingType == billingTypeOneTime {
+		return draft, nil, errors.New("one_time subscriptions are no longer supported")
+	}
 
 	if draft.NextBillingDate == nil {
-		switch draft.BillingType {
-		case billingTypeRecurring:
-			return draft, nil, errors.New("next_billing_date is required for recurring subscriptions")
-		case billingTypeOneTime:
-			return draft, nil, errors.New("next_billing_date is required for one-time subscriptions")
-		}
+		return draft, nil, errors.New("next_billing_date is required for recurring subscriptions")
 	}
 
 	switch draft.BillingType {
@@ -81,18 +79,8 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 		default:
 			return draft, nil, errors.New("recurrence_type must be one of: interval, monthly_date, yearly_date")
 		}
-	case billingTypeOneTime:
-		nextBillingDate := normalizeDateUTC(*draft.NextBillingDate)
-		draft.NextBillingDate = &nextBillingDate
-		draft.RecurrenceType = ""
-		draft.IntervalCount = nil
-		draft.IntervalUnit = ""
-		draft.MonthlyDay = nil
-		draft.YearlyMonth = nil
-		draft.YearlyDay = nil
-		return draft, &nextBillingDate, nil
 	default:
-		return draft, nil, errors.New("billing_type must be one of: recurring, one_time")
+		return draft, nil, errors.New("billing_type must be recurring")
 	}
 }
 

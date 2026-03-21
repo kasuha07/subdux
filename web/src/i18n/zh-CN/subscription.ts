@@ -1,7 +1,7 @@
 const subscription = {
   "card": {
     "billingType": {
-      "one_time": "买断制"
+      "legacy": "历史买断"
     },
     "recurrence": {
       "interval": {
@@ -23,11 +23,18 @@ const subscription = {
       "on": "提前 {{days}} 天提醒",
       "off": "提醒已关闭"
     },
+    "endsOn": "将于 {{date}} 结束",
+    "endedOn": "已于 {{date}} 结束",
     "notes": "备注：{{content}}",
     "cycleProgressAria": "当前周期进度：{{progress}}%",
     "status": {
-      "enabled": "启用",
-      "disabled": "停用"
+      "active": "有效",
+      "ended": "已结束"
+    },
+    "renewalMode": {
+      "auto_renew": "自动续费",
+      "manual_renew": "手动续费",
+      "cancel_at_period_end": "本期结束后终止"
     }
   },
   "form": {
@@ -43,11 +50,20 @@ const subscription = {
     "billingTypeLabel": "计费类型",
     "billingType": {
       "recurring": "订阅制",
-      "one_time": "买断制"
+      "one_time": "历史买断（已停用）"
     },
-    "enabledLabel": "启用状态",
-    "enabled": "启用",
-    "disabled": "停用",
+    "statusLabel": "生命周期",
+    "status": {
+      "active": "有效",
+      "ended": "已结束"
+    },
+    "renewalModeLabel": "续费方式",
+    "renewalMode": {
+      "auto_renew": "自动续费",
+      "manual_renew": "手动续费",
+      "cancel_at_period_end": "本期结束后终止"
+    },
+    "endsAtLabel": "结束日期",
     "purchaseDateLabel": "购买日期",
     "nextBillingDateLabel": "下次计费日期",
     "recurrenceTypeLabel": "重复规则",
@@ -117,6 +133,7 @@ const subscription = {
     "notesLabel": "备注",
     "notesPlaceholder": "可选备注...",
     "cancel": "取消",
+    "markRenewed": "标记为已续费",
     "saving": "保存中...",
     "update": "更新",
     "addButton": "添加订阅",

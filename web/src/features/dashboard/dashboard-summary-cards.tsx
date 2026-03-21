@@ -22,13 +22,13 @@ export default function DashboardSummaryCards({
   const displayCurrency = summary.currency || preferredCurrency
 
   return (
-    <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <DollarSign className="size-4" />
             <span className="text-xs font-medium uppercase tracking-wider">
-              {t("dashboard.stats.monthly")}
+              {t("dashboard.stats.activeMonthly")}
             </span>
           </div>
           <p className="mt-1 text-2xl font-bold tabular-nums">
@@ -41,11 +41,37 @@ export default function DashboardSummaryCards({
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="size-4" />
             <span className="text-xs font-medium uppercase tracking-wider">
-              {t("dashboard.stats.yearly")}
+              {t("dashboard.stats.activeYearly")}
             </span>
           </div>
           <p className="mt-1 text-2xl font-bold tabular-nums">
             {formatCurrencyWithSymbol(summary.total_yearly, displayCurrency, currencySymbol, language)}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Repeat className="size-4" />
+            <span className="text-xs font-medium uppercase tracking-wider">
+              {t("dashboard.stats.committedMonthly")}
+            </span>
+          </div>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {formatCurrencyWithSymbol(summary.committed_monthly, displayCurrency, currencySymbol, language)}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <CalendarDays className="size-4" />
+            <span className="text-xs font-medium uppercase tracking-wider">
+              {t("dashboard.stats.committedYearly")}
+            </span>
+          </div>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {formatCurrencyWithSymbol(summary.committed_yearly, displayCurrency, currencySymbol, language)}
           </p>
         </CardContent>
       </Card>

@@ -68,7 +68,10 @@ type Subscription struct {
 	Amount           float64    `gorm:"not null" json:"amount"`
 	Currency         string     `gorm:"not null;size:10;default:'USD'" json:"currency"`
 	Enabled          bool       `gorm:"default:true" json:"enabled"`
-	BillingType      string     `gorm:"not null;size:30;default:'recurring'" json:"billing_type"` // recurring, one_time
+	Status           string     `gorm:"not null;size:30;default:'active'" json:"status"`
+	RenewalMode      string     `gorm:"not null;size:30;default:'auto_renew'" json:"renewal_mode"`
+	EndsAt           *time.Time `json:"ends_at"`
+	BillingType      string     `gorm:"not null;size:30;default:'recurring'" json:"billing_type"` // recurring only
 	RecurrenceType   string     `gorm:"size:30" json:"recurrence_type"`                           // interval, monthly_date, yearly_date
 	IntervalCount    *int       `json:"interval_count"`
 	IntervalUnit     string     `gorm:"size:10" json:"interval_unit"` // day, week, month, year

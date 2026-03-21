@@ -8,7 +8,24 @@ import (
 	"github.com/shiroha/subdux/internal/model"
 )
 
-func (s *NotificationService) buildTemplateData(sub *model.Subscription, user *model.User, billingDate time.Time, daysUntil int) TemplateData {
+func notificationEventTypeForSubscription(sub model.Subscription) string {
+	switch normalizeRenewalMode(sub.RenewalMode) {
+	case renewalModeManualRenew:
+		return "manual_renew_reminder"
+	case renewalModeCancelAtPeriodEnd:
+		return "ending_soon"
+	default:
+		return "auto_renew_reminder"
+	}
+}
+
+func (s *NotificationService) buildTemplateData(
+	sub *model.Subscription,
+	user *model.User,
+	billingDate time.Time,
+	daysUntil int,
+	eventType string,
+) TemplateData {
 	paymentMethodName := ""
 	if sub.PaymentMethodID != nil {
 		var paymentMethod model.PaymentMethod
@@ -26,6 +43,9 @@ func (s *NotificationService) buildTemplateData(sub *model.Subscription, user *m
 		Amount:           sub.Amount,
 		Currency:         sub.Currency,
 		DaysUntil:        daysUntil,
+		EventType:        eventType,
+		RenewalMode:      normalizeRenewalMode(sub.RenewalMode),
+		Status:           normalizeStatus(sub.Status),
 		Category:         sub.Category,
 		PaymentMethod:    paymentMethodName,
 		URL:              sub.URL,

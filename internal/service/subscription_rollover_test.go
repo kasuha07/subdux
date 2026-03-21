@@ -123,21 +123,6 @@ func TestNextRecurringBillingDateOnOrAfter(t *testing.T) {
 		}
 	})
 
-	t.Run("one-time subscription is not advanced", func(t *testing.T) {
-		nextBillingDate := mustDate(t, "2025-01-01")
-		sub := model.Subscription{
-			BillingType:     billingTypeOneTime,
-			NextBillingDate: &nextBillingDate,
-		}
-
-		next, changed := nextRecurringBillingDateOnOrAfter(&sub, referenceDate)
-		if changed {
-			t.Fatal("expected one-time subscription to remain unchanged")
-		}
-		if next != nil {
-			t.Fatal("expected one-time subscription to return nil advanced date")
-		}
-	})
 }
 
 func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
@@ -147,7 +132,6 @@ func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 
 	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
 	overdueRecurring := today.AddDate(0, 0, -10)
-	overdueOneTime := today.AddDate(0, 0, -5)
 
 	intervalCount := 1
 	recurring, err := service.Create(user.ID, CreateSubscriptionInput{
@@ -161,16 +145,6 @@ func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Create recurring subscription error = %v", err)
-	}
-
-	oneTime, err := service.Create(user.ID, CreateSubscriptionInput{
-		Name:            "One-time overdue",
-		Amount:          4.99,
-		BillingType:     billingTypeOneTime,
-		NextBillingDate: overdueOneTime.Format("2006-01-02"),
-	})
-	if err != nil {
-		t.Fatalf("Create one-time subscription error = %v", err)
 	}
 
 	if _, err := service.List(user.ID); err != nil {
@@ -188,16 +162,24 @@ func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	if got, want := refreshedRecurring.NextBillingDate.Format("2006-01-02"), expectedRecurring.Format("2006-01-02"); got != want {
 		t.Fatalf("recurring next billing date = %s, want %s", got, want)
 	}
+}
 
-	var refreshedOneTime model.Subscription
-	if err := db.First(&refreshedOneTime, oneTime.ID).Error; err != nil {
-		t.Fatalf("load one-time subscription error = %v", err)
+func TestCreateRejectsLegacyOneTimeSubscriptions(t *testing.T) {
+	db := newSubscriptionRolloverTestDB(t)
+	user := createSubscriptionRolloverTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	_, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Legacy buyout",
+		Amount:          4.99,
+		BillingType:     billingTypeOneTime,
+		NextBillingDate: normalizeDateUTC(time.Now()).Format("2006-01-02"),
+	})
+	if err == nil {
+		t.Fatal("Create() error = nil, want unsupported one_time error")
 	}
-	if refreshedOneTime.NextBillingDate == nil {
-		t.Fatal("one-time next billing date should not be nil")
-	}
-	if got, want := refreshedOneTime.NextBillingDate.Format("2006-01-02"), overdueOneTime.Format("2006-01-02"); got != want {
-		t.Fatalf("one-time next billing date = %s, want %s", got, want)
+	if got, want := err.Error(), "one_time subscriptions are no longer supported"; got != want {
+		t.Fatalf("Create() error = %q, want %q", got, want)
 	}
 }
 
@@ -237,6 +219,130 @@ func TestDashboardAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	expected := nextIntervalOccurrence(overdueRecurring, today, intervalCount, intervalUnitMonth)
 	if got, want := refreshed.NextBillingDate.Format("2006-01-02"), expected.Format("2006-01-02"); got != want {
 		t.Fatalf("recurring next billing date = %s, want %s", got, want)
+	}
+}
+
+func TestListEndsOverdueManualRenewSubscription(t *testing.T) {
+	db := newSubscriptionRolloverTestDB(t)
+	user := createSubscriptionRolloverTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	overdue := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone())).AddDate(0, 0, -2)
+	intervalCount := 1
+
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Manual renew overdue",
+		Amount:          12.99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeManualRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: overdue.Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatalf("Create manual renew subscription error = %v", err)
+	}
+
+	if _, err := service.List(user.ID); err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	var refreshed model.Subscription
+	if err := db.First(&refreshed, sub.ID).Error; err != nil {
+		t.Fatalf("load manual renew subscription error = %v", err)
+	}
+	if got, want := refreshed.Status, subscriptionStatusEnded; got != want {
+		t.Fatalf("status = %q, want %q", got, want)
+	}
+	if refreshed.EndsAt == nil {
+		t.Fatal("ends_at should be set for overdue manual renew subscription")
+	}
+	if got, want := refreshed.EndsAt.Format("2006-01-02"), overdue.Format("2006-01-02"); got != want {
+		t.Fatalf("ends_at = %s, want %s", got, want)
+	}
+}
+
+func TestListEndsCancelAtPeriodEndSubscription(t *testing.T) {
+	db := newSubscriptionRolloverTestDB(t)
+	user := createSubscriptionRolloverTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	periodEnd := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone())).AddDate(0, 0, -1)
+	intervalCount := 1
+
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Cancel at period end overdue",
+		Amount:          8.99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: periodEnd.Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatalf("Create cancel_at_period_end subscription error = %v", err)
+	}
+
+	if _, err := service.List(user.ID); err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	var refreshed model.Subscription
+	if err := db.First(&refreshed, sub.ID).Error; err != nil {
+		t.Fatalf("load cancel_at_period_end subscription error = %v", err)
+	}
+	if got, want := refreshed.Status, subscriptionStatusEnded; got != want {
+		t.Fatalf("status = %q, want %q", got, want)
+	}
+	if refreshed.EndsAt == nil {
+		t.Fatal("ends_at should be set for cancel_at_period_end subscription")
+	}
+	if got, want := refreshed.EndsAt.Format("2006-01-02"), periodEnd.Format("2006-01-02"); got != want {
+		t.Fatalf("ends_at = %s, want %s", got, want)
+	}
+}
+
+func TestMarkManualRenewedAdvancesNextBillingDate(t *testing.T) {
+	db := newSubscriptionRolloverTestDB(t)
+	user := createSubscriptionRolloverTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	nextBillingDate := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone())).AddDate(0, 0, 3)
+	intervalCount := 1
+
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Manual renew active",
+		Amount:          6.99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeManualRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: nextBillingDate.Format("2006-01-02"),
+	})
+	if err != nil {
+		t.Fatalf("Create manual renew subscription error = %v", err)
+	}
+
+	updated, err := service.MarkManualRenewed(user.ID, sub.ID)
+	if err != nil {
+		t.Fatalf("MarkManualRenewed() error = %v", err)
+	}
+
+	if updated.NextBillingDate == nil {
+		t.Fatal("next_billing_date should not be nil after mark renewed")
+	}
+	expected := nextIntervalOccurrence(nextBillingDate, nextBillingDate.AddDate(0, 0, 1), intervalCount, intervalUnitMonth)
+	if got, want := updated.NextBillingDate.Format("2006-01-02"), expected.Format("2006-01-02"); got != want {
+		t.Fatalf("next_billing_date = %s, want %s", got, want)
+	}
+	if got, want := updated.Status, subscriptionStatusActive; got != want {
+		t.Fatalf("status = %q, want %q", got, want)
 	}
 }
 

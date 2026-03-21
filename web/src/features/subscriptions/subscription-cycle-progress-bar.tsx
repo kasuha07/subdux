@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 
+import { hasFutureRecurringSchedule } from "@/features/subscriptions/subscription-lifecycle"
 import { cn } from "@/lib/utils"
 import type { Subscription } from "@/types"
 
@@ -33,10 +34,6 @@ function shiftUTCDate(date: Date, diff: { years?: number, months?: number, days?
 }
 
 function getPreviousCycleDate(subscription: Subscription, nextDate: Date): Date | null {
-  if (subscription.billing_type === "one_time") {
-    return toUTCDate(subscription.created_at)
-  }
-
   if (subscription.recurrence_type === "monthly_date") {
     return shiftUTCDate(nextDate, { months: -1 })
   }
@@ -68,6 +65,10 @@ function getPreviousCycleDate(subscription: Subscription, nextDate: Date): Date 
 }
 
 function getCycleProgressPercent(subscription: Subscription): number | null {
+  if (!hasFutureRecurringSchedule(subscription)) {
+    return null
+  }
+
   if (!subscription.next_billing_date) {
     return null
   }

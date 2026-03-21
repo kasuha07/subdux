@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -624,6 +626,26 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			incoming.RecurrenceType = strings.ToLower(strings.TrimSpace(incoming.RecurrenceType))
 			incoming.IntervalUnit = strings.ToLower(strings.TrimSpace(incoming.IntervalUnit))
 			incoming.Category = strings.TrimSpace(incoming.Category)
+			normalizedDraft, nextBillingDate, billingErr := normalizeBillingDraft(billingDraft{
+				BillingType:     incoming.BillingType,
+				RecurrenceType:  incoming.RecurrenceType,
+				IntervalCount:   copyIntPointer(incoming.IntervalCount),
+				IntervalUnit:    incoming.IntervalUnit,
+				NextBillingDate: copyTimePointer(incoming.NextBillingDate),
+				MonthlyDay:      copyIntPointer(incoming.MonthlyDay),
+				YearlyMonth:     copyIntPointer(incoming.YearlyMonth),
+				YearlyDay:       copyIntPointer(incoming.YearlyDay),
+			})
+			if billingErr == nil {
+				incoming.BillingType = normalizedDraft.BillingType
+				incoming.RecurrenceType = normalizedDraft.RecurrenceType
+				incoming.IntervalCount = copyIntPointer(normalizedDraft.IntervalCount)
+				incoming.IntervalUnit = normalizedDraft.IntervalUnit
+				incoming.MonthlyDay = copyIntPointer(normalizedDraft.MonthlyDay)
+				incoming.YearlyMonth = copyIntPointer(normalizedDraft.YearlyMonth)
+				incoming.YearlyDay = copyIntPointer(normalizedDraft.YearlyDay)
+				incoming.NextBillingDate = copyTimePointer(nextBillingDate)
+			}
 
 			dedupKey := strings.Join([]string{
 				strings.ToLower(incoming.Name),
@@ -651,12 +673,19 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				Category:    incoming.Category,
 				Skipped:     isDuplicate,
 			}
-			if isDuplicate {
+			if billingErr != nil {
+				previewSub.Skipped = true
+				previewSub.SkipReason = "unsupported_billing_type"
+			} else if isDuplicate {
 				previewSub.SkipReason = "duplicate"
 			}
 			preview.Subscriptions = append(preview.Subscriptions, previewSub)
 
-			if !confirm || isDuplicate {
+			if !confirm || isDuplicate || billingErr != nil {
+				if confirm && billingErr != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("skipped unsupported subscription %q: %v", incoming.Name, billingErr))
+					result.Skipped++
+				}
 				if confirm && isDuplicate {
 					result.Skipped++
 				}
@@ -683,12 +712,41 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				}
 			}
 
+			lifecycle := lifecycleDraft{
+				Status:      incoming.Status,
+				RenewalMode: incoming.RenewalMode,
+				EndsAt:      copyTimePointer(incoming.EndsAt),
+			}
+			if !isValidSubscriptionStatus(normalizeStatus(lifecycle.Status)) ||
+				!isValidRenewalMode(normalizeRenewalMode(lifecycle.RenewalMode)) {
+				legacy := deriveLegacyLifecycle(
+					incoming.Enabled,
+					incoming.BillingType,
+					incoming.NextBillingDate,
+					incoming.EndsAt,
+					time.Now().UTC(),
+				)
+				lifecycle = legacy
+			}
+			normalizedLifecycle, err := normalizeLifecycleDraft(
+				lifecycle,
+				incoming.BillingType,
+				incoming.NextBillingDate,
+				time.Now().In(pkg.GetSystemTimezone()),
+			)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to normalize lifecycle for subscription %q: %v", incoming.Name, err))
+				continue
+			}
+
 			created := model.Subscription{
 				UserID:           userID,
 				Name:             incoming.Name,
 				Amount:           incoming.Amount,
 				Currency:         incoming.Currency,
-				Enabled:          incoming.Enabled,
+				Status:           normalizedLifecycle.Status,
+				RenewalMode:      normalizedLifecycle.RenewalMode,
+				EndsAt:           copyTimePointer(normalizedLifecycle.EndsAt),
 				BillingType:      incoming.BillingType,
 				RecurrenceType:   incoming.RecurrenceType,
 				IntervalCount:    incoming.IntervalCount,
@@ -706,6 +764,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				URL:              incoming.URL,
 				Notes:            incoming.Notes,
 			}
+			syncLegacyEnabledForLifecycle(&created)
 
 			if err := tx.Create(&created).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to create subscription %q: %v", incoming.Name, err))
