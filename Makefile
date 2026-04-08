@@ -16,11 +16,12 @@ build: frontend
 	go build -ldflags="$(LDFLAGS)" -o $(BINARY) ./cmd/server
 
 dev:
+	@tmux kill-session -t subdux-dev 2>/dev/null || true
 	@tmux new-session -d -s subdux-dev \
 		'go run -ldflags="$(LDFLAGS)" ./cmd/server' \; \
-		split-window -h -c web \
-		'bun dev' \; \
-		attach
+		split-window -h -t subdux-dev -c '$(CURDIR)/web' \
+		'bun run dev' \; \
+		attach -t subdux-dev
 
 frontend:
 	cd web && bun install && bun run build
