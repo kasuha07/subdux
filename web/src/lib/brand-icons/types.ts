@@ -14,11 +14,14 @@ export interface BrandIconSpec {
   loadIcon: () => Promise<SvgIconComponent>
 }
 
-export interface BrandIcon {
+export interface BrandIconRuntime {
   slug: string
   value: string
+  Icon: BrandIconComponent
+}
+
+export interface BrandIcon extends BrandIconRuntime {
   title: string
   hex: string
   keywords: string[]
-  Icon: BrandIconComponent
 }

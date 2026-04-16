@@ -1,25 +1,5 @@
-import { SXBilibili } from "../custom/bilibili"
-import { SXBinance } from "../custom/binance"
-import { SXChinaBroadcast } from "../custom/chinabroadcast"
-import { SXChinaMobile } from "../custom/chinamobile"
-import { SXChinaTelecom } from "../custom/chinatelecom"
-import { SXChinaUnicom } from "../custom/chinaunicom"
-import { SXDlsite } from "../custom/dlsite"
-import { SXEmby } from "../custom/emby"
-import { SXGame } from "../custom/game"
-import { SXInfuse } from "../custom/infuse"
-import { SXIqiyi } from "../custom/iqiyi"
-import { SXJellyfin } from "../custom/jellyfin"
-import { SXKugouMusic } from "../custom/kugoumusic"
-import { SXNeteaseCloudMusic } from "../custom/neteasecloudmusic"
-import { SXNeteaseUu } from "../custom/neteaseuu"
-import { SXNintendo } from "../custom/nintendo"
-import { SXOkx } from "../custom/okx"
-import { SXQq } from "../custom/qq"
-import { SXQqMusic } from "../custom/qqmusic"
-import { SXTencentVideo } from "../custom/tencentvideo"
-import { SXXimalaya } from "../custom/ximalaya"
-import { SXYoutubeMusic } from "../custom/youtubemusic"
+
+import { loadCustomSvgIcon } from "../custom-loaders"
 
 import type { BrandIconSpec } from "../types"
 
@@ -126,7 +106,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Nintendo",
     hex: "#E60012",
     keywords: ["gaming", "console", "switch"],
-    loadIcon: () => Promise.resolve(SXNintendo),
+    loadIcon: loadCustomSvgIcon("nintendo", "SXNintendo"),
   },
   {
     prefix: "custom",
@@ -134,7 +114,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "China Mobile",
     hex: "#0080CB",
     keywords: ["中国移动", "telecom", "carrier"],
-    loadIcon: () => Promise.resolve(SXChinaMobile),
+    loadIcon: loadCustomSvgIcon("chinamobile", "SXChinaMobile"),
   },
   {
     prefix: "custom",
@@ -142,7 +122,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "China Telecom",
     hex: "#005CA1",
     keywords: ["中国电信", "telecom", "carrier"],
-    loadIcon: () => Promise.resolve(SXChinaTelecom),
+    loadIcon: loadCustomSvgIcon("chinatelecom", "SXChinaTelecom"),
   },
   {
     prefix: "custom",
@@ -150,7 +130,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "China Unicom",
     hex: "#E90003",
     keywords: ["中国联通", "telecom", "carrier"],
-    loadIcon: () => Promise.resolve(SXChinaUnicom),
+    loadIcon: loadCustomSvgIcon("chinaunicom", "SXChinaUnicom"),
   },
   {
     prefix: "custom",
@@ -158,7 +138,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "China Broadnet",
     hex: "#205686",
     keywords: ["中国广电", "telecom", "carrier"],
-    loadIcon: () => Promise.resolve(SXChinaBroadcast),
+    loadIcon: loadCustomSvgIcon("chinabroadcast", "SXChinaBroadcast"),
   },
   {
     prefix: "lg",
@@ -222,7 +202,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "NetEase UU Booster",
     hex: "#36ECD4",
     keywords: ["网易UU加速器", "gaming", "booster"],
-    loadIcon: () => Promise.resolve(SXNeteaseUu),
+    loadIcon: loadCustomSvgIcon("neteaseuu", "SXNeteaseUu"),
   },
   {
     prefix: "lg",
@@ -246,7 +226,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "DLsite",
     hex: "#0B3687",
     keywords: ["doujin", "digital store", "anime"],
-    loadIcon: () => Promise.resolve(SXDlsite),
+    loadIcon: loadCustomSvgIcon("dlsite", "SXDlsite"),
   },
   {
     prefix: "lg",
@@ -262,7 +242,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Bilibili",
     hex: "#1296DB",
     keywords: ["b站", "哔哩哔哩", "anime", "video", "streaming"],
-    loadIcon: () => Promise.resolve(SXBilibili),
+    loadIcon: loadCustomSvgIcon("bilibili", "SXBilibili"),
   },
   {
     prefix: "custom",
@@ -270,7 +250,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "iQIYI",
     hex: "#42BD56",
     keywords: ["爱奇艺", "video", "streaming"],
-    loadIcon: () => Promise.resolve(SXIqiyi),
+    loadIcon: loadCustomSvgIcon("iqiyi", "SXIqiyi"),
   },
   {
     prefix: "lg",
@@ -286,7 +266,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Netease Cloud Music",
     hex: "#DD001B",
     keywords: ["网易云音乐", "netease", "music", "streaming"],
-    loadIcon: () => Promise.resolve(SXNeteaseCloudMusic),
+    loadIcon: loadCustomSvgIcon("neteasecloudmusic", "SXNeteaseCloudMusic"),
   },
   {
     prefix: "lg",
@@ -342,7 +322,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "YouTube Music",
     hex: "#FF0000",
     keywords: ["youtube", "music", "streaming"],
-    loadIcon: () => Promise.resolve(SXYoutubeMusic),
+    loadIcon: loadCustomSvgIcon("youtubemusic", "SXYoutubeMusic"),
   },
   {
     prefix: "custom",
@@ -350,7 +330,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "QQ Music",
     hex: "#31C27C",
     keywords: ["qq", "qq音乐", "music", "腾讯音乐"],
-    loadIcon: () => Promise.resolve(SXQqMusic),
+    loadIcon: loadCustomSvgIcon("qqmusic", "SXQqMusic"),
   },
   {
     prefix: "custom",
@@ -358,7 +338,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "QQ",
     hex: "#000000",
     keywords: ["qq", "messaging", "腾讯"],
-    loadIcon: () => Promise.resolve(SXQq),
+    loadIcon: loadCustomSvgIcon("qq", "SXQq"),
   },
   {
     prefix: "custom",
@@ -366,7 +346,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Kugou Music",
     hex: "#2C78FF",
     keywords: ["酷狗音乐", "kugou", "music", "腾讯音乐"],
-    loadIcon: () => Promise.resolve(SXKugouMusic),
+    loadIcon: loadCustomSvgIcon("kugoumusic", "SXKugouMusic"),
   },
   {
     prefix: "custom",
@@ -374,7 +354,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Ximalaya",
     hex: "#ED2400",
     keywords: ["喜马拉雅", "audio", "podcast"],
-    loadIcon: () => Promise.resolve(SXXimalaya),
+    loadIcon: loadCustomSvgIcon("ximalaya", "SXXimalaya"),
   },
   {
     prefix: "lg",
@@ -422,7 +402,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Infuse",
     hex: "#111111",
     keywords: ["media player", "video", "streaming"],
-    loadIcon: () => Promise.resolve(SXInfuse),
+    loadIcon: loadCustomSvgIcon("infuse", "SXInfuse"),
   },
   {
     prefix: "custom",
@@ -430,7 +410,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Emby",
     hex: "#06B831",
     keywords: ["media server", "streaming", "video"],
-    loadIcon: () => Promise.resolve(SXEmby),
+    loadIcon: loadCustomSvgIcon("emby", "SXEmby"),
   },
   {
     prefix: "custom",
@@ -438,7 +418,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Jellyfin",
     hex: "#00A4DC",
     keywords: ["media server", "streaming", "video"],
-    loadIcon: () => Promise.resolve(SXJellyfin),
+    loadIcon: loadCustomSvgIcon("jellyfin", "SXJellyfin"),
   },
   {
     prefix: "lg",
@@ -454,7 +434,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Tencent Video",
     hex: "#0052D9",
     keywords: ["tencent", "qq video", "腾讯视频", "视频", "流媒体"],
-    loadIcon: () => Promise.resolve(SXTencentVideo),
+    loadIcon: loadCustomSvgIcon("tencentvideo", "SXTencentVideo"),
   },
   {
     prefix: "lg",
@@ -534,7 +514,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "OKX",
     hex: "#111111",
     keywords: ["crypto", "exchange", "okx"],
-    loadIcon: () => Promise.resolve(SXOkx),
+    loadIcon: loadCustomSvgIcon("okx", "SXOkx"),
   },
   {
     prefix: "custom",
@@ -542,7 +522,7 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Binance",
     hex: "#F3BA2F",
     keywords: ["crypto", "exchange", "binance"],
-    loadIcon: () => Promise.resolve(SXBinance),
+    loadIcon: loadCustomSvgIcon("binance", "SXBinance"),
   },
   {
     prefix: "lg",
@@ -574,6 +554,6 @@ export const entertainmentBrandSpecs: BrandIconSpec[] = [
     title: "Game",
     hex: "#4A4A4A",
     keywords: ["gaming", "gamepad", "controller"],
-    loadIcon: () => Promise.resolve(SXGame),
+    loadIcon: loadCustomSvgIcon("game", "SXGame"),
   },
 ]

@@ -1,21 +1,19 @@
 import { createLazySvgIcon } from "./brand-icons/lazy-icon"
-import { brandSpecs } from "./brand-icons/specs"
+import { brandRuntimeSpecs } from "./brand-icons/runtime-specs"
 
-import type { BrandIcon } from "./brand-icons/types"
+import type { BrandIcon, BrandIconRuntime } from "./brand-icons/types"
 
-export type { BrandIcon, BrandIconComponent } from "./brand-icons/types"
+export type { BrandIcon, BrandIconRuntime, BrandIconComponent } from "./brand-icons/types"
 
-export const brandIcons: BrandIcon[] = brandSpecs.map((spec) => ({
+const brandRuntimeIcons: BrandIconRuntime[] = brandRuntimeSpecs.map((spec) => ({
   slug: spec.slug,
   value: `${spec.prefix}:${spec.slug}`,
-  title: spec.title,
-  hex: spec.hex,
-  keywords: spec.keywords ?? [],
   Icon: createLazySvgIcon(spec.loadIcon),
 }))
 
-const brandIconMap = new Map(brandIcons.map((icon) => [icon.slug, icon] as const))
-const brandIconValueMap = new Map(brandIcons.map((icon) => [icon.value, icon] as const))
+const brandIconMap = new Map(brandRuntimeIcons.map((icon) => [icon.slug, icon] as const))
+const brandIconValueMap = new Map(brandRuntimeIcons.map((icon) => [icon.value, icon] as const))
+
 const legacyIconValueAliases = new Map<string, string>([
   ["lg:adobecreativecloud", "custom:adobecreativecloud"],
   ["lg:bilibili", "custom:bilibili"],
@@ -36,11 +34,13 @@ const legacyIconValueAliases = new Map<string, string>([
   ["sx:neteasecloudmusic", "custom:neteasecloudmusic"],
 ])
 
-export function getBrandIcon(slug: string): BrandIcon | undefined {
+let brandIconCatalogPromise: Promise<BrandIcon[]> | null = null
+
+export function getBrandIcon(slug: string): BrandIconRuntime | undefined {
   return brandIconMap.get(slug)
 }
 
-export function getBrandIconFromValue(value: string): BrandIcon | undefined {
+export function getBrandIconFromValue(value: string): BrandIconRuntime | undefined {
   if (!value) {
     return undefined
   }
@@ -56,4 +56,26 @@ export function getBrandIconFromValue(value: string): BrandIcon | undefined {
   }
 
   return brandIconValueMap.get(aliasValue)
+}
+
+export function loadBrandIconsCatalog(): Promise<BrandIcon[]> {
+  if (!brandIconCatalogPromise) {
+    brandIconCatalogPromise = import("./brand-icons/specs").then(({ brandSpecs }) => (
+      brandSpecs.map((spec) => {
+        const value = `${spec.prefix}:${spec.slug}`
+        const runtimeIcon = brandIconValueMap.get(value)
+
+        return {
+          slug: spec.slug,
+          value,
+          title: spec.title,
+          hex: spec.hex,
+          keywords: spec.keywords ?? [],
+          Icon: runtimeIcon?.Icon ?? createLazySvgIcon(spec.loadIcon),
+        }
+      })
+    ))
+  }
+
+  return brandIconCatalogPromise
 }

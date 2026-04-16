@@ -1,4 +1,5 @@
-import { SXZaBank } from "../custom/zabank"
+
+import { loadCustomSvgIcon } from "../custom-loaders"
 
 import type { BrandIconSpec } from "../types"
 
@@ -33,7 +34,7 @@ export const bankBrandSpecs: BrandIconSpec[] = [
     title: "ZA Bank",
     hex: "#00CC88",
     keywords: ["众安银行", "bank", "digital bank"],
-    loadIcon: () => Promise.resolve(SXZaBank),
+    loadIcon: loadCustomSvgIcon("zabank", "SXZaBank"),
   },
   {
     prefix: "bl",

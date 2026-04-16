@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
-import { brandIcons, getBrandIconFromValue } from "@/lib/brand-icons"
+import { getBrandIconFromValue, loadBrandIconsCatalog, type BrandIcon } from "@/lib/brand-icons"
 import { emojiCategories } from "@/lib/emoji-data"
 import { buildIconProxySuggestionURL, isRenderableImageURL } from "@/lib/icon-proxy"
 
@@ -162,7 +162,9 @@ export default function IconPicker({
 }: IconPickerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [pickerTab, setPickerTab] = useState<"emoji" | "brand" | "image">("emoji")
   const [brandSearch, setBrandSearch] = useState("")
+  const [brandIcons, setBrandIcons] = useState<BrandIcon[] | null>(null)
   const [emojiCategory, setEmojiCategory] = useState(0)
   const [imageUrl, setImageUrl] = useState("")
   const [filePreview, setFilePreview] = useState<string | null>(null)
@@ -170,6 +172,7 @@ export default function IconPicker({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filteredIcons = useMemo(() => {
+    if (!brandIcons) return []
     if (!brandSearch.trim()) return brandIcons
     const term = brandSearch.toLowerCase()
     return brandIcons.filter((icon) =>
@@ -177,7 +180,30 @@ export default function IconPicker({
       icon.slug.includes(term) ||
       icon.keywords.some((keyword) => keyword.toLowerCase().includes(term))
     )
-  }, [brandSearch])
+  }, [brandIcons, brandSearch])
+
+  useEffect(() => {
+    if (!open || pickerTab !== "brand" || brandIcons) {
+      return
+    }
+
+    let cancelled = false
+    loadBrandIconsCatalog()
+      .then((icons) => {
+        if (!cancelled) {
+          setBrandIcons(icons)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBrandIcons([])
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [brandIcons, open, pickerTab])
 
   const imageDomain = useMemo(() => {
     const domain = extractDomain(imageUrl)
@@ -300,7 +326,7 @@ export default function IconPicker({
       </PopoverTrigger>
 
       <PopoverContent className="w-80 p-0" align="start" onWheel={(e) => e.stopPropagation()}>
-        <Tabs defaultValue="emoji">
+        <Tabs value={pickerTab} onValueChange={(value) => setPickerTab(value as "emoji" | "brand" | "image")}>
           <TabsList className="w-full rounded-none border-b bg-transparent h-auto p-0">
             <TabsTrigger
               value="emoji"
@@ -311,16 +337,16 @@ export default function IconPicker({
             <TabsTrigger
               value="brand"
               className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 text-xs"
-            >
-              {t("subscription.form.iconPicker.tabs.brand")}
-            </TabsTrigger>
+              >
+                {t("subscription.form.iconPicker.tabs.brand")}
+              </TabsTrigger>
             <TabsTrigger
               value="image"
               className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 text-xs"
-            >
-              {t("subscription.form.iconPicker.tabs.image")}
-            </TabsTrigger>
-          </TabsList>
+              >
+                {t("subscription.form.iconPicker.tabs.image")}
+              </TabsTrigger>
+            </TabsList>
 
           {/* ── Emoji tab ── */}
           <TabsContent value="emoji" className="p-0 m-0">
@@ -413,7 +439,11 @@ export default function IconPicker({
                   }
                 }}
               >
-                {filteredIcons.length === 0 ? (
+                {brandIcons === null ? (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                    Loading...
+                  </div>
+                ) : filteredIcons.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
                     {t("subscription.form.iconPicker.noResults")}
                   </div>

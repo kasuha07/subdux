@@ -1,39 +1,5 @@
-import { SXAlipay } from "../custom/alipay"
-import { SXAnthropic } from "../custom/anthropic"
-import { SXBaiduCloud } from "../custom/baiducloud"
-import { SXCash } from "../custom/cash"
-import { SXClash } from "../custom/clash"
-import { SXClaude } from "../custom/claude"
-import { SXCursor } from "../custom/cursor"
-import { SXDeepseek } from "../custom/deepseek"
-import { SXEcny } from "../custom/ecny"
-import { SXEmail } from "../custom/email"
-import { SXFrp } from "../custom/frp"
-import { SXGemini } from "../custom/gemini"
-import { SXGiffgaff } from "../custom/giffgaff"
-import { SXGrok } from "../custom/grok"
-import { SXHuggingFace } from "../custom/huggingface"
-import { SXKimi } from "../custom/kimi"
-import { SXLinuxDo } from "../custom/linuxdo"
-import { SXMicrosoft365 } from "../custom/microsoft365"
-import { SXMistral } from "../custom/mistral"
-import { SXMoonshot } from "../custom/moonshot"
-import { SXNameCom } from "../custom/namecom"
-import { SXNetcup } from "../custom/netcup"
-import { SXNewapi } from "../custom/newapi"
-import { SXPerplexity } from "../custom/perplexity"
-import { SXPorkbun } from "../custom/porkbun"
-import { SXQwen } from "../custom/qwen"
-import { SXServer } from "../custom/server"
-import { SXSimCard } from "../custom/simcard"
-import { SXSpaceship } from "../custom/spaceship"
-import { SXTencentCloud } from "../custom/tencentcloud"
-import { SXV2ray } from "../custom/v2ray"
-import { SXVpn } from "../custom/vpn"
-import { SXWechatPay } from "../custom/wechatpay"
-import { SXWestCn } from "../custom/westcn"
-import { SXZai } from "../custom/zai"
-import { SXZhipu } from "../custom/zhipu"
+
+import { loadCustomSvgIcon } from "../custom-loaders"
 
 import type { BrandIconSpec } from "../types"
 
@@ -124,7 +90,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Digital RMB (e-CNY)",
     hex: "#FF0000",
     keywords: ["e-cny", "digital rmb", "数字人民币", "payment"],
-    loadIcon: () => Promise.resolve(SXEcny),
+    loadIcon: loadCustomSvgIcon("ecny", "SXEcny"),
   },
   {
     prefix: "custom",
@@ -132,7 +98,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Cash",
     hex: "#2E7D32",
     keywords: ["money", "cash", "payment"],
-    loadIcon: () => Promise.resolve(SXCash),
+    loadIcon: loadCustomSvgIcon("cash", "SXCash"),
   },
   {
     prefix: "custom",
@@ -140,7 +106,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Alipay",
     hex: "#3988FF",
     keywords: ["payment", "wallet", "支付宝"],
-    loadIcon: () => Promise.resolve(SXAlipay),
+    loadIcon: loadCustomSvgIcon("alipay", "SXAlipay"),
   },
   {
     prefix: "custom",
@@ -148,7 +114,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "WeChat Pay",
     hex: "#15BA11",
     keywords: ["payment", "wallet", "微信支付"],
-    loadIcon: () => Promise.resolve(SXWechatPay),
+    loadIcon: loadCustomSvgIcon("wechatpay", "SXWechatPay"),
   },
   {
     prefix: "lg",
@@ -164,7 +130,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Cursor",
     hex: "#26251E",
     keywords: ["ai", "ide", "editor", "coding"],
-    loadIcon: () => Promise.resolve(SXCursor),
+    loadIcon: loadCustomSvgIcon("cursor", "SXCursor"),
   },
   {
     prefix: "custom",
@@ -172,7 +138,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Anthropic",
     hex: "#191919",
     keywords: ["ai", "llm", "claude"],
-    loadIcon: () => Promise.resolve(SXAnthropic),
+    loadIcon: loadCustomSvgIcon("anthropic", "SXAnthropic"),
   },
   {
     prefix: "custom",
@@ -180,7 +146,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Claude",
     hex: "#D97757",
     keywords: ["anthropic", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXClaude),
+    loadIcon: loadCustomSvgIcon("claude", "SXClaude"),
   },
   {
     prefix: "custom",
@@ -188,7 +154,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Gemini",
     hex: "#448AFF",
     keywords: ["google", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXGemini),
+    loadIcon: loadCustomSvgIcon("gemini", "SXGemini"),
   },
   {
     prefix: "custom",
@@ -196,7 +162,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "NewAPI",
     hex: "#5BA8F4",
     keywords: ["api", "gateway", "ai"],
-    loadIcon: () => Promise.resolve(SXNewapi),
+    loadIcon: loadCustomSvgIcon("newapi", "SXNewapi"),
   },
   {
     prefix: "custom",
@@ -204,7 +170,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Grok",
     hex: "#000000",
     keywords: ["xai", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXGrok),
+    loadIcon: loadCustomSvgIcon("grok", "SXGrok"),
   },
   {
     prefix: "custom",
@@ -212,7 +178,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Mistral",
     hex: "#F7D046",
     keywords: ["mistral ai", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXMistral),
+    loadIcon: loadCustomSvgIcon("mistral", "SXMistral"),
   },
   {
     prefix: "custom",
@@ -220,7 +186,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Perplexity",
     hex: "#111111",
     keywords: ["ai", "search", "llm"],
-    loadIcon: () => Promise.resolve(SXPerplexity),
+    loadIcon: loadCustomSvgIcon("perplexity", "SXPerplexity"),
   },
   {
     prefix: "custom",
@@ -228,7 +194,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Kimi",
     hex: "#027AFF",
     keywords: ["moonshot", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXKimi),
+    loadIcon: loadCustomSvgIcon("kimi", "SXKimi"),
   },
   {
     prefix: "custom",
@@ -236,7 +202,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Moonshot",
     hex: "#000000",
     keywords: ["moonshot", "kimi", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXMoonshot),
+    loadIcon: loadCustomSvgIcon("moonshot", "SXMoonshot"),
   },
   {
     prefix: "custom",
@@ -244,7 +210,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Zhipu",
     hex: "#6253FF",
     keywords: ["智谱", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXZhipu),
+    loadIcon: loadCustomSvgIcon("zhipu", "SXZhipu"),
   },
   {
     prefix: "custom",
@@ -252,7 +218,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Z.AI",
     hex: "#2D2D2D",
     keywords: ["z.ai", "ai", "llm", "智谱"],
-    loadIcon: () => Promise.resolve(SXZai),
+    loadIcon: loadCustomSvgIcon("zai", "SXZai"),
   },
   {
     prefix: "custom",
@@ -260,7 +226,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Qwen",
     hex: "#615CED",
     keywords: ["通义千问", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXQwen),
+    loadIcon: loadCustomSvgIcon("qwen", "SXQwen"),
   },
   {
     prefix: "custom",
@@ -268,7 +234,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "DeepSeek",
     hex: "#4D6BFE",
     keywords: ["deepseek", "ai", "llm"],
-    loadIcon: () => Promise.resolve(SXDeepseek),
+    loadIcon: loadCustomSvgIcon("deepseek", "SXDeepseek"),
   },
   {
     prefix: "custom",
@@ -276,7 +242,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Hugging Face",
     hex: "#FFCC4D",
     keywords: ["model hub", "ai", "ml"],
-    loadIcon: () => Promise.resolve(SXHuggingFace),
+    loadIcon: loadCustomSvgIcon("huggingface", "SXHuggingFace"),
   },
   {
     prefix: "lg",
@@ -364,7 +330,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Netcup",
     hex: "#00646E",
     keywords: ["domain", "hosting", "vps", "cloud"],
-    loadIcon: () => Promise.resolve(SXNetcup),
+    loadIcon: loadCustomSvgIcon("netcup", "SXNetcup"),
   },
   {
     prefix: "custom",
@@ -372,7 +338,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Name.com",
     hex: "#6EDA78",
     keywords: ["domain", "registrar", "name.com"],
-    loadIcon: () => Promise.resolve(SXNameCom),
+    loadIcon: loadCustomSvgIcon("namecom", "SXNameCom"),
   },
   {
     prefix: "custom",
@@ -380,7 +346,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Porkbun",
     hex: "#F27777",
     keywords: ["domain", "registrar", "hosting"],
-    loadIcon: () => Promise.resolve(SXPorkbun),
+    loadIcon: loadCustomSvgIcon("porkbun", "SXPorkbun"),
   },
   {
     prefix: "custom",
@@ -388,7 +354,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Spaceship",
     hex: "#394EFF",
     keywords: ["domain", "registrar", "namecheap", "hosting"],
-    loadIcon: () => Promise.resolve(SXSpaceship),
+    loadIcon: loadCustomSvgIcon("spaceship", "SXSpaceship"),
   },
   {
     prefix: "lg",
@@ -412,7 +378,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Tencent Cloud",
     hex: "#00A3FF",
     keywords: ["腾讯云", "cloud", "tencent"],
-    loadIcon: () => Promise.resolve(SXTencentCloud),
+    loadIcon: loadCustomSvgIcon("tencentcloud", "SXTencentCloud"),
   },
   {
     prefix: "custom",
@@ -420,7 +386,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Baidu Cloud",
     hex: "#008DD5",
     keywords: ["百度云", "cloud", "baidu"],
-    loadIcon: () => Promise.resolve(SXBaiduCloud),
+    loadIcon: loadCustomSvgIcon("baiducloud", "SXBaiduCloud"),
   },
   {
     prefix: "custom",
@@ -428,7 +394,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "West.cn",
     hex: "#0070B6",
     keywords: ["西部数码", "domain", "hosting", "west.cn"],
-    loadIcon: () => Promise.resolve(SXWestCn),
+    loadIcon: loadCustomSvgIcon("westcn", "SXWestCn"),
   },
   {
     prefix: "custom",
@@ -436,7 +402,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "FRP",
     hex: "#4A7EE5",
     keywords: ["frp", "proxy", "tunnel", "network"],
-    loadIcon: () => Promise.resolve(SXFrp),
+    loadIcon: loadCustomSvgIcon("frp", "SXFrp"),
   },
   {
     prefix: "custom",
@@ -444,7 +410,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Linux.do",
     hex: "#FFB003",
     keywords: ["linux.do", "forum", "community", "linux"],
-    loadIcon: () => Promise.resolve(SXLinuxDo),
+    loadIcon: loadCustomSvgIcon("linuxdo", "SXLinuxDo"),
   },
   {
     prefix: "lg",
@@ -620,7 +586,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Email",
     hex: "#4A4A4A",
     keywords: ["mail", "inbox"],
-    loadIcon: () => Promise.resolve(SXEmail),
+    loadIcon: loadCustomSvgIcon("email", "SXEmail"),
   },
   {
     prefix: "lg",
@@ -700,7 +666,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "giffgaff",
     hex: "#00D672",
     keywords: ["telecom", "mobile", "sim"],
-    loadIcon: () => Promise.resolve(SXGiffgaff),
+    loadIcon: loadCustomSvgIcon("giffgaff", "SXGiffgaff"),
   },
   {
     prefix: "lg",
@@ -716,7 +682,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Microsoft Office 365",
     hex: "#0078D4",
     keywords: ["office", "microsoft", "productivity"],
-    loadIcon: () => Promise.resolve(SXMicrosoft365),
+    loadIcon: loadCustomSvgIcon("microsoft365", "SXMicrosoft365"),
   },
   {
     prefix: "lg",
@@ -780,7 +746,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Server",
     hex: "#4A4A4A",
     keywords: ["host", "infrastructure"],
-    loadIcon: () => Promise.resolve(SXServer),
+    loadIcon: loadCustomSvgIcon("server", "SXServer"),
   },
   {
     prefix: "custom",
@@ -788,7 +754,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "SIM Card",
     hex: "#4A4A4A",
     keywords: ["sim", "mobile", "telecom"],
-    loadIcon: () => Promise.resolve(SXSimCard),
+    loadIcon: loadCustomSvgIcon("simcard", "SXSimCard"),
   },
   {
     prefix: "lg",
@@ -852,7 +818,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "VPN",
     hex: "#4A4A4A",
     keywords: ["privacy", "security", "network"],
-    loadIcon: () => Promise.resolve(SXVpn),
+    loadIcon: loadCustomSvgIcon("vpn", "SXVpn"),
   },
   {
     prefix: "custom",
@@ -860,7 +826,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "Clash",
     hex: "#4A4A4A",
     keywords: ["proxy", "vpn", "network"],
-    loadIcon: () => Promise.resolve(SXClash),
+    loadIcon: loadCustomSvgIcon("clash", "SXClash"),
   },
   {
     prefix: "custom",
@@ -868,7 +834,7 @@ export const coreBrandSpecs: BrandIconSpec[] = [
     title: "V2Ray",
     hex: "#4A4A4A",
     keywords: ["proxy", "vpn", "network"],
-    loadIcon: () => Promise.resolve(SXV2ray),
+    loadIcon: loadCustomSvgIcon("v2ray", "SXV2ray"),
   },
   {
     prefix: "lg",
