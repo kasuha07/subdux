@@ -51,11 +51,13 @@ interface DashboardFiltersToolbarProps {
   paymentMethodLabelMap: Map<number, string>
   paymentMethods: PaymentMethod[]
   searchTerm: string
+  shownCount: number
   subscriptionView: "list" | "cards"
   selectedCategories: Set<string>
   selectedPaymentMethodIDs: Set<number>
   selectedRenewalModes: Set<SubscriptionRenewalMode>
   selectedStatuses: Set<StatusFilter>
+  totalCount: number
   onToggleSubscriptionView: () => void
   viewToggleDisabled?: boolean
   sortDirection: SortDirection
@@ -80,11 +82,13 @@ export default function DashboardFiltersToolbar({
   paymentMethodLabelMap,
   paymentMethods,
   searchTerm,
+  shownCount,
   subscriptionView,
   selectedCategories,
   selectedPaymentMethodIDs,
   selectedRenewalModes,
   selectedStatuses,
+  totalCount,
   onToggleSubscriptionView,
   viewToggleDisabled = false,
   sortDirection,
@@ -101,191 +105,201 @@ export default function DashboardFiltersToolbar({
     (includeNoPaymentMethod ? 1 : 0)
 
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
-      <div className="relative w-56 shrink-0 lg:w-72">
-        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchTerm}
-          onChange={(event) => onSearchTermChange(event.target.value)}
-          placeholder={t("dashboard.filters.searchPlaceholder")}
-          className="pl-9"
-        />
+    <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={(event) => onSearchTermChange(event.target.value)}
+            placeholder={t("dashboard.filters.searchPlaceholder")}
+            className="pl-9"
+          />
+        </div>
+
+        {totalCount > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("dashboard.filters.resultCount", { shown: shownCount, total: totalCount })}
+          </p>
+        ) : null}
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="shrink-0">
-            <Filter className="size-4" />
-            {t("dashboard.filters.filterButton")}
-            {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-48">
-              {statusOptions.map((status) => (
-                <DropdownMenuCheckboxItem
-                  key={status}
-                  checked={selectedStatuses.has(status)}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={(checked) => {
-                    onToggleStatus(status, checked === true)
-                  }}
-                >
-                  {t(`subscription.card.status.${status}`)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>{t("dashboard.filters.renewalMode")}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              {renewalModeOptions.map((mode) => (
-                <DropdownMenuCheckboxItem
-                  key={mode}
-                  checked={selectedRenewalModes.has(mode)}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={(checked) => {
-                    onToggleRenewalMode(mode, checked === true)
-                  }}
-                >
-                  {t(`subscription.card.renewalMode.${mode}`)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              <DropdownMenuCheckboxItem
-                checked={includeNoCategory}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) => {
-                  onToggleNoCategory(checked === true)
-                }}
-              >
-                {t("dashboard.filters.noCategory")}
-              </DropdownMenuCheckboxItem>
-              {categoryOptions.length > 0 ? (
-                categoryOptions.map((category) => (
+      <div className="flex flex-wrap items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="shrink-0">
+              <Filter className="size-4" />
+              {t("dashboard.filters.filterButton")}
+              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-48">
+                {statusOptions.map((status) => (
                   <DropdownMenuCheckboxItem
-                    key={category}
-                    checked={selectedCategories.has(category)}
+                    key={status}
+                    checked={selectedStatuses.has(status)}
                     onSelect={(event) => event.preventDefault()}
                     onCheckedChange={(checked) => {
-                      onToggleCategory(category, checked === true)
+                      onToggleStatus(status, checked === true)
                     }}
                   >
-                    {category}
+                    {t(`subscription.card.status.${status}`)}
                   </DropdownMenuCheckboxItem>
-                ))
-              ) : (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                  {t("dashboard.filters.noCategories")}
-                </div>
-              )}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
 
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-56">
-              <DropdownMenuCheckboxItem
-                checked={includeNoPaymentMethod}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) => {
-                  onToggleNoPaymentMethod(checked === true)
-                }}
-              >
-                {t("dashboard.filters.noPaymentMethod")}
-              </DropdownMenuCheckboxItem>
-              {paymentMethods.length > 0 ? (
-                paymentMethods.map((method) => (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t("dashboard.filters.renewalMode")}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                {renewalModeOptions.map((mode) => (
                   <DropdownMenuCheckboxItem
-                    key={method.id}
-                    checked={selectedPaymentMethodIDs.has(method.id)}
+                    key={mode}
+                    checked={selectedRenewalModes.has(mode)}
                     onSelect={(event) => event.preventDefault()}
                     onCheckedChange={(checked) => {
-                      onTogglePaymentMethod(method.id, checked === true)
+                      onToggleRenewalMode(mode, checked === true)
                     }}
                   >
-                    {paymentMethodLabelMap.get(method.id) ?? method.name}
+                    {t(`subscription.card.renewalMode.${mode}`)}
                   </DropdownMenuCheckboxItem>
-                ))
-              ) : (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                  {t("dashboard.filters.noPaymentMethods")}
-                </div>
-              )}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
 
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
-              onResetFiltersAndSorting()
-            }}
-            disabled={!hasActiveFilters}
-          >
-            <FilterX className="size-4" />
-            {t("dashboard.filters.clearFilters")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                <DropdownMenuCheckboxItem
+                  checked={includeNoCategory}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    onToggleNoCategory(checked === true)
+                  }}
+                >
+                  {t("dashboard.filters.noCategory")}
+                </DropdownMenuCheckboxItem>
+                {categoryOptions.length > 0 ? (
+                  categoryOptions.map((category) => (
+                    <DropdownMenuCheckboxItem
+                      key={category}
+                      checked={selectedCategories.has(category)}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => {
+                        onToggleCategory(category, checked === true)
+                      }}
+                    >
+                      {category}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                ) : (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    {t("dashboard.filters.noCategories")}
+                  </div>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="shrink-0">
-            <ArrowUpDown className="size-4" />
-            {getSortFieldLabel(sortField)}
-            {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          {sortFieldOptions.map((field) => (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                <DropdownMenuCheckboxItem
+                  checked={includeNoPaymentMethod}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) => {
+                    onToggleNoPaymentMethod(checked === true)
+                  }}
+                >
+                  {t("dashboard.filters.noPaymentMethod")}
+                </DropdownMenuCheckboxItem>
+                {paymentMethods.length > 0 ? (
+                  paymentMethods.map((method) => (
+                    <DropdownMenuCheckboxItem
+                      key={method.id}
+                      checked={selectedPaymentMethodIDs.has(method.id)}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => {
+                        onTogglePaymentMethod(method.id, checked === true)
+                      }}
+                    >
+                      {paymentMethodLabelMap.get(method.id) ?? method.name}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                ) : (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    {t("dashboard.filters.noPaymentMethods")}
+                  </div>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            <DropdownMenuSeparator />
             <DropdownMenuItem
-              key={field}
               onSelect={(event) => {
                 event.preventDefault()
-                onSortFieldSelect(field)
+                onResetFiltersAndSorting()
               }}
+              disabled={!hasActiveFilters}
             >
-              {getSortFieldLabel(field)}
-              {sortField === field ? (
-                sortDirection === "asc" ? (
-                  <ArrowUp className="ml-auto size-3.5" />
-                ) : (
-                  <ArrowDown className="ml-auto size-3.5" />
-                )
-              ) : null}
+              <FilterX className="size-4" />
+              {t("dashboard.filters.clearFilters")}
             </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      <Button
-        variant="outline"
-        size="icon-sm"
-        className="shrink-0"
-        onClick={onToggleSubscriptionView}
-        disabled={viewToggleDisabled}
-        aria-label={
-          subscriptionView === "list"
-            ? t("dashboard.views.toggleToCards")
-            : t("dashboard.views.toggleToList")
-        }
-        title={
-          subscriptionView === "list"
-            ? t("dashboard.views.toggleToCards")
-            : t("dashboard.views.toggleToList")
-        }
-      >
-        {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
-      </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="shrink-0">
+              <ArrowUpDown className="size-4" />
+              {getSortFieldLabel(sortField)}
+              {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {sortFieldOptions.map((field) => (
+              <DropdownMenuItem
+                key={field}
+                onSelect={(event) => {
+                  event.preventDefault()
+                  onSortFieldSelect(field)
+                }}
+              >
+                {getSortFieldLabel(field)}
+                {sortField === field ? (
+                  sortDirection === "asc" ? (
+                    <ArrowUp className="ml-auto size-3.5" />
+                  ) : (
+                    <ArrowDown className="ml-auto size-3.5" />
+                  )
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="shrink-0"
+          onClick={onToggleSubscriptionView}
+          disabled={viewToggleDisabled}
+          aria-label={
+            subscriptionView === "list"
+              ? t("dashboard.views.toggleToCards")
+              : t("dashboard.views.toggleToList")
+          }
+          title={
+            subscriptionView === "list"
+              ? t("dashboard.views.toggleToCards")
+              : t("dashboard.views.toggleToList")
+          }
+        >
+          {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
+        </Button>
+      </div>
     </div>
   )
 }

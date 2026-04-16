@@ -5,7 +5,6 @@ import { CalendarDays, Plus, Settings, Shield } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
@@ -36,21 +35,35 @@ const SubscriptionForm = lazy(() => import("@/features/subscriptions/subscriptio
 function DashboardSkeleton() {
   return (
     <>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Skeleton className="size-4 rounded" />
-                <Skeleton className="h-3 w-16" />
-              </div>
-              <Skeleton className="mt-2 h-7 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="mb-6 overflow-hidden py-0">
+        <CardContent className="grid gap-px p-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="space-y-4 p-6 sm:p-7">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-11 rounded-2xl" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-11 w-56" />
+            <div className="flex flex-wrap gap-3">
+              <Skeleton className="h-10 w-32 rounded-full" />
+              <Skeleton className="h-10 w-32 rounded-full" />
+            </div>
+          </div>
 
-      <Separator className="mb-6" />
+          <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-3 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="size-8 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-5 w-24" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -306,7 +319,6 @@ export default function DashboardPage() {
               />
             )}
 
-            <Separator className="mb-6" />
 
             <DashboardFiltersToolbar
               searchTerm={searchTerm}
@@ -333,6 +345,8 @@ export default function DashboardPage() {
               onToggleRenewalMode={handleToggleRenewalMode}
               onToggleNoPaymentMethod={onToggleNoPaymentMethod}
               subscriptionView={subscriptionView}
+              shownCount={filteredSubscriptions.length}
+              totalCount={subscriptions.length}
               onToggleSubscriptionView={() =>
                 setSubscriptionView((current) => (current === "list" ? "cards" : "list"))
               }

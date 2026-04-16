@@ -5,6 +5,7 @@ const dashboard = {
   "stats": {
     "activeMonthly": "有効な月額",
     "activeYearly": "有効な年額",
+    "activeSubscriptions": "有効なサブスクリプション",
     "committedMonthly": "自動更新確約（月額）",
     "committedYearly": "自動更新確約（年額）",
     "thisMonth": "今月",
