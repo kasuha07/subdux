@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { Suspense, lazy, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Bell, CircleUserRound, CreditCard, Info, KeyRound, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSettingsAccount } from "@/features/settings/hooks/use-settings-account"
 import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payment"
 import { api } from "@/lib/api"
@@ -31,17 +31,27 @@ import {
   type ThemeColorScheme,
 } from "@/lib/theme"
 
-import SettingsAboutTab from "./settings-about-tab"
-import SettingsAccountTab from "./settings-account-tab"
-import SettingsAPIKeyTab from "./settings-apikey-tab"
-import SettingsGeneralTab from "./settings-general-tab"
-import SettingsNotificationTab from "./settings-notification-tab"
-import SettingsPaymentTab from "./settings-payment-tab"
+const SettingsAboutTab = lazy(() => import("./settings-about-tab"))
+const SettingsAccountTab = lazy(() => import("./settings-account-tab"))
+const SettingsAPIKeyTab = lazy(() => import("./settings-apikey-tab"))
+const SettingsGeneralTab = lazy(() => import("./settings-general-tab"))
+const SettingsNotificationTab = lazy(() => import("./settings-notification-tab"))
+const SettingsPaymentTab = lazy(() => import("./settings-payment-tab"))
 
 type SettingsTab = "general" | "payment" | "notification" | "account" | "apikey" | "about"
 
 function isSettingsTab(value: string): value is SettingsTab {
   return value === "general" || value === "payment" || value === "notification" || value === "account" || value === "apikey" || value === "about"
+}
+
+function SettingsTabLoading({ value }: { value: SettingsTab }) {
+  return (
+    <TabsContent value={value}>
+      <div className="rounded-md border border-dashed px-4 py-8 text-sm text-muted-foreground">
+        Loading...
+      </div>
+    </TabsContent>
+  )
 }
 
 export default function SettingsPage() {
@@ -65,6 +75,7 @@ export default function SettingsPage() {
     getDisplayDisabledSubscriptionsLast()
   )
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
+  const [visitedTabs, setVisitedTabs] = useState<SettingsTab[]>(["general"])
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null)
   const versionRequestedRef = useRef(false)
 
@@ -141,6 +152,9 @@ export default function SettingsPage() {
           onValueChange={(value) => {
             if (isSettingsTab(value)) {
               setActiveTab(value)
+              setVisitedTabs((previous) => (
+                previous.includes(value) ? previous : [...previous, value]
+              ))
             }
           }}
           className="space-y-6"
@@ -172,92 +186,116 @@ export default function SettingsPage() {
             </TabsTrigger>
           </TabsList>
 
-          <SettingsGeneralTab
-            theme={theme}
-            onThemeChange={handleTheme}
-            colorScheme={themeColorScheme}
-            onColorSchemeChange={handleThemeColorScheme}
-            customThemeColors={customThemeColors}
-            onCustomThemeColorChange={handleCustomThemeColorChange}
-            onResetCustomThemeColors={handleResetCustomThemeColors}
-            displayAllAmountsInPrimaryCurrency={displayAllAmountsInPrimaryCurrency}
-            onDisplayAllAmountsInPrimaryCurrencyChange={handleDisplayAllAmountsInPrimaryCurrency}
-            displayRecurringAmountsAsMonthlyCost={displayRecurringAmountsAsMonthlyCost}
-            onDisplayRecurringAmountsAsMonthlyCostChange={handleDisplayRecurringAmountsAsMonthlyCost}
-            displaySubscriptionCycleProgress={displaySubscriptionCycleProgress}
-            onDisplaySubscriptionCycleProgressChange={handleDisplaySubscriptionCycleProgress}
-            displayDisabledSubscriptionsLast={displayDisabledSubscriptionsLast}
-            onDisplayDisabledSubscriptionsLastChange={handleDisplayDisabledSubscriptionsLast}
-            language={i18n.language}
-            onLanguageChange={(language) => {
-              void i18n.changeLanguage(language)
-            }}
-          />
+          {visitedTabs.includes("general") && (
+            <Suspense fallback={<SettingsTabLoading value="general" />}>
+              <SettingsGeneralTab
+                theme={theme}
+                onThemeChange={handleTheme}
+                colorScheme={themeColorScheme}
+                onColorSchemeChange={handleThemeColorScheme}
+                customThemeColors={customThemeColors}
+                onCustomThemeColorChange={handleCustomThemeColorChange}
+                onResetCustomThemeColors={handleResetCustomThemeColors}
+                displayAllAmountsInPrimaryCurrency={displayAllAmountsInPrimaryCurrency}
+                onDisplayAllAmountsInPrimaryCurrencyChange={handleDisplayAllAmountsInPrimaryCurrency}
+                displayRecurringAmountsAsMonthlyCost={displayRecurringAmountsAsMonthlyCost}
+                onDisplayRecurringAmountsAsMonthlyCostChange={handleDisplayRecurringAmountsAsMonthlyCost}
+                displaySubscriptionCycleProgress={displaySubscriptionCycleProgress}
+                onDisplaySubscriptionCycleProgressChange={handleDisplaySubscriptionCycleProgress}
+                displayDisabledSubscriptionsLast={displayDisabledSubscriptionsLast}
+                onDisplayDisabledSubscriptionsLastChange={handleDisplayDisabledSubscriptionsLast}
+                language={i18n.language}
+                onLanguageChange={(language) => {
+                  void i18n.changeLanguage(language)
+                }}
+              />
+            </Suspense>
+          )}
 
-          <SettingsPaymentTab
-            currency={payment.currency}
-            preferredCurrencyCodes={payment.preferredCurrencyCodes}
-            onCurrencyChange={payment.handleCurrency}
-            userCurrencies={payment.userCurrencies}
-            orderChanged={payment.orderChanged}
-            orderSaving={payment.orderSaving}
-            onDragStart={payment.handleDragStart}
-            onDragOver={payment.handleDragOver}
-            onDrop={payment.handleDrop}
-            onSaveOrder={payment.handleSaveOrder}
-            onUpdateCurrency={payment.handleUpdateCurrency}
-            onDeleteCurrency={payment.handleDeleteCurrency}
-            getCurrencySymbolPlaceholder={payment.getCurrencySymbolPlaceholder}
-            getCurrencyAliasPlaceholder={payment.getCurrencyAliasPlaceholder}
-            addCode={payment.addCode}
-            onAddCodeChange={payment.setAddCode}
-            addableCurrencyCodes={payment.addableCurrencyCodes}
-            customCodeOption={payment.customCodeOption}
-            addSymbol={payment.addSymbol}
-            onAddSymbolChange={payment.setAddSymbol}
-            addSymbolPlaceholder={payment.addSymbolPlaceholder}
-            addAlias={payment.addAlias}
-            onAddAliasChange={payment.setAddAlias}
-            addAliasPlaceholder={payment.addAliasPlaceholder}
-            addLoading={payment.addLoading}
-            customCode={payment.customCode}
-            onCustomCodeChange={payment.setCustomCode}
-            onAddCurrency={payment.handleAddCurrency}
-          />
+          {visitedTabs.includes("payment") && (
+            <Suspense fallback={<SettingsTabLoading value="payment" />}>
+              <SettingsPaymentTab
+                currency={payment.currency}
+                preferredCurrencyCodes={payment.preferredCurrencyCodes}
+                onCurrencyChange={payment.handleCurrency}
+                userCurrencies={payment.userCurrencies}
+                orderChanged={payment.orderChanged}
+                orderSaving={payment.orderSaving}
+                onDragStart={payment.handleDragStart}
+                onDragOver={payment.handleDragOver}
+                onDrop={payment.handleDrop}
+                onSaveOrder={payment.handleSaveOrder}
+                onUpdateCurrency={payment.handleUpdateCurrency}
+                onDeleteCurrency={payment.handleDeleteCurrency}
+                getCurrencySymbolPlaceholder={payment.getCurrencySymbolPlaceholder}
+                getCurrencyAliasPlaceholder={payment.getCurrencyAliasPlaceholder}
+                addCode={payment.addCode}
+                onAddCodeChange={payment.setAddCode}
+                addableCurrencyCodes={payment.addableCurrencyCodes}
+                customCodeOption={payment.customCodeOption}
+                addSymbol={payment.addSymbol}
+                onAddSymbolChange={payment.setAddSymbol}
+                addSymbolPlaceholder={payment.addSymbolPlaceholder}
+                addAlias={payment.addAlias}
+                onAddAliasChange={payment.setAddAlias}
+                addAliasPlaceholder={payment.addAliasPlaceholder}
+                addLoading={payment.addLoading}
+                customCode={payment.customCode}
+                onCustomCodeChange={payment.setCustomCode}
+                onAddCurrency={payment.handleAddCurrency}
+              />
+            </Suspense>
+          )}
 
-          <SettingsNotificationTab active={activeTab === "notification"} />
+          {visitedTabs.includes("notification") && (
+            <Suspense fallback={<SettingsTabLoading value="notification" />}>
+              <SettingsNotificationTab active={activeTab === "notification"} />
+            </Suspense>
+          )}
 
-          <SettingsAccountTab
-            user={account.user}
-            onUserChange={account.setUser}
-            newEmail={account.newEmail}
-            onNewEmailChange={account.setNewEmail}
-            emailChangePassword={account.emailChangePassword}
-            onEmailChangePasswordChange={account.setEmailChangePassword}
-            emailVerificationCode={account.emailVerificationCode}
-            onEmailVerificationCodeChange={account.setEmailVerificationCode}
-            emailCodeLoading={account.emailCodeLoading}
-            emailChangeLoading={account.emailChangeLoading}
-            emailCodeSent={account.emailCodeSent}
-            emailChangeError={account.emailChangeError}
-            onSendEmailChangeCode={account.handleSendEmailChangeCode}
-            onConfirmEmailChange={account.handleConfirmEmailChange}
-            passwordError={account.passwordError}
-            passwordSuccess={account.passwordSuccess}
-            currentPassword={account.currentPassword}
-            newPassword={account.newPassword}
-            confirmPassword={account.confirmPassword}
-            passwordLoading={account.passwordLoading}
-            onCurrentPasswordChange={account.setCurrentPassword}
-            onNewPasswordChange={account.setNewPassword}
-            onConfirmPasswordChange={account.setConfirmPassword}
-            onChangePassword={account.handleChangePassword}
-            onLogout={account.handleLogout}
-          />
+          {visitedTabs.includes("account") && (
+            <Suspense fallback={<SettingsTabLoading value="account" />}>
+              <SettingsAccountTab
+                user={account.user}
+                onUserChange={account.setUser}
+                newEmail={account.newEmail}
+                onNewEmailChange={account.setNewEmail}
+                emailChangePassword={account.emailChangePassword}
+                onEmailChangePasswordChange={account.setEmailChangePassword}
+                emailVerificationCode={account.emailVerificationCode}
+                onEmailVerificationCodeChange={account.setEmailVerificationCode}
+                emailCodeLoading={account.emailCodeLoading}
+                emailChangeLoading={account.emailChangeLoading}
+                emailCodeSent={account.emailCodeSent}
+                emailChangeError={account.emailChangeError}
+                onSendEmailChangeCode={account.handleSendEmailChangeCode}
+                onConfirmEmailChange={account.handleConfirmEmailChange}
+                passwordError={account.passwordError}
+                passwordSuccess={account.passwordSuccess}
+                currentPassword={account.currentPassword}
+                newPassword={account.newPassword}
+                confirmPassword={account.confirmPassword}
+                passwordLoading={account.passwordLoading}
+                onCurrentPasswordChange={account.setCurrentPassword}
+                onNewPasswordChange={account.setNewPassword}
+                onConfirmPasswordChange={account.setConfirmPassword}
+                onChangePassword={account.handleChangePassword}
+                onLogout={account.handleLogout}
+              />
+            </Suspense>
+          )}
 
-          <SettingsAPIKeyTab active={activeTab === "apikey"} />
+          {visitedTabs.includes("apikey") && (
+            <Suspense fallback={<SettingsTabLoading value="apikey" />}>
+              <SettingsAPIKeyTab active={activeTab === "apikey"} />
+            </Suspense>
+          )}
 
-          <SettingsAboutTab versionInfo={versionInfo} />
+          {visitedTabs.includes("about") && (
+            <Suspense fallback={<SettingsTabLoading value="about" />}>
+              <SettingsAboutTab versionInfo={versionInfo} />
+            </Suspense>
+          )}
         </Tabs>
       </main>
     </div>

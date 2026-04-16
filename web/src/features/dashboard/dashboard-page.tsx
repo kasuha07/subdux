@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, lazy, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CalendarDays, Plus, Settings, Shield } from "lucide-react"
@@ -28,9 +28,10 @@ import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionSquareCard from "@/features/subscriptions/subscription-square-card"
-import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
+
+const SubscriptionForm = lazy(() => import("@/features/subscriptions/subscription-form"))
 
 function DashboardSkeleton() {
   return (
@@ -441,20 +442,24 @@ export default function DashboardPage() {
         )}
       </main>
 
-      <SubscriptionForm
-        key={editingSub?.id ?? "new"}
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open)
-          if (!open) setEditingSub(null)
-        }}
-        subscription={editingSub}
-        onSubmit={handleFormSubmit}
-        onMarkRenewed={handleMarkRenewed}
-        userCurrencies={userCurrencies}
-        categories={categories}
-        paymentMethods={paymentMethods}
-      />
+      {formOpen && (
+        <Suspense fallback={null}>
+          <SubscriptionForm
+            key={editingSub?.id ?? "new"}
+            open={formOpen}
+            onOpenChange={(open) => {
+              setFormOpen(open)
+              if (!open) setEditingSub(null)
+            }}
+            subscription={editingSub}
+            onSubmit={handleFormSubmit}
+            onMarkRenewed={handleMarkRenewed}
+            userCurrencies={userCurrencies}
+            categories={categories}
+            paymentMethods={paymentMethods}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
