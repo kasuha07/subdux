@@ -119,3 +119,24 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 
 	return writeAuthSuccess(c, http.StatusOK, resp)
 }
+
+func (h *AuthHandler) Logout(c echo.Context) error {
+	var input struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.Bind(&input); err != nil && !errors.Is(err, io.EOF) {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	input.RefreshToken = strings.TrimSpace(input.RefreshToken)
+	if input.RefreshToken == "" {
+		input.RefreshToken = getCookieValue(c, refreshTokenCookieName)
+	}
+
+	if err := h.Service.Logout(input.RefreshToken); err != nil {
+		return writeInternalServerError(c, err)
+	}
+
+	clearRefreshTokenCookie(c)
+	return c.NoContent(http.StatusNoContent)
+}

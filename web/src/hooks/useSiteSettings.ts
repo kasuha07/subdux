@@ -4,9 +4,13 @@ import type { SystemSettings } from "@/types"
 
 export function useSiteSettings() {
   const [settings, setSettings] = useState<SystemSettings | null>(null)
+  const authenticated = isAuthenticated()
+  const admin = isAdmin()
 
   useEffect(() => {
-    if (!isAuthenticated()) return
+    if (!authenticated) {
+      return
+    }
 
     // Fetch site name for all users via public endpoint
     api.get<{ site_name: string }>("/site-info")
@@ -18,13 +22,19 @@ export function useSiteSettings() {
       .catch(() => void 0)
 
     // Fetch full settings for admin users
-    if (!isAdmin()) return
+    if (!admin) {
+      return
+    }
     api.get<SystemSettings>("/admin/settings")
       .then((data) => {
         setSettings(data)
       })
       .catch(() => void 0)
-  }, [])
+  }, [admin, authenticated])
+
+  if (!authenticated || !admin) {
+    return null
+  }
 
   return settings
 }

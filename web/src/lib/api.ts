@@ -16,37 +16,37 @@ const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
   "you can enable at most 3 notification channels": "common.backendErrors.maxNotificationChannels",
 }
 
-function readSessionStorage(key: string): string | null {
+function readLocalStorage(key: string): string | null {
   if (typeof window === "undefined") {
     return null
   }
 
   try {
-    return window.sessionStorage.getItem(key)
+    return window.localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-function writeSessionStorage(key: string, value: string): void {
+function writeLocalStorage(key: string, value: string): void {
   if (typeof window === "undefined") {
     return
   }
 
   try {
-    window.sessionStorage.setItem(key, value)
+    window.localStorage.setItem(key, value)
   } catch {
     void 0
   }
 }
 
-function removeSessionStorage(key: string): void {
+function removeLocalStorage(key: string): void {
   if (typeof window === "undefined") {
     return
   }
 
   try {
-    window.sessionStorage.removeItem(key)
+    window.localStorage.removeItem(key)
   } catch {
     void 0
   }
@@ -54,7 +54,7 @@ function removeSessionStorage(key: string): void {
 
 function getToken(): string | null {
   if (!accessTokenLoaded) {
-    cachedAccessToken = readSessionStorage(ACCESS_TOKEN_KEY)
+    cachedAccessToken = readLocalStorage(ACCESS_TOKEN_KEY)
     accessTokenLoaded = true
   }
 
@@ -64,7 +64,7 @@ function getToken(): string | null {
 export function setToken(token: string): void {
   cachedAccessToken = token
   accessTokenLoaded = true
-  writeSessionStorage(ACCESS_TOKEN_KEY, token)
+  writeLocalStorage(ACCESS_TOKEN_KEY, token)
 }
 
 export function clearToken(): void {
@@ -72,8 +72,8 @@ export function clearToken(): void {
   cachedUser = null
   accessTokenLoaded = true
   userLoaded = true
-  removeSessionStorage(ACCESS_TOKEN_KEY)
-  removeSessionStorage(USER_KEY)
+  removeLocalStorage(ACCESS_TOKEN_KEY)
+  removeLocalStorage(USER_KEY)
 }
 
 export function isAuthenticated(): boolean {
@@ -83,12 +83,12 @@ export function isAuthenticated(): boolean {
 export function setUser(user: User): void {
   cachedUser = user
   userLoaded = true
-  writeSessionStorage(USER_KEY, JSON.stringify(user))
+  writeLocalStorage(USER_KEY, JSON.stringify(user))
 }
 
 export function getUser(): User | null {
   if (!userLoaded) {
-    const raw = readSessionStorage(USER_KEY)
+    const raw = readLocalStorage(USER_KEY)
     if (!raw) {
       cachedUser = null
       userLoaded = true
@@ -99,7 +99,7 @@ export function getUser(): User | null {
       cachedUser = JSON.parse(raw) as User
     } catch {
       cachedUser = null
-      removeSessionStorage(USER_KEY)
+      removeLocalStorage(USER_KEY)
     }
     userLoaded = true
   }
@@ -114,6 +114,19 @@ export function isAdmin(): boolean {
 export function setAuth(token: string, user: User): void {
   setToken(token)
   setUser(user)
+}
+
+export async function restoreSession(): Promise<boolean> {
+  if (getToken()) {
+    return true
+  }
+
+  const restored = await refreshSession()
+  if (!restored) {
+    clearToken()
+  }
+
+  return restored
 }
 
 function resolveAccessToken(data: Partial<AuthResponse>): string | null {
@@ -201,6 +214,24 @@ async function performRefresh(): Promise<boolean> {
   }
 }
 
+async function performLogout(): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/refresh/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  })
+
+  if (res.status === 204) {
+    return
+  }
+
+  const data = await parseJSON<{ error?: unknown }>(res)
+  if (!res.ok) {
+    throw new Error(localizeBackendError(data?.error))
+  }
+}
+
 async function refreshSession(): Promise<boolean> {
   if (!refreshRequest) {
     refreshRequest = performRefresh().finally(() => {
@@ -260,6 +291,14 @@ async function request<T>(
   }
 
   return data as T
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await performLogout()
+  } finally {
+    clearToken()
+  }
 }
 
 export const api = {

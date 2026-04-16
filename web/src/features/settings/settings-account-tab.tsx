@@ -113,7 +113,7 @@ interface SettingsAccountTabProps {
   onEmailVerificationCodeChange: (value: string) => void
   onConfirmPasswordChange: (value: string) => void
   onCurrentPasswordChange: (value: string) => void
-  onLogout: () => void
+  onLogout: () => void | Promise<void>
   onNewEmailChange: (value: string) => void
   onNewPasswordChange: (value: string) => void
   onSendEmailChangeCode: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
@@ -616,7 +616,7 @@ export default function SettingsAccountTab({
 
         <div>
           <p className="text-sm text-muted-foreground">{t("settings.account.logoutDescription")}</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={onLogout}>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => void onLogout()}>
             {t("settings.account.logout")}
           </Button>
         </div>

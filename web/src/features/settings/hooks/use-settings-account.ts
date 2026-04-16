@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 
-import { api, clearToken, setAuth } from "@/lib/api"
+import { api, logout, setAuth } from "@/lib/api"
 import { toast } from "sonner"
 import type {
   AuthResponse,
@@ -26,7 +26,7 @@ interface UseSettingsAccountResult {
   emailVerificationCode: string
   handleChangePassword: (event: FormEvent<HTMLFormElement>) => Promise<void>
   handleConfirmEmailChange: (event: FormEvent<HTMLFormElement>) => Promise<void>
-  handleLogout: () => void
+  handleLogout: () => Promise<void>
   handleSendEmailChangeCode: (event: FormEvent<HTMLFormElement>) => Promise<void>
   newEmail: string
   newPassword: string
@@ -171,9 +171,13 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     }
   }
 
-  function handleLogout() {
-    clearToken()
-    toast.success(t("settings.account.logoutSuccess"))
+  async function handleLogout() {
+    try {
+      await logout()
+      toast.success(t("settings.account.logoutSuccess"))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.requestFailed"))
+    }
     navigate("/login")
   }
 

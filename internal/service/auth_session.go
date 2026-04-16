@@ -136,6 +136,21 @@ func (s *AuthService) RefreshSession(rawRefreshToken string) (*AuthResponse, err
 	}, nil
 }
 
+func (s *AuthService) Logout(rawRefreshToken string) error {
+	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
+	if rawRefreshToken == "" {
+		return nil
+	}
+
+	now := time.Now().UTC()
+	return s.DB.Model(&model.RefreshToken{}).
+		Where("token_hash = ? AND revoked_at IS NULL", pkg.HashRefreshToken(rawRefreshToken)).
+		Updates(map[string]interface{}{
+			"revoked_at":   &now,
+			"last_used_at": &now,
+		}).Error
+}
+
 func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
 	now := time.Now().UTC()
 	return tx.Model(&model.RefreshToken{}).

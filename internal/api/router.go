@@ -199,6 +199,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	auth.POST("/password/reset", authHandler.ResetPassword, authIPLimiter, passwordAccountLimiter)
 	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin, authIPLimiter, totpAccountLimiter)
 	auth.POST("/refresh", authHandler.RefreshSession, authIPLimiter, refreshTokenLimiter)
+	auth.POST("/refresh/logout", authHandler.Logout, authIPLimiter, refreshTokenLimiter)
 	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin)
 	auth.POST("/passkeys/login/finish", authHandler.FinishPasskeyLogin)
 	auth.GET("/oidc/config", authHandler.GetOIDCConfig)
