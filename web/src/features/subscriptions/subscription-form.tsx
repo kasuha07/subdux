@@ -273,7 +273,7 @@ export default function SubscriptionForm({
                   onClick={() => void handleMarkRenewed()}
                   disabled={loading}
                 >
-                  {t("subscription.form.markRenewed")}
+                  {t("subscription.form.renewalMode.manual_renew")}
                 </Button>
               ) : null}
               <Button type="submit" className="w-full sm:flex-1" disabled={loading}>

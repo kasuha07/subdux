@@ -133,7 +133,6 @@ const subscription = {
     "notesLabel": "备注",
     "notesPlaceholder": "可选备注...",
     "cancel": "取消",
-    "markRenewed": "标记为已续费",
     "saving": "保存中...",
     "update": "更新",
     "addButton": "添加订阅",

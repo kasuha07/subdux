@@ -133,7 +133,6 @@ const subscription = {
     "notesLabel": "メモ",
     "notesPlaceholder": "メモ（任意）...",
     "cancel": "キャンセル",
-    "markRenewed": "更新済みにする",
     "saving": "保存中...",
     "update": "更新",
     "addButton": "サブスクリプションを追加",

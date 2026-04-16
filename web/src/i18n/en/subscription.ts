@@ -133,7 +133,6 @@ const subscription = {
     "notesLabel": "Notes",
     "notesPlaceholder": "Optional notes...",
     "cancel": "Cancel",
-    "markRenewed": "Mark as renewed",
     "saving": "Saving...",
     "update": "Update",
     "addButton": "Add subscription",
