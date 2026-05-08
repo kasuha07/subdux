@@ -74,6 +74,9 @@ func TestNormalizeDateInTimezone(t *testing.T) {
 
 func TestTodayInTimezone(t *testing.T) {
 	tokyo, _ := time.LoadLocation("Asia/Tokyo")
+	restoreClock := SetNowForTest(time.Date(2026, 2, 22, 14, 30, 0, 0, time.UTC))
+	t.Cleanup(restoreClock)
+
 	result := TodayInTimezone(tokyo)
 
 	if result.Hour() != 0 || result.Minute() != 0 || result.Second() != 0 {
@@ -88,6 +91,9 @@ func TestTodayInTimezone(t *testing.T) {
 func TestDaysUntil(t *testing.T) {
 	tokyo, _ := time.LoadLocation("Asia/Tokyo")
 	utc := time.UTC
+	now := time.Date(2026, 2, 22, 14, 30, 0, 0, time.UTC)
+	restoreClock := SetNowForTest(now)
+	t.Cleanup(restoreClock)
 
 	tests := []struct {
 		name     string
@@ -97,25 +103,25 @@ func TestDaysUntil(t *testing.T) {
 	}{
 		{
 			name:     "same day in UTC",
-			target:   time.Now().UTC(),
+			target:   now.UTC(),
 			loc:      utc,
 			wantDays: 0,
 		},
 		{
 			name:     "tomorrow in UTC",
-			target:   time.Now().UTC().AddDate(0, 0, 1),
+			target:   now.UTC().AddDate(0, 0, 1),
 			loc:      utc,
 			wantDays: 1,
 		},
 		{
 			name:     "7 days from now in Tokyo",
-			target:   time.Now().In(tokyo).AddDate(0, 0, 7),
+			target:   now.In(tokyo).AddDate(0, 0, 7),
 			loc:      tokyo,
 			wantDays: 7,
 		},
 		{
 			name:     "yesterday in UTC",
-			target:   time.Now().UTC().AddDate(0, 0, -1),
+			target:   now.UTC().AddDate(0, 0, -1),
 			loc:      utc,
 			wantDays: -1,
 		},
@@ -134,6 +140,8 @@ func TestDaysUntil(t *testing.T) {
 func TestDaysUntilCrossingTimezone(t *testing.T) {
 	tokyo, _ := time.LoadLocation("Asia/Tokyo")
 	utc := time.UTC
+	restoreClock := SetNowForTest(time.Date(2026, 2, 22, 14, 30, 0, 0, time.UTC))
+	t.Cleanup(restoreClock)
 
 	utcTime := time.Date(2026, 2, 23, 2, 0, 0, 0, utc)
 	tokyoTime := utcTime.In(tokyo)

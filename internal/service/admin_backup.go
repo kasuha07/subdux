@@ -7,13 +7,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/shiroha/subdux/internal/pkg"
 )
 
 func (s *AdminService) BackupDB(includeAssets bool) (string, error) {
-	timestamp := time.Now().Format("20060102-150405")
+	timestamp := pkg.Now().Format("20060102-150405")
 	backupPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
 
 	if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {

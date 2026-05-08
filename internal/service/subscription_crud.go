@@ -11,7 +11,7 @@ import (
 )
 
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
-	now := time.Now().In(pkg.GetSystemTimezone())
+	now := pkg.NowInSystemTimezone()
 	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
 }
 
 func (s *SubscriptionService) GetByID(userID, id uint) (*model.Subscription, error) {
-	now := time.Now().In(pkg.GetSystemTimezone())
+	now := pkg.NowInSystemTimezone()
 	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		Status:      input.Status,
 		RenewalMode: input.RenewalMode,
 		EndsAt:      endsAt,
-	}, normalizedDraft.BillingType, nextBillingDate, time.Now().In(pkg.GetSystemTimezone()))
+	}, normalizedDraft.BillingType, nextBillingDate, pkg.NowInSystemTimezone())
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 				return sub.BillingType
 			}(),
 			nextBillingDate,
-			time.Now().In(pkg.GetSystemTimezone()),
+			pkg.NowInSystemTimezone(),
 		)
 		if err != nil {
 			return nil, err

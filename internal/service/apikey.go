@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"sort"
 	"strings"
 	"time"
@@ -214,12 +215,12 @@ func (s *APIKeyService) ValidateKey(rawKey string) (*APIKeyPrincipal, error) {
 		return nil, ErrAPIKeyInvalid
 	}
 
-	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(pkg.Now()) {
 		return nil, ErrAPIKeyExpired
 	}
 
 	// Update last used timestamp
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 	s.db.Model(&apiKey).Update("last_used_at", now)
 
 	return &APIKeyPrincipal{

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -267,7 +268,7 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 		UserID:       userID,
 		CodeVerifier: codeVerifier,
 		Nonce:        nonce,
-		ExpiresAt:    time.Now().UTC().Add(oidcStateSessionTTL),
+		ExpiresAt:    pkg.NowUTC().Add(oidcStateSessionTTL),
 	})
 
 	authOptions := []oauth2.AuthCodeOption{
@@ -659,7 +660,7 @@ func (s *AuthService) storeOIDCStateSession(state string, session oidcStateSessi
 
 	s.cleanupOIDCSessionsLocked()
 	if session.CreatedAt.IsZero() {
-		session.CreatedAt = time.Now().UTC()
+		session.CreatedAt = pkg.NowUTC()
 	}
 	s.enforceOIDCStateSessionLimitLocked()
 	s.oidcStateSessions[state] = session
@@ -677,7 +678,7 @@ func (s *AuthService) takeOIDCStateSession(state string) (oidcStateSession, erro
 	}
 	delete(s.oidcStateSessions, state)
 
-	if time.Now().UTC().After(session.ExpiresAt) {
+	if pkg.NowUTC().After(session.ExpiresAt) {
 		return oidcStateSession{}, errors.New("oidc session expired")
 	}
 
@@ -694,8 +695,8 @@ func (s *AuthService) storeOIDCResultSession(result OIDCSessionResult) string {
 	sessionID := uuid.NewString()
 	s.oidcResultSessions[sessionID] = oidcResultSession{
 		Result:    result,
-		CreatedAt: time.Now().UTC(),
-		ExpiresAt: time.Now().UTC().Add(oidcResultSessionTTL),
+		CreatedAt: pkg.NowUTC(),
+		ExpiresAt: pkg.NowUTC().Add(oidcResultSessionTTL),
 	}
 
 	return sessionID
@@ -713,7 +714,7 @@ func (s *AuthService) takeOIDCResultSession(sessionID string) (OIDCSessionResult
 	}
 	delete(s.oidcResultSessions, sessionID)
 
-	if time.Now().UTC().After(session.ExpiresAt) {
+	if pkg.NowUTC().After(session.ExpiresAt) {
 		return OIDCSessionResult{}, errors.New("oidc result session expired")
 	}
 
@@ -721,7 +722,7 @@ func (s *AuthService) takeOIDCResultSession(sessionID string) (OIDCSessionResult
 }
 
 func (s *AuthService) cleanupOIDCSessionsLocked() {
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 
 	for state, session := range s.oidcStateSessions {
 		if now.After(session.ExpiresAt) {

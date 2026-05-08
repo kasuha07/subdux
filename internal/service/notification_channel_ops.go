@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"strings"
-	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"gorm.io/gorm"
@@ -154,7 +154,7 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 	}
 
 	testSubName := "Test Subscription"
-	testBillingDate := time.Now().AddDate(0, 0, 3)
+	testBillingDate := pkg.Now().AddDate(0, 0, 3)
 	testSubscription := &model.Subscription{
 		Name:        testSubName,
 		Amount:      9.99,

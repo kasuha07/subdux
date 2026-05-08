@@ -60,7 +60,7 @@ func (s *AuthService) RefreshSession(rawRefreshToken string) (*AuthResponse, err
 	}
 
 	tokenHash := pkg.HashRefreshToken(rawRefreshToken)
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 
 	var (
 		user              model.User
@@ -142,7 +142,7 @@ func (s *AuthService) Logout(rawRefreshToken string) error {
 		return nil
 	}
 
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 	return s.DB.Model(&model.RefreshToken{}).
 		Where("token_hash = ? AND revoked_at IS NULL", pkg.HashRefreshToken(rawRefreshToken)).
 		Updates(map[string]interface{}{
@@ -152,7 +152,7 @@ func (s *AuthService) Logout(rawRefreshToken string) error {
 }
 
 func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 	return tx.Model(&model.RefreshToken{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Updates(map[string]interface{}{"revoked_at": &now}).Error

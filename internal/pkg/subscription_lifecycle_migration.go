@@ -62,7 +62,7 @@ func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 			} else {
 				endedAt := normalizeSubscriptionDate(sub.UpdatedAt)
 				if endedAt.IsZero() {
-					endedAt = normalizeSubscriptionDate(time.Now().UTC())
+					endedAt = normalizeSubscriptionDate(NowUTC())
 				}
 				updates["ends_at"] = endedAt
 			}

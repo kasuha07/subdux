@@ -8,7 +8,7 @@ import (
 )
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
-	now := time.Now().In(pkg.GetSystemTimezone())
+	now := pkg.NowInSystemTimezone()
 	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return nil, err
 	}

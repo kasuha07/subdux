@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -78,7 +79,7 @@ func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) 
 	}
 
 	subject := "Subdux SMTP Test"
-	body := fmt.Sprintf("This is a test email from Subdux.\r\nSent at: %s", time.Now().Format(time.RFC3339))
+	body := fmt.Sprintf("This is a test email from Subdux.\r\nSent at: %s", pkg.Now().Format(time.RFC3339))
 	message := buildSMTPMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
 
 	if err := sendSMTPMessage(*cfg, recipient, message); err != nil {

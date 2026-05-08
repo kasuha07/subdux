@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"github.com/shiroha/subdux/internal/pkg"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
@@ -134,7 +135,7 @@ func (s *ExportService) ExportUserData(userID uint) (*UserExportData, error) {
 	}
 
 	return &UserExportData{
-		ExportedAt: time.Now().UTC(),
+		ExportedAt: pkg.NowUTC(),
 		User: UserExportInfo{
 			ID:        user.ID,
 			Username:  user.Username,

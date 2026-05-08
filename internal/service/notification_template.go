@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"github.com/shiroha/subdux/internal/pkg"
 	"strings"
 	"time"
 
@@ -218,7 +219,7 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 			sub.NextBillingDate.Location(),
 		)
 		templateData.BillingDate = billingDate.Format("2006-01-02")
-		now := time.Now().In(billingDate.Location())
+		now := pkg.Now().In(billingDate.Location())
 		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, billingDate.Location())
 		templateData.DaysUntil = int(billingDate.Sub(today).Hours() / 24)
 	}

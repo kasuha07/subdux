@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"io"
 	"net/http"
 	"net/url"
@@ -45,7 +46,7 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, mes
 		return err
 	}
 
-	sentAt := time.Now().UTC().Format(time.RFC3339)
+	sentAt := pkg.NowUTC().Format(time.RFC3339)
 	payload := map[string]interface{}{
 		"event":   "subscription.reminder",
 		"message": message,

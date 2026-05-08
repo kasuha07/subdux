@@ -547,7 +547,7 @@ func replaceAssetsDirectory(sourceAssetsDir string) error {
 	}
 
 	targetAssetsDir := filepath.Join(dataDir, "assets")
-	previousAssetsDir := filepath.Join(dataDir, fmt.Sprintf(".subdux-restore-assets-prev-%d", time.Now().UnixNano()))
+	previousAssetsDir := filepath.Join(dataDir, fmt.Sprintf(".subdux-restore-assets-prev-%d", pkg.Now().UnixNano()))
 	previousAssetsExists := false
 
 	if _, err := os.Stat(targetAssetsDir); err == nil {

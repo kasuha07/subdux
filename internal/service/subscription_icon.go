@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
@@ -52,7 +51,7 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 		return "", errors.New("failed to create icon directory")
 	}
 
-	newFilename := fmt.Sprintf("%d_%d_%d%s", userID, subID, time.Now().UnixNano(), ext)
+	newFilename := fmt.Sprintf("%d_%d_%d%s", userID, subID, pkg.Now().UnixNano(), ext)
 	destPath := filepath.Join(iconDir, newFilename)
 
 	if err := os.WriteFile(destPath, sanitized, 0644); err != nil {

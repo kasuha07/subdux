@@ -122,7 +122,7 @@ func GenerateToken(userID uint, username string, email string, role string) (str
 }
 
 func GenerateAccessToken(userID uint, username string, email string, role string) (string, error) {
-	now := time.Now().UTC()
+	now := NowUTC()
 	claims := &JWTClaims{
 		UserID:   userID,
 		Username: username,
@@ -192,7 +192,7 @@ func GenerateRefreshToken() (string, string, time.Time, error) {
 	}
 
 	rawToken := "sdr_" + hex.EncodeToString(tokenBytes)
-	return rawToken, HashRefreshToken(rawToken), time.Now().UTC().Add(getRefreshTokenTTL()), nil
+	return rawToken, HashRefreshToken(rawToken), NowUTC().Add(getRefreshTokenTTL()), nil
 }
 
 // TOTPPendingClaims is a short-lived intermediate token (5 min) issued after
@@ -208,8 +208,8 @@ func GenerateTOTPPendingToken(userID uint) (string, error) {
 		UserID:      userID,
 		PendingTOTP: true,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(Now()),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

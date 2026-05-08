@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"strings"
-	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"gorm.io/gorm"
@@ -33,7 +33,7 @@ func (s *CalendarService) GenerateToken(userID uint, name string) (*model.Calend
 		UserID:    userID,
 		Token:     tokenHash,
 		Name:      name,
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: pkg.NowUTC(),
 	}
 	if err := s.DB.Create(&ct).Error; err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func hashCalendarToken(token string) string {
 }
 
 func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subscription, error) {
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, time.Now()); err != nil {
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, pkg.NowInSystemTimezone()); err != nil {
 		return nil, err
 	}
 

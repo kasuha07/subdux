@@ -30,9 +30,9 @@ type CreateChannelInput struct {
 }
 
 type UpdateChannelInput struct {
-	Enabled                 *bool    `json:"enabled"`
-	Config                  *string  `json:"config"`
-	ClearedSecretFields     []string `json:"cleared_secret_fields"`
+	Enabled                  *bool    `json:"enabled"`
+	Config                   *string  `json:"config"`
+	ClearedSecretFields      []string `json:"cleared_secret_fields"`
 	ClearedWebhookHeaderKeys []string `json:"cleared_webhook_header_keys"`
 }
 

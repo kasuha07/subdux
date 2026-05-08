@@ -40,7 +40,7 @@ func GetSystemTimezoneName() string {
 	}
 
 	// Try to get zone name from current time
-	now := time.Now().In(loc)
+	now := NowIn(loc)
 	zone, _ := now.Zone()
 
 	// If zone is an abbreviation (e.g., "CST"), try to get IANA name from TZ env
@@ -65,13 +65,24 @@ func NormalizeDateInTimezone(t time.Time, loc *time.Location) time.Time {
 
 // TodayInTimezone returns the current date at 00:00:00 in the given timezone.
 func TodayInTimezone(loc *time.Location) time.Time {
-	return NormalizeDateInTimezone(time.Now(), loc)
+	return NormalizeDateInTimezone(Now(), loc)
+}
+
+// TodayInSystemTimezone returns the current system date at 00:00:00 in the configured system timezone.
+func TodayInSystemTimezone() time.Time {
+	return TodayInTimezone(GetSystemTimezone())
 }
 
 // DaysUntil calculates the number of days from now until the target date,
 // both normalized to the given timezone.
 func DaysUntil(target time.Time, loc *time.Location) int {
-	today := TodayInTimezone(loc)
+	return DaysUntilFrom(Now(), target, loc)
+}
+
+// DaysUntilFrom calculates the number of days from a reference time until the
+// target date, both normalized to the given timezone.
+func DaysUntilFrom(now, target time.Time, loc *time.Location) int {
+	today := NormalizeDateInTimezone(now, loc)
 	targetDate := NormalizeDateInTimezone(target, loc)
 	diff := targetDate.Sub(today)
 	return int(diff.Hours() / 24)

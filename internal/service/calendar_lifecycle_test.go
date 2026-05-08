@@ -3,9 +3,14 @@ package service
 import (
 	"strings"
 	"testing"
+
+	"github.com/shiroha/subdux/internal/pkg"
 )
 
 func TestGenerateICalFeedOmitsRRuleForNonAutoRenewRecurring(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
 	db := newTestDB(t)
 	user := createTestUser(t, db)
 	service := NewSubscriptionService(db)

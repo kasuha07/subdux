@@ -245,7 +245,7 @@ var commonCurrencies = []string{"usd", "eur", "gbp", "jpy", "cny", "cad", "aud",
 
 func (s *ExchangeRateService) fetchFromFree() error {
 	bases := s.getActiveCurrencies()
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 	var allRates []model.ExchangeRate
 
 	for _, base := range bases {
@@ -316,7 +316,7 @@ func (s *ExchangeRateService) fetchFreeBase(base string) (map[string]float64, er
 
 func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
 	bases := s.getActiveCurrencies()
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 	var allRates []model.ExchangeRate
 
 	targets := make(map[string]bool)
@@ -463,7 +463,7 @@ func (s *ExchangeRateService) saveRates(rates []model.ExchangeRate) error {
 	for _, r := range rates {
 		s.cache[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
 	}
-	s.cacheTime = time.Now().UTC()
+	s.cacheTime = pkg.NowUTC()
 
 	return nil
 }

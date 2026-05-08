@@ -51,6 +51,14 @@ func createSubscriptionRolloverTestUser(t *testing.T, db *gorm.DB) model.User {
 	return user
 }
 
+func setSubscriptionRolloverTestNow(t *testing.T) time.Time {
+	t.Helper()
+	now := mustDate(t, "2026-03-15")
+	restoreClock := pkg.SetNowForTest(now)
+	t.Cleanup(restoreClock)
+	return normalizeDateUTC(now.In(pkg.GetSystemTimezone()))
+}
+
 func TestNextRecurringBillingDateOnOrAfter(t *testing.T) {
 	referenceDate := mustDate(t, "2026-02-22")
 
@@ -130,7 +138,7 @@ func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
+	today := setSubscriptionRolloverTestNow(t)
 	overdueRecurring := today.AddDate(0, 0, -10)
 
 	intervalCount := 1
@@ -173,7 +181,7 @@ func TestCreateRejectsLegacyOneTimeSubscriptions(t *testing.T) {
 		Name:            "Legacy buyout",
 		Amount:          4.99,
 		BillingType:     billingTypeOneTime,
-		NextBillingDate: normalizeDateUTC(time.Now()).Format("2006-01-02"),
+		NextBillingDate: setSubscriptionRolloverTestNow(t).Format("2006-01-02"),
 	})
 	if err == nil {
 		t.Fatal("Create() error = nil, want unsupported one_time error")
@@ -188,7 +196,7 @@ func TestDashboardAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
+	today := setSubscriptionRolloverTestNow(t)
 	overdueRecurring := today.AddDate(0, -2, 0)
 	intervalCount := 1
 
@@ -227,7 +235,7 @@ func TestListEndsOverdueManualRenewSubscription(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	overdue := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone())).AddDate(0, 0, -2)
+	overdue := setSubscriptionRolloverTestNow(t).AddDate(0, 0, -2)
 	intervalCount := 1
 
 	sub, err := service.Create(user.ID, CreateSubscriptionInput{
@@ -269,7 +277,7 @@ func TestListEndsCancelAtPeriodEndSubscription(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	periodEnd := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone())).AddDate(0, 0, -1)
+	periodEnd := setSubscriptionRolloverTestNow(t).AddDate(0, 0, -1)
 	intervalCount := 1
 
 	sub, err := service.Create(user.ID, CreateSubscriptionInput{
@@ -311,7 +319,7 @@ func TestMarkManualRenewedAdvancesNextBillingDate(t *testing.T) {
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
-	nextBillingDate := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone())).AddDate(0, 0, 3)
+	nextBillingDate := setSubscriptionRolloverTestNow(t).AddDate(0, 0, 3)
 	intervalCount := 1
 
 	sub, err := service.Create(user.ID, CreateSubscriptionInput{
@@ -352,7 +360,7 @@ func TestProcessUserNotificationsAutoAdvancesOverdueRecurringNextBillingDate(t *
 	subscriptionService := NewSubscriptionService(db)
 	notificationService := NewNotificationService(db, nil, nil)
 
-	today := normalizeDateUTC(time.Now().In(pkg.GetSystemTimezone()))
+	today := setSubscriptionRolloverTestNow(t)
 	overdueRecurring := today.AddDate(-1, 0, 0)
 	intervalCount := 1
 

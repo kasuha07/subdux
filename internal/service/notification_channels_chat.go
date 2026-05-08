@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"io"
 	"net/http"
 	"net/url"
@@ -77,7 +78,7 @@ func (s *NotificationService) sendFeishu(channel model.NotificationChannel, mess
 	}
 
 	if cfg.Secret != "" {
-		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		timestamp := strconv.FormatInt(pkg.Now().Unix(), 10)
 		stringToSign := timestamp + "\n" + cfg.Secret
 		h := hmac.New(sha256.New, []byte(cfg.Secret))
 		h.Write([]byte(stringToSign))
@@ -170,7 +171,7 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, me
 
 	webhookURL := cfg.WebhookURL
 	if cfg.Secret != "" {
-		timestampMs := time.Now().UnixMilli()
+		timestampMs := pkg.Now().UnixMilli()
 		timestamp := strconv.FormatInt(timestampMs, 10)
 		stringToSign := timestamp + "\n" + cfg.Secret
 		h := hmac.New(sha256.New, []byte(cfg.Secret))

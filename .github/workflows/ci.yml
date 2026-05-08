@@ -24,13 +24,29 @@ jobs:
 
       - uses: oven-sh/setup-bun@ecf28ddc73e819eb6fa29df6b34ef8921c743461    # v2
 
+      - name: Check Go formatting
+        run: |
+          files=$(gofmt -l $(find . -path ./web -prune -o -name '*.go' -print))
+          if [ -n "$files" ]; then
+            echo "Go files are not gofmt-formatted:"
+            echo "$files"
+            exit 1
+          fi
+
       - name: Install frontend deps
         run: bun install --frozen-lockfile
+        working-directory: web
+
+      - name: Lint frontend
+        run: bun run lint
         working-directory: web
 
       - name: Build frontend
         run: bun run build
         working-directory: web
+
+      - name: Vet backend
+        run: go vet ./...
 
       - name: Build backend
         run: |
@@ -40,5 +56,5 @@ jobs:
             -X github.com/shiroha/subdux/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o subdux ./cmd/server
 
-      - name: Test
+      - name: Test backend
         run: go test ./...

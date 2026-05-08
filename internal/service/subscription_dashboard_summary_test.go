@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 )
 
 func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
@@ -82,6 +83,9 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 }
 
 func TestGetDashboardSummarySplitsCommittedSpend(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
 	db := newTestDB(t)
 	user := createTestUser(t, db)
 	service := NewSubscriptionService(db)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
@@ -724,7 +723,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 					incoming.BillingType,
 					incoming.NextBillingDate,
 					incoming.EndsAt,
-					time.Now().UTC(),
+					pkg.NowUTC(),
 				)
 				lifecycle = legacy
 			}
@@ -732,7 +731,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				lifecycle,
 				incoming.BillingType,
 				incoming.NextBillingDate,
-				time.Now().In(pkg.GetSystemTimezone()),
+				pkg.NowInSystemTimezone(),
 			)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to normalize lifecycle for subscription %q: %v", incoming.Name, err))

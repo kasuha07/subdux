@@ -113,6 +113,9 @@ func TestGenerateTokenIncludesUserAuthTypeAndShortExpiry(t *testing.T) {
 
 func TestGenerateRefreshTokenReturnsHashAndExpiry(t *testing.T) {
 	t.Setenv("REFRESH_TOKEN_TTL_HOURS", "")
+	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	restoreClock := SetNowForTest(now)
+	t.Cleanup(restoreClock)
 
 	token, hash, expiresAt, err := GenerateRefreshToken()
 	if err != nil {
@@ -127,8 +130,8 @@ func TestGenerateRefreshTokenReturnsHashAndExpiry(t *testing.T) {
 		t.Fatalf("refresh token hash mismatch: got %q, want %q", hash, expectedHash)
 	}
 
-	minExpiry := time.Now().Add(defaultRefreshTokenTTL - time.Hour)
-	if expiresAt.Before(minExpiry) {
-		t.Fatalf("refresh token expiry = %v, want >= %v", expiresAt, minExpiry)
+	wantExpiry := now.Add(defaultRefreshTokenTTL)
+	if !expiresAt.Equal(wantExpiry) {
+		t.Fatalf("refresh token expiry = %v, want %v", expiresAt, wantExpiry)
 	}
 }

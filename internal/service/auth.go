@@ -140,7 +140,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 	}
 
 	if emailVerificationEnabled {
-		now := time.Now()
+		now := pkg.NowUTC()
 		_ = s.DB.Model(&model.EmailVerificationCode{}).
 			Where("email = ? AND purpose = ? AND consumed_at IS NULL", input.Email, verificationPurposeRegister).
 			Update("consumed_at", &now).Error

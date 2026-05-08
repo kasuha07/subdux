@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/shiroha/subdux/internal/pkg"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/service"
@@ -31,7 +31,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to encode export"})
 	}
 
-	date := time.Now().UTC().Format("2006-01-02")
+	date := pkg.NowUTC().Format("2006-01-02")
 	filename := fmt.Sprintf("subdux-export-%s-%s.json", data.User.Username, date)
 	c.Response().Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 

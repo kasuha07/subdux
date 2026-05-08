@@ -32,7 +32,7 @@ func setRefreshTokenCookie(c echo.Context, token string) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   shouldUseSecureCookies(c),
-		Expires:  time.Now().UTC().Add(ttl),
+		Expires:  pkg.NowUTC().Add(ttl),
 		MaxAge:   int(ttl.Seconds()),
 	})
 }
@@ -54,7 +54,7 @@ func setOIDCSessionCookie(c echo.Context, sessionID string) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   shouldUseSecureCookies(c),
-		Expires:  time.Now().UTC().Add(oidcSessionCookieTTL),
+		Expires:  pkg.NowUTC().Add(oidcSessionCookieTTL),
 		MaxAge:   int(oidcSessionCookieTTL.Seconds()),
 	})
 }

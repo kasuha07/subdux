@@ -9,8 +9,9 @@ LDFLAGS  = -s -w \
            -X $(MODULE).BuildDate=$(BUILD_DATE)
 
 BINARY   = subdux
+GO_FILES = $(shell find . -path './web' -prune -o -name '*.go' -print)
 
-.PHONY: build dev frontend docker clean
+.PHONY: build dev frontend-deps frontend frontend-lint fmt fmt-check vet test check docker clean
 
 build: frontend
 	go build -ldflags="$(LDFLAGS)" -o $(BINARY) ./cmd/server
@@ -23,8 +24,35 @@ dev:
 		'bun run dev' \; \
 		attach -t subdux-dev
 
-frontend:
-	cd web && bun install && bun run build
+frontend-deps:
+	cd web && bun install
+
+frontend: frontend-deps
+	cd web && bun run build
+
+frontend-lint: frontend-deps
+	cd web && bun run lint
+
+fmt:
+	gofmt -w $(GO_FILES)
+
+fmt-check:
+	@files="$$(gofmt -l $(GO_FILES))"; \
+	if [ -n "$$files" ]; then \
+		echo "Go files are not gofmt-formatted:"; \
+		echo "$$files"; \
+		exit 1; \
+	fi
+
+vet: frontend
+	go vet ./...
+
+test: frontend
+	go test ./...
+
+check: fmt-check frontend-lint frontend
+	go vet ./...
+	go test ./...
 
 docker:
 	docker build \

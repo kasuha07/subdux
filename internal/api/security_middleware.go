@@ -45,7 +45,7 @@ func (l *fixedWindowLimiter) Allow(key string) bool {
 		return true
 	}
 
-	now := time.Now().UTC()
+	now := pkg.NowUTC()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

@@ -65,25 +65,25 @@ func main() {
 }
 
 var sensitiveQueryParams = map[string]struct{}{
-	"access_token": {},
-	"api_key":      {},
-	"apikey":       {},
-	"code":         {},
-	"id_token":     {},
-	"key":          {},
-	"otp":          {},
-	"password":     {},
+	"access_token":  {},
+	"api_key":       {},
+	"apikey":        {},
+	"code":          {},
+	"id_token":      {},
+	"key":           {},
+	"otp":           {},
+	"password":      {},
 	"refresh_token": {},
-	"secret":       {},
-	"token":        {},
-	"totp_token":   {},
+	"secret":        {},
+	"token":         {},
+	"totp_token":    {},
 }
 
 func requestLoggerMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
-			start := time.Now()
+			start := pkg.Now()
 
 			err := next(c)
 			if err != nil {

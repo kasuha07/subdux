@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"github.com/shiroha/subdux/internal/pkg"
 	"regexp"
 	"sync"
 	"time"
@@ -82,7 +83,7 @@ func (s *NotificationService) dispatchNotificationJobs(userID uint, dispatchJobs
 					SubscriptionID: job.subscriptionID,
 					ChannelType:    job.channel.Type,
 					NotifyDate:     job.notifyDate,
-					SentAt:         time.Now().UTC(),
+					SentAt:         pkg.NowUTC(),
 				}
 
 				if sendErr != nil {

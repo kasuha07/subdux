@@ -105,7 +105,7 @@ func shouldScheduleNotificationDispatch(
 }
 
 func (s *NotificationService) processUserNotifications(userID uint) error {
-	now := time.Now().In(pkg.GetSystemTimezone())
+	now := pkg.NowInSystemTimezone()
 	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
 		return err
 	}

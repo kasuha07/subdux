@@ -489,12 +489,12 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			}
 
 			notifyEnabled := parseEnabled(item.Notifications)
-			lifecycle := deriveLegacyLifecycle(enabled, billingType, nextBilling, nil, time.Now().UTC())
+			lifecycle := deriveLegacyLifecycle(enabled, billingType, nextBilling, nil, pkg.NowUTC())
 			normalizedLifecycle, lifecycleErr := normalizeLifecycleDraft(
 				lifecycle,
 				billingType,
 				nextBilling,
-				time.Now().In(pkg.GetSystemTimezone()),
+				pkg.NowInSystemTimezone(),
 			)
 			if lifecycleErr != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to normalize lifecycle for %q: %v", name, lifecycleErr))
