@@ -6,6 +6,7 @@ const admin = {
     "email": "邮件",
     "authentication": "认证",
     "statistics": "统计",
+    "backgroundTasks": "后台任务",
     "backup": "备份"
   },
   "users": {
@@ -127,6 +128,32 @@ const admin = {
     "totalUsers": "用户总数",
     "totalSubscriptions": "订阅总数",
     "monthlySpend": "月度总支出"
+  },
+  "backgroundTasks": {
+    "title": "后台任务",
+    "description": "查看定时任务运行状态，仅管理员可访问。",
+    "refresh": "刷新",
+    "empty": "暂未注册后台任务。",
+    "lastStarted": "上次开始",
+    "lastFinished": "上次结束",
+    "nextRun": "下次运行",
+    "interval": "间隔",
+    "lastDuration": "上次耗时",
+    "successCount": "成功次数",
+    "failureCount": "失败次数",
+    "lastError": "上次错误",
+    "intervalDays": "{{count}} 天",
+    "intervalHours": "{{count}} 小时",
+    "intervalMinutes": "{{count}} 分钟",
+    "intervalSeconds": "{{count}} 秒",
+    "durationMs": "{{count}} 毫秒",
+    "durationSeconds": "{{count}} 秒",
+    "status": {
+      "idle": "空闲",
+      "running": "运行中",
+      "succeeded": "成功",
+      "failed": "失败"
+    }
   },
   "exchangeRates": {
     "title": "汇率",

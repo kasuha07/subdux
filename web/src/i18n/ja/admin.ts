@@ -6,6 +6,7 @@ const admin = {
     "email": "メール",
     "authentication": "認証",
     "statistics": "統計",
+    "backgroundTasks": "バックグラウンドタスク",
     "backup": "バックアップ"
   },
   "users": {
@@ -127,6 +128,32 @@ const admin = {
     "totalUsers": "ユーザー数",
     "totalSubscriptions": "サブスクリプション数",
     "monthlySpend": "月間支出"
+  },
+  "backgroundTasks": {
+    "title": "バックグラウンドタスク",
+    "description": "スケジュールジョブの実行状態を確認できます。このページは管理者のみ利用できます。",
+    "refresh": "更新",
+    "empty": "登録済みのバックグラウンドタスクはありません。",
+    "lastStarted": "前回開始",
+    "lastFinished": "前回終了",
+    "nextRun": "次回実行",
+    "interval": "間隔",
+    "lastDuration": "前回所要時間",
+    "successCount": "成功回数",
+    "failureCount": "失敗回数",
+    "lastError": "前回エラー",
+    "intervalDays": "{{count}}日",
+    "intervalHours": "{{count}}時間",
+    "intervalMinutes": "{{count}}分",
+    "intervalSeconds": "{{count}}秒",
+    "durationMs": "{{count}}ミリ秒",
+    "durationSeconds": "{{count}}秒",
+    "status": {
+      "idle": "待機中",
+      "running": "実行中",
+      "succeeded": "成功",
+      "failed": "失敗"
+    }
   },
   "exchangeRates": {
     "title": "為替レート",

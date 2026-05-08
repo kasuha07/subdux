@@ -103,7 +103,7 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIK
 	}
 }
 
-func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *service.NotificationService) {
+func SetupRoutes(e *echo.Echo, db *gorm.DB, taskMonitor *service.BackgroundTaskMonitor) (*service.ExchangeRateService, *service.NotificationService) {
 	authService := service.NewAuthService(db)
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
@@ -124,7 +124,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
-	adminHandler := NewAdminHandler(adminService)
+	adminHandler := NewAdminHandler(adminService, taskMonitor)
 	iconProxyHandler := NewIconProxyHandler(iconProxyService)
 	erHandler := NewExchangeRateHandler(erService)
 	currencyHandler := NewCurrencyHandler(currencyService, erService)
@@ -252,6 +252,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB) (*service.ExchangeRateService, *serv
 	admin.PUT("/users/:id/status", adminHandler.ChangeUserStatus)
 	admin.DELETE("/users/:id", adminHandler.DeleteUser)
 	admin.GET("/stats", adminHandler.GetStats)
+	admin.GET("/background-tasks", adminHandler.ListBackgroundTasks)
 	admin.GET("/settings", adminHandler.GetSettings)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.POST("/settings/smtp/test", adminHandler.TestSMTP)

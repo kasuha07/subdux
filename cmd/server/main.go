@@ -41,11 +41,12 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	erService, notificationService := api.SetupRoutes(e, db)
+	taskMonitor := service.NewBackgroundTaskMonitor()
+	erService, notificationService := api.SetupRoutes(e, db, taskMonitor)
 
 	stop := make(chan struct{})
-	erService.StartBackgroundRefresh(stop)
-	startNotificationChecker(notificationService, stop)
+	erService.StartBackgroundRefresh(stop, taskMonitor)
+	startNotificationChecker(notificationService, stop, taskMonitor)
 
 	e.Static("/uploads", filepath.Join(pkg.GetDataPath(), "assets"))
 
@@ -218,21 +219,42 @@ func normalizeOrigin(raw string) string {
 	return parsed.Scheme + "://" + parsed.Host
 }
 
-func startNotificationChecker(ns *service.NotificationService, stop <-chan struct{}) {
-	go func() {
-		ticker := time.NewTicker(3 * time.Hour)
-		defer ticker.Stop()
+func startNotificationChecker(ns *service.NotificationService, stop <-chan struct{}, monitor *service.BackgroundTaskMonitor) {
+	const taskKey = "notification_check"
+	const checkInterval = 3 * time.Hour
 
-		if err := ns.ProcessPendingNotifications(); err != nil {
+	if monitor != nil {
+		monitor.Register(
+			taskKey,
+			"Notification check",
+			"Checks due subscriptions and dispatches reminder notifications through enabled channels.",
+			checkInterval,
+		)
+	}
+
+	runCheck := func() {
+		run := ns.ProcessPendingNotifications
+		if monitor != nil {
+			if err := monitor.Run(taskKey, run); err != nil {
+				log.Printf("notification check error: %v", err)
+			}
+			return
+		}
+		if err := run(); err != nil {
 			log.Printf("notification check error: %v", err)
 		}
+	}
+
+	go func() {
+		ticker := time.NewTicker(checkInterval)
+		defer ticker.Stop()
+
+		runCheck()
 
 		for {
 			select {
 			case <-ticker.C:
-				if err := ns.ProcessPendingNotifications(); err != nil {
-					log.Printf("notification check error: %v", err)
-				}
+				runCheck()
 			case <-stop:
 				return
 			}

@@ -216,6 +216,22 @@ export interface AdminStats {
   total_monthly_spend: number
 }
 
+export interface BackgroundTask {
+  key: string
+  name: string
+  description: string
+  interval_seconds: number
+  status: "idle" | "running" | "succeeded" | "failed"
+  running: boolean
+  last_started_at: string | null
+  last_finished_at: string | null
+  next_run_at: string | null
+  last_duration_ms: number
+  last_error: string
+  success_count: number
+  failure_count: number
+}
+
 export interface SystemSettings {
   registration_enabled: boolean
   registration_email_verification_enabled: boolean

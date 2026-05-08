@@ -6,6 +6,7 @@ const admin = {
     "email": "Email",
     "authentication": "Authentication",
     "statistics": "Statistics",
+    "backgroundTasks": "Background Tasks",
     "backup": "Backup"
   },
   "users": {
@@ -127,6 +128,32 @@ const admin = {
     "totalUsers": "Total Users",
     "totalSubscriptions": "Total Subscriptions",
     "monthlySpend": "Monthly Spend"
+  },
+  "backgroundTasks": {
+    "title": "Background Tasks",
+    "description": "Runtime visibility for scheduled jobs. This page is available to administrators only.",
+    "refresh": "Refresh",
+    "empty": "No background tasks are registered yet.",
+    "lastStarted": "Last started",
+    "lastFinished": "Last finished",
+    "nextRun": "Next run",
+    "interval": "Interval",
+    "lastDuration": "Last duration",
+    "successCount": "Successes",
+    "failureCount": "Failures",
+    "lastError": "Last error",
+    "intervalDays": "{{count}}d",
+    "intervalHours": "{{count}}h",
+    "intervalMinutes": "{{count}}m",
+    "intervalSeconds": "{{count}}s",
+    "durationMs": "{{count}} ms",
+    "durationSeconds": "{{count}} s",
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed"
+    }
   },
   "exchangeRates": {
     "title": "Exchange Rates",

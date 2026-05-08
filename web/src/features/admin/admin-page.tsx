@@ -7,6 +7,7 @@ import {
   Database,
   Mail,
   RefreshCw,
+  ServerCog,
   Settings,
   ShieldCheck,
   Users,
@@ -19,6 +20,7 @@ import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
 import AdminLoadingSkeleton from "./admin-loading-skeleton"
 
 const AdminBackupTab = lazy(() => import("./admin-backup-tab"))
+const AdminBackgroundTasksTab = lazy(() => import("./admin-background-tasks-tab"))
 const AdminExchangeRatesTab = lazy(() => import("./admin-exchange-rates-tab"))
 const AdminSettingsOIDCTab = lazy(() => import("./admin-settings-oidc-tab"))
 const AdminSettingsSMTPTab = lazy(() => import("./admin-settings-smtp-tab"))
@@ -26,7 +28,7 @@ const AdminSettingsTab = lazy(() => import("./admin-settings-tab"))
 const AdminStatsTab = lazy(() => import("./admin-stats-tab"))
 const AdminUsersTab = lazy(() => import("./admin-users-tab"))
 
-type AdminTab = "users" | "settings" | "smtp" | "auth" | "exchange-rates" | "stats" | "backup"
+type AdminTab = "users" | "settings" | "smtp" | "auth" | "exchange-rates" | "stats" | "background-tasks" | "backup"
 
 function isAdminTab(value: string): value is AdminTab {
   return value === "users" ||
@@ -35,6 +37,7 @@ function isAdminTab(value: string): value is AdminTab {
     value === "auth" ||
     value === "exchange-rates" ||
     value === "stats" ||
+    value === "background-tasks" ||
     value === "backup"
 }
 
@@ -108,6 +111,10 @@ export default function AdminPage() {
               <TabsTrigger value="stats" className="gap-2">
                 <BarChart3 className="size-4" />
                 {t("admin.tabs.statistics")}
+              </TabsTrigger>
+              <TabsTrigger value="background-tasks" className="gap-2">
+                <ServerCog className="size-4" />
+                {t("admin.tabs.backgroundTasks")}
               </TabsTrigger>
               <TabsTrigger value="backup" className="gap-2">
                 <Database className="size-4" />
@@ -282,6 +289,16 @@ export default function AdminPage() {
             {visitedTabs.includes("stats") && (
               <Suspense fallback={<AdminTabLoading value="stats" />}>
                 <AdminStatsTab stats={admin.stats} />
+              </Suspense>
+            )}
+
+            {visitedTabs.includes("background-tasks") && (
+              <Suspense fallback={<AdminTabLoading value="background-tasks" />}>
+                <AdminBackgroundTasksTab
+                  tasks={admin.backgroundTasks}
+                  refreshing={admin.backgroundTasksRefreshing}
+                  onRefresh={admin.handleRefreshBackgroundTasks}
+                />
               </Suspense>
             )}
 

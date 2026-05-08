@@ -22,7 +22,8 @@ import (
 )
 
 type AdminHandler struct {
-	Service *service.AdminService
+	Service     *service.AdminService
+	TaskMonitor *service.BackgroundTaskMonitor
 }
 
 var (
@@ -38,8 +39,8 @@ type backupRestorePayload struct {
 	replaceAssetsDir bool
 }
 
-func NewAdminHandler(s *service.AdminService) *AdminHandler {
-	return &AdminHandler{Service: s}
+func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTaskMonitor) *AdminHandler {
+	return &AdminHandler{Service: s, TaskMonitor: taskMonitor}
 }
 
 type adminUserResponse struct {
@@ -161,6 +162,10 @@ func (h *AdminHandler) GetStats(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to get stats"})
 	}
 	return c.JSON(http.StatusOK, stats)
+}
+
+func (h *AdminHandler) ListBackgroundTasks(c echo.Context) error {
+	return c.JSON(http.StatusOK, h.TaskMonitor.List())
 }
 
 func (h *AdminHandler) GetSettings(c echo.Context) error {

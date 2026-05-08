@@ -502,21 +502,42 @@ func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
 	return buf[:n], nil
 }
 
-func (s *ExchangeRateService) StartBackgroundRefresh(stop <-chan struct{}) {
-	go func() {
-		if err := s.RefreshRates(); err != nil {
-			log.Printf("Initial rate refresh failed: %v", err)
-		}
+func (s *ExchangeRateService) StartBackgroundRefresh(stop <-chan struct{}, monitor *BackgroundTaskMonitor) {
+	const taskKey = "exchange_rate_refresh"
+	const refreshInterval = 24 * time.Hour
 
-		ticker := time.NewTicker(24 * time.Hour)
+	if monitor != nil {
+		monitor.Register(
+			taskKey,
+			"Exchange rate refresh",
+			"Fetches currency exchange rates and updates the local cache.",
+			refreshInterval,
+		)
+	}
+
+	runRefresh := func(logPrefix string) {
+		run := s.RefreshRates
+		if monitor != nil {
+			if err := monitor.Run(taskKey, run); err != nil {
+				log.Printf("%s rate refresh failed: %v", logPrefix, err)
+			}
+			return
+		}
+		if err := run(); err != nil {
+			log.Printf("%s rate refresh failed: %v", logPrefix, err)
+		}
+	}
+
+	go func() {
+		runRefresh("Initial")
+
+		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ticker.C:
-				if err := s.RefreshRates(); err != nil {
-					log.Printf("Scheduled rate refresh failed: %v", err)
-				}
+				runRefresh("Scheduled")
 			case <-stop:
 				return
 			}

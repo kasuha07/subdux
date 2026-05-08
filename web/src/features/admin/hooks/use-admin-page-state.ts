@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type {
   AdminStats,
   AdminUser,
+  BackgroundTask,
   ExchangeRateStatus,
   SystemSettings,
   UpdateSettingsInput,
@@ -59,8 +60,11 @@ interface UseAdminPageStateOptions {
 }
 
 interface UseAdminPageStateResult {
+  backgroundTasks: BackgroundTask[]
+  backgroundTasksRefreshing: boolean
   createDialogOpen: boolean
   handleCreateUser: () => Promise<void>
+  handleRefreshBackgroundTasks: () => Promise<void>
   handleDeleteUser: (id: number) => Promise<void>
   handleDownloadBackup: () => Promise<void>
   handleRefreshRates: () => Promise<void>
@@ -192,6 +196,7 @@ function hasSMTPConfigForRegistrationVerification(form: AdminSettingsFormState):
 export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPageStateResult {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [stats, setStats] = useState<AdminStats | null>(null)
+  const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsForm, setSettingsForm] = useState<AdminSettingsFormState>(() =>
     createSettingsForm()
@@ -203,6 +208,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   const [rateStatus, setRateStatus] = useState<ExchangeRateStatus | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [backgroundTasksRefreshing, setBackgroundTasksRefreshing] = useState(false)
   const [smtpTestRecipient, setSMTPTestRecipient] = useState(() => getUser()?.email ?? "")
   const [smtpTesting, setSMTPTesting] = useState(false)
 
@@ -228,12 +234,14 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       api.get<SystemSettings>("/admin/settings"),
       api.get<AdminStats>("/admin/stats"),
       api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
+      api.get<BackgroundTask[]>("/admin/background-tasks"),
     ])
-      .then(([usersData, settingsData, statsData, rateStatusData]) => {
+      .then(([usersData, settingsData, statsData, rateStatusData, backgroundTasksData]) => {
         setUsers(usersData || [])
         setSettingsForm(createSettingsForm(settingsData))
         setStats(statsData)
         setRateStatus(rateStatusData)
+        setBackgroundTasks(backgroundTasksData || [])
       })
       .catch(() => void 0)
       .finally(() => setLoading(false))
@@ -392,6 +400,18 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
+  async function handleRefreshBackgroundTasks() {
+    setBackgroundTasksRefreshing(true)
+    try {
+      const tasks = await api.get<BackgroundTask[]>("/admin/background-tasks")
+      setBackgroundTasks(tasks || [])
+    } catch {
+      void 0
+    } finally {
+      setBackgroundTasksRefreshing(false)
+    }
+  }
+
   async function handleRefreshRates() {
     setRefreshing(true)
     try {
@@ -462,8 +482,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   }
 
   return {
+    backgroundTasks,
+    backgroundTasksRefreshing,
     createDialogOpen,
     handleCreateUser,
+    handleRefreshBackgroundTasks,
     handleDeleteUser,
     handleDownloadBackup,
     handleRefreshRates,
