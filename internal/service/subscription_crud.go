@@ -85,6 +85,14 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		return nil, err
 	}
 
+	var categoryID *uint
+	if input.CategoryID != nil && *input.CategoryID != 0 {
+		if err := s.validateCategory(userID, *input.CategoryID); err != nil {
+			return nil, err
+		}
+		categoryID = input.CategoryID
+	}
+
 	var paymentMethodID *uint
 	if input.PaymentMethodID != nil && *input.PaymentMethodID != 0 {
 		if err := s.validatePaymentMethod(userID, *input.PaymentMethodID); err != nil {
@@ -115,7 +123,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		YearlyDay:        copyIntPointer(normalizedDraft.YearlyDay),
 		NextBillingDate:  copyTimePointer(nextBillingDate),
 		Category:         input.Category,
-		CategoryID:       input.CategoryID,
+		CategoryID:       categoryID,
 		PaymentMethodID:  paymentMethodID,
 		NotifyEnabled:    input.NotifyEnabled,
 		NotifyDaysBefore: input.NotifyDaysBefore,
@@ -152,7 +160,14 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		updates["category"] = *input.Category
 	}
 	if input.CategoryID != nil {
-		updates["category_id"] = *input.CategoryID
+		if *input.CategoryID == 0 {
+			updates["category_id"] = nil
+		} else {
+			if err := s.validateCategory(userID, *input.CategoryID); err != nil {
+				return nil, err
+			}
+			updates["category_id"] = *input.CategoryID
+		}
 	}
 	if input.PaymentMethodID != nil {
 		if *input.PaymentMethodID == 0 {
@@ -306,6 +321,17 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	}
 
 	return s.GetByID(userID, id)
+}
+
+func (s *SubscriptionService) validateCategory(userID, categoryID uint) error {
+	var category model.Category
+	if err := s.DB.Where("id = ? AND user_id = ?", categoryID, userID).First(&category).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("category not found")
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *SubscriptionService) validatePaymentMethod(userID, paymentMethodID uint) error {
