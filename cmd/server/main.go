@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -21,8 +26,26 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	httpReadHeaderTimeout = 5 * time.Second
+	httpReadTimeout       = 30 * time.Second
+	httpWriteTimeout      = 60 * time.Second
+	httpIdleTimeout       = 120 * time.Second
+	shutdownTimeout       = 30 * time.Second
+)
+
 func main() {
+	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+
+	appCtx, cancelBackground := context.WithCancel(context.Background())
+	defer cancelBackground()
+
 	db := pkg.InitDB()
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to access database handle: %v", err)
+	}
 	if err := pkg.InitJWTSecret(db); err != nil {
 		log.Fatalf("Failed to initialize JWT secret: %v", err)
 	}
@@ -42,11 +65,11 @@ func main() {
 	}))
 
 	taskMonitor := service.NewBackgroundTaskMonitor()
-	erService, notificationService := api.SetupRoutes(e, db, taskMonitor)
+	erService, notificationService := api.SetupRoutes(appCtx, e, db, taskMonitor)
 
-	stop := make(chan struct{})
-	erService.StartBackgroundRefresh(stop, taskMonitor)
-	startNotificationChecker(notificationService, stop, taskMonitor)
+	var backgroundTasks sync.WaitGroup
+	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
+	startNotificationChecker(appCtx, notificationService, taskMonitor, &backgroundTasks)
 
 	e.Static("/uploads", filepath.Join(pkg.GetDataPath(), "assets"))
 
@@ -61,8 +84,55 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Subdux starting on :%s", port)
-	e.Logger.Fatal(e.Start(":" + port))
+	server := newHTTPServer(":"+port, e)
+	serverErrors := make(chan error, 1)
+
+	go func() {
+		log.Printf("Subdux starting on %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErrors <- err
+		}
+		close(serverErrors)
+	}()
+
+	var serveErr error
+	select {
+	case serveErr = <-serverErrors:
+		if serveErr != nil {
+			log.Printf("HTTP server stopped unexpectedly: %v", serveErr)
+		}
+	case <-signalCtx.Done():
+		log.Printf("Received shutdown signal, starting graceful shutdown")
+	}
+
+	cancelBackground()
+
+	if serveErr == nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+			serveErr = err
+		}
+	} else if err := server.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Printf("HTTP server close error: %v", err)
+	}
+
+	backgroundTasks.Wait()
+
+	if err := sqlDB.Close(); err != nil {
+		log.Printf("Database close error: %v", err)
+		if serveErr == nil {
+			serveErr = err
+		}
+	}
+
+	if serveErr != nil {
+		log.Fatalf("Subdux stopped with error: %v", serveErr)
+	}
+
+	log.Printf("Subdux stopped")
 }
 
 var sensitiveQueryParams = map[string]struct{}{
@@ -219,9 +289,29 @@ func normalizeOrigin(raw string) string {
 	return parsed.Scheme + "://" + parsed.Host
 }
 
-func startNotificationChecker(ns *service.NotificationService, stop <-chan struct{}, monitor *service.BackgroundTaskMonitor) {
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+		WriteTimeout:      httpWriteTimeout,
+		IdleTimeout:       httpIdleTimeout,
+	}
+}
+
+func startNotificationChecker(
+	ctx context.Context,
+	ns *service.NotificationService,
+	monitor *service.BackgroundTaskMonitor,
+	wg *sync.WaitGroup,
+) {
 	const taskKey = "notification_check"
 	const checkInterval = 3 * time.Hour
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	if monitor != nil {
 		monitor.Register(
@@ -245,7 +335,19 @@ func startNotificationChecker(ns *service.NotificationService, stop <-chan struc
 		}
 	}
 
+	if wg != nil {
+		wg.Add(1)
+	}
+
 	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+
 		ticker := time.NewTicker(checkInterval)
 		defer ticker.Stop()
 
@@ -255,7 +357,7 @@ func startNotificationChecker(ns *service.NotificationService, stop <-chan struc
 			select {
 			case <-ticker.C:
 				runCheck()
-			case <-stop:
+			case <-ctx.Done():
 				return
 			}
 		}

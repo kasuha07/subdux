@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"sync"
@@ -21,6 +22,9 @@ type AuthService struct {
 	oidcMu             sync.Mutex
 	oidcStateSessions  map[string]oidcStateSession
 	oidcResultSessions map[string]oidcResultSession
+
+	sessionCleanupInterval time.Duration
+	sessionCleanupOnce     sync.Once
 }
 
 const (
@@ -30,13 +34,11 @@ const (
 
 func NewAuthService(db *gorm.DB) *AuthService {
 	service := &AuthService{
-		DB:                 db,
-		passkeySessions:    make(map[string]passkeySession),
-		oidcStateSessions:  make(map[string]oidcStateSession),
-		oidcResultSessions: make(map[string]oidcResultSession),
-	}
-	if db != nil {
-		service.startSessionCleanupLoop()
+		DB:                     db,
+		passkeySessions:        make(map[string]passkeySession),
+		oidcStateSessions:      make(map[string]oidcStateSession),
+		oidcResultSessions:     make(map[string]oidcResultSession),
+		sessionCleanupInterval: minDuration(passkeySessionCleanupInterval, oidcSessionCleanupInterval),
 	}
 	return service
 }
@@ -227,21 +229,43 @@ func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
 	}, nil
 }
 
-func (s *AuthService) startSessionCleanupLoop() {
-	go func() {
-		ticker := time.NewTicker(minDuration(passkeySessionCleanupInterval, oidcSessionCleanupInterval))
-		defer ticker.Stop()
+func (s *AuthService) StartSessionCleanupLoop(ctx context.Context) {
+	if s == nil || ctx == nil {
+		return
+	}
 
-		for range ticker.C {
-			s.passkeyMu.Lock()
-			s.cleanupPasskeySessionsLocked()
-			s.passkeyMu.Unlock()
+	s.sessionCleanupOnce.Do(func() {
+		go func() {
+			s.runSessionCleanup()
 
-			s.oidcMu.Lock()
-			s.cleanupOIDCSessionsLocked()
-			s.oidcMu.Unlock()
-		}
-	}()
+			interval := s.sessionCleanupInterval
+			if interval <= 0 {
+				interval = minDuration(passkeySessionCleanupInterval, oidcSessionCleanupInterval)
+			}
+
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					s.runSessionCleanup()
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	})
+}
+
+func (s *AuthService) runSessionCleanup() {
+	s.passkeyMu.Lock()
+	s.cleanupPasskeySessionsLocked()
+	s.passkeyMu.Unlock()
+
+	s.oidcMu.Lock()
+	s.cleanupOIDCSessionsLocked()
+	s.oidcMu.Unlock()
 }
 
 func minDuration(a time.Duration, b time.Duration) time.Duration {

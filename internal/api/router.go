@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -103,8 +104,14 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIK
 	}
 }
 
-func SetupRoutes(e *echo.Echo, db *gorm.DB, taskMonitor *service.BackgroundTaskMonitor) (*service.ExchangeRateService, *service.NotificationService) {
+func SetupRoutes(
+	ctx context.Context,
+	e *echo.Echo,
+	db *gorm.DB,
+	taskMonitor *service.BackgroundTaskMonitor,
+) (*service.ExchangeRateService, *service.NotificationService) {
 	authService := service.NewAuthService(db)
+	authService.StartSessionCleanupLoop(ctx)
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)

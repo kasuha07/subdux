@@ -502,9 +502,17 @@ func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
 	return buf[:n], nil
 }
 
-func (s *ExchangeRateService) StartBackgroundRefresh(stop <-chan struct{}, monitor *BackgroundTaskMonitor) {
+func (s *ExchangeRateService) StartBackgroundRefresh(
+	ctx context.Context,
+	monitor *BackgroundTaskMonitor,
+	wg *sync.WaitGroup,
+) {
 	const taskKey = "exchange_rate_refresh"
 	const refreshInterval = 24 * time.Hour
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	if monitor != nil {
 		monitor.Register(
@@ -528,7 +536,19 @@ func (s *ExchangeRateService) StartBackgroundRefresh(stop <-chan struct{}, monit
 		}
 	}
 
+	if wg != nil {
+		wg.Add(1)
+	}
+
 	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+
 		runRefresh("Initial")
 
 		ticker := time.NewTicker(refreshInterval)
@@ -538,7 +558,7 @@ func (s *ExchangeRateService) StartBackgroundRefresh(stop <-chan struct{}, monit
 			select {
 			case <-ticker.C:
 				runRefresh("Scheduled")
-			case <-stop:
+			case <-ctx.Done():
 				return
 			}
 		}
