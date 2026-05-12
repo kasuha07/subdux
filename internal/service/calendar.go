@@ -84,6 +84,14 @@ func (s *CalendarService) ValidateToken(token string) (uint, error) {
 			return 0, migrateErr
 		}
 	}
+
+	if err := ensureUserActive(s.DB, ct.UserID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, errUserNotActive) {
+			return 0, errors.New("invalid token")
+		}
+		return 0, err
+	}
+
 	return ct.UserID, nil
 }
 
