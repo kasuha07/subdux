@@ -305,7 +305,7 @@ const settings = {
     "copied": "クリップボードにコピーしました",
     "usage": "使用方法",
     "usageDescription": "リクエスト時にX-API-KeyヘッダーにAPIキーを設定してください。",
-    "limitReached": "APIキーは最大10個までです"
+    "limitReached": "APIキーは最大5個までです"
   },
   "notifications": {
     "title": "通知",

@@ -6,17 +6,19 @@
 
 ## OVERVIEW
 
-29 files implementing user settings: account, notifications (channels/templates/policies), payment methods, categories, TOTP/passkey/OIDC. Tab-based UI with dialog forms.
+18 TSX files implementing user settings: account, notifications (channels/templates/policies), payment methods, categories, API keys, about, and auth-related settings. Tab-based UI with dialog forms.
 
 ## STRUCTURE
 
 ```
 settings/
-├── settings-page.tsx                    # Tab container (4 tabs)
-├── settings-account-tab.tsx             # Username, password, delete account
+├── settings-page.tsx                    # Tab container (6 tabs)
+├── settings-account-tab.tsx             # Username, email change, password, import/export, logout
 ├── settings-notification-tab.tsx        # Channels, templates, policies, logs
 ├── settings-payment-tab.tsx             # Payment methods, categories
 ├── settings-general-tab.tsx             # General preferences
+├── settings-apikey-tab.tsx              # API key CRUD
+├── settings-about-tab.tsx               # App version / build info
 ├── notification-channel-form/           # 9 files: multi-step form (type → config → test)
 ├── notification-channel-list.tsx        # Channel CRUD table
 ├── notification-template-section/       # 2 files: template editor
@@ -45,7 +47,7 @@ settings/
 ## CONVENTIONS
 
 ### Tab Structure
-- `settings-page.tsx` uses Shadcn `<Tabs>` with 4 tabs
+- `settings-page.tsx` uses Shadcn `<Tabs>` with 6 tabs
 - Each tab is a separate `*-tab.tsx` file
 - Tabs use local `useState` for data fetching
 

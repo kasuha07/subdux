@@ -305,7 +305,7 @@ const settings = {
     "copied": "Copied to clipboard",
     "usage": "Usage",
     "usageDescription": "Use the API key in the X-API-Key header when making requests.",
-    "limitReached": "Maximum of 10 API keys reached"
+    "limitReached": "Maximum of 5 API keys reached"
   },
   "notifications": {
     "title": "Notifications",

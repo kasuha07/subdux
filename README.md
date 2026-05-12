@@ -14,7 +14,7 @@ Track SaaS tools, domains, streaming services, cloud servers, developer subscrip
 ## Highlights
 
 - **Built for self-hosting** — run it as a single binary or a container.
-- **Purpose-built for subscriptions** — recurring and one-time entries, dashboard summaries, categories, payment methods, icons, and calendar views.
+- **Purpose-built for subscriptions** — recurring subscriptions, dashboard summaries, categories, payment methods, icons, and calendar views.
 - **Multi-currency ready** — record subscriptions in different currencies and aggregate totals into a preferred currency.
 - **Reminder system included** — reminder policies, templates, previews, test sends, logs, and multiple notification channels.
 - **Modern authentication** — email/password, password reset, TOTP 2FA, passkeys/WebAuthn, OIDC, and scoped API keys.
@@ -25,7 +25,7 @@ Track SaaS tools, domains, streaming services, cloud servers, developer subscrip
 
 | Area | Included capabilities |
 | --- | --- |
-| Subscription tracking | Recurring and one-time items, next billing dates, notes, categories, payment methods, icons, dashboard summary |
+| Subscription tracking | Recurring subscriptions, next billing dates, notes, categories, payment methods, icons, dashboard summary |
 | Notifications | Renewal reminders, day-based reminder policy, templates, previews, test sends, delivery logs |
 | Notification channels | SMTP, Resend, Telegram, Webhook, Gotify, ntfy, Bark, ServerChan3, PushDeer, pushplus, Pushover, Feishu, WeCom, DingTalk, NapCat |
 | Authentication | Email/password, forgot/reset password, TOTP + backup codes, passkeys/WebAuthn, OIDC, API keys |

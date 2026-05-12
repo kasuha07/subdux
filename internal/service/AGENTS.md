@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-23 Go files implementing business logic for auth, subscriptions, notifications (email/webhook/ServerChan/Bark/Telegram), TOTP/passkey/OIDC, user defaults, and background refresh. Services receive GORM DB, return models or errors.
+50+ Go files implementing business logic for auth, subscriptions, notifications (email/webhook/ServerChan/Bark/Telegram), TOTP/passkey/OIDC, user defaults, and background refresh. Services receive GORM DB, return models or errors.
 
 ## STRUCTURE
 
@@ -14,12 +14,13 @@
 service/
 ├── auth.go                    # Register, Login (bcrypt + JWT)
 ├── subscription.go            # CRUD, DashboardSummary (monthly cost calc)
-├── subscription_schedule.go   # Billing date calculations (leap years, month-end)
-├── notification*.go           # 8 files: validation, templates, channels, delivery
+├── subscription_billing.go     # Billing draft normalization + next-billing validation
+├── subscription_rollover.go    # Recurring next-billing rollover on daily jobs
+├── notification*.go           # validation, templates, channels, delivery
 ├── totp.go, passkey.go        # 2FA implementations
 ├── oidc.go                    # OAuth2/OIDC provider integration
 ├── user_defaults.go           # Seed default categories/payment methods
-└── *_test.go                  # 8 test files (table-driven, helpers)
+└── *_test.go                  # 36 test files (table-driven, helpers)
 ```
 
 ## WHERE TO LOOK
@@ -28,7 +29,7 @@ service/
 |------|------|---------------|
 | Add auth method | `auth.go` | `Register()`, `Login()` — bcrypt + JWT generation |
 | Subscription CRUD | `subscription.go` | `Create()`, `Update()`, `Delete()`, `List()` |
-| Billing calculations | `subscription_schedule.go` | `CalculateNextBillingDate()` — handles leap years |
+| Billing normalization / rollover | `subscription_billing.go`, `subscription_rollover.go` | `normalizeBillingDraft()`, `nextRecurringBillingDateOnOrAfter()` — validates recurring drafts and advances overdue dates |
 | Notification delivery | `notification.go` | `SendNotification()` — dispatches to channels |
 | Webhook validation | `notification_validation.go` | `ValidateWebhookConfig()` — header/URL checks |
 | Email templates | `notification_template.go` | `RenderTemplate()` — Go templates |
@@ -65,7 +66,7 @@ Monthly cost calculation: `weekly×4.33 + monthly×1 + yearly÷12`
 
 ## TESTING
 
-8 test files with 1,042 lines:
+36 test files with table-driven coverage:
 - **Pattern:** Table-driven with `t.Run()` sub-tests
 - **Helpers:** `mustDate()`, `newTestDB()`, `createTestUser()` marked with `t.Helper()`
 - **Database:** In-memory SQLite via `t.TempDir()`
