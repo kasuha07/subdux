@@ -20,6 +20,8 @@ import type {
 
 type LoginStep = "credentials" | "totp"
 
+const DEV_ACCOUNT_PASSWORD = "12345678"
+
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -178,10 +180,10 @@ export default function LoginPage() {
       await api.post<AuthResponse>("/auth/register", {
         username: "admin",
         email: "admin@dev.local",
-        password: "123456",
+        password: DEV_ACCOUNT_PASSWORD,
       })
       setIdentifier("admin")
-      setPassword("123456")
+      setPassword(DEV_ACCOUNT_PASSWORD)
       toast.success(t("auth.login.devAccountSuccess"))
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.login.devAccountError"))
