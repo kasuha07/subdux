@@ -256,6 +256,19 @@ func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 	return c.JSON(http.StatusOK, summary)
 }
 
+func (h *SubscriptionHandler) AnalyticsReport(c echo.Context) error {
+	userID := getUserID(c)
+
+	pref, _ := h.ERService.GetUserPreference(userID)
+	targetCurrency := pref.PreferredCurrency
+
+	report, err := h.Service.GetAnalyticsReport(userID, targetCurrency, h.ERService)
+	if err != nil {
+		return writeInternalServerError(c, err)
+	}
+	return c.JSON(http.StatusOK, report)
+}
+
 func isSubscriptionBadRequestError(message string) bool {
 	if message == "payment method not found" {
 		return true

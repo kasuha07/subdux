@@ -12,6 +12,7 @@ const DashboardPage = lazy(() => import("@/features/dashboard/dashboard-page"))
 const SettingsPage = lazy(() => import("@/features/settings/settings-page"))
 const AdminPage = lazy(() => import("@/features/admin/admin-page"))
 const CalendarPage = lazy(() => import("@/features/calendar/calendar-page"))
+const ReportsPage = lazy(() => import("@/features/reports/reports-page"))
 
 function ProtectedRoute({ children, authReady }: { children: ReactNode, authReady: boolean }) {
   if (!authReady) {
@@ -92,6 +93,7 @@ export default function App() {
         <Route path="/forgot-password" element={<LazyRoute><PublicRoute authReady={authReady}><ForgotPasswordPage /></PublicRoute></LazyRoute>} />
         <Route path="/reset-password" element={<LazyRoute><PublicRoute authReady={authReady}><ResetPasswordPage /></PublicRoute></LazyRoute>} />
         <Route path="/" element={<LazyRoute><ProtectedRoute authReady={authReady}><DashboardPage /></ProtectedRoute></LazyRoute>} />
+        <Route path="/reports" element={<LazyRoute><ProtectedRoute authReady={authReady}><ReportsPage /></ProtectedRoute></LazyRoute>} />
         <Route path="/settings" element={<LazyRoute><ProtectedRoute authReady={authReady}><SettingsPage /></ProtectedRoute></LazyRoute>} />
         <Route path="/calendar" element={<LazyRoute><ProtectedRoute authReady={authReady}><CalendarPage /></ProtectedRoute></LazyRoute>} />
         <Route path="/admin" element={<LazyRoute><AdminRoute authReady={authReady}><AdminPage /></AdminRoute></LazyRoute>} />

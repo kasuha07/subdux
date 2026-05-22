@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { CalendarDays, Plus, Settings, Shield } from "lucide-react"
+import { BarChart3, CalendarDays, Plus, Settings, Shield } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -287,6 +287,11 @@ export default function DashboardPage() {
             <Button variant="ghost" size="icon-sm" asChild>
               <Link to="/calendar">
                 <CalendarDays className="size-4" />
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/reports">
+                <BarChart3 className="size-4" />
               </Link>
             </Button>
             {isAdmin() && (

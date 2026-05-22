@@ -226,6 +226,7 @@ func SetupRoutes(e *echo.Echo, db *gorm.DB, taskMonitor *service.BackgroundTaskM
 	protected.POST("/subscriptions/:id/mark-renewed", subHandler.MarkRenewed)
 	protected.POST("/subscriptions/:id/icon", subHandler.UploadIcon)
 	protected.GET("/dashboard/summary", subHandler.Dashboard)
+	protected.GET("/reports/analytics", subHandler.AnalyticsReport)
 
 	protected.GET("/auth/me", authHandler.Me)
 	protected.PUT("/auth/password", authHandler.ChangePassword)
