@@ -90,7 +90,11 @@ export default function SubscriptionForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+      <DialogContent
+        className="flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
+        onInteractOutside={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
           <DialogTitle>
             {isEditing ? t("subscription.form.editTitle") : t("subscription.form.addTitle")}
