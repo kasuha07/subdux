@@ -6,8 +6,6 @@ const dashboard = {
     "activeMonthly": "Active monthly",
     "activeYearly": "Active yearly",
     "activeSubscriptions": "active subscriptions",
-    "committedMonthly": "Committed monthly",
-    "committedYearly": "Committed yearly",
     "thisMonth": "This month",
     "upcoming": "Upcoming"
   },

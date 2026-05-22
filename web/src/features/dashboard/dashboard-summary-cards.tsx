@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { CalendarDays, DollarSign, Layers3, Repeat, TrendingUp } from "lucide-react"
+import { CalendarDays, DollarSign, Layers3, TrendingUp } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencyWithSymbol } from "@/lib/utils"
@@ -31,20 +31,8 @@ export default function DashboardSummaryCards({
       iconClassName: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     },
     {
-      label: t("dashboard.stats.committedMonthly"),
-      value: formatAmount(summary.committed_monthly),
-      icon: Repeat,
-      iconClassName: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-    },
-    {
-      label: t("dashboard.stats.committedYearly"),
-      value: formatAmount(summary.committed_yearly),
-      icon: CalendarDays,
-      iconClassName: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-    },
-    {
-      label: t("dashboard.stats.thisMonth"),
-      value: formatAmount(summary.due_this_month),
+      label: t("dashboard.stats.activeMonthly"),
+      value: formatAmount(summary.total_monthly),
       icon: DollarSign,
       iconClassName: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     },
@@ -61,10 +49,10 @@ export default function DashboardSummaryCards({
 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-muted-foreground">
-                {t("dashboard.stats.activeMonthly")}
+                {t("dashboard.stats.thisMonth")}
               </p>
               <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground tabular-nums sm:text-4xl">
-                {formatAmount(summary.total_monthly)}
+                {formatAmount(summary.due_this_month)}
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2.5">
@@ -92,7 +80,7 @@ export default function DashboardSummaryCards({
           </div>
         </div>
 
-        <div className="grid gap-px bg-border/60 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+        <div className="grid gap-px bg-border/60">
           {detailStats.map(({ icon: Icon, iconClassName, label, value }) => (
             <div key={label} className="bg-background/80 p-4 sm:p-5">
               <div className="flex items-center gap-3">

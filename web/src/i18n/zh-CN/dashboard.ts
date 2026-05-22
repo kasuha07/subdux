@@ -3,11 +3,9 @@ const dashboard = {
   "add": "添加",
   "loading": "加载中...",
   "stats": {
-    "activeMonthly": "当前活跃月度",
-    "activeYearly": "当前活跃年度",
+    "activeMonthly": "月度费用",
+    "activeYearly": "年度费用",
     "activeSubscriptions": "活跃订阅",
-    "committedMonthly": "未来自动续费月度",
-    "committedYearly": "未来自动续费年度",
     "thisMonth": "本月",
     "upcoming": "即将到期"
   },
