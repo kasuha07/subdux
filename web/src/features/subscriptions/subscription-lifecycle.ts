@@ -42,3 +42,7 @@ export function hasFutureRecurringSchedule(subscription: Subscription): boolean 
     getSubscriptionRenewalMode(subscription) === "auto_renew"
   )
 }
+
+export function hasActiveRecurringCycle(subscription: Subscription): boolean {
+  return subscription.billing_type === "recurring" && isSubscriptionActive(subscription)
+}

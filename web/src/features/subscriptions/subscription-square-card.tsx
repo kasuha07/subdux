@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { BellOff, ExternalLink, Pencil } from "lucide-react"
 
@@ -88,6 +88,8 @@ export default function SubscriptionSquareCard({
   onEdit,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [actionsVisible, setActionsVisible] = useState(false)
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
@@ -125,11 +127,6 @@ export default function SubscriptionSquareCard({
 
   function renderDueText(): string {
     if (ended) {
-      if (endsAt) {
-        return t("subscription.card.endedOn", {
-          date: formatDate(endsAt, i18n.language),
-        })
-      }
       return t("subscription.card.status.ended")
     }
     if (subscription.billing_type === "recurring" && renewalMode === "cancel_at_period_end" && endsAt) {
@@ -158,18 +155,45 @@ export default function SubscriptionSquareCard({
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
   const reminderOff = subscription.notify_enabled === false
+  const actionsVisibilityClass = actionsVisible
+    ? "opacity-100 pointer-events-auto"
+    : "opacity-0 pointer-events-none"
+
+  useEffect(() => {
+    if (!actionsVisible) {
+      return
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (cardRef.current?.contains(event.target as Node)) {
+        return
+      }
+      setActionsVisible(false)
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    return () => document.removeEventListener("pointerdown", handlePointerDown)
+  }, [actionsVisible])
 
   return (
-    <Card className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}>
+    <Card
+      ref={cardRef}
+      className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
+      onClick={() => setActionsVisible(true)}
+    >
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
               {renderIcon(subscription.icon, subscription.name)}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h3 className="truncate text-sm font-medium leading-tight">{subscription.name}</h3>
-              {details && <p className="mt-0.5 truncate text-xs text-muted-foreground">{details}</p>}
+              {details && (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground" title={details}>
+                  {details}
+                </p>
+              )}
             </div>
           </div>
           {subscription.url && (
@@ -221,7 +245,7 @@ export default function SubscriptionSquareCard({
           <Button
             variant="ghost"
             size="icon"
-            className="size-9 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            className={`size-9 shrink-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 ${actionsVisibilityClass}`}
             onClick={() => onEdit(subscription)}
           >
             <Pencil className="size-3.5" />

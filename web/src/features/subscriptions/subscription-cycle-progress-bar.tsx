@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { hasFutureRecurringSchedule } from "@/features/subscriptions/subscription-lifecycle"
+import { hasActiveRecurringCycle } from "@/features/subscriptions/subscription-lifecycle"
 import { cn } from "@/lib/utils"
 import type { Subscription } from "@/types"
 
@@ -65,7 +65,7 @@ function getPreviousCycleDate(subscription: Subscription, nextDate: Date): Date 
 }
 
 function getCycleProgressPercent(subscription: Subscription): number | null {
-  if (!hasFutureRecurringSchedule(subscription)) {
+  if (!hasActiveRecurringCycle(subscription)) {
     return null
   }
 

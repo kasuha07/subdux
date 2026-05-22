@@ -78,7 +78,7 @@ export default function DashboardSummaryCards({
           </div>
         </div>
 
-        <div className="grid gap-px bg-border/60">
+        <div className="grid grid-cols-2 gap-px bg-border/60 lg:grid-cols-1">
           {detailStats.map(({ icon: Icon, iconClassName, label, value }) => (
             <div key={label} className="bg-background/80 p-3 sm:p-5">
               <div className="flex items-center gap-2.5 sm:gap-3">

@@ -118,7 +118,7 @@ export default function DashboardFiltersToolbar({
         </div>
 
         {totalCount > 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:block">
             {t("dashboard.filters.resultCount", { shown: shownCount, total: totalCount })}
           </p>
         ) : null}
@@ -299,6 +299,12 @@ export default function DashboardFiltersToolbar({
         >
           {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
         </Button>
+
+        {totalCount > 0 ? (
+          <p className="ml-auto text-sm text-muted-foreground sm:hidden">
+            {t("dashboard.filters.resultCount", { shown: shownCount, total: totalCount })}
+          </p>
+        ) : null}
       </div>
     </div>
   )

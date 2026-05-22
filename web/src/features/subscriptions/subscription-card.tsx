@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import type { Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
@@ -154,6 +154,8 @@ export default function SubscriptionCard({
   onDelete,
 }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [actionsVisible, setActionsVisible] = useState(false)
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
@@ -192,11 +194,6 @@ export default function SubscriptionCard({
 
   function renderDueText(): string {
     if (ended) {
-      if (endsAt) {
-        return t("subscription.card.endedOn", {
-          date: formatDate(endsAt, i18n.language),
-        })
-      }
       return t("subscription.card.status.ended")
     }
     if (subscription.billing_type === "recurring" && renewalMode === "cancel_at_period_end" && endsAt) {
@@ -241,9 +238,32 @@ export default function SubscriptionCard({
   const secondaryBadgeText = dueText
   const secondaryBadgeClass = dueBadgeClass
   const secondaryBadgeTitle = secondaryBadgeText
+  const actionsVisibilityClass = actionsVisible
+    ? "opacity-100 pointer-events-auto"
+    : "opacity-0 pointer-events-none"
+
+  useEffect(() => {
+    if (!actionsVisible) {
+      return
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (cardRef.current?.contains(event.target as Node)) {
+        return
+      }
+      setActionsVisible(false)
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    return () => document.removeEventListener("pointerdown", handlePointerDown)
+  }, [actionsVisible])
 
   return (
-    <Card className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}>
+    <Card
+      ref={cardRef}
+      className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
+      onClick={() => setActionsVisible(true)}
+    >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
@@ -265,20 +285,26 @@ export default function SubscriptionCard({
               </a>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
-            {categoryLabel && <span>{categoryLabel}</span>}
-            {categoryLabel && paymentMethodName && <span>·</span>}
+          <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
+            {categoryLabel && (
+              <span className="min-w-0 max-w-[12rem] shrink truncate" title={categoryLabel}>
+                {categoryLabel}
+              </span>
+            )}
+            {categoryLabel && paymentMethodName && <span className="shrink-0">·</span>}
             {paymentMethodName && (
-              <span className="inline-flex items-center gap-1 min-w-0">
+              <span className="inline-flex min-w-0 shrink items-center gap-1">
                 {paymentMethodIcon && (
                   <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted/50">
                     {renderInlineIcon(paymentMethodIcon, paymentMethodName)}
                   </span>
                 )}
-                <span className="truncate">{paymentMethodName}</span>
+                <span className="truncate" title={paymentMethodName}>
+                  {paymentMethodName}
+                </span>
               </span>
             )}
-            {reminderDisabledText && (categoryLabel || paymentMethodName) && <span>·</span>}
+            {reminderDisabledText && (categoryLabel || paymentMethodName) && <span className="shrink-0">·</span>}
             {reminderDisabledText && (
               <span
                 className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground"
@@ -332,7 +358,9 @@ export default function SubscriptionCard({
           </div>
         </div>
 
-        <div className="flex self-center flex-col items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div
+          className={`flex self-center flex-col items-center gap-1 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 ${actionsVisibilityClass}`}
+        >
           <Button variant="ghost" size="icon-sm" onClick={() => onEdit(subscription)}>
             <Pencil className="size-3.5" />
           </Button>

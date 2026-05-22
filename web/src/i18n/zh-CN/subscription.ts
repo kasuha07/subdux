@@ -23,7 +23,7 @@ const subscription = {
       "on": "提前 {{days}} 天提醒",
       "off": "提醒已关闭"
     },
-    "endsOn": "将于 {{date}} 结束",
+    "endsOn": "{{date}} 结束",
     "endedOn": "已于 {{date}} 结束",
     "notes": "备注：{{content}}",
     "cycleProgressAria": "当前周期进度：{{progress}}%",
