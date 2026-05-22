@@ -34,7 +34,16 @@ func (s *AdminService) ChangeUserStatus(userID uint, status string) error {
 	if userID == 1 && status == "disabled" {
 		return errors.New("cannot disable the first user")
 	}
-	return s.DB.Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error
+
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error; err != nil {
+			return err
+		}
+		if status == "disabled" {
+			return revokeAllRefreshTokens(tx, userID)
+		}
+		return nil
+	})
 }
 
 func (s *AdminService) DeleteUser(userID uint) error {
@@ -53,31 +62,7 @@ func (s *AdminService) DeleteUser(userID uint) error {
 	}
 
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", userID).Delete(&model.Subscription{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.PaymentMethod{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.UserCurrency{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.Category{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.UserPreference{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.UserBackupCode{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.PasskeyCredential{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.OIDCConnection{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", userID).Delete(&model.EmailVerificationCode{}).Error; err != nil {
+		if err := deleteUserOwnedRecords(tx, userID); err != nil {
 			return err
 		}
 		return tx.Delete(&model.User{}, userID).Error
@@ -147,4 +132,30 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 	}
 
 	return &user, nil
+}
+
+func deleteUserOwnedRecords(tx *gorm.DB, userID uint) error {
+	for _, value := range []interface{}{
+		&model.NotificationLog{},
+		&model.Subscription{},
+		&model.NotificationChannel{},
+		&model.NotificationPolicy{},
+		&model.NotificationTemplate{},
+		&model.APIKey{},
+		&model.RefreshToken{},
+		&model.CalendarToken{},
+		&model.PaymentMethod{},
+		&model.UserCurrency{},
+		&model.Category{},
+		&model.UserPreference{},
+		&model.UserBackupCode{},
+		&model.PasskeyCredential{},
+		&model.OIDCConnection{},
+		&model.EmailVerificationCode{},
+	} {
+		if err := tx.Where("user_id = ?", userID).Delete(value).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }

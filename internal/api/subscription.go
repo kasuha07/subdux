@@ -270,7 +270,7 @@ func (h *SubscriptionHandler) AnalyticsReport(c echo.Context) error {
 }
 
 func isSubscriptionBadRequestError(message string) bool {
-	if message == "payment method not found" {
+	if message == "payment method not found" || message == "category not found" {
 		return true
 	}
 	return strings.Contains(message, "required") ||

@@ -8,15 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	subscriptionStatusActive           = "active"
-	subscriptionStatusEnded            = "ended"
-	subscriptionRenewalModeAutoRenew   = "auto_renew"
-	subscriptionRenewalModeManualRenew = "manual_renew"
-	subscriptionRenewalModeCancelEnd   = "cancel_at_period_end"
-	subscriptionBillingTypeRecurring   = "recurring"
-)
-
 func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 	var subs []model.Subscription
 	if err := db.Find(&subs).Error; err != nil {
@@ -62,7 +53,7 @@ func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 			} else {
 				endedAt := normalizeSubscriptionDate(sub.UpdatedAt)
 				if endedAt.IsZero() {
-					endedAt = normalizeSubscriptionDate(NowUTC())
+					endedAt = normalizeSubscriptionDate(time.Now().UTC())
 				}
 				updates["ends_at"] = endedAt
 			}

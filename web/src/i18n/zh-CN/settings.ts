@@ -305,7 +305,7 @@ const settings = {
     "copied": "已复制到剪贴板",
     "usage": "使用方法",
     "usageDescription": "在请求时将 API 密钥放入 X-API-Key 请求头中。",
-    "limitReached": "最多只能创建 10 个 API 密钥"
+    "limitReached": "最多只能创建 5 个 API 密钥"
   },
   "notifications": {
     "title": "通知",

@@ -219,6 +219,13 @@ func (s *APIKeyService) ValidateKey(rawKey string) (*APIKeyPrincipal, error) {
 		return nil, ErrAPIKeyExpired
 	}
 
+	if err := ensureUserActive(s.db, apiKey.UserID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, errUserNotActive) {
+			return nil, ErrAPIKeyInvalid
+		}
+		return nil, err
+	}
+
 	// Update last used timestamp
 	now := pkg.NowUTC()
 	s.db.Model(&apiKey).Update("last_used_at", now)
