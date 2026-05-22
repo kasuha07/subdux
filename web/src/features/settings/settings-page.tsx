@@ -159,32 +159,34 @@ export default function SettingsPage() {
           }}
           className="space-y-6"
         >
-          <TabsList>
-            <TabsTrigger value="general" className="gap-2">
-              <Settings className="size-4" />
-              {t("settings.general.title")}
-            </TabsTrigger>
-            <TabsTrigger value="payment" className="gap-2">
-              <CreditCard className="size-4" />
-              {t("settings.payment.title")}
-            </TabsTrigger>
-            <TabsTrigger value="notification" className="gap-2">
-              <Bell className="size-4" />
-              {t("settings.notifications.title")}
-            </TabsTrigger>
-            <TabsTrigger value="account" className="gap-2">
-              <CircleUserRound className="size-4" />
-              {t("settings.account.title")}
-            </TabsTrigger>
-            <TabsTrigger value="apikey" className="gap-2">
-              <KeyRound className="size-4" />
-              {t("settings.apiKeys.title")}
-            </TabsTrigger>
-            <TabsTrigger value="about" className="gap-2">
-              <Info className="size-4" />
-              {t("settings.about.title")}
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto pb-1">
+            <TabsList className="w-max min-w-max">
+              <TabsTrigger value="general" className="flex-none gap-2">
+                <Settings className="size-4" />
+                {t("settings.general.title")}
+              </TabsTrigger>
+              <TabsTrigger value="payment" className="flex-none gap-2">
+                <CreditCard className="size-4" />
+                {t("settings.payment.title")}
+              </TabsTrigger>
+              <TabsTrigger value="notification" className="flex-none gap-2">
+                <Bell className="size-4" />
+                {t("settings.notifications.title")}
+              </TabsTrigger>
+              <TabsTrigger value="account" className="flex-none gap-2">
+                <CircleUserRound className="size-4" />
+                {t("settings.account.title")}
+              </TabsTrigger>
+              <TabsTrigger value="apikey" className="flex-none gap-2">
+                <KeyRound className="size-4" />
+                {t("settings.apiKeys.title")}
+              </TabsTrigger>
+              <TabsTrigger value="about" className="flex-none gap-2">
+                <Info className="size-4" />
+                {t("settings.about.title")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {visitedTabs.includes("general") && (
             <Suspense fallback={<SettingsTabLoading value="general" />}>

@@ -151,11 +151,6 @@ export default function ReportsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/calendar">
-                <CalendarDays className="size-4" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon-sm" asChild>
               <Link to="/settings">
                 <Settings className="size-4" />
               </Link>

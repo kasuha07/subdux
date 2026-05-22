@@ -87,40 +87,42 @@ export default function AdminPage() {
             }}
             className="space-y-6"
           >
-            <TabsList>
-              <TabsTrigger value="users" className="gap-2">
-                <Users className="size-4" />
-                {t("admin.tabs.users")}
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-2">
-                <Settings className="size-4" />
-                {t("admin.tabs.settings")}
-              </TabsTrigger>
-              <TabsTrigger value="smtp" className="gap-2">
-                <Mail className="size-4" />
-                {t("admin.tabs.email")}
-              </TabsTrigger>
-              <TabsTrigger value="auth" className="gap-2">
-                <ShieldCheck className="size-4" />
-                {t("admin.tabs.authentication")}
-              </TabsTrigger>
-              <TabsTrigger value="exchange-rates" className="gap-2">
-                <RefreshCw className="size-4" />
-                {t("admin.exchangeRates.title")}
-              </TabsTrigger>
-              <TabsTrigger value="stats" className="gap-2">
-                <BarChart3 className="size-4" />
-                {t("admin.tabs.statistics")}
-              </TabsTrigger>
-              <TabsTrigger value="background-tasks" className="gap-2">
-                <ServerCog className="size-4" />
-                {t("admin.tabs.backgroundTasks")}
-              </TabsTrigger>
-              <TabsTrigger value="backup" className="gap-2">
-                <Database className="size-4" />
-                {t("admin.tabs.backup")}
-              </TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto pb-1">
+              <TabsList className="w-max min-w-max">
+                <TabsTrigger value="users" className="flex-none gap-2">
+                  <Users className="size-4" />
+                  {t("admin.tabs.users")}
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="flex-none gap-2">
+                  <Settings className="size-4" />
+                  {t("admin.tabs.settings")}
+                </TabsTrigger>
+                <TabsTrigger value="smtp" className="flex-none gap-2">
+                  <Mail className="size-4" />
+                  {t("admin.tabs.email")}
+                </TabsTrigger>
+                <TabsTrigger value="auth" className="flex-none gap-2">
+                  <ShieldCheck className="size-4" />
+                  {t("admin.tabs.authentication")}
+                </TabsTrigger>
+                <TabsTrigger value="exchange-rates" className="flex-none gap-2">
+                  <RefreshCw className="size-4" />
+                  {t("admin.exchangeRates.title")}
+                </TabsTrigger>
+                <TabsTrigger value="stats" className="flex-none gap-2">
+                  <BarChart3 className="size-4" />
+                  {t("admin.tabs.statistics")}
+                </TabsTrigger>
+                <TabsTrigger value="background-tasks" className="flex-none gap-2">
+                  <ServerCog className="size-4" />
+                  {t("admin.tabs.backgroundTasks")}
+                </TabsTrigger>
+                <TabsTrigger value="backup" className="flex-none gap-2">
+                  <Database className="size-4" />
+                  {t("admin.tabs.backup")}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {visitedTabs.includes("users") && (
               <Suspense fallback={<AdminTabLoading value="users" />}>
