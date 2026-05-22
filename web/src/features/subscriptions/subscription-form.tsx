@@ -112,12 +112,12 @@ export default function SubscriptionForm({
             )}
 
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr]">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-3">
                 <div className="space-y-2">
                   <Label>{t("subscription.form.iconPicker.label")}</Label>
                   {iconPickerNode}
                 </div>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                   <Label htmlFor="name">{t("subscription.form.nameLabel")}</Label>
                   <Input
                     id="name"
@@ -129,8 +129,8 @@ export default function SubscriptionForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,0.9fr)] gap-3 sm:grid-cols-2">
+                <div className="min-w-0 space-y-2">
                   <Label htmlFor="amount">{t("subscription.form.amountLabel")}</Label>
                   <Input
                     id="amount"
@@ -143,10 +143,10 @@ export default function SubscriptionForm({
                     required
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                   <Label htmlFor="currency">{t("subscription.form.currencyLabel")}</Label>
                   <Select value={values.currency} onValueChange={(value) => setField("currency", value)}>
-                    <SelectTrigger id="currency">
+                    <SelectTrigger id="currency" className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -161,11 +161,11 @@ export default function SubscriptionForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="status">{t("subscription.form.statusLabel")}</Label>
                 <Select value={values.status} onValueChange={(value) => setField("status", value as typeof values.status)}>
-                  <SelectTrigger id="status">
+                  <SelectTrigger id="status" className="w-full min-w-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -174,14 +174,14 @@ export default function SubscriptionForm({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="renewal-mode">{t("subscription.form.renewalModeLabel")}</Label>
                 <Select
                   value={values.renewalMode}
                   onValueChange={(value) => setField("renewalMode", value as typeof values.renewalMode)}
                   disabled={values.status === "ended"}
                 >
-                  <SelectTrigger id="renewal-mode">
+                  <SelectTrigger id="renewal-mode" className="w-full min-w-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

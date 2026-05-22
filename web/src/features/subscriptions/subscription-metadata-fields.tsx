@@ -43,11 +43,11 @@ export default function SubscriptionMetadataFields({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 sm:grid-cols-2">
+        <div className="min-w-0 space-y-2">
           <Label htmlFor="category">{t("subscription.form.categoryLabel")}</Label>
           <Select value={categoryId} onValueChange={onCategoryIdChange}>
-            <SelectTrigger id="category">
+            <SelectTrigger id="category" className="w-full min-w-0">
               <SelectValue placeholder={t("subscription.form.categoryPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
@@ -59,7 +59,7 @@ export default function SubscriptionMetadataFields({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           <Label htmlFor="payment-method">{t("subscription.form.paymentMethodLabel")}</Label>
           <Select
             value={paymentMethodId || noPaymentMethodValue}
@@ -67,7 +67,7 @@ export default function SubscriptionMetadataFields({
               onPaymentMethodIdChange(value === noPaymentMethodValue ? "" : value)
             }}
           >
-            <SelectTrigger id="payment-method">
+            <SelectTrigger id="payment-method" className="w-full min-w-0">
               <SelectValue placeholder={t("subscription.form.paymentMethodPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
