@@ -120,6 +120,12 @@
     @apply bg-background text-foreground;
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   }
+
+  @supports (scrollbar-gutter: stable) {
+    html body[data-scroll-locked] {
+      margin-right: 0 !important;
+    }
+  }
 }
 
 @keyframes ulw-toast-enter {

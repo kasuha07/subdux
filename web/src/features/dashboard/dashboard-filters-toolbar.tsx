@@ -125,7 +125,7 @@ export default function DashboardFiltersToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="shrink-0">
               <Filter className="size-4" />
@@ -250,7 +250,7 @@ export default function DashboardFiltersToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="shrink-0">
               <ArrowUpDown className="size-4" />
