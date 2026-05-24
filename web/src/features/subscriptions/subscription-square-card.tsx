@@ -11,6 +11,7 @@ import {
   getSubscriptionStatus,
   isSubscriptionEnded,
 } from "@/features/subscriptions/subscription-lifecycle"
+import { useHoverCapablePointer } from "@/features/subscriptions/hooks/use-hover-capable-pointer"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
@@ -90,6 +91,7 @@ export default function SubscriptionSquareCard({
   const { t, i18n } = useTranslation()
   const cardRef = useRef<HTMLDivElement>(null)
   const [actionsVisible, setActionsVisible] = useState(false)
+  const hoverCapablePointer = useHoverCapablePointer()
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
@@ -155,7 +157,8 @@ export default function SubscriptionSquareCard({
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
   const reminderOff = subscription.notify_enabled === false
-  const actionsVisibilityClass = actionsVisible
+  const touchActionsVisible = !hoverCapablePointer && actionsVisible
+  const actionsVisibilityClass = touchActionsVisible
     ? "opacity-100 pointer-events-auto"
     : "opacity-0 pointer-events-none"
 
@@ -175,11 +178,17 @@ export default function SubscriptionSquareCard({
     return () => document.removeEventListener("pointerdown", handlePointerDown)
   }, [actionsVisible])
 
+  function handleCardClick() {
+    if (!hoverCapablePointer) {
+      setActionsVisible(true)
+    }
+  }
+
   return (
     <Card
       ref={cardRef}
       className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
-      onClick={() => setActionsVisible(true)}
+      onClick={handleCardClick}
     >
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">

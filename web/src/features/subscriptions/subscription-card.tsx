@@ -13,6 +13,7 @@ import {
   getSubscriptionStatus,
   isSubscriptionEnded,
 } from "@/features/subscriptions/subscription-lifecycle"
+import { useHoverCapablePointer } from "@/features/subscriptions/hooks/use-hover-capable-pointer"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
 
 function renderIcon(icon: string, name: string): ReactNode {
@@ -156,6 +157,7 @@ export default function SubscriptionCard({
   const { t, i18n } = useTranslation()
   const cardRef = useRef<HTMLDivElement>(null)
   const [actionsVisible, setActionsVisible] = useState(false)
+  const hoverCapablePointer = useHoverCapablePointer()
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
@@ -238,7 +240,8 @@ export default function SubscriptionCard({
   const secondaryBadgeText = dueText
   const secondaryBadgeClass = dueBadgeClass
   const secondaryBadgeTitle = secondaryBadgeText
-  const actionsVisibilityClass = actionsVisible
+  const touchActionsVisible = !hoverCapablePointer && actionsVisible
+  const actionsVisibilityClass = touchActionsVisible
     ? "opacity-100 pointer-events-auto"
     : "opacity-0 pointer-events-none"
 
@@ -258,11 +261,17 @@ export default function SubscriptionCard({
     return () => document.removeEventListener("pointerdown", handlePointerDown)
   }, [actionsVisible])
 
+  function handleCardClick() {
+    if (!hoverCapablePointer) {
+      setActionsVisible(true)
+    }
+  }
+
   return (
     <Card
       ref={cardRef}
       className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
-      onClick={() => setActionsVisible(true)}
+      onClick={handleCardClick}
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
