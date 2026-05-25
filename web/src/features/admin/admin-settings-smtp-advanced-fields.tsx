@@ -17,11 +17,13 @@ export default function AdminSettingsSMTPAdvancedFields({
   onSMTPAuthMethodChange,
   onSMTPEncryptionChange,
   onSMTPHeloNameChange,
+  onSMTPRateLimitSecondsChange,
   onSMTPSkipTLSVerifyChange,
   onSMTPTimeoutSecondsChange,
   smtpAuthMethod,
   smtpEncryption,
   smtpHeloName,
+  smtpRateLimitSeconds,
   smtpSkipTLSVerify,
   smtpTimeoutSeconds,
 }: AdminSettingsSMTPAdvancedFieldsProps) {
@@ -96,6 +98,33 @@ export default function AdminSettingsSMTPAdvancedFields({
               {t("admin.settings.smtpTimeoutSecondsUnit")}
             </span>
           </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="smtp-rate-limit-seconds">{t("admin.settings.smtpRateLimitSeconds")}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="smtp-rate-limit-seconds"
+              type="number"
+              min={0}
+              max={86400}
+              step={1}
+              className="w-32"
+              value={smtpRateLimitSeconds}
+              onChange={(event) => {
+                const next = parseInt(event.target.value, 10)
+                if (!Number.isNaN(next) && next >= 0) {
+                  onSMTPRateLimitSecondsChange(next)
+                }
+              }}
+            />
+            <span className="text-sm text-muted-foreground">
+              {t("admin.settings.smtpTimeoutSecondsUnit")}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.settings.smtpRateLimitSecondsDescription")}
+          </p>
         </div>
 
         <div className="flex items-center justify-between">

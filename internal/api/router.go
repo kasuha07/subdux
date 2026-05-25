@@ -363,6 +363,7 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "smtp_auth_method", Value: "auto"},
 		{Key: "smtp_helo_name", Value: ""},
 		{Key: "smtp_timeout_seconds", Value: "10"},
+		{Key: "smtp_rate_limit_seconds", Value: "0"},
 		{Key: "smtp_skip_tls_verify", Value: "false"},
 		{Key: "oidc_enabled", Value: "false"},
 		{Key: "oidc_provider_name", Value: "OIDC"},

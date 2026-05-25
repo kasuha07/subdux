@@ -50,6 +50,7 @@ type SystemSettings struct {
 	SMTPAuthMethod                       string `json:"smtp_auth_method"`
 	SMTPHeloName                         string `json:"smtp_helo_name"`
 	SMTPTimeoutSeconds                   int64  `json:"smtp_timeout_seconds"`
+	SMTPRateLimitSeconds                 int64  `json:"smtp_rate_limit_seconds"`
 	SMTPSkipTLSVerify                    bool   `json:"smtp_skip_tls_verify"`
 	OIDCEnabled                          bool   `json:"oidc_enabled"`
 	OIDCProviderName                     string `json:"oidc_provider_name"`
@@ -93,6 +94,7 @@ type UpdateSettingsInput struct {
 	SMTPAuthMethod                       *string `json:"smtp_auth_method"`
 	SMTPHeloName                         *string `json:"smtp_helo_name"`
 	SMTPTimeoutSeconds                   *int64  `json:"smtp_timeout_seconds"`
+	SMTPRateLimitSeconds                 *int64  `json:"smtp_rate_limit_seconds"`
 	SMTPSkipTLSVerify                    *bool   `json:"smtp_skip_tls_verify"`
 	OIDCEnabled                          *bool   `json:"oidc_enabled"`
 	OIDCProviderName                     *string `json:"oidc_provider_name"`

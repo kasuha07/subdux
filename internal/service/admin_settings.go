@@ -36,6 +36,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		SMTPAuthMethod:                       "auto",
 		SMTPHeloName:                         "",
 		SMTPTimeoutSeconds:                   10,
+		SMTPRateLimitSeconds:                 0,
 		SMTPSkipTLSVerify:                    false,
 		OIDCEnabled:                          false,
 		OIDCProviderName:                     "OIDC",
@@ -121,6 +122,10 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		case "smtp_timeout_seconds":
 			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
 				settings.SMTPTimeoutSeconds = v
+			}
+		case "smtp_rate_limit_seconds":
+			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil && v >= 0 {
+				settings.SMTPRateLimitSeconds = v
 			}
 		case "smtp_skip_tls_verify":
 			settings.SMTPSkipTLSVerify = settingValue == "true"
@@ -431,6 +436,19 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "smtp_timeout_seconds").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "smtp_timeout_seconds"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SMTPRateLimitSeconds != nil {
+			rateLimitSeconds, err := normalizeSMTPRateLimitSeconds(*input.SMTPRateLimitSeconds)
+			if err != nil {
+				return err
+			}
+			value := strconv.FormatInt(rateLimitSeconds, 10)
+			if err := tx.Where("key = ?", "smtp_rate_limit_seconds").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "smtp_rate_limit_seconds"}).Error; err != nil {
 				return err
 			}
 		}

@@ -18,6 +18,7 @@ export default function AdminSettingsSMTPSection({
   onSMTPHeloNameChange,
   onSMTPHostChange,
   onSMTPPasswordChange,
+  onSMTPRateLimitSecondsChange,
   onSMTPSkipTLSVerifyChange,
   onSMTPPortChange,
   onSMTPTestRecipientChange,
@@ -34,6 +35,7 @@ export default function AdminSettingsSMTPSection({
   smtpPassword,
   smtpPasswordConfigured,
   smtpPort,
+  smtpRateLimitSeconds,
   smtpSkipTLSVerify,
   smtpTestRecipient,
   smtpTesting,
@@ -161,11 +163,13 @@ export default function AdminSettingsSMTPSection({
         onSMTPAuthMethodChange={onSMTPAuthMethodChange}
         onSMTPEncryptionChange={onSMTPEncryptionChange}
         onSMTPHeloNameChange={onSMTPHeloNameChange}
+        onSMTPRateLimitSecondsChange={onSMTPRateLimitSecondsChange}
         onSMTPSkipTLSVerifyChange={onSMTPSkipTLSVerifyChange}
         onSMTPTimeoutSecondsChange={onSMTPTimeoutSecondsChange}
         smtpAuthMethod={smtpAuthMethod}
         smtpEncryption={smtpEncryption}
         smtpHeloName={smtpHeloName}
+        smtpRateLimitSeconds={smtpRateLimitSeconds}
         smtpSkipTLSVerify={smtpSkipTLSVerify}
         smtpTimeoutSeconds={smtpTimeoutSeconds}
       />

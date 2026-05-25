@@ -50,6 +50,7 @@ interface AdminSettingsFormState {
   smtpPassword: string
   smtpPasswordConfigured: boolean
   smtpPort: number
+  smtpRateLimitSeconds: number
   smtpSkipTLSVerify: boolean
   smtpTimeoutSeconds: number
   smtpUsername: string
@@ -150,6 +151,7 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     smtpPassword: "",
     smtpPasswordConfigured: settings?.smtp_password_configured ?? false,
     smtpPort: settings?.smtp_port || 587,
+    smtpRateLimitSeconds: settings?.smtp_rate_limit_seconds ?? 0,
     smtpSkipTLSVerify: settings?.smtp_skip_tls_verify ?? false,
     smtpTimeoutSeconds: settings?.smtp_timeout_seconds || 10,
     smtpUsername: settings?.smtp_username || "",
@@ -344,6 +346,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         smtp_auth_method: settingsForm.smtpAuthMethod,
         smtp_helo_name: settingsForm.smtpHeloName,
         smtp_timeout_seconds: settingsForm.smtpTimeoutSeconds,
+        smtp_rate_limit_seconds: settingsForm.smtpRateLimitSeconds,
         smtp_skip_tls_verify: settingsForm.smtpSkipTLSVerify,
         system_proxy_enabled: settingsForm.systemProxyEnabled,
         system_proxy_type: settingsForm.systemProxyType,

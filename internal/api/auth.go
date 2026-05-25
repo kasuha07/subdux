@@ -100,6 +100,8 @@ func authServiceErrorStatus(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, service.ErrVerificationCodeTooFrequent):
 		return http.StatusTooManyRequests
+	case errors.Is(err, service.ErrSMTPRateLimited):
+		return http.StatusTooManyRequests
 	case errors.Is(err, service.ErrUserNotFound):
 		return http.StatusNotFound
 	case errors.Is(err, service.ErrRegistrationEmailVerificationDisabled),

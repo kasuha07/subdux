@@ -419,6 +419,9 @@ func (s *AuthService) sendVerificationCodeEmail(recipient string, purpose string
 
 	message := buildSMTPMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
 	if err := sendSMTPMessage(*cfg, recipient, message); err != nil {
+		if errors.Is(err, ErrSMTPRateLimited) {
+			return ErrSMTPRateLimited
+		}
 		return ErrSMTPUnavailable
 	}
 	return nil

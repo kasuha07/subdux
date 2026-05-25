@@ -97,6 +97,8 @@ const admin = {
     "smtpHeloNamePlaceholder": "mail.example.com",
     "smtpTimeoutSeconds": "SMTP Timeout",
     "smtpTimeoutSecondsUnit": "seconds",
+    "smtpRateLimitSeconds": "Send rate limit",
+    "smtpRateLimitSecondsDescription": "Minimum seconds between system SMTP emails. Set to 0 to disable.",
     "smtpSkipTLSVerify": "Skip TLS certificate verification",
     "smtpSkipTLSVerifyDescription": "Use only for self-signed certs in trusted environments",
     "systemProxyEnabled": "System proxy",

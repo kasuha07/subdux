@@ -221,6 +221,10 @@ export default function AdminPage() {
                   onSMTPTimeoutSecondsChange={(value) =>
                     admin.setSettingsField("smtpTimeoutSeconds", value)
                   }
+                  smtpRateLimitSeconds={settingsForm.smtpRateLimitSeconds}
+                  onSMTPRateLimitSecondsChange={(value) =>
+                    admin.setSettingsField("smtpRateLimitSeconds", value)
+                  }
                   smtpSkipTLSVerify={settingsForm.smtpSkipTLSVerify}
                   onSMTPSkipTLSVerifyChange={(enabled) =>
                     admin.setSettingsField("smtpSkipTLSVerify", enabled)

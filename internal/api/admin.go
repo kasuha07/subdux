@@ -187,6 +187,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 			errors.Is(err, service.ErrEmailDomainWhitelistTooLong) ||
 			errors.Is(err, service.ErrInvalidIconProxyDomainWhitelist) ||
 			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) ||
+			errors.Is(err, service.ErrInvalidSMTPRateLimit) ||
 			errors.Is(err, service.ErrInvalidSystemProxyType) ||
 			errors.Is(err, service.ErrInvalidSystemProxyURL) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
@@ -208,6 +209,9 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 	currentUserID := getUserID(c)
 
 	if err := h.Service.SendSMTPTestEmail(currentUserID, input.RecipientEmail); err != nil {
+		if errors.Is(err, service.ErrSMTPRateLimited) {
+			return c.JSON(http.StatusTooManyRequests, echo.Map{"error": err.Error()})
+		}
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 

@@ -364,6 +364,7 @@ export interface SystemSettings {
   smtp_auth_method: string
   smtp_helo_name: string
   smtp_timeout_seconds: number
+  smtp_rate_limit_seconds: number
   smtp_skip_tls_verify: boolean
   oidc_enabled: boolean
   oidc_provider_name: string
@@ -407,6 +408,7 @@ export interface UpdateSettingsInput {
   smtp_auth_method?: string
   smtp_helo_name?: string
   smtp_timeout_seconds?: number
+  smtp_rate_limit_seconds?: number
   smtp_skip_tls_verify?: boolean
   oidc_enabled?: boolean
   oidc_provider_name?: string

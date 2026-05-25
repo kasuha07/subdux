@@ -97,6 +97,8 @@ const admin = {
     "smtpHeloNamePlaceholder": "mail.example.com",
     "smtpTimeoutSeconds": "SMTP 超时时间",
     "smtpTimeoutSecondsUnit": "秒",
+    "smtpRateLimitSeconds": "发信速率限制",
+    "smtpRateLimitSecondsDescription": "系统 SMTP 邮件之间的最小间隔秒数。设为 0 表示不限制。",
     "smtpSkipTLSVerify": "跳过 TLS 证书校验",
     "smtpSkipTLSVerifyDescription": "仅建议在受信任环境中使用自签名证书时开启",
     "systemProxyEnabled": "系统代理",

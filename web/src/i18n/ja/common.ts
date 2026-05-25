@@ -4,7 +4,8 @@ const common = {
   "unauthorized": "認証エラー",
   "requestFailed": "リクエストに失敗しました",
   "backendErrors": {
-    "maxNotificationChannels": "有効化できる通知チャンネルは最大3件です"
+    "maxNotificationChannels": "有効化できる通知チャンネルは最大3件です",
+    "smtpRateLimited": "SMTP送信レート制限に達しました。しばらく待ってから再試行してください。"
   },
   "passkeyErrors": {
     "notAllowed": "Passkey リクエストはキャンセルされたかタイムアウトしました",

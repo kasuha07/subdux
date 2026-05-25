@@ -1,10 +1,13 @@
 package service
 
 import (
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 )
 
 func TestValidateBcryptPasswordLength(t *testing.T) {
@@ -127,5 +130,70 @@ func TestLoadSMTPRuntimeConfigSupportsLegacyPlaintextPassword(t *testing.T) {
 	}
 	if cfg.Password != "legacy-password" {
 		t.Fatalf("smtp password = %q, want %q", cfg.Password, "legacy-password")
+	}
+}
+
+func TestUpdateSettingsPersistsSMTPRateLimit(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	svc := NewAdminService(db)
+	rateLimitSeconds := int64(30)
+	if err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds}); err != nil {
+		t.Fatalf("UpdateSettings() failed: %v", err)
+	}
+
+	settings, err := svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() failed: %v", err)
+	}
+	if settings.SMTPRateLimitSeconds != rateLimitSeconds {
+		t.Fatalf("SMTPRateLimitSeconds = %d, want %d", settings.SMTPRateLimitSeconds, rateLimitSeconds)
+	}
+}
+
+func TestUpdateSettingsRejectsInvalidSMTPRateLimit(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	svc := NewAdminService(db)
+	rateLimitSeconds := int64(-1)
+	err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds})
+	if !errors.Is(err, ErrInvalidSMTPRateLimit) {
+		t.Fatalf("UpdateSettings() error = %v, want %v", err, ErrInvalidSMTPRateLimit)
+	}
+}
+
+func TestReserveSMTPRateLimitSlotRejectsTooFrequentAttempts(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	start := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	restoreClock := pkg.SetNowForTest(start)
+	t.Cleanup(restoreClock)
+
+	cfg := smtpRuntimeConfig{
+		RateLimitSeconds: 60,
+		RateLimitDB:      db,
+	}
+	if err := reserveSMTPRateLimitSlot(cfg); err != nil {
+		t.Fatalf("first reserveSMTPRateLimitSlot() error = %v", err)
+	}
+	if err := reserveSMTPRateLimitSlot(cfg); !errors.Is(err, ErrSMTPRateLimited) {
+		t.Fatalf("second reserveSMTPRateLimitSlot() error = %v, want %v", err, ErrSMTPRateLimited)
+	}
+
+	restoreClock()
+	restoreClock = pkg.SetNowForTest(start.Add(61 * time.Second))
+	t.Cleanup(restoreClock)
+
+	if err := reserveSMTPRateLimitSlot(cfg); err != nil {
+		t.Fatalf("reserveSMTPRateLimitSlot() after interval error = %v", err)
 	}
 }

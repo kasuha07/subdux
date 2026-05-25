@@ -14,6 +14,7 @@ let userLoaded = false
 
 const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
   "you can enable at most 3 notification channels": "common.backendErrors.maxNotificationChannels",
+  "smtp send rate limit exceeded, please wait before trying again": "common.backendErrors.smtpRateLimited",
 }
 
 function readLocalStorage(key: string): string | null {

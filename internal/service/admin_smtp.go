@@ -11,25 +11,39 @@ import (
 	"net/smtp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"gorm.io/gorm"
 )
 
+const (
+	smtpRateLimitLastAttemptKey = "smtp_rate_limit_last_attempt_at"
+	smtpRateLimitMaxSeconds     = 86400
+)
+
+var (
+	ErrInvalidSMTPRateLimit = errors.New("smtp rate limit must be between 0 and 86400 seconds")
+	ErrSMTPRateLimited      = errors.New("smtp send rate limit exceeded, please wait before trying again")
+	smtpRateLimitMu         sync.Mutex
+)
+
 type smtpRuntimeConfig struct {
-	Host           string
-	Port           int64
-	Username       string
-	Password       string
-	FromEmail      string
-	FromName       string
-	Encryption     string
-	AuthMethod     string
-	HeloName       string
-	TimeoutSeconds int64
-	SkipTLSVerify  bool
-	DialContext    func(context.Context, string, string) (net.Conn, error)
+	Host             string
+	Port             int64
+	Username         string
+	Password         string
+	FromEmail        string
+	FromName         string
+	Encryption       string
+	AuthMethod       string
+	HeloName         string
+	TimeoutSeconds   int64
+	RateLimitSeconds int64
+	RateLimitDB      *gorm.DB
+	SkipTLSVerify    bool
+	DialContext      func(context.Context, string, string) (net.Conn, error)
 }
 
 type smtpLoginAuth struct {
@@ -101,18 +115,19 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 	}
 
 	defaults := map[string]string{
-		"smtp_enabled":         "false",
-		"smtp_host":            "",
-		"smtp_port":            "587",
-		"smtp_username":        "",
-		"smtp_password":        "",
-		"smtp_from_email":      "",
-		"smtp_from_name":       "",
-		"smtp_encryption":      "starttls",
-		"smtp_auth_method":     "auto",
-		"smtp_helo_name":       "",
-		"smtp_timeout_seconds": "10",
-		"smtp_skip_tls_verify": "false",
+		"smtp_enabled":            "false",
+		"smtp_host":               "",
+		"smtp_port":               "587",
+		"smtp_username":           "",
+		"smtp_password":           "",
+		"smtp_from_email":         "",
+		"smtp_from_name":          "",
+		"smtp_encryption":         "starttls",
+		"smtp_auth_method":        "auto",
+		"smtp_helo_name":          "",
+		"smtp_timeout_seconds":    "10",
+		"smtp_rate_limit_seconds": "0",
+		"smtp_skip_tls_verify":    "false",
 	}
 
 	keys := make([]string, 0, len(defaults))
@@ -178,6 +193,7 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 		timeoutSeconds = 10
 	}
 
+	rateLimitSeconds := parseSMTPRateLimitSeconds(values["smtp_rate_limit_seconds"])
 	username := strings.TrimSpace(values["smtp_username"])
 	password := values["smtp_password"]
 
@@ -186,19 +202,39 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 	}
 
 	return &smtpRuntimeConfig{
-		Host:           host,
-		Port:           port,
-		Username:       username,
-		Password:       password,
-		FromEmail:      fromEmail,
-		FromName:       strings.TrimSpace(values["smtp_from_name"]),
-		Encryption:     encryption,
-		AuthMethod:     authMethod,
-		HeloName:       strings.TrimSpace(values["smtp_helo_name"]),
-		TimeoutSeconds: timeoutSeconds,
-		SkipTLSVerify:  values["smtp_skip_tls_verify"] == "true",
-		DialContext:    NewOutboundDialContext(db, time.Duration(timeoutSeconds)*time.Second),
+		Host:             host,
+		Port:             port,
+		Username:         username,
+		Password:         password,
+		FromEmail:        fromEmail,
+		FromName:         strings.TrimSpace(values["smtp_from_name"]),
+		Encryption:       encryption,
+		AuthMethod:       authMethod,
+		HeloName:         strings.TrimSpace(values["smtp_helo_name"]),
+		TimeoutSeconds:   timeoutSeconds,
+		RateLimitSeconds: rateLimitSeconds,
+		RateLimitDB:      db,
+		SkipTLSVerify:    values["smtp_skip_tls_verify"] == "true",
+		DialContext:      NewOutboundDialContext(db, time.Duration(timeoutSeconds)*time.Second),
 	}, nil
+}
+
+func normalizeSMTPRateLimitSeconds(value int64) (int64, error) {
+	if value < 0 || value > smtpRateLimitMaxSeconds {
+		return 0, ErrInvalidSMTPRateLimit
+	}
+	return value, nil
+}
+
+func parseSMTPRateLimitSeconds(raw string) int64 {
+	value, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || value < 0 {
+		return 0
+	}
+	if value > smtpRateLimitMaxSeconds {
+		return smtpRateLimitMaxSeconds
+	}
+	return value
 }
 
 func buildSMTPMessage(fromEmail string, fromName string, toEmail string, subject string, body string) []byte {
@@ -220,6 +256,10 @@ func buildSMTPMessage(fromEmail string, fromName string, toEmail string, subject
 }
 
 func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) error {
+	if err := reserveSMTPRateLimitSlot(cfg); err != nil {
+		return err
+	}
+
 	address := net.JoinHostPort(cfg.Host, strconv.FormatInt(cfg.Port, 10))
 	dialContext := cfg.DialContext
 	if dialContext == nil {
@@ -316,6 +356,37 @@ func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) er
 	}
 
 	return nil
+}
+
+func reserveSMTPRateLimitSlot(cfg smtpRuntimeConfig) error {
+	if cfg.RateLimitSeconds <= 0 || cfg.RateLimitDB == nil {
+		return nil
+	}
+
+	smtpRateLimitMu.Lock()
+	defer smtpRateLimitMu.Unlock()
+
+	now := pkg.NowUTC()
+	interval := time.Duration(cfg.RateLimitSeconds) * time.Second
+
+	return cfg.RateLimitDB.Transaction(func(tx *gorm.DB) error {
+		var setting model.SystemSetting
+		err := tx.Where("key = ?", smtpRateLimitLastAttemptKey).First(&setting).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		if err == nil {
+			lastAttempt, parseErr := time.Parse(time.RFC3339Nano, strings.TrimSpace(setting.Value))
+			if parseErr == nil && now.Sub(lastAttempt) < interval {
+				return ErrSMTPRateLimited
+			}
+		}
+
+		return tx.Where("key = ?", smtpRateLimitLastAttemptKey).
+			Assign(model.SystemSetting{Value: now.Format(time.RFC3339Nano)}).
+			FirstOrCreate(&model.SystemSetting{Key: smtpRateLimitLastAttemptKey}).Error
+	})
 }
 
 func buildSMTPAuth(cfg smtpRuntimeConfig) (smtp.Auth, error) {

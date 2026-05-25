@@ -97,6 +97,8 @@ const admin = {
     "smtpHeloNamePlaceholder": "mail.example.com",
     "smtpTimeoutSeconds": "SMTPタイムアウト",
     "smtpTimeoutSecondsUnit": "秒",
+    "smtpRateLimitSeconds": "送信レート制限",
+    "smtpRateLimitSecondsDescription": "システムSMTPメール間の最小秒数です。0にすると無効になります。",
     "smtpSkipTLSVerify": "TLS証明書の検証をスキップ",
     "smtpSkipTLSVerifyDescription": "信頼できる環境で自己署名証明書を使う場合のみ有効にしてください",
     "systemProxyEnabled": "システムプロキシ",

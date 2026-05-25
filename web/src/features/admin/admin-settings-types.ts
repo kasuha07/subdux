@@ -34,6 +34,7 @@ export interface AdminSettingsTabProps {
   onSMTPPasswordChange: (value: string) => void
   onSMTPSkipTLSVerifyChange: (enabled: boolean) => void
   onSMTPPortChange: (value: number) => void
+  onSMTPRateLimitSecondsChange: (value: number) => void
   onSMTPTestRecipientChange: (value: string) => void
   onSMTPTest: () => void | Promise<void>
   onSMTPTimeoutSecondsChange: (value: number) => void
@@ -72,6 +73,7 @@ export interface AdminSettingsTabProps {
   smtpPassword: string
   smtpPasswordConfigured: boolean
   smtpPort: number
+  smtpRateLimitSeconds: number
   smtpSkipTLSVerify: boolean
   smtpTestRecipient: string
   smtpTesting: boolean
@@ -152,6 +154,7 @@ export type AdminSettingsSMTPSectionProps = Pick<
   | "onSMTPPasswordChange"
   | "onSMTPSkipTLSVerifyChange"
   | "onSMTPPortChange"
+  | "onSMTPRateLimitSecondsChange"
   | "onSMTPTestRecipientChange"
   | "onSMTPTest"
   | "onSMTPTimeoutSecondsChange"
@@ -166,6 +169,7 @@ export type AdminSettingsSMTPSectionProps = Pick<
   | "smtpPassword"
   | "smtpPasswordConfigured"
   | "smtpPort"
+  | "smtpRateLimitSeconds"
   | "smtpSkipTLSVerify"
   | "smtpTestRecipient"
   | "smtpTesting"
@@ -207,11 +211,13 @@ export type AdminSettingsSMTPAdvancedFieldsProps = Pick<
   | "onSMTPHeloNameChange"
   | "onSMTPSkipTLSVerifyChange"
   | "onSMTPTimeoutSecondsChange"
+  | "onSMTPRateLimitSecondsChange"
   | "smtpAuthMethod"
   | "smtpEncryption"
   | "smtpHeloName"
   | "smtpSkipTLSVerify"
   | "smtpTimeoutSeconds"
+  | "smtpRateLimitSeconds"
 >
 
 export interface AdminSettingsSaveProps {

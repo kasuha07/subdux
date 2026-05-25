@@ -4,7 +4,8 @@ const common = {
   "unauthorized": "未授权",
   "requestFailed": "请求失败",
   "backendErrors": {
-    "maxNotificationChannels": "最多只能启用 3 个通知渠道"
+    "maxNotificationChannels": "最多只能启用 3 个通知渠道",
+    "smtpRateLimited": "SMTP 发信速率已达上限，请稍后再试"
   },
   "passkeyErrors": {
     "notAllowed": "Passkey 请求已取消或超时",

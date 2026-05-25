@@ -16,6 +16,7 @@ export default function AdminSettingsSMTPTab({
   onSMTPHeloNameChange,
   onSMTPHostChange,
   onSMTPPasswordChange,
+  onSMTPRateLimitSecondsChange,
   onSMTPSkipTLSVerifyChange,
   onSMTPPortChange,
   onSMTPTestRecipientChange,
@@ -33,6 +34,7 @@ export default function AdminSettingsSMTPTab({
   smtpPassword,
   smtpPasswordConfigured,
   smtpPort,
+  smtpRateLimitSeconds,
   smtpSkipTLSVerify,
   smtpTestRecipient,
   smtpTesting,
@@ -52,6 +54,7 @@ export default function AdminSettingsSMTPTab({
         onSMTPHeloNameChange={onSMTPHeloNameChange}
         onSMTPHostChange={onSMTPHostChange}
         onSMTPPasswordChange={onSMTPPasswordChange}
+        onSMTPRateLimitSecondsChange={onSMTPRateLimitSecondsChange}
         onSMTPSkipTLSVerifyChange={onSMTPSkipTLSVerifyChange}
         onSMTPPortChange={onSMTPPortChange}
         onSMTPTestRecipientChange={onSMTPTestRecipientChange}
@@ -68,6 +71,7 @@ export default function AdminSettingsSMTPTab({
         smtpPassword={smtpPassword}
         smtpPasswordConfigured={smtpPasswordConfigured}
         smtpPort={smtpPort}
+        smtpRateLimitSeconds={smtpRateLimitSeconds}
         smtpSkipTLSVerify={smtpSkipTLSVerify}
         smtpTestRecipient={smtpTestRecipient}
         smtpTesting={smtpTesting}

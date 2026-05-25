@@ -4,7 +4,8 @@ const common = {
   "unauthorized": "Unauthorized",
   "requestFailed": "Request failed",
   "backendErrors": {
-    "maxNotificationChannels": "You can enable at most 3 notification channels"
+    "maxNotificationChannels": "You can enable at most 3 notification channels",
+    "smtpRateLimited": "SMTP send rate limit reached. Please wait before trying again."
   },
   "passkeyErrors": {
     "notAllowed": "Passkey request was cancelled or timed out",
