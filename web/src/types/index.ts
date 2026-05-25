@@ -111,6 +111,42 @@ export interface ReportUpcomingRenewal {
   renewal_mode: SubscriptionRenewalMode
 }
 
+export interface ReportPriceIncrease {
+  subscription_id: number
+  name: string
+  previous_monthly_amount: number
+  new_monthly_amount: number
+  delta_monthly_amount: number
+  delta_percentage: number
+  currency: string
+  changed_at: string
+}
+
+export type SubscriptionEventType = "created" | "updated" | "manual_renewed" | "deleted" | "system_change"
+
+export interface ReportSubscriptionEvent {
+  id: number
+  subscription_id: number | null
+  name: string
+  type: SubscriptionEventType
+  changed_fields: string[]
+  previous_amount: number | null
+  new_amount: number | null
+  previous_currency: string
+  new_currency: string
+  changed_at: string
+}
+
+export interface ReportAnnualGrowthItem {
+  subscription_id: number
+  name: string
+  baseline_monthly_amount: number
+  current_monthly_amount: number
+  delta_monthly_amount: number
+  delta_percentage: number
+  currency: string
+}
+
 export interface AnalyticsReport {
   currency: string
   generated_at: string
@@ -121,6 +157,9 @@ export interface AnalyticsReport {
   renewal_mode_breakdown: ReportBreakdownItem[]
   top_subscriptions: ReportSubscriptionSpend[]
   upcoming_renewals: ReportUpcomingRenewal[]
+  price_increases: ReportPriceIncrease[]
+  recent_changes: ReportSubscriptionEvent[]
+  annual_growth: ReportAnnualGrowthItem[]
 }
 
 export interface AuthResponse {

@@ -28,6 +28,7 @@ func newImportTestDB(t *testing.T) *gorm.DB {
 		&model.Category{},
 		&model.PaymentMethod{},
 		&model.Subscription{},
+		&model.SubscriptionEvent{},
 		&model.NotificationChannel{},
 		&model.NotificationTemplate{},
 		&model.NotificationPolicy{},

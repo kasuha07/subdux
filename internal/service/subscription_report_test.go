@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 )
 
@@ -107,9 +108,226 @@ func TestGetAnalyticsReportAggregatesSubscriptionSpend(t *testing.T) {
 	}
 }
 
+func TestSubscriptionEventsTrackChangesForAnalytics(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Music",
+		Amount:          10,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-15",
+	})
+	if err != nil {
+		t.Fatalf("create subscription failed: %v", err)
+	}
+
+	var createdEvent model.SubscriptionEvent
+	if err := db.Where("subscription_id = ? AND type = ?", sub.ID, subscriptionEventCreated).First(&createdEvent).Error; err != nil {
+		t.Fatalf("find created event failed: %v", err)
+	}
+	if createdEvent.NewAmount == nil || *createdEvent.NewAmount != 10 {
+		t.Fatalf("created event new amount = %v, want 10", createdEvent.NewAmount)
+	}
+	if got, want := decodeSubscriptionEventFields(createdEvent.ChangedFields), []string{"created"}; !stringSlicesEqual(got, want) {
+		t.Fatalf("created event changed fields = %v, want %v", got, want)
+	}
+
+	updatedAmount := 15.0
+	if _, err := service.Update(user.ID, sub.ID, UpdateSubscriptionInput{
+		Amount: &updatedAmount,
+	}); err != nil {
+		t.Fatalf("update subscription failed: %v", err)
+	}
+
+	var updatedEvent model.SubscriptionEvent
+	if err := db.Where("subscription_id = ? AND type = ?", sub.ID, subscriptionEventUpdated).
+		Order("created_at DESC").
+		First(&updatedEvent).Error; err != nil {
+		t.Fatalf("find updated event failed: %v", err)
+	}
+	if got, want := decodeSubscriptionEventFields(updatedEvent.ChangedFields), []string{"amount"}; !stringSlicesEqual(got, want) {
+		t.Fatalf("updated event changed fields = %v, want %v", got, want)
+	}
+	if updatedEvent.PreviousMonthlyAmount == nil || *updatedEvent.PreviousMonthlyAmount != 10 {
+		t.Fatalf("previous monthly amount = %v, want 10", updatedEvent.PreviousMonthlyAmount)
+	}
+	if updatedEvent.NewMonthlyAmount == nil || *updatedEvent.NewMonthlyAmount != 15 {
+		t.Fatalf("new monthly amount = %v, want 15", updatedEvent.NewMonthlyAmount)
+	}
+}
+
+func TestGetAnalyticsReportIncludesHistoryInsights(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-20"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Storage",
+		Amount:          8,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-04-01",
+	})
+	if err != nil {
+		t.Fatalf("create subscription failed: %v", err)
+	}
+
+	restoreClock()
+	restoreClock = pkg.SetNowForTest(mustDate(t, "2026-03-22"))
+	t.Cleanup(restoreClock)
+
+	updatedAmount := 12.0
+	if _, err := service.Update(user.ID, sub.ID, UpdateSubscriptionInput{
+		Amount: &updatedAmount,
+	}); err != nil {
+		t.Fatalf("update subscription failed: %v", err)
+	}
+
+	report, err := service.GetAnalyticsReport(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetAnalyticsReport() error = %v", err)
+	}
+
+	if got, want := len(report.PriceIncreases), 1; got != want {
+		t.Fatalf("price_increases length = %d, want %d", got, want)
+	}
+	assertFloatEqual(t, report.PriceIncreases[0].DeltaMonthlyAmount, 4, "price increase delta")
+	assertFloatEqual(t, report.PriceIncreases[0].DeltaPercentage, 50, "price increase percentage")
+
+	if got, want := len(report.AnnualGrowth), 1; got != want {
+		t.Fatalf("annual_growth length = %d, want %d", got, want)
+	}
+	if got, want := report.AnnualGrowth[0].Name, "Storage"; got != want {
+		t.Fatalf("annual growth name = %q, want %q", got, want)
+	}
+	assertFloatEqual(t, report.AnnualGrowth[0].BaselineMonthlyAmount, 8, "annual growth baseline")
+	assertFloatEqual(t, report.AnnualGrowth[0].CurrentMonthlyAmount, 12, "annual growth current")
+
+	if got, want := len(report.RecentChanges), 2; got != want {
+		t.Fatalf("recent_changes length = %d, want %d", got, want)
+	}
+	if got, want := report.RecentChanges[0].Type, subscriptionEventUpdated; got != want {
+		t.Fatalf("recent change type = %q, want %q", got, want)
+	}
+}
+
+func TestGetAnalyticsReportAnnualGrowthIgnoresCreationAndOldEvents(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-20"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	recentSub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Recent Storage",
+		Amount:          8,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-04-01",
+	})
+	if err != nil {
+		t.Fatalf("create recent subscription failed: %v", err)
+	}
+
+	oldSub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Old Storage",
+		Amount:          8,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-04-01",
+	})
+	if err != nil {
+		t.Fatalf("create old subscription failed: %v", err)
+	}
+
+	recentAmount := 12.0
+	if _, err := service.Update(user.ID, recentSub.ID, UpdateSubscriptionInput{
+		Amount: &recentAmount,
+	}); err != nil {
+		t.Fatalf("update recent subscription failed: %v", err)
+	}
+
+	oldEventTime := mustDate(t, "2025-01-01")
+	if err := db.Model(&model.SubscriptionEvent{}).
+		Where("subscription_id = ? AND type = ?", oldSub.ID, subscriptionEventUpdated).
+		Update("created_at", oldEventTime).Error; err != nil {
+		t.Fatalf("age old subscription event failed: %v", err)
+	}
+	oldAmount := 12.0
+	if _, err := service.Update(user.ID, oldSub.ID, UpdateSubscriptionInput{
+		Amount: &oldAmount,
+	}); err != nil {
+		t.Fatalf("update old subscription failed: %v", err)
+	}
+	if err := db.Model(&model.SubscriptionEvent{}).
+		Where("subscription_id = ? AND type = ?", oldSub.ID, subscriptionEventUpdated).
+		Update("created_at", oldEventTime).Error; err != nil {
+		t.Fatalf("age latest old subscription event failed: %v", err)
+	}
+
+	report, err := service.GetAnalyticsReport(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetAnalyticsReport() error = %v", err)
+	}
+
+	if got, want := len(report.AnnualGrowth), 1; got != want {
+		t.Fatalf("annual_growth length = %d, want %d", got, want)
+	}
+	if got, want := report.AnnualGrowth[0].Name, "Recent Storage"; got != want {
+		t.Fatalf("annual growth item = %q, want %q", got, want)
+	}
+	assertFloatEqual(t, report.AnnualGrowth[0].BaselineMonthlyAmount, 8, "annual growth baseline")
+	assertFloatEqual(t, report.AnnualGrowth[0].CurrentMonthlyAmount, 12, "annual growth current")
+}
+
 func assertFloatEqual(t *testing.T, got, want float64, label string) {
 	t.Helper()
 	if math.Abs(got-want) > 0.000001 {
 		t.Fatalf("%s = %v, want %v", label, got, want)
 	}
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -23,6 +23,7 @@ func newSubscriptionRolloverTestDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.Subscription{},
+		&model.SubscriptionEvent{},
 		&model.NotificationPolicy{},
 		&model.NotificationChannel{},
 		&model.NotificationLog{},

@@ -148,6 +148,28 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		t.Fatalf("migrated subscription lifecycle = (%q, %q), want (%q, %q)", migratedSub.Status, migratedSub.RenewalMode, subscriptionStatusActive, subscriptionRenewalModeAutoRenew)
 	}
 
+	actorUserID := primaryUser.ID
+	event := model.SubscriptionEvent{
+		UserID:           primaryUser.ID,
+		ActorUserID:      &actorUserID,
+		SubscriptionID:   &migratedSub.ID,
+		SubscriptionName: migratedSub.Name,
+		Type:             "created",
+		ChangedFields:    `["created"]`,
+		NewAmount:        &migratedSub.Amount,
+		NewMonthlyAmount: &migratedSub.Amount,
+		NewCurrency:      migratedSub.Currency,
+		NewStatus:        migratedSub.Status,
+		NewRenewalMode:   migratedSub.RenewalMode,
+		CreatedAt:        now,
+	}
+	if err := db.Create(&event).Error; err != nil {
+		t.Fatalf("create subscription event after migrations error = %v", err)
+	}
+	if err := validateSQLiteForeignKeys(db); err != nil {
+		t.Fatalf("validate foreign keys after subscription event error = %v", err)
+	}
+
 	invalidPolicy := model.NotificationPolicy{UserID: otherUser.ID, DaysBefore: 99, NotifyOnDueDay: true}
 	if err := db.Create(&invalidPolicy).Error; err == nil {
 		t.Fatal("expected notification policy check constraint error, got nil")
@@ -162,6 +184,7 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		model interface{}
 	}{
 		{name: "subscriptions", model: &model.Subscription{}},
+		{name: "subscription_events", model: &model.SubscriptionEvent{}},
 		{name: "notification_policies", model: &model.NotificationPolicy{}},
 		{name: "notification_logs", model: &model.NotificationLog{}},
 	} {

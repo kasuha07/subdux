@@ -56,6 +56,42 @@ const reports = {
     "daysUntil": "in {{count}} days",
     "emptyTitle": "No renewals soon",
     "emptyDescription": "No active subscriptions renew in the next 30 days."
+  },
+  "priceIncreases": {
+    "title": "Recent price increases",
+    "delta": "{{amount}} more monthly",
+    "emptyTitle": "No price increases",
+    "emptyDescription": "Subscription price increases will appear here."
+  },
+  "annualGrowth": {
+    "title": "Annual growth",
+    "fromTo": "{{from}} -> {{to}}",
+    "emptyTitle": "No growth data",
+    "emptyDescription": "Monthly cost growth appears after subscription history changes."
+  },
+  "recentChanges": {
+    "title": "Recent changes",
+    "emptyTitle": "No recent changes",
+    "emptyDescription": "Created, updated, renewed, and deleted records will appear here.",
+    "types": {
+      "created": "Created",
+      "updated": "Updated",
+      "manual_renewed": "Manual renewal",
+      "deleted": "Deleted",
+      "system_change": "System change"
+    },
+    "fields": {
+      "created": "Created",
+      "deleted": "Deleted",
+      "amount": "Amount",
+      "currency": "Currency",
+      "monthly_amount": "Monthly amount",
+      "next_billing_date": "Next billing",
+      "status": "Status",
+      "renewal_mode": "Renewal mode",
+      "category": "Category",
+      "payment_method": "Payment method"
+    }
   }
 } as const
 

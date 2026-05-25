@@ -98,6 +98,39 @@ type Subscription struct {
 	PaymentMethodRef *PaymentMethod `gorm:"foreignKey:PaymentMethodID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-"`
 }
 
+type SubscriptionEvent struct {
+	ID                        uint          `gorm:"primaryKey" json:"id"`
+	UserID                    uint          `gorm:"not null;index:idx_subscription_events_user_created,priority:1" json:"user_id"`
+	ActorUserID               *uint         `gorm:"index" json:"actor_user_id"`
+	SubscriptionID            *uint         `gorm:"index" json:"subscription_id"`
+	SubscriptionName          string        `gorm:"not null;size:255" json:"subscription_name"`
+	Type                      string        `gorm:"not null;size:30;index" json:"type"`
+	ChangedFields             string        `gorm:"type:text;not null;default:'[]'" json:"changed_fields"`
+	PreviousAmount            *float64      `json:"previous_amount"`
+	NewAmount                 *float64      `json:"new_amount"`
+	PreviousMonthlyAmount     *float64      `json:"previous_monthly_amount"`
+	NewMonthlyAmount          *float64      `json:"new_monthly_amount"`
+	PreviousCurrency          string        `gorm:"size:10" json:"previous_currency"`
+	NewCurrency               string        `gorm:"size:10" json:"new_currency"`
+	PreviousNextBillingDate   *time.Time    `json:"previous_next_billing_date"`
+	NewNextBillingDate        *time.Time    `json:"new_next_billing_date"`
+	PreviousStatus            string        `gorm:"size:30" json:"previous_status"`
+	NewStatus                 string        `gorm:"size:30" json:"new_status"`
+	PreviousRenewalMode       string        `gorm:"size:30" json:"previous_renewal_mode"`
+	NewRenewalMode            string        `gorm:"size:30" json:"new_renewal_mode"`
+	PreviousCategoryID        *uint         `json:"previous_category_id"`
+	NewCategoryID             *uint         `json:"new_category_id"`
+	PreviousCategoryName      string        `gorm:"size:100" json:"previous_category_name"`
+	NewCategoryName           string        `gorm:"size:100" json:"new_category_name"`
+	PreviousPaymentMethodID   *uint         `json:"previous_payment_method_id"`
+	NewPaymentMethodID        *uint         `json:"new_payment_method_id"`
+	PreviousPaymentMethodName string        `gorm:"size:50" json:"previous_payment_method_name"`
+	NewPaymentMethodName      string        `gorm:"size:50" json:"new_payment_method_name"`
+	CreatedAt                 time.Time     `gorm:"index:idx_subscription_events_user_created,priority:2" json:"created_at"`
+	User                      *User         `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	Subscription              *Subscription `gorm:"foreignKey:SubscriptionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-"`
+}
+
 type ExchangeRate struct {
 	ID             uint      `gorm:"primaryKey" json:"id"`
 	BaseCurrency   string    `gorm:"not null;size:10;uniqueIndex:idx_base_target" json:"base_currency"`

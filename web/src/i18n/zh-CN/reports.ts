@@ -56,6 +56,42 @@ const reports = {
     "daysUntil": "{{count}} 天后",
     "emptyTitle": "近期无续费",
     "emptyDescription": "未来 30 天没有活跃订阅需要续费。"
+  },
+  "priceIncreases": {
+    "title": "近期涨价",
+    "delta": "月均增加 {{amount}}",
+    "emptyTitle": "暂无涨价记录",
+    "emptyDescription": "订阅金额上涨后会显示在这里。"
+  },
+  "annualGrowth": {
+    "title": "年度增长",
+    "fromTo": "{{from}} -> {{to}}",
+    "emptyTitle": "暂无增长数据",
+    "emptyDescription": "订阅有历史变更后会显示月均成本增长。"
+  },
+  "recentChanges": {
+    "title": "近期变更",
+    "emptyTitle": "暂无近期变更",
+    "emptyDescription": "创建、更新、续费和删除记录会显示在这里。",
+    "types": {
+      "created": "已创建",
+      "updated": "已更新",
+      "manual_renewed": "手动续费",
+      "deleted": "已删除",
+      "system_change": "系统变更"
+    },
+    "fields": {
+      "created": "创建",
+      "deleted": "删除",
+      "amount": "金额",
+      "currency": "货币",
+      "monthly_amount": "月均金额",
+      "next_billing_date": "下次计费",
+      "status": "状态",
+      "renewal_mode": "续费方式",
+      "category": "分类",
+      "payment_method": "支付方式"
+    }
   }
 } as const
 

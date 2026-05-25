@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/shiroha/subdux/internal/model"
+	"gorm.io/gorm"
 )
 
 func (s *SubscriptionService) MarkManualRenewed(userID, id uint) (*model.Subscription, error) {
@@ -27,23 +28,34 @@ func (s *SubscriptionService) MarkManualRenewed(userID, id uint) (*model.Subscri
 	if !isRecurringScheduleValid(*sub) {
 		return nil, errors.New("subscription recurrence settings are invalid")
 	}
+	before := *sub
 
 	nextBillingDate, ok := nextRecurringOccurrenceAfter(*sub, *sub.NextBillingDate)
 	if !ok {
 		return nil, errors.New("failed to calculate next billing date")
 	}
 
-	if err := s.DB.Model(&model.Subscription{}).
-		Where("id = ? AND user_id = ?", id, userID).
-		Updates(map[string]interface{}{
-			"next_billing_date": normalizeDateUTC(nextBillingDate),
-			"status":            subscriptionStatusActive,
-			"renewal_mode":      renewalModeManualRenew,
-			"ends_at":           nil,
-			"enabled":           true,
-		}).Error; err != nil {
+	var updated model.Subscription
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Subscription{}).
+			Where("id = ? AND user_id = ?", id, userID).
+			Updates(map[string]interface{}{
+				"next_billing_date": normalizeDateUTC(nextBillingDate),
+				"status":            subscriptionStatusActive,
+				"renewal_mode":      renewalModeManualRenew,
+				"ends_at":           nil,
+				"enabled":           true,
+			}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id = ? AND user_id = ?", id, userID).First(&updated).Error; err != nil {
+			return err
+		}
+		normalizeSubscriptionForResponse(&updated)
+		return (&SubscriptionService{DB: tx}).recordSubscriptionChanged(userID, before, updated, subscriptionEventManualRenewed)
+	}); err != nil {
 		return nil, err
 	}
 
-	return s.GetByID(userID, id)
+	return &updated, nil
 }

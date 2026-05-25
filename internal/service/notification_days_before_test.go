@@ -20,7 +20,7 @@ func newNotificationDaysBeforeTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&model.User{}, &model.Subscription{}, &model.NotificationPolicy{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Subscription{}, &model.SubscriptionEvent{}, &model.NotificationPolicy{}); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
 

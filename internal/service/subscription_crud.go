@@ -133,7 +133,12 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 	}
 	syncLegacyEnabledForLifecycle(&sub)
 
-	if err := s.DB.Create(&sub).Error; err != nil {
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&sub).Error; err != nil {
+			return err
+		}
+		return (&SubscriptionService{DB: tx}).recordSubscriptionCreated(userID, sub)
+	}); err != nil {
 		return nil, err
 	}
 
@@ -145,6 +150,7 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	if err != nil {
 		return nil, err
 	}
+	before := *sub
 
 	updates := make(map[string]interface{})
 	if input.Name != nil {
@@ -316,11 +322,21 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		updates["enabled"] = normalizedLifecycle.Status == subscriptionStatusActive
 	}
 
-	if err := s.DB.Model(sub).Updates(updates).Error; err != nil {
+	var updated model.Subscription
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", id, userID).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id = ? AND user_id = ?", id, userID).First(&updated).Error; err != nil {
+			return err
+		}
+		normalizeSubscriptionForResponse(&updated)
+		return (&SubscriptionService{DB: tx}).recordSubscriptionChanged(userID, before, updated, subscriptionEventUpdated)
+	}); err != nil {
 		return nil, err
 	}
 
-	return s.GetByID(userID, id)
+	return &updated, nil
 }
 
 func (s *SubscriptionService) validateCategory(userID, categoryID uint) error {
@@ -351,7 +367,12 @@ func (s *SubscriptionService) Delete(userID, id uint) error {
 		return err
 	}
 
-	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error; err != nil {
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := (&SubscriptionService{DB: tx}).recordSubscriptionDeleted(userID, *sub); err != nil {
+			return err
+		}
+		return tx.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error
+	}); err != nil {
 		return err
 	}
 

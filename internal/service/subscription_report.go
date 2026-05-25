@@ -1,12 +1,14 @@
 package service
 
 import (
+	"errors"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
+	"gorm.io/gorm"
 )
 
 const (
@@ -24,6 +26,9 @@ type AnalyticsReport struct {
 	RenewalModeBreakdown   []ReportBreakdownItem     `json:"renewal_mode_breakdown"`
 	TopSubscriptions       []ReportSubscriptionSpend `json:"top_subscriptions"`
 	UpcomingRenewals       []ReportUpcomingRenewal   `json:"upcoming_renewals"`
+	PriceIncreases         []ReportPriceIncrease     `json:"price_increases"`
+	RecentChanges          []ReportSubscriptionEvent `json:"recent_changes"`
+	AnnualGrowth           []ReportAnnualGrowthItem  `json:"annual_growth"`
 }
 
 type AnalyticsReportKPIs struct {
@@ -81,6 +86,40 @@ type ReportUpcomingRenewal struct {
 	RenewalMode   string  `json:"renewal_mode"`
 }
 
+type ReportPriceIncrease struct {
+	SubscriptionID        uint    `json:"subscription_id"`
+	Name                  string  `json:"name"`
+	PreviousMonthlyAmount float64 `json:"previous_monthly_amount"`
+	NewMonthlyAmount      float64 `json:"new_monthly_amount"`
+	DeltaMonthlyAmount    float64 `json:"delta_monthly_amount"`
+	DeltaPercentage       float64 `json:"delta_percentage"`
+	Currency              string  `json:"currency"`
+	ChangedAt             string  `json:"changed_at"`
+}
+
+type ReportSubscriptionEvent struct {
+	ID               uint     `json:"id"`
+	SubscriptionID   *uint    `json:"subscription_id"`
+	Name             string   `json:"name"`
+	Type             string   `json:"type"`
+	ChangedFields    []string `json:"changed_fields"`
+	PreviousAmount   *float64 `json:"previous_amount"`
+	NewAmount        *float64 `json:"new_amount"`
+	PreviousCurrency string   `json:"previous_currency"`
+	NewCurrency      string   `json:"new_currency"`
+	ChangedAt        string   `json:"changed_at"`
+}
+
+type ReportAnnualGrowthItem struct {
+	SubscriptionID        uint    `json:"subscription_id"`
+	Name                  string  `json:"name"`
+	BaselineMonthlyAmount float64 `json:"baseline_monthly_amount"`
+	CurrentMonthlyAmount  float64 `json:"current_monthly_amount"`
+	DeltaMonthlyAmount    float64 `json:"delta_monthly_amount"`
+	DeltaPercentage       float64 `json:"delta_percentage"`
+	Currency              string  `json:"currency"`
+}
+
 type reportBreakdownAccumulator struct {
 	key           string
 	label         string
@@ -130,6 +169,9 @@ func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency str
 		RenewalModeBreakdown:   []ReportBreakdownItem{},
 		TopSubscriptions:       []ReportSubscriptionSpend{},
 		UpcomingRenewals:       []ReportUpcomingRenewal{},
+		PriceIncreases:         []ReportPriceIncrease{},
+		RecentChanges:          []ReportSubscriptionEvent{},
+		AnnualGrowth:           []ReportAnnualGrowthItem{},
 	}
 
 	categoryBreakdowns := map[string]*reportBreakdownAccumulator{}
@@ -252,7 +294,190 @@ func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency str
 		report.UpcomingRenewals = report.UpcomingRenewals[:12]
 	}
 
+	if err := s.addSubscriptionHistoryInsights(report, userID, targetCurrency, converter, today); err != nil {
+		return nil, err
+	}
+
 	return report, nil
+}
+
+func (s *SubscriptionService) addSubscriptionHistoryInsights(
+	report *AnalyticsReport,
+	userID uint,
+	targetCurrency string,
+	converter CurrencyConverter,
+	today time.Time,
+) error {
+	priceIncreases, err := s.reportPriceIncreases(userID, targetCurrency, converter)
+	if err != nil {
+		return err
+	}
+	report.PriceIncreases = priceIncreases
+
+	recentChanges, err := s.reportRecentSubscriptionChanges(userID, targetCurrency, converter, today)
+	if err != nil {
+		return err
+	}
+	report.RecentChanges = recentChanges
+
+	annualGrowth, err := s.reportAnnualGrowth(userID, targetCurrency, converter)
+	if err != nil {
+		return err
+	}
+	report.AnnualGrowth = annualGrowth
+
+	return nil
+}
+
+func (s *SubscriptionService) reportPriceIncreases(userID uint, targetCurrency string, converter CurrencyConverter) ([]ReportPriceIncrease, error) {
+	var events []model.SubscriptionEvent
+	if err := s.DB.Where(
+		"user_id = ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL",
+		userID,
+	).Order("created_at DESC").Limit(100).Find(&events).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]ReportPriceIncrease, 0, len(events))
+	for _, event := range events {
+		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil || event.NewMonthlyAmount == nil {
+			continue
+		}
+		previousAmount := convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter)
+		newAmount := convertHistoricalAmount(*event.NewMonthlyAmount, event.NewCurrency, targetCurrency, converter)
+		delta := newAmount - previousAmount
+		if delta <= 0 {
+			continue
+		}
+		items = append(items, ReportPriceIncrease{
+			SubscriptionID:        *event.SubscriptionID,
+			Name:                  event.SubscriptionName,
+			PreviousMonthlyAmount: previousAmount,
+			NewMonthlyAmount:      newAmount,
+			DeltaMonthlyAmount:    delta,
+			DeltaPercentage:       percentageDelta(previousAmount, newAmount),
+			Currency:              targetCurrency,
+			ChangedAt:             event.CreatedAt.Format("2006-01-02"),
+		})
+		if len(items) == 12 {
+			break
+		}
+	}
+	return items, nil
+}
+
+func (s *SubscriptionService) reportRecentSubscriptionChanges(userID uint, targetCurrency string, converter CurrencyConverter, today time.Time) ([]ReportSubscriptionEvent, error) {
+	since := normalizeDateUTC(today).AddDate(0, 0, -90)
+	var events []model.SubscriptionEvent
+	if err := s.DB.Where("user_id = ? AND created_at >= ?", userID, since).
+		Order("created_at DESC").
+		Limit(20).
+		Find(&events).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]ReportSubscriptionEvent, 0, len(events))
+	for _, event := range events {
+		previousAmount := copyFloatPointer(event.PreviousAmount)
+		if previousAmount != nil {
+			converted := convertHistoricalAmount(*previousAmount, event.PreviousCurrency, targetCurrency, converter)
+			previousAmount = &converted
+		}
+		newAmount := copyFloatPointer(event.NewAmount)
+		if newAmount != nil {
+			converted := convertHistoricalAmount(*newAmount, event.NewCurrency, targetCurrency, converter)
+			newAmount = &converted
+		}
+		items = append(items, ReportSubscriptionEvent{
+			ID:               event.ID,
+			SubscriptionID:   copyUintPointer(event.SubscriptionID),
+			Name:             event.SubscriptionName,
+			Type:             event.Type,
+			ChangedFields:    decodeSubscriptionEventFields(event.ChangedFields),
+			PreviousAmount:   previousAmount,
+			NewAmount:        newAmount,
+			PreviousCurrency: targetCurrency,
+			NewCurrency:      targetCurrency,
+			ChangedAt:        event.CreatedAt.Format("2006-01-02"),
+		})
+	}
+	return items, nil
+}
+
+func (s *SubscriptionService) reportAnnualGrowth(userID uint, targetCurrency string, converter CurrencyConverter) ([]ReportAnnualGrowthItem, error) {
+	var subs []model.Subscription
+	if err := s.DB.Where("user_id = ? AND status = ?", userID, subscriptionStatusActive).Find(&subs).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]ReportAnnualGrowthItem, 0, len(subs))
+	for _, sub := range subs {
+		currentMonthly := convertHistoricalAmount(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency, targetCurrency, converter)
+		if currentMonthly <= 0 {
+			continue
+		}
+
+		baselineMonthly, ok, err := s.subscriptionAnnualGrowthBaselineMonthlyAmount(userID, sub.ID, targetCurrency, converter, pkg.NowInSystemTimezone())
+		if err != nil {
+			return nil, err
+		}
+		if !ok || baselineMonthly <= 0 {
+			continue
+		}
+
+		delta := currentMonthly - baselineMonthly
+		if delta <= 0 {
+			continue
+		}
+		items = append(items, ReportAnnualGrowthItem{
+			SubscriptionID:        sub.ID,
+			Name:                  sub.Name,
+			BaselineMonthlyAmount: baselineMonthly,
+			CurrentMonthlyAmount:  currentMonthly,
+			DeltaMonthlyAmount:    delta,
+			DeltaPercentage:       percentageDelta(baselineMonthly, currentMonthly),
+			Currency:              targetCurrency,
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].DeltaMonthlyAmount == items[j].DeltaMonthlyAmount {
+			return items[i].Name < items[j].Name
+		}
+		return items[i].DeltaMonthlyAmount > items[j].DeltaMonthlyAmount
+	})
+	if len(items) > 8 {
+		items = items[:8]
+	}
+	return items, nil
+}
+
+func (s *SubscriptionService) subscriptionAnnualGrowthBaselineMonthlyAmount(
+	userID uint,
+	subscriptionID uint,
+	targetCurrency string,
+	converter CurrencyConverter,
+	now time.Time,
+) (float64, bool, error) {
+	oneYearAgo := normalizeDateUTC(now).AddDate(-1, 0, 0)
+	var event model.SubscriptionEvent
+	err := s.DB.Where(
+		"user_id = ? AND subscription_id = ? AND type != ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL AND created_at >= ?",
+		userID,
+		subscriptionID,
+		subscriptionEventCreated,
+		oneYearAgo,
+	).Order("created_at ASC").First(&event).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+	if event.PreviousMonthlyAmount == nil {
+		return 0, false, nil
+	}
+	return convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter), true, nil
 }
 
 func convertSubscriptionAmount(sub model.Subscription, targetCurrency string, converter CurrencyConverter) float64 {
@@ -260,6 +485,25 @@ func convertSubscriptionAmount(sub model.Subscription, targetCurrency string, co
 		return sub.Amount
 	}
 	return converter.Convert(sub.Amount, sub.Currency, targetCurrency)
+}
+
+func convertHistoricalAmount(amount float64, currency, targetCurrency string, converter CurrencyConverter) float64 {
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	targetCurrency = strings.ToUpper(strings.TrimSpace(targetCurrency))
+	if targetCurrency == "" {
+		targetCurrency = "USD"
+	}
+	if currency == "" || converter == nil || strings.EqualFold(currency, targetCurrency) {
+		return amount
+	}
+	return converter.Convert(amount, currency, targetCurrency)
+}
+
+func percentageDelta(previousAmount, newAmount float64) float64 {
+	if previousAmount <= 0 {
+		return 0
+	}
+	return (newAmount - previousAmount) / previousAmount * 100
 }
 
 func (s *SubscriptionService) reportCategoryLabels(userID uint) (map[uint]string, error) {

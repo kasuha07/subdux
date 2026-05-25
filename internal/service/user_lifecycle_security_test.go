@@ -20,6 +20,7 @@ func migrateUserLifecycleSecurityTables(t *testing.T, db *gorm.DB) {
 		&model.Category{},
 		&model.PaymentMethod{},
 		&model.Subscription{},
+		&model.SubscriptionEvent{},
 		&model.NotificationChannel{},
 		&model.NotificationPolicy{},
 		&model.NotificationLog{},
@@ -240,6 +241,7 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 		model interface{}
 	}{
 		{name: "subscriptions", model: &model.Subscription{}},
+		{name: "subscription_events", model: &model.SubscriptionEvent{}},
 		{name: "payment_methods", model: &model.PaymentMethod{}},
 		{name: "user_currencies", model: &model.UserCurrency{}},
 		{name: "categories", model: &model.Category{}},

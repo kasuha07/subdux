@@ -22,6 +22,7 @@ func newNotificationTemplatePreviewTestDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.Subscription{},
+		&model.SubscriptionEvent{},
 		&model.Category{},
 		&model.PaymentMethod{},
 	); err != nil {

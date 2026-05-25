@@ -46,15 +46,24 @@ var applicationModels = []interface{}{
 	&model.CalendarToken{},
 }
 
+var postIntegrityApplicationModels = []interface{}{
+	&model.SubscriptionEvent{},
+}
+
 var schemaMigrations = []schemaMigration{
 	{Name: "20260512_01_create_missing_tables", Run: createMissingTables},
 	{Name: "20260512_02_subscription_lifecycle_backfill", Run: backfillSubscriptionLifecycleFields},
 	{Name: "20260512_03_sqlite_integrity_hardening", Run: migrateSQLiteIntegrityHardening},
 	{Name: "20260512_04_auto_migrate_latest_schema", Run: autoMigrateLatestSchema},
+	{Name: "20260525_01_subscription_events", Run: migrateSubscriptionEventsSchema},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
 	return db.AutoMigrate(applicationModels...)
+}
+
+func migrateSubscriptionEventsSchema(db *gorm.DB) error {
+	return db.AutoMigrate(postIntegrityApplicationModels...)
 }
 
 func runSchemaMigrations(db *gorm.DB) error {

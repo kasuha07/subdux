@@ -137,6 +137,7 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 func deleteUserOwnedRecords(tx *gorm.DB, userID uint) error {
 	for _, value := range []interface{}{
 		&model.NotificationLog{},
+		&model.SubscriptionEvent{},
 		&model.Subscription{},
 		&model.NotificationChannel{},
 		&model.NotificationPolicy{},

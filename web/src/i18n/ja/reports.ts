@@ -56,6 +56,42 @@ const reports = {
     "daysUntil": "{{count}} 日後",
     "emptyTitle": "近日中の更新はありません",
     "emptyDescription": "今後 30 日以内に更新される有効なサブスクリプションはありません。"
+  },
+  "priceIncreases": {
+    "title": "最近の値上げ",
+    "delta": "月平均 {{amount}} 増加",
+    "emptyTitle": "値上げ記録はありません",
+    "emptyDescription": "サブスクリプション料金が上がるとここに表示されます。"
+  },
+  "annualGrowth": {
+    "title": "年間の増加",
+    "fromTo": "{{from}} -> {{to}}",
+    "emptyTitle": "増加データはありません",
+    "emptyDescription": "履歴変更後に月平均コストの増加が表示されます。"
+  },
+  "recentChanges": {
+    "title": "最近の変更",
+    "emptyTitle": "最近の変更はありません",
+    "emptyDescription": "作成、更新、更新処理、削除の記録がここに表示されます。",
+    "types": {
+      "created": "作成",
+      "updated": "更新",
+      "manual_renewed": "手動更新",
+      "deleted": "削除",
+      "system_change": "システム変更"
+    },
+    "fields": {
+      "created": "作成",
+      "deleted": "削除",
+      "amount": "金額",
+      "currency": "通貨",
+      "monthly_amount": "月平均金額",
+      "next_billing_date": "次回請求",
+      "status": "ステータス",
+      "renewal_mode": "更新方法",
+      "category": "カテゴリ",
+      "payment_method": "支払い方法"
+    }
   }
 } as const
 

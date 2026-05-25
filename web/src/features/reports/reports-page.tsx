@@ -3,6 +3,8 @@ import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   ArrowLeft,
+  ArrowUpRight,
+  History,
   CalendarDays,
   CreditCard,
   Layers3,
@@ -23,9 +25,13 @@ import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type {
   AnalyticsReport,
+  ReportAnnualGrowthItem,
   ReportBreakdownItem,
+  ReportPriceIncrease,
   ReportSubscriptionSpend,
+  ReportSubscriptionEvent,
   ReportUpcomingRenewal,
+  SubscriptionEventType,
   SubscriptionRenewalMode,
   UserCurrency,
 } from "@/types"
@@ -133,6 +139,9 @@ export default function ReportsPage() {
   const renewalModeBreakdown = report?.renewal_mode_breakdown ?? []
   const topSubscriptions = report?.top_subscriptions ?? []
   const upcomingRenewals = report?.upcoming_renewals ?? []
+  const priceIncreases = report?.price_increases ?? []
+  const annualGrowth = report?.annual_growth ?? []
+  const recentChanges = report?.recent_changes ?? []
   const maxForecastAmount = Math.max(1, ...monthlyForecast.map((item) => item.amount_due))
   const forecast12MonthTotal = monthlyForecast.reduce((sum, item) => sum + item.amount_due, 0)
   const forecast12MonthPayments = monthlyForecast.reduce((sum, item) => sum + item.occurrence_count, 0)
@@ -269,6 +278,19 @@ export default function ReportsPage() {
                 formatAmount={formatAmount}
                 language={i18n.language}
               />
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <PriceIncreasesPanel
+                items={priceIncreases}
+                formatAmount={formatAmount}
+                language={i18n.language}
+              />
+              <AnnualGrowthPanel items={annualGrowth} formatAmount={formatAmount} />
+            </section>
+
+            <section>
+              <RecentChangesPanel items={recentChanges} language={i18n.language} formatAmount={formatAmount} />
             </section>
           </>
         )}
@@ -642,6 +664,160 @@ function UpcomingRenewalsPanel({
   )
 }
 
+function PriceIncreasesPanel({
+  formatAmount,
+  items,
+  language,
+}: {
+  formatAmount: (amount: number) => string
+  items: ReportPriceIncrease[]
+  language: string
+}) {
+  const { t } = useTranslation()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ArrowUpRight className="size-4" />
+          {t("reports.priceIncreases.title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <EmptyState title={t("reports.priceIncreases.emptyTitle")} description={t("reports.priceIncreases.emptyDescription")} />
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={`${item.subscription_id}-${item.changed_at}`} className="rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{item.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDate(item.changed_at, language)}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 tabular-nums">
+                    +{item.delta_percentage.toFixed(1)}%
+                  </Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
+                  <p className="truncate tabular-nums text-muted-foreground">{formatAmount(item.previous_monthly_amount)}</p>
+                  <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                  <p className="truncate text-right font-semibold tabular-nums">{formatAmount(item.new_monthly_amount)}</p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("reports.priceIncreases.delta", { amount: formatAmount(item.delta_monthly_amount) })}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function AnnualGrowthPanel({
+  formatAmount,
+  items,
+}: {
+  formatAmount: (amount: number) => string
+  items: ReportAnnualGrowthItem[]
+}) {
+  const { t } = useTranslation()
+  const maxDelta = Math.max(1, ...items.map((item) => item.delta_monthly_amount))
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <TrendingUp className="size-4" />
+          {t("reports.annualGrowth.title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <EmptyState title={t("reports.annualGrowth.emptyTitle")} description={t("reports.annualGrowth.emptyDescription")} />
+        ) : (
+          <div className="space-y-4">
+            {items.map((item) => (
+              <div key={item.subscription_id} className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{item.name}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {t("reports.annualGrowth.fromTo", {
+                        from: formatAmount(item.baseline_monthly_amount),
+                        to: formatAmount(item.current_monthly_amount),
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums">{formatAmount(item.delta_monthly_amount)}</p>
+                    <p className="text-xs text-muted-foreground">+{item.delta_percentage.toFixed(1)}%</p>
+                  </div>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${Math.max(4, Math.min(100, (item.delta_monthly_amount / maxDelta) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function RecentChangesPanel({
+  formatAmount,
+  items,
+  language,
+}: {
+  formatAmount: (amount: number) => string
+  items: ReportSubscriptionEvent[]
+  language: string
+}) {
+  const { t } = useTranslation()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="size-4" />
+          {t("reports.recentChanges.title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <EmptyState title={t("reports.recentChanges.emptyTitle")} description={t("reports.recentChanges.emptyDescription")} />
+        ) : (
+          <div className="divide-y rounded-lg border">
+            {items.map((item) => (
+              <div key={item.id} className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-medium">{item.name}</p>
+                    <Badge variant="outline">{eventTypeLabel(item.type, t)}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatDate(item.changed_at, language)}
+                    {item.changed_fields.length > 0 ? ` / ${item.changed_fields.map((field) => eventFieldLabel(field, t)).join(", ")}` : ""}
+                  </p>
+                </div>
+                <p className="text-left text-sm tabular-nums sm:text-right">
+                  {formatEventAmountChange(item, formatAmount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function formatMonth(value: string, locale: string): string {
   const [year, month] = value.split("-").map((part) => Number.parseInt(part, 10))
   if (!year || !month) {
@@ -683,4 +859,29 @@ function smoothLinePath(points: Array<{ x: number, y: number }>): string {
 
 function renewalModeLabel(mode: SubscriptionRenewalMode, t: (key: string) => string): string {
   return t(`reports.renewalModes.${mode}`)
+}
+
+function eventTypeLabel(type: SubscriptionEventType, t: (key: string) => string): string {
+  return t(`reports.recentChanges.types.${type}`)
+}
+
+function eventFieldLabel(field: string, t: (key: string) => string): string {
+  const translated = t(`reports.recentChanges.fields.${field}`)
+  if (translated === `reports.recentChanges.fields.${field}`) {
+    return field
+  }
+  return translated
+}
+
+function formatEventAmountChange(item: ReportSubscriptionEvent, formatAmount: (amount: number) => string): string {
+  if (item.previous_amount !== null && item.new_amount !== null) {
+    return `${formatAmount(item.previous_amount)} -> ${formatAmount(item.new_amount)}`
+  }
+  if (item.new_amount !== null) {
+    return formatAmount(item.new_amount)
+  }
+  if (item.previous_amount !== null) {
+    return formatAmount(item.previous_amount)
+  }
+  return ""
 }
