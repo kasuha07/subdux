@@ -346,6 +346,9 @@ export interface SystemSettings {
   site_url: string
   icon_proxy_enabled: boolean
   icon_proxy_domain_whitelist: string
+  system_proxy_enabled: boolean
+  system_proxy_type: string
+  system_proxy_url_configured: boolean
   currencyapi_key_configured: boolean
   exchange_rate_source: string
   allow_image_upload: boolean
@@ -386,6 +389,9 @@ export interface UpdateSettingsInput {
   site_url?: string
   icon_proxy_enabled?: boolean
   icon_proxy_domain_whitelist?: string
+  system_proxy_enabled?: boolean
+  system_proxy_type?: string
+  system_proxy_url?: string
   currencyapi_key?: string
   exchange_rate_source?: string
   allow_image_upload?: boolean

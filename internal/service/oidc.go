@@ -234,6 +234,7 @@ func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error
 func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
 
 	provider, err := oidc.NewProvider(ctx, settings.IssuerURL)
 	if err != nil {
@@ -297,6 +298,7 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
 
 	provider, err := oidc.NewProvider(ctx, settings.IssuerURL)
 	if err != nil {
@@ -366,7 +368,7 @@ func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, co
 		strings.TrimSpace(claims.PreferredUsername) == "" ||
 		strings.TrimSpace(claims.Name) == ""
 	if needsUserInfo {
-		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL)
+		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, NewOutboundHTTPClient(s.DB, 10*time.Second))
 		if userInfoErr == nil && userInfoClaims != nil {
 			if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
 				return nil, errors.New("oidc subject mismatch")
@@ -884,7 +886,7 @@ func parseOIDCExtraAuthParams(raw string) map[string]string {
 	return parsed
 }
 
-func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauthToken *oauth2.Token, userInfoEndpoint string) (*oidcIdentityClaims, error) {
+func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauthToken *oauth2.Token, userInfoEndpoint string, client *http.Client) (*oidcIdentityClaims, error) {
 	if strings.TrimSpace(userInfoEndpoint) == "" {
 		userInfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(oauthToken))
 		if err != nil {
@@ -913,7 +915,7 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 	req.Header.Set("Authorization", "Bearer "+oauthToken.AccessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := doNotificationRequest(http.DefaultClient, req)
+	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return nil, err
 	}

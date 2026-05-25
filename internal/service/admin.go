@@ -36,6 +36,9 @@ type SystemSettings struct {
 	MaxIconFileSize                      int64  `json:"max_icon_file_size"`
 	IconProxyEnabled                     bool   `json:"icon_proxy_enabled"`
 	IconProxyDomainWhitelist             string `json:"icon_proxy_domain_whitelist"`
+	SystemProxyEnabled                   bool   `json:"system_proxy_enabled"`
+	SystemProxyType                      string `json:"system_proxy_type"`
+	SystemProxyURLSet                    bool   `json:"system_proxy_url_configured"`
 	SMTPEnabled                          bool   `json:"smtp_enabled"`
 	SMTPHost                             string `json:"smtp_host"`
 	SMTPPort                             int64  `json:"smtp_port"`
@@ -76,6 +79,9 @@ type UpdateSettingsInput struct {
 	MaxIconFileSize                      *int64  `json:"max_icon_file_size"`
 	IconProxyEnabled                     *bool   `json:"icon_proxy_enabled"`
 	IconProxyDomainWhitelist             *string `json:"icon_proxy_domain_whitelist"`
+	SystemProxyEnabled                   *bool   `json:"system_proxy_enabled"`
+	SystemProxyType                      *string `json:"system_proxy_type"`
+	SystemProxyURL                       *string `json:"system_proxy_url"`
 	SMTPEnabled                          *bool   `json:"smtp_enabled"`
 	SMTPHost                             *string `json:"smtp_host"`
 	SMTPPort                             *int64  `json:"smtp_port"`

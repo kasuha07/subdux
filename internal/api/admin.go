@@ -186,7 +186,9 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		if errors.Is(err, service.ErrInvalidEmailDomainWhitelist) ||
 			errors.Is(err, service.ErrEmailDomainWhitelistTooLong) ||
 			errors.Is(err, service.ErrInvalidIconProxyDomainWhitelist) ||
-			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) {
+			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) ||
+			errors.Is(err, service.ErrInvalidSystemProxyType) ||
+			errors.Is(err, service.ErrInvalidSystemProxyURL) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)

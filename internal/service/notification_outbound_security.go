@@ -140,3 +140,10 @@ func doNotificationRequest(client *http.Client, req *http.Request) (*http.Respon
 
 	return checkedClient.Do(req)
 }
+
+func (s *NotificationService) newNotificationHTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = 15 * time.Second
+	}
+	return NewOutboundHTTPClient(s.DB, timeout)
+}

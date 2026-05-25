@@ -53,6 +53,10 @@ interface AdminSettingsFormState {
   smtpSkipTLSVerify: boolean
   smtpTimeoutSeconds: number
   smtpUsername: string
+  systemProxyEnabled: boolean
+  systemProxyType: string
+  systemProxyUrl: string
+  systemProxyUrlConfigured: boolean
 }
 
 interface UseAdminPageStateOptions {
@@ -149,6 +153,10 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     smtpSkipTLSVerify: settings?.smtp_skip_tls_verify ?? false,
     smtpTimeoutSeconds: settings?.smtp_timeout_seconds || 10,
     smtpUsername: settings?.smtp_username || "",
+    systemProxyEnabled: settings?.system_proxy_enabled ?? false,
+    systemProxyType: settings?.system_proxy_type || "http",
+    systemProxyUrl: "",
+    systemProxyUrlConfigured: settings?.system_proxy_url_configured ?? false,
   }
 }
 
@@ -337,6 +345,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         smtp_helo_name: settingsForm.smtpHeloName,
         smtp_timeout_seconds: settingsForm.smtpTimeoutSeconds,
         smtp_skip_tls_verify: settingsForm.smtpSkipTLSVerify,
+        system_proxy_enabled: settingsForm.systemProxyEnabled,
+        system_proxy_type: settingsForm.systemProxyType,
         oidc_enabled: settingsForm.oidcEnabled,
         oidc_provider_name: settingsForm.oidcProviderName,
         oidc_issuer_url: settingsForm.oidcIssuerURL,
@@ -357,6 +367,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       }
       if (settingsForm.smtpPassword.trim()) {
         payload.smtp_password = settingsForm.smtpPassword.trim()
+      }
+      if (settingsForm.systemProxyUrl.trim()) {
+        payload.system_proxy_url = settingsForm.systemProxyUrl.trim()
       }
       if (settingsForm.currencyApiKey.trim()) {
         payload.currencyapi_key = settingsForm.currencyApiKey.trim()

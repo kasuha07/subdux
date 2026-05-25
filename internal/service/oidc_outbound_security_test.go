@@ -14,6 +14,7 @@ func TestFetchOIDCUserInfoClaimsRejectsLocalhostEndpoint(t *testing.T) {
 		nil,
 		&oauth2.Token{AccessToken: "token"},
 		"http://localhost/userinfo",
+		nil,
 	)
 	if err == nil {
 		t.Fatal("fetchOIDCUserInfoClaims() error = nil, want localhost/private address validation error")

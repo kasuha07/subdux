@@ -166,7 +166,7 @@ func SetupRoutes(
 	})
 
 	api.GET("/version/latest", func(c echo.Context) error {
-		client := &http.Client{Timeout: 10 * time.Second}
+		client := service.NewOutboundHTTPClient(db, 10*time.Second)
 		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
 			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
 		if err != nil {
@@ -349,6 +349,9 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "max_icon_file_size", Value: "65536"},
 		{Key: "icon_proxy_enabled", Value: "true"},
 		{Key: "icon_proxy_domain_whitelist", Value: "google.com\nicon.horse"},
+		{Key: "system_proxy_enabled", Value: "false"},
+		{Key: "system_proxy_type", Value: "http"},
+		{Key: "system_proxy_url", Value: ""},
 		{Key: "smtp_enabled", Value: "false"},
 		{Key: "smtp_host", Value: ""},
 		{Key: "smtp_port", Value: "587"},

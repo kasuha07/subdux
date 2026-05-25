@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ type smtpRuntimeConfig struct {
 	HeloName       string
 	TimeoutSeconds int64
 	SkipTLSVerify  bool
+	DialContext    func(context.Context, string, string) (net.Conn, error)
 }
 
 type smtpLoginAuth struct {
@@ -195,6 +197,7 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 		HeloName:       strings.TrimSpace(values["smtp_helo_name"]),
 		TimeoutSeconds: timeoutSeconds,
 		SkipTLSVerify:  values["smtp_skip_tls_verify"] == "true",
+		DialContext:    NewOutboundDialContext(db, time.Duration(timeoutSeconds)*time.Second),
 	}, nil
 }
 
@@ -218,17 +221,28 @@ func buildSMTPMessage(fromEmail string, fromName string, toEmail string, subject
 
 func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) error {
 	address := net.JoinHostPort(cfg.Host, strconv.FormatInt(cfg.Port, 10))
-	dialer := net.Dialer{
-		Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
+	dialContext := cfg.DialContext
+	if dialContext == nil {
+		dialer := net.Dialer{
+			Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
+		}
+		dialContext = dialer.DialContext
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.TimeoutSeconds)*time.Second)
+	defer cancel()
 
 	var client *smtp.Client
 	if cfg.Encryption == "ssl_tls" {
-		conn, err := tls.DialWithDialer(&dialer, "tcp", address, &tls.Config{
+		rawConn, err := dialContext(ctx, "tcp", address)
+		if err != nil {
+			return fmt.Errorf("failed to connect to smtp server: %w", err)
+		}
+		conn := tls.Client(rawConn, &tls.Config{
 			ServerName:         cfg.Host,
 			InsecureSkipVerify: cfg.SkipTLSVerify,
 		})
-		if err != nil {
+		if err := conn.HandshakeContext(ctx); err != nil {
+			_ = conn.Close()
 			return fmt.Errorf("failed to connect to smtp server: %w", err)
 		}
 		client, err = smtp.NewClient(conn, cfg.Host)
@@ -237,7 +251,7 @@ func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) er
 			return fmt.Errorf("failed to initialize smtp client: %w", err)
 		}
 	} else {
-		conn, err := dialer.Dial("tcp", address)
+		conn, err := dialContext(ctx, "tcp", address)
 		if err != nil {
 			return fmt.Errorf("failed to connect to smtp server: %w", err)
 		}

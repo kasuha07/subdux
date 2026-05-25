@@ -21,7 +21,7 @@ func TestFetchOIDCUserInfoClaimsRejectsPrivateEndpoint(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	_, err := fetchOIDCUserInfoClaims(context.Background(), nil, &oauth2.Token{AccessToken: "token"}, "http://127.0.0.1/userinfo")
+	_, err := fetchOIDCUserInfoClaims(context.Background(), nil, &oauth2.Token{AccessToken: "token"}, "http://127.0.0.1/userinfo", nil)
 	if err == nil {
 		t.Fatal("fetchOIDCUserInfoClaims() error = nil, want validation error")
 	}

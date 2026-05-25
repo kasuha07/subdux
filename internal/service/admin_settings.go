@@ -22,6 +22,9 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		MaxIconFileSize:                      65536,
 		IconProxyEnabled:                     true,
 		IconProxyDomainWhitelist:             defaultIconProxyDomainWhitelist,
+		SystemProxyEnabled:                   false,
+		SystemProxyType:                      systemProxyTypeHTTP,
+		SystemProxyURLSet:                    false,
 		SMTPEnabled:                          false,
 		SMTPHost:                             "",
 		SMTPPort:                             587,
@@ -85,6 +88,14 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.IconProxyEnabled = settingValue == "true"
 		case "icon_proxy_domain_whitelist":
 			settings.IconProxyDomainWhitelist = settingValue
+		case "system_proxy_enabled":
+			settings.SystemProxyEnabled = settingValue == "true"
+		case "system_proxy_type":
+			if normalizedType, err := normalizeSystemProxyType(settingValue); err == nil {
+				settings.SystemProxyType = normalizedType
+			}
+		case "system_proxy_url":
+			settings.SystemProxyURLSet = strings.TrimSpace(settingValue) != ""
 		case "smtp_enabled":
 			settings.SMTPEnabled = settingValue == "true"
 		case "smtp_host":
@@ -262,6 +273,66 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "icon_proxy_domain_whitelist").
 				Assign(model.SystemSetting{Value: normalized}).
 				FirstOrCreate(&model.SystemSetting{Key: "icon_proxy_domain_whitelist"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := validateIncomingSystemProxySettings(tx, input); err != nil {
+			return err
+		}
+
+		if input.SystemProxyEnabled != nil {
+			value := "false"
+			if *input.SystemProxyEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "system_proxy_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SystemProxyType != nil {
+			normalizedType, err := normalizeSystemProxyType(*input.SystemProxyType)
+			if err != nil {
+				return err
+			}
+			if err := tx.Where("key = ?", "system_proxy_type").
+				Assign(model.SystemSetting{Value: normalizedType}).
+				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_type"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.SystemProxyURL != nil {
+			normalizedType := systemProxyTypeHTTP
+			if input.SystemProxyType != nil {
+				var err error
+				normalizedType, err = normalizeSystemProxyType(*input.SystemProxyType)
+				if err != nil {
+					return err
+				}
+			} else if existingCfg, err := loadSystemProxyConfig(tx); err == nil {
+				normalizedType = existingCfg.Type
+			}
+
+			trimmedURL := strings.TrimSpace(*input.SystemProxyURL)
+			value := ""
+			if trimmedURL != "" {
+				normalizedURL, err := normalizeSystemProxyURL(normalizedType, trimmedURL)
+				if err != nil {
+					return err
+				}
+				value = normalizedURL.String()
+			}
+			encryptedSystemProxyURL, err := encryptSystemSettingValueIfNeeded("system_proxy_url", value)
+			if err != nil {
+				return err
+			}
+			if err := tx.Where("key = ?", "system_proxy_url").
+				Assign(model.SystemSetting{Value: encryptedSystemProxyURL}).
+				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_url"}).Error; err != nil {
 				return err
 			}
 		}
@@ -527,4 +598,35 @@ func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, e
 		return defaultValue, err
 	}
 	return setting.Value == "true", nil
+}
+
+func validateIncomingSystemProxySettings(tx *gorm.DB, input UpdateSettingsInput) error {
+	cfg, err := loadSystemProxyConfig(tx)
+	if err != nil {
+		return err
+	}
+
+	proxyType := cfg.Type
+	if input.SystemProxyType != nil {
+		proxyType, err = normalizeSystemProxyType(*input.SystemProxyType)
+		if err != nil {
+			return err
+		}
+	}
+
+	proxyURL := cfg.URL
+	if input.SystemProxyURL != nil {
+		proxyURL = *input.SystemProxyURL
+	}
+
+	enabled := cfg.Enabled
+	if input.SystemProxyEnabled != nil {
+		enabled = *input.SystemProxyEnabled
+	}
+
+	if input.SystemProxyURL == nil && !enabled {
+		return nil
+	}
+
+	return validateSystemProxySettings(proxyType, proxyURL, enabled)
 }

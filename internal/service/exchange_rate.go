@@ -26,11 +26,9 @@ type ExchangeRateService struct {
 
 func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 	s := &ExchangeRateService{
-		DB: db,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		cache: make(map[string]float64),
+		DB:         db,
+		httpClient: NewOutboundHTTPClient(db, 30*time.Second),
+		cache:      make(map[string]float64),
 	}
 	s.loadCacheFromDB()
 	return s
@@ -341,7 +339,7 @@ func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
 		}
 		req.Header.Set("apikey", apiKey)
 
-		resp, err := s.httpClient.Do(req)
+		resp, err := doNotificationRequest(s.httpClient, req)
 		if err != nil {
 			return fmt.Errorf("premium API request: %w", err)
 		}
@@ -477,7 +475,7 @@ func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
 		return nil, err
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := doNotificationRequest(s.httpClient, req)
 	if err != nil {
 		return nil, err
 	}

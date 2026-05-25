@@ -40,10 +40,8 @@ type IconProxyResolution struct {
 
 func NewIconProxyService(db *gorm.DB) *IconProxyService {
 	return &IconProxyService{
-		DB: db,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		DB:         db,
+		httpClient: NewOutboundHTTPClient(db, 10*time.Second),
 	}
 }
 

@@ -12,6 +12,7 @@ var encryptedSystemSettingKeys = map[string]struct{}{
 	"smtp_password":      {},
 	"oidc_client_secret": {},
 	"currencyapi_key":    {},
+	"system_proxy_url":   {},
 }
 
 func isEncryptedSystemSettingKey(key string) bool {

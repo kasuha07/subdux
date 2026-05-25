@@ -93,7 +93,7 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, mes
 		req.Header.Set("X-Signature-256", "sha256="+sig)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("webhook request failed: %w", err)
@@ -138,7 +138,7 @@ func (s *NotificationService) sendGotify(channel model.NotificationChannel, mess
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("gotify request failed: %w", err)
@@ -216,7 +216,7 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 		req.SetBasicAuth(cfg.Username, cfg.Password)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("ntfy request failed: %w", err)
@@ -267,7 +267,7 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, messag
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("bark request failed: %w", err)
@@ -309,7 +309,7 @@ func (s *NotificationService) sendServerChan(channel model.NotificationChannel, 
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("serverchan request failed: %w", err)
@@ -396,7 +396,7 @@ func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("pushdeer request failed: %w", err)
@@ -460,7 +460,7 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("pushplus request failed: %w", err)
@@ -534,7 +534,7 @@ func (s *NotificationService) sendPushover(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := s.newNotificationHTTPClient(15 * time.Second)
 	resp, err := doNotificationRequest(client, req)
 	if err != nil {
 		return fmt.Errorf("pushover request failed: %w", err)

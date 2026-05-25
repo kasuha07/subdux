@@ -38,6 +38,9 @@ export interface AdminSettingsTabProps {
   onSMTPTest: () => void | Promise<void>
   onSMTPTimeoutSecondsChange: (value: number) => void
   onSMTPUsernameChange: (value: string) => void
+  onSystemProxyEnabledChange: (enabled: boolean) => void
+  onSystemProxyTypeChange: (value: string) => void
+  onSystemProxyUrlChange: (value: string) => void
   onSave: () => void | Promise<void>
   onSiteNameChange: (value: string) => void
   onSiteUrlChange: (value: string) => void
@@ -74,6 +77,10 @@ export interface AdminSettingsTabProps {
   smtpTesting: boolean
   smtpTimeoutSeconds: number
   smtpUsername: string
+  systemProxyEnabled: boolean
+  systemProxyType: string
+  systemProxyUrl: string
+  systemProxyUrlConfigured: boolean
   siteName: string
   siteUrl: string
 }
@@ -166,6 +173,17 @@ export type AdminSettingsSMTPSectionProps = Pick<
   | "smtpUsername"
 >
 
+export type AdminSettingsProxySectionProps = Pick<
+  AdminSettingsTabProps,
+  | "onSystemProxyEnabledChange"
+  | "onSystemProxyTypeChange"
+  | "onSystemProxyUrlChange"
+  | "systemProxyEnabled"
+  | "systemProxyType"
+  | "systemProxyUrl"
+  | "systemProxyUrlConfigured"
+>
+
 export type AdminSettingsOIDCAdvancedFieldsProps = Pick<
   AdminSettingsOIDCSectionProps,
   | "onOIDCAudienceChange"
@@ -204,6 +222,9 @@ export type AdminSettingsGeneralTabProps = AdminSettingsBasicSectionProps &
   AdminSettingsSaveProps
 
 export type AdminSettingsSMTPTabProps = AdminSettingsSMTPSectionProps &
+  AdminSettingsSaveProps
+
+export type AdminSettingsProxyTabProps = AdminSettingsProxySectionProps &
   AdminSettingsSaveProps
 
 export type AdminSettingsOIDCTabProps = AdminSettingsOIDCSectionProps &
