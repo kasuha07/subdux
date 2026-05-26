@@ -9,14 +9,13 @@ import (
 )
 
 type oidcSessionResponse struct {
-	Purpose      string                      `json:"purpose"`
-	Token        string                      `json:"token,omitempty"`
-	AccessToken  string                      `json:"access_token,omitempty"`
-	RefreshToken string                      `json:"refresh_token,omitempty"`
-	User         *authUserResponse           `json:"user,omitempty"`
-	Connected    bool                        `json:"connected,omitempty"`
-	Connection   *service.OIDCConnectionInfo `json:"connection,omitempty"`
-	Error        string                      `json:"error,omitempty"`
+	Purpose     string                      `json:"purpose"`
+	Token       string                      `json:"token,omitempty"`
+	AccessToken string                      `json:"access_token,omitempty"`
+	User        *authUserResponse           `json:"user,omitempty"`
+	Connected   bool                        `json:"connected,omitempty"`
+	Connection  *service.OIDCConnectionInfo `json:"connection,omitempty"`
+	Error       string                      `json:"error,omitempty"`
 }
 
 func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionResponse {
@@ -27,14 +26,13 @@ func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionRespon
 	}
 
 	return oidcSessionResponse{
-		Purpose:      result.Purpose,
-		Token:        result.Token,
-		AccessToken:  result.Token,
-		RefreshToken: result.RefreshToken,
-		User:         user,
-		Connected:    result.Connected,
-		Connection:   result.Connection,
-		Error:        result.Error,
+		Purpose:     result.Purpose,
+		Token:       result.Token,
+		AccessToken: result.Token,
+		User:        user,
+		Connected:   result.Connected,
+		Connection:  result.Connection,
+		Error:       result.Error,
 	}
 }
 

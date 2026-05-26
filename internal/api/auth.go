@@ -28,10 +28,9 @@ type authUserResponse struct {
 }
 
 type authResponse struct {
-	Token        string           `json:"token"`
-	AccessToken  string           `json:"access_token"`
-	RefreshToken string           `json:"refresh_token"`
-	User         authUserResponse `json:"user"`
+	Token       string           `json:"token"`
+	AccessToken string           `json:"access_token"`
+	User        authUserResponse `json:"user"`
 }
 
 type loginResponse struct {
@@ -39,7 +38,6 @@ type loginResponse struct {
 	TotpToken    string            `json:"totp_token,omitempty"`
 	Token        string            `json:"token,omitempty"`
 	AccessToken  string            `json:"access_token,omitempty"`
-	RefreshToken string            `json:"refresh_token,omitempty"`
 	User         *authUserResponse `json:"user,omitempty"`
 }
 
@@ -66,17 +64,15 @@ func mapLoginResponse(resp *service.LoginResponse) loginResponse {
 		TotpToken:    resp.TotpToken,
 		Token:        resp.AccessToken,
 		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
 		User:         user,
 	}
 }
 
 func mapAuthResponse(resp *service.AuthResponse) authResponse {
 	return authResponse{
-		Token:        resp.AccessToken,
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-		User:         mapAuthUserResponse(resp.User),
+		Token:       resp.AccessToken,
+		AccessToken: resp.AccessToken,
+		User:        mapAuthUserResponse(resp.User),
 	}
 }
 
