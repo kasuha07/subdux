@@ -75,6 +75,7 @@ interface SubscriptionCardProps {
   paymentMethodName?: string
   paymentMethodIcon?: string
   onOpenDetail: (sub: Subscription) => void
+  onPreloadDetail?: (sub: Subscription) => void
   onEdit: (sub: Subscription) => void
   onDelete: (id: number) => void
 }
@@ -153,6 +154,7 @@ export default function SubscriptionCard({
   paymentMethodName,
   paymentMethodIcon,
   onOpenDetail,
+  onPreloadDetail,
   onEdit,
   onDelete,
 }: SubscriptionCardProps) {
@@ -289,6 +291,9 @@ export default function SubscriptionCard({
               variant="ghost"
               size="icon-xs"
               className="text-muted-foreground hover:text-foreground"
+              onFocus={() => onPreloadDetail?.(subscription)}
+              onPointerDown={() => onPreloadDetail?.(subscription)}
+              onPointerEnter={() => onPreloadDetail?.(subscription)}
               onClick={(event) => {
                 event.stopPropagation()
                 onOpenDetail(subscription)

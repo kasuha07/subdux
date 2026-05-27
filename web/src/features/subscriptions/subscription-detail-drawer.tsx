@@ -22,7 +22,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { api } from "@/lib/api"
 import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type {
   Subscription,
@@ -30,6 +29,10 @@ import type {
   SubscriptionDetailEvent,
   SubscriptionDetailPriceHistoryItem,
 } from "@/types"
+import {
+  getCachedSubscriptionDetail,
+  loadSubscriptionDetail,
+} from "./subscription-detail-cache"
 
 interface Props {
   open: boolean
@@ -85,9 +88,11 @@ export default function SubscriptionDetailDrawer({
     }
 
     let active = true
-    setLoading(true)
+    const cached = getCachedSubscriptionDetail(subscription.id)
+    setDetail(cached)
+    setLoading(!cached)
     setError("")
-    api.get<SubscriptionDetail>(`/subscriptions/${subscription.id}/detail`)
+    loadSubscriptionDetail(subscription.id)
       .then((data) => {
         if (active) {
           setDetail(data)
@@ -182,6 +187,8 @@ export default function SubscriptionDetailDrawer({
                 title={t("subscription.detail.errorTitle")}
                 description={error}
               />
+            ) : !detail && activeSubscription ? (
+              <OverviewFallback subscription={activeSubscription} />
             ) : detail && activeSubscription ? (
               <>
                 <Overview
@@ -233,6 +240,40 @@ export default function SubscriptionDetailDrawer({
         </ScrollArea>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function OverviewFallback({ subscription }: { subscription: Subscription }) {
+  const { t, i18n } = useTranslation()
+  const status = subscription.status || "active"
+  const renewalMode = subscription.renewal_mode || "auto_renew"
+  const nextBillingDate = subscription.next_billing_date
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <SummaryTile
+        label={t("subscription.detail.summary.nextCharge")}
+        value={nextBillingDate ? formatDate(nextBillingDate, i18n.language) : t("subscription.detail.empty.none")}
+        detail={t("subscription.detail.empty.noUpcomingCharges")}
+        delay={0}
+      />
+      <SummaryTile
+        label={t("subscription.detail.summary.lifecycle")}
+        value={t(`subscription.card.status.${status}`)}
+        detail={renewalMode ? t(`subscription.card.renewalMode.${renewalMode}`) : ""}
+        delay={40}
+      />
+      <div
+        className="detail-drawer-stage rounded-lg border bg-muted/25 p-3"
+        style={animationDelay(80)}
+      >
+        <p className="text-xs font-medium text-muted-foreground">
+          {t("subscription.detail.summary.latestActivity")}
+        </p>
+        <Skeleton className="mt-2 h-4 w-24 rounded-md" />
+        <Skeleton className="mt-2 h-3 w-32 rounded-md" />
+      </div>
+    </div>
   )
 }
 

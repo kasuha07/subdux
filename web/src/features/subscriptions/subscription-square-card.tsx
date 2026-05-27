@@ -63,6 +63,7 @@ interface SubscriptionSquareCardProps {
   showCycleProgress?: boolean
   paymentMethodName?: string
   onOpenDetail: (sub: Subscription) => void
+  onPreloadDetail?: (sub: Subscription) => void
   onEdit: (sub: Subscription) => void
 }
 
@@ -88,6 +89,7 @@ export default function SubscriptionSquareCard({
   showCycleProgress = false,
   paymentMethodName,
   onOpenDetail,
+  onPreloadDetail,
   onEdit,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
@@ -257,6 +259,9 @@ export default function SubscriptionSquareCard({
             variant="ghost"
             size="icon-sm"
             className="shrink-0 text-muted-foreground hover:text-foreground"
+            onFocus={() => onPreloadDetail?.(subscription)}
+            onPointerDown={() => onPreloadDetail?.(subscription)}
+            onPointerEnter={() => onPreloadDetail?.(subscription)}
             onClick={(event) => {
               event.stopPropagation()
               onOpenDetail(subscription)

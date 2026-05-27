@@ -5,12 +5,18 @@ import { BarChart3, CalendarDays, Plus, Settings, Shield } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { getMonthlyAmountFactor } from "@/features/dashboard/dashboard-amount-utils"
 import { isSubscriptionActive } from "@/features/subscriptions/subscription-lifecycle"
+import {
+  invalidateSubscriptionDetail,
+  preloadSubscriptionDetail,
+} from "@/features/subscriptions/subscription-detail-cache"
 import { api, isAdmin } from "@/lib/api"
+import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
   DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY,
@@ -30,8 +36,18 @@ import SubscriptionSquareCard from "@/features/subscriptions/subscription-square
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
 
-const SubscriptionForm = lazy(() => import("@/features/subscriptions/subscription-form"))
-const SubscriptionDetailDrawer = lazy(() => import("@/features/subscriptions/subscription-detail-drawer"))
+const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
+const SubscriptionForm = lazy(loadSubscriptionForm)
+const loadSubscriptionDetailDrawer = () => import("@/features/subscriptions/subscription-detail-drawer")
+const SubscriptionDetailDrawer = lazy(loadSubscriptionDetailDrawer)
+
+function preloadSubscriptionForm() {
+  void loadSubscriptionForm()
+}
+
+function preloadSubscriptionDetailDrawer() {
+  void loadSubscriptionDetailDrawer()
+}
 
 function DashboardSkeleton() {
   return (
@@ -87,6 +103,160 @@ function DashboardSkeleton() {
         ))}
       </div>
     </>
+  )
+}
+
+function SubscriptionFormFallbackDialog({
+  description,
+  onOpenChange,
+  open,
+  title,
+}: {
+  description: string
+  onOpenChange: (open: boolean) => void
+  open: boolean
+  title: string
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
+        onInteractOutside={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
+        <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{description}</DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="size-9 rounded-md" />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,0.9fr)] gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-9 w-full rounded-md" />
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+        </div>
+        <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Skeleton className="h-9 w-full rounded-md sm:w-24" />
+            <Skeleton className="h-9 w-full rounded-md sm:ml-auto sm:w-28" />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SubscriptionDetailFallbackDrawer({
+  currencySymbol,
+  onOpenChange,
+  open,
+  subscription,
+}: {
+  currencySymbol?: string
+  onOpenChange: (open: boolean) => void
+  open: boolean
+  subscription: Subscription
+}) {
+  const { t, i18n } = useTranslation()
+  const amount = formatCurrencyWithSymbol(
+    subscription.amount,
+    subscription.currency,
+    currencySymbol,
+    i18n.language
+  )
+  const status = subscription.status || "active"
+  const renewalMode = subscription.renewal_mode || "auto_renew"
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+        <DialogHeader className="detail-drawer-stage border-b px-5 pt-5 pb-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 pr-8">
+            <div className="min-w-0">
+              <DialogTitle className="truncate">
+                {subscription.name || t("subscription.detail.titleFallback")}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {t("subscription.detail.description")}
+              </DialogDescription>
+              <p className="mt-1 text-sm text-muted-foreground">{amount}</p>
+            </div>
+            <Skeleton className="h-9 w-20 shrink-0 rounded-md" />
+          </div>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("subscription.detail.summary.nextCharge")}
+                </p>
+                <p className="mt-2 truncate text-sm font-semibold">
+                  {subscription.next_billing_date
+                    ? formatDate(subscription.next_billing_date, i18n.language)
+                    : t("subscription.detail.empty.none")}
+                </p>
+                <Skeleton className="mt-2 h-3 w-28 rounded-md" />
+              </div>
+              <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("subscription.detail.summary.lifecycle")}
+                </p>
+                <p className="mt-2 truncate text-sm font-semibold">
+                  {t(`subscription.card.status.${status}`)}
+                </p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {t(`subscription.card.renewalMode.${renewalMode}`)}
+                </p>
+              </div>
+              <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("subscription.detail.summary.latestActivity")}
+                </p>
+                <Skeleton className="mt-2 h-4 w-24 rounded-md" />
+                <Skeleton className="mt-2 h-3 w-32 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="detail-drawer-stage h-10 rounded-lg" />
+            <Skeleton className="detail-drawer-stage h-64 rounded-lg" />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -186,6 +356,16 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
+    const timeout = window.setTimeout(preloadSubscriptionForm, 250)
+    return () => window.clearTimeout(timeout)
+  }, [])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(preloadSubscriptionDetailDrawer, 400)
+    return () => window.clearTimeout(timeout)
+  }, [])
+
+  useEffect(() => {
     if (!displayAllAmountsInPrimaryCurrency && sortField !== "amount") {
       return
     }
@@ -225,18 +405,27 @@ export default function DashboardPage() {
   }, [displayAllAmountsInPrimaryCurrency, preferredCurrency, sortField, subscriptions])
 
   function handleEdit(sub: Subscription) {
+    preloadSubscriptionForm()
     setEditingSub(sub)
     setFormOpen(true)
   }
 
   function handleOpenDetail(sub: Subscription) {
+    preloadSubscriptionDetailDrawer()
+    preloadSubscriptionDetail(sub.id)
     setDetailSub(sub)
+  }
+
+  function handlePreloadDetail(sub: Subscription) {
+    preloadSubscriptionDetailDrawer()
+    preloadSubscriptionDetail(sub.id)
   }
 
   async function handleDelete(id: number) {
     if (!confirm(t("dashboard.deleteConfirm"))) return
     try {
       await api.delete(`/subscriptions/${id}`)
+      invalidateSubscriptionDetail(id)
       toast.success(t("dashboard.deleteSuccess"))
       await fetchData()
     } catch {
@@ -252,6 +441,7 @@ export default function DashboardPage() {
       }
       const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, updatePayload)
       toast.success(t("dashboard.updateSuccess"))
+      invalidateSubscriptionDetail(editingSub.id)
       setEditingSub(null)
       setFormOpen(false)
       await fetchData()
@@ -269,6 +459,7 @@ export default function DashboardPage() {
   async function handleMarkRenewed(sub: Subscription) {
     const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
     toast.success(t("dashboard.updateSuccess"))
+    invalidateSubscriptionDetail(sub.id)
     setEditingSub(null)
     setFormOpen(false)
     await fetchData()
@@ -276,8 +467,14 @@ export default function DashboardPage() {
   }
 
   function openNewForm() {
+    preloadSubscriptionForm()
     setEditingSub(null)
     setFormOpen(true)
+  }
+
+  function handleFormOpenChange(open: boolean) {
+    setFormOpen(open)
+    if (!open) setEditingSub(null)
   }
 
   return (
@@ -436,6 +633,7 @@ export default function DashboardPage() {
                             : undefined
                         }
                         onOpenDetail={handleOpenDetail}
+                        onPreloadDetail={handlePreloadDetail}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                       />
@@ -459,6 +657,7 @@ export default function DashboardPage() {
                           : undefined
                       }
                       onOpenDetail={handleOpenDetail}
+                      onPreloadDetail={handlePreloadDetail}
                       onEdit={handleEdit}
                     />
                   )
@@ -470,14 +669,24 @@ export default function DashboardPage() {
       </main>
 
       {formOpen && (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <SubscriptionFormFallbackDialog
+              open={formOpen}
+              onOpenChange={handleFormOpenChange}
+              title={editingSub ? t("subscription.form.editTitle") : t("subscription.form.addTitle")}
+              description={
+                editingSub
+                  ? t("subscription.form.editDescription")
+                  : t("subscription.form.addDescription")
+              }
+            />
+          }
+        >
           <SubscriptionForm
             key={editingSub?.id ?? "new"}
             open={formOpen}
-            onOpenChange={(open) => {
-              setFormOpen(open)
-              if (!open) setEditingSub(null)
-            }}
+            onOpenChange={handleFormOpenChange}
             subscription={editingSub}
             onSubmit={handleFormSubmit}
             onMarkRenewed={handleMarkRenewed}
@@ -489,7 +698,18 @@ export default function DashboardPage() {
       )}
 
       {detailSub && (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <SubscriptionDetailFallbackDrawer
+              open={!!detailSub}
+              subscription={detailSub}
+              currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+              onOpenChange={(open) => {
+                if (!open) setDetailSub(null)
+              }}
+            />
+          }
+        >
           <SubscriptionDetailDrawer
             open={!!detailSub}
             subscription={detailSub}
