@@ -1,6 +1,7 @@
 const common = {
   "loading": "加载中...",
   "cancel": "取消",
+  "close": "关闭",
   "unauthorized": "未授权",
   "requestFailed": "请求失败",
   "backendErrors": {

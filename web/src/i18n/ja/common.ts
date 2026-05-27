@@ -1,6 +1,7 @@
 const common = {
   "loading": "読み込み中...",
   "cancel": "キャンセル",
+  "close": "閉じる",
   "unauthorized": "認証エラー",
   "requestFailed": "リクエストに失敗しました",
   "backendErrors": {

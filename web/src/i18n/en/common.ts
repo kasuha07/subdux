@@ -1,6 +1,7 @@
 const common = {
   "loading": "Loading...",
   "cancel": "Cancel",
+  "close": "Close",
   "unauthorized": "Unauthorized",
   "requestFailed": "Request failed",
   "backendErrors": {
