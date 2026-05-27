@@ -175,6 +175,22 @@ export function useDashboardFilters({
       return true
     })
 
+    const compareSubscriptions = (a: Subscription, b: Subscription) => {
+      if (sortField === "name") {
+        return a.name.localeCompare(b.name, language, { sensitivity: "base" })
+      }
+      if (sortField === "created_at") {
+        return toTimestamp(a.created_at) - toTimestamp(b.created_at)
+      }
+      if (sortField === "amount") {
+        return (
+          getComparableSubscriptionAmount(a, preferredCurrency, exchangeRates) -
+          getComparableSubscriptionAmount(b, preferredCurrency, exchangeRates)
+        )
+      }
+      return toTimestamp(a.next_billing_date) - toTimestamp(b.next_billing_date)
+    }
+
     return [...filtered].sort((a, b) => {
       if (displayDisabledSubscriptionsLast) {
         const aStatus = getSubscriptionStatus(a)
@@ -184,22 +200,11 @@ export function useDashboardFilters({
         }
       }
 
-      let result = 0
-
-      if (sortField === "name") {
-        result = a.name.localeCompare(b.name, language, { sensitivity: "base" })
-      } else if (sortField === "created_at") {
-        result = toTimestamp(a.created_at) - toTimestamp(b.created_at)
-      } else if (sortField === "amount") {
-        result =
-          getComparableSubscriptionAmount(a, preferredCurrency, exchangeRates) -
-          getComparableSubscriptionAmount(b, preferredCurrency, exchangeRates)
-      } else {
-        result = toTimestamp(a.next_billing_date) - toTimestamp(b.next_billing_date)
-      }
+      const result = compareSubscriptions(a, b)
 
       if (result === 0) {
-        result = a.id - b.id
+        const tieBreaker = a.id - b.id
+        return sortDirection === "asc" ? tieBreaker : -tieBreaker
       }
 
       return sortDirection === "asc" ? result : -result

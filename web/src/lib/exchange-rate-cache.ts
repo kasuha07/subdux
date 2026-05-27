@@ -124,7 +124,7 @@ export async function getExchangeRatesToTarget(
     return rates
   }
 
-  let primaryBaseRates: ExchangeRateInfo[] = []
+  let primaryBaseRates: ExchangeRateInfo[]
   try {
     // Use the primary currency as base, then invert to get source -> primary conversion.
     primaryBaseRates = await api.get<ExchangeRateInfo[]>(
