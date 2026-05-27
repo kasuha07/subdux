@@ -415,6 +415,9 @@ func (s *SubscriptionService) reportAnnualGrowth(userID uint, targetCurrency str
 
 	items := make([]ReportAnnualGrowthItem, 0, len(subs))
 	for _, sub := range subs {
+		if !subscriptionContributesToOngoingSpend(sub) {
+			continue
+		}
 		currentMonthly := convertHistoricalAmount(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency, targetCurrency, converter)
 		if currentMonthly <= 0 {
 			continue

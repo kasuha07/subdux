@@ -81,6 +81,9 @@ export default function SubscriptionForm({
     t,
     userCurrencies,
   })
+  const nextDateLabel = values.renewalMode === "cancel_at_period_end"
+    ? t("subscription.form.periodEndDateLabel")
+    : t("subscription.form.nextBillingDateLabel")
 
   const iconPickerNode = useMemo(
     () => (
@@ -219,7 +222,7 @@ export default function SubscriptionForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="next-billing-date">{t("subscription.form.nextBillingDateLabel")}</Label>
+              <Label htmlFor="next-billing-date">{nextDateLabel}</Label>
               <Input
                 id="next-billing-date"
                 type="date"

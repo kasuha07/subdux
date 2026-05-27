@@ -37,7 +37,7 @@ const dashboard = {
     "sortBy": "Sort by",
     "order": "Order",
     "sortFields": {
-      "nextBillingDate": "Next billing date",
+      "nextBillingDate": "Next billing or end date",
       "name": "Name",
       "createdAt": "Added time",
       "amount": "Amount"

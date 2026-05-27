@@ -52,6 +52,8 @@ const subscription = {
     },
     "summary": {
       "nextCharge": "Next charge",
+      "periodEnd": "Period ends",
+      "endingAtPeriodEnd": "Ends at period end",
       "lifecycle": "Lifecycle",
       "latestActivity": "Latest activity",
       "lastNotification": "Last via {{channel}}"
@@ -62,6 +64,7 @@ const subscription = {
       "billingType": "Billing type",
       "recurrence": "Recurrence",
       "nextBillingDate": "Next billing date",
+      "periodEndDate": "Period end date",
       "status": "Lifecycle",
       "renewalMode": "Renewal mode",
       "endsAt": "Ended on",
@@ -137,6 +140,7 @@ const subscription = {
     "endsAtLabel": "Ended on",
     "purchaseDateLabel": "Purchase date",
     "nextBillingDateLabel": "Next billing date",
+    "periodEndDateLabel": "Period end date",
     "recurrenceTypeLabel": "Recurrence rule",
     "recurrenceDetailLabel": "Rule details",
     "recurrenceType": {

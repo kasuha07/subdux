@@ -86,7 +86,7 @@ const reports = {
       "amount": "金额",
       "currency": "货币",
       "monthly_amount": "月均金额",
-      "next_billing_date": "下次计费",
+      "next_billing_date": "计费/结束日期",
       "status": "状态",
       "renewal_mode": "续费方式",
       "category": "分类",

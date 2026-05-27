@@ -52,6 +52,8 @@ const subscription = {
     },
     "summary": {
       "nextCharge": "次回請求",
+      "periodEnd": "期間終了",
+      "endingAtPeriodEnd": "今期終了で終了",
       "lifecycle": "ライフサイクル",
       "latestActivity": "最新アクティビティ",
       "lastNotification": "直近: {{channel}}"
@@ -62,6 +64,7 @@ const subscription = {
       "billingType": "課金タイプ",
       "recurrence": "繰り返し",
       "nextBillingDate": "次回請求日",
+      "periodEndDate": "期間終了日",
       "status": "ライフサイクル",
       "renewalMode": "更新方法",
       "endsAt": "終了日",
@@ -137,6 +140,7 @@ const subscription = {
     "endsAtLabel": "終了日",
     "purchaseDateLabel": "購入日",
     "nextBillingDateLabel": "次回請求日",
+    "periodEndDateLabel": "期間終了日",
     "recurrenceTypeLabel": "繰り返しルール",
     "recurrenceDetailLabel": "詳細",
     "recurrenceType": {

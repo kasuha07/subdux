@@ -52,6 +52,8 @@ const subscription = {
     },
     "summary": {
       "nextCharge": "下次扣费",
+      "periodEnd": "本期结束",
+      "endingAtPeriodEnd": "本期结束后终止",
       "lifecycle": "生命周期",
       "latestActivity": "最近动态",
       "lastNotification": "最近通过 {{channel}}"
@@ -62,6 +64,7 @@ const subscription = {
       "billingType": "计费类型",
       "recurrence": "重复规则",
       "nextBillingDate": "下次计费日期",
+      "periodEndDate": "本期结束日期",
       "status": "生命周期",
       "renewalMode": "续费方式",
       "endsAt": "结束日期",
@@ -137,6 +140,7 @@ const subscription = {
     "endsAtLabel": "结束日期",
     "purchaseDateLabel": "购买日期",
     "nextBillingDateLabel": "下次计费日期",
+    "periodEndDateLabel": "本期结束日期",
     "recurrenceTypeLabel": "重复规则",
     "recurrenceDetailLabel": "具体内容",
     "recurrenceType": {

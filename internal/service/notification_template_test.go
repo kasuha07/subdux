@@ -105,6 +105,67 @@ func TestPreviewTemplateUsesFirstSubscriptionData(t *testing.T) {
 	}
 }
 
+func TestPreviewTemplateSkipsEndingSubscriptions(t *testing.T) {
+	db := newNotificationTemplatePreviewTestDB(t)
+	svc := NewNotificationTemplateService(db, NewTemplateValidator())
+
+	user := model.User{
+		Username: "preview-skip-ending",
+		Email:    "preview-skip@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	endingDate := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	endingSubscription := model.Subscription{
+		UserID:          user.ID,
+		Name:            "Ending Plan",
+		Amount:          99,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		NextBillingDate: &endingDate,
+	}
+	if err := db.Create(&endingSubscription).Error; err != nil {
+		t.Fatalf("failed to create ending subscription: %v", err)
+	}
+
+	renewingDate := time.Date(2026, 4, 5, 0, 0, 0, 0, time.UTC)
+	renewingSubscription := model.Subscription{
+		UserID:          user.ID,
+		Name:            "Renewing Plan",
+		Amount:          12,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		NextBillingDate: &renewingDate,
+	}
+	if err := db.Create(&renewingSubscription).Error; err != nil {
+		t.Fatalf("failed to create renewing subscription: %v", err)
+	}
+
+	input := CreateTemplateInput{
+		Format:   "plaintext",
+		Template: "{{.SubscriptionName}}|{{.BillingDate}}|{{.Amount}}",
+	}
+
+	preview, err := svc.PreviewTemplate(user.ID, input)
+	if err != nil {
+		t.Fatalf("PreviewTemplate() error = %v", err)
+	}
+
+	const want = "Renewing Plan|2026-04-05|12"
+	if preview != want {
+		t.Fatalf("PreviewTemplate() preview = %q, want %q", preview, want)
+	}
+}
+
 func TestPreviewTemplateFallsBackToSampleDataWhenNoSubscription(t *testing.T) {
 	db := newNotificationTemplatePreviewTestDB(t)
 	svc := NewNotificationTemplateService(db, NewTemplateValidator())

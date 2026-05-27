@@ -196,7 +196,12 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 	}
 
 	var sub model.Subscription
-	if err := s.DB.Where("user_id = ?", userID).Order("id ASC").First(&sub).Error; err != nil {
+	if err := s.DB.Where(
+		"user_id = ? AND status = ? AND renewal_mode != ? AND next_billing_date IS NOT NULL",
+		userID,
+		subscriptionStatusActive,
+		renewalModeCancelAtPeriodEnd,
+	).Order("next_billing_date ASC, id ASC").First(&sub).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", err
 		}

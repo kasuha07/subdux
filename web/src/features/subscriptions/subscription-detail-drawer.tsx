@@ -34,6 +34,10 @@ import type {
   SubscriptionDetailPriceHistoryItem,
 } from "@/types"
 import {
+  getSubscriptionEndsAt,
+  getSubscriptionRenewalMode,
+} from "@/features/subscriptions/subscription-lifecycle"
+import {
   getCachedSubscriptionDetail,
   loadSubscriptionDetail,
 } from "./subscription-detail-cache"
@@ -277,15 +281,17 @@ export default function SubscriptionDetailDrawer({
 function OverviewFallback({ subscription }: { subscription: Subscription }) {
   const { t, i18n } = useTranslation()
   const status = subscription.status || "active"
-  const renewalMode = subscription.renewal_mode || "auto_renew"
-  const nextBillingDate = subscription.next_billing_date
+  const renewalMode = getSubscriptionRenewalMode(subscription)
+  const periodEndDate = getSubscriptionEndsAt(subscription)
+  const isEnding = renewalMode === "cancel_at_period_end" && periodEndDate
+  const nextSummaryDate = isEnding ? periodEndDate : subscription.next_billing_date
 
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <SummaryTile
-        label={t("subscription.detail.summary.nextCharge")}
-        value={nextBillingDate ? formatDate(nextBillingDate, i18n.language) : t("subscription.detail.empty.none")}
-        detail={t("subscription.detail.empty.noUpcomingCharges")}
+        label={isEnding ? t("subscription.detail.summary.periodEnd") : t("subscription.detail.summary.nextCharge")}
+        value={nextSummaryDate ? formatDate(nextSummaryDate, i18n.language) : t("subscription.detail.empty.none")}
+        detail={isEnding ? t("subscription.detail.summary.endingAtPeriodEnd") : t("subscription.detail.empty.noUpcomingCharges")}
         delay={0}
       />
       <SummaryTile
@@ -390,6 +396,9 @@ function DetailInfoPanel({
   const resolvedPaymentMethod = paymentMethodName?.trim() || empty
   const formattedUrl = sub.url?.trim()
   const notes = sub.notes?.trim()
+  const renewalMode = getSubscriptionRenewalMode(sub)
+  const periodEndDate = getSubscriptionEndsAt(sub)
+  const isEnding = renewalMode === "cancel_at_period_end" && periodEndDate
 
   const rows = [
     {
@@ -407,8 +416,14 @@ function DetailInfoPanel({
       value: formatRecurrenceRule(sub, t),
     },
     {
-      label: t("subscription.detail.info.nextBillingDate"),
-      value: sub.next_billing_date ? formatDate(sub.next_billing_date, language) : empty,
+      label: isEnding
+        ? t("subscription.detail.info.periodEndDate")
+        : t("subscription.detail.info.nextBillingDate"),
+      value: isEnding
+        ? formatDate(periodEndDate, language)
+        : sub.next_billing_date
+          ? formatDate(sub.next_billing_date, language)
+          : empty,
     },
     {
       label: t("subscription.detail.info.status"),

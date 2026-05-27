@@ -12,8 +12,10 @@ func autoAdvanceRecurringNextBillingDatesForUser(db *gorm.DB, userID uint, refer
 
 	var subs []model.Subscription
 	if err := db.Where(
-		"user_id = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date < ?",
+		"user_id = ? AND status = ? AND renewal_mode = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date < ?",
 		userID,
+		subscriptionStatusActive,
+		renewalModeAutoRenew,
 		billingTypeRecurring,
 		today,
 	).Find(&subs).Error; err != nil {

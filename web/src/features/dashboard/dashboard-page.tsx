@@ -10,7 +10,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { getMonthlyAmountFactor } from "@/features/dashboard/dashboard-amount-utils"
-import { isSubscriptionActive } from "@/features/subscriptions/subscription-lifecycle"
+import {
+  getSubscriptionEndsAt,
+  getSubscriptionRenewalMode,
+  isSubscriptionActive,
+} from "@/features/subscriptions/subscription-lifecycle"
 import {
   invalidateSubscriptionDetail,
   preloadSubscriptionDetail,
@@ -198,7 +202,10 @@ function SubscriptionDetailFallbackDrawer({
     i18n.language
   )
   const status = subscription.status || "active"
-  const renewalMode = subscription.renewal_mode || "auto_renew"
+  const renewalMode = getSubscriptionRenewalMode(subscription)
+  const periodEndDate = getSubscriptionEndsAt(subscription)
+  const isEnding = renewalMode === "cancel_at_period_end" && periodEndDate
+  const nextSummaryDate = isEnding ? periodEndDate : subscription.next_billing_date
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -223,11 +230,11 @@ function SubscriptionDetailFallbackDrawer({
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
                 <p className="text-xs font-medium text-muted-foreground">
-                  {t("subscription.detail.summary.nextCharge")}
+                  {isEnding ? t("subscription.detail.summary.periodEnd") : t("subscription.detail.summary.nextCharge")}
                 </p>
                 <p className="mt-2 truncate text-sm font-semibold">
-                  {subscription.next_billing_date
-                    ? formatDate(subscription.next_billing_date, i18n.language)
+                  {nextSummaryDate
+                    ? formatDate(nextSummaryDate, i18n.language)
                     : t("subscription.detail.empty.none")}
                 </p>
                 <Skeleton className="mt-2 h-3 w-28 rounded-md" />

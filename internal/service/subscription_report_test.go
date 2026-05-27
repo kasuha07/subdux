@@ -395,6 +395,55 @@ func TestGetAnalyticsReportAnnualGrowthIgnoresCreationAndOldEvents(t *testing.T)
 	assertFloatEqual(t, report.AnnualGrowth[0].CurrentMonthlyAmount, 12, "annual growth current")
 }
 
+func TestGetAnalyticsReportAnnualGrowthExcludesCancelAtPeriodEnd(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-20"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending Storage",
+		Amount:          8,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-04-01",
+	})
+	if err != nil {
+		t.Fatalf("create subscription failed: %v", err)
+	}
+
+	updatedAmount := 12.0
+	if _, err := service.Update(user.ID, sub.ID, UpdateSubscriptionInput{
+		Amount: &updatedAmount,
+	}); err != nil {
+		t.Fatalf("update subscription amount failed: %v", err)
+	}
+
+	renewalMode := renewalModeCancelAtPeriodEnd
+	if _, err := service.Update(user.ID, sub.ID, UpdateSubscriptionInput{
+		RenewalMode: &renewalMode,
+	}); err != nil {
+		t.Fatalf("update subscription renewal mode failed: %v", err)
+	}
+
+	report, err := service.GetAnalyticsReport(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetAnalyticsReport() error = %v", err)
+	}
+
+	if got, want := len(report.AnnualGrowth), 0; got != want {
+		t.Fatalf("annual_growth length = %d, want %d", got, want)
+	}
+}
+
 func assertFloatEqual(t *testing.T, got, want float64, label string) {
 	t.Helper()
 	if math.Abs(got-want) > 0.000001 {
