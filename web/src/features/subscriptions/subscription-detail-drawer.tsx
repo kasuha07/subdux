@@ -10,12 +10,14 @@ import {
   History,
   Pencil,
   ReceiptText,
+  X,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -155,22 +157,25 @@ export default function SubscriptionDetailDrawer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
-        <DialogHeader className="detail-drawer-stage border-b px-5 pt-5 pb-4 sm:px-6">
-          <div className="flex items-start justify-between gap-4 pr-8">
-            <div className="min-w-0">
-              <DialogTitle className="truncate">
-                {activeSubscription?.name ?? t("subscription.detail.titleFallback")}
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                {t("subscription.detail.description")}
-              </DialogDescription>
-              {activeSubscription ? (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {formatAmount(activeSubscription.amount, activeSubscription.currency)}
-                </p>
-              ) : null}
-            </div>
+      <DialogContent
+        className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+        showCloseButton={false}
+      >
+        <DialogHeader className="detail-drawer-stage flex-row items-start justify-between gap-3 border-b px-5 pt-5 pb-4 text-left sm:px-6">
+          <div className="min-w-0">
+            <DialogTitle className="truncate">
+              {activeSubscription?.name ?? t("subscription.detail.titleFallback")}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("subscription.detail.description")}
+            </DialogDescription>
+            {activeSubscription ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatAmount(activeSubscription.amount, activeSubscription.currency)}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -180,6 +185,17 @@ export default function SubscriptionDetailDrawer({
             >
               <Pencil className="size-4" />
               {t("subscription.detail.edit")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="-mr-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              asChild
+            >
+              <DialogClose aria-label={t("common.close")}>
+                <X />
+              </DialogClose>
             </Button>
           </div>
         </DialogHeader>
@@ -211,28 +227,30 @@ export default function SubscriptionDetailDrawer({
                 />
 
                 <Tabs defaultValue="timeline" className="detail-drawer-stage gap-4" style={animationDelay(120)}>
-                  <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-                    <TabsTrigger value="timeline" className="h-9">
-                      <History className="size-4" />
-                      {t("subscription.detail.tabs.timeline")}
-                      <span className="text-xs text-muted-foreground">{tabsSummary.timeline}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="prices" className="h-9">
-                      <CircleDollarSign className="size-4" />
-                      {t("subscription.detail.tabs.prices")}
-                      <span className="text-xs text-muted-foreground">{tabsSummary.prices}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="notifications" className="h-9">
-                      <Bell className="size-4" />
-                      {t("subscription.detail.tabs.notifications")}
-                      <span className="text-xs text-muted-foreground">{tabsSummary.notifications}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="charges" className="h-9">
-                      <ReceiptText className="size-4" />
-                      {t("subscription.detail.tabs.charges")}
-                      <span className="text-xs text-muted-foreground">{tabsSummary.charges}</span>
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="w-full overflow-x-auto pb-1">
+                    <TabsList className="w-max min-w-max">
+                      <TabsTrigger value="timeline" className="flex-none gap-2">
+                        <History className="size-4" />
+                        {t("subscription.detail.tabs.timeline")}
+                        <span className="text-xs text-muted-foreground">{tabsSummary.timeline}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="prices" className="flex-none gap-2">
+                        <CircleDollarSign className="size-4" />
+                        {t("subscription.detail.tabs.prices")}
+                        <span className="text-xs text-muted-foreground">{tabsSummary.prices}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="notifications" className="flex-none gap-2">
+                        <Bell className="size-4" />
+                        {t("subscription.detail.tabs.notifications")}
+                        <span className="text-xs text-muted-foreground">{tabsSummary.notifications}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="charges" className="flex-none gap-2">
+                        <ReceiptText className="size-4" />
+                        {t("subscription.detail.tabs.charges")}
+                        <span className="text-xs text-muted-foreground">{tabsSummary.charges}</span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
                   <TabsContent value="timeline" className="detail-tabs-content">
                     <TimelinePanel items={detail.timeline} formatAmount={formatAmount} language={i18n.language} />
