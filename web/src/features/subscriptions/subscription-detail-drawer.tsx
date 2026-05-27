@@ -176,7 +176,7 @@ export default function SubscriptionDetailDrawer({
               size="sm"
               onClick={handleEdit}
               disabled={!activeSubscription}
-              className="shrink-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+              className="shrink-0"
             >
               <Pencil className="size-4" />
               {t("subscription.detail.edit")}
@@ -212,22 +212,22 @@ export default function SubscriptionDetailDrawer({
 
                 <Tabs defaultValue="timeline" className="detail-drawer-stage gap-4" style={animationDelay(120)}>
                   <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-                    <TabsTrigger value="timeline" className="h-9 transition-all duration-200 data-[state=active]:scale-[1.02]">
+                    <TabsTrigger value="timeline" className="h-9">
                       <History className="size-4" />
                       {t("subscription.detail.tabs.timeline")}
                       <span className="text-xs text-muted-foreground">{tabsSummary.timeline}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="prices" className="h-9 transition-all duration-200 data-[state=active]:scale-[1.02]">
+                    <TabsTrigger value="prices" className="h-9">
                       <CircleDollarSign className="size-4" />
                       {t("subscription.detail.tabs.prices")}
                       <span className="text-xs text-muted-foreground">{tabsSummary.prices}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="notifications" className="h-9 transition-all duration-200 data-[state=active]:scale-[1.02]">
+                    <TabsTrigger value="notifications" className="h-9">
                       <Bell className="size-4" />
                       {t("subscription.detail.tabs.notifications")}
                       <span className="text-xs text-muted-foreground">{tabsSummary.notifications}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="charges" className="h-9 transition-all duration-200 data-[state=active]:scale-[1.02]">
+                    <TabsTrigger value="charges" className="h-9">
                       <ReceiptText className="size-4" />
                       {t("subscription.detail.tabs.charges")}
                       <span className="text-xs text-muted-foreground">{tabsSummary.charges}</span>
@@ -487,7 +487,7 @@ function DetailInfoItem({
 function SummaryTile({ label, value, detail, delay }: { label: string, value: string, detail: string, delay: number }) {
   return (
     <div
-      className="detail-drawer-stage rounded-lg border bg-muted/25 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-muted/35 hover:shadow-sm"
+      className="detail-drawer-stage rounded-lg border bg-muted/25 p-3"
       style={animationDelay(delay)}
     >
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
@@ -542,12 +542,12 @@ function TimelineItem({
 
   return (
     <div
-      className="group detail-drawer-row grid gap-3 p-3 transition-colors duration-200 hover:bg-muted/35 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+      className="detail-drawer-row grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
       style={rowAnimationDelay(index)}
     >
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Badge variant="outline" className={`transition-transform duration-200 group-hover:scale-[1.03] ${eventBadgeStyles[item.type] || ""}`}>
+          <Badge variant="outline" className={eventBadgeStyles[item.type] || ""}>
             {eventTypeLabel(item.type, t)}
           </Badge>
           <p className="truncate text-sm text-muted-foreground">
@@ -602,7 +602,7 @@ function PriceHistoryPanel({
         return (
           <div
             key={item.event_id}
-            className="detail-drawer-row grid gap-3 p-3 transition-colors duration-200 hover:bg-muted/35 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            className="detail-drawer-row grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
             style={rowAnimationDelay(index)}
           >
             <div className="min-w-0">
@@ -638,7 +638,7 @@ function NotificationPanel({ detail, language }: { detail: SubscriptionDetail, l
       {detail.notification_logs.map((log, index) => (
         <div
           key={log.id}
-          className="detail-drawer-row grid gap-3 p-3 transition-colors duration-200 hover:bg-muted/35 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          className="detail-drawer-row grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
           style={rowAnimationDelay(index)}
         >
           <div className="min-w-0">
@@ -678,7 +678,7 @@ function UpcomingChargesPanel({
 
   return (
     <div className="space-y-4">
-      <div className="detail-drawer-stage flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/25 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-muted/35 hover:shadow-sm">
+      <div className="detail-drawer-stage flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/25 p-3">
         <div className="min-w-0">
           <p className="text-sm font-medium">{t("subscription.detail.calendar.title")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -699,7 +699,7 @@ function UpcomingChargesPanel({
         {detail.upcoming_charges.map((charge, index) => (
           <div
             key={charge.date}
-            className="detail-drawer-row flex items-center justify-between gap-3 p-3 transition-colors duration-200 hover:bg-muted/35"
+            className="detail-drawer-row flex items-center justify-between gap-3 p-3"
             style={rowAnimationDelay(index)}
           >
             <div className="min-w-0">
