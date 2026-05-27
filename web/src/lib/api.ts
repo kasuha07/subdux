@@ -55,7 +55,8 @@ function removeLocalStorage(key: string): void {
 
 function getToken(): string | null {
   if (!accessTokenLoaded) {
-    cachedAccessToken = readLocalStorage(ACCESS_TOKEN_KEY)
+    removeLocalStorage(ACCESS_TOKEN_KEY)
+    cachedAccessToken = null
     accessTokenLoaded = true
   }
 
@@ -65,7 +66,7 @@ function getToken(): string | null {
 export function setToken(token: string): void {
   cachedAccessToken = token
   accessTokenLoaded = true
-  writeLocalStorage(ACCESS_TOKEN_KEY, token)
+  removeLocalStorage(ACCESS_TOKEN_KEY)
 }
 
 export function clearToken(): void {

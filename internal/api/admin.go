@@ -31,12 +31,29 @@ var (
 	errInvalidBackup = errors.New("invalid backup file")
 )
 
-const maxBackupUploadSize = 32 << 20 // 32 MiB
+const (
+	maxBackupUploadSize            = 32 << 20 // 32 MiB
+	maxBackupDatabaseExtractedSize = maxBackupUploadSize
+	maxBackupAssetsExtractedSize   = 64 << 20
+	maxBackupAssetEntries          = 2048
+)
 
 type backupRestorePayload struct {
 	dbFilePath       string
 	assetsDirPath    string
 	replaceAssetsDir bool
+}
+
+type backupRestoreLimits struct {
+	maxDatabaseExtractedSize int64
+	maxAssetsExtractedSize   int64
+	maxAssetEntries          int
+}
+
+var defaultBackupRestoreLimits = backupRestoreLimits{
+	maxDatabaseExtractedSize: maxBackupDatabaseExtractedSize,
+	maxAssetsExtractedSize:   maxBackupAssetsExtractedSize,
+	maxAssetEntries:          maxBackupAssetEntries,
 }
 
 func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTaskMonitor) *AdminHandler {
@@ -341,6 +358,10 @@ func prepareRestorePayload(uploadedBackupPath string) (*backupRestorePayload, er
 }
 
 func prepareRestorePayloadFromZip(zipPath string) (*backupRestorePayload, error) {
+	return prepareRestorePayloadFromZipWithLimits(zipPath, defaultBackupRestoreLimits)
+}
+
+func prepareRestorePayloadFromZipWithLimits(zipPath string, limits backupRestoreLimits) (*backupRestorePayload, error) {
 	zipReader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return nil, invalidBackupError("invalid zip archive")
@@ -364,14 +385,17 @@ func prepareRestorePayloadFromZip(zipPath string) (*backupRestorePayload, error)
 		}
 	}()
 
-	if err = extractZipFileEntry(dbEntry, tempDBPath); err != nil {
+	if err = validateZipFileEntrySize(dbEntry, limits.maxDatabaseExtractedSize, "zip backup database exceeds extracted size limit"); err != nil {
+		return nil, err
+	}
+	if _, err = extractZipFileEntryLimited(dbEntry, tempDBPath, limits.maxDatabaseExtractedSize); err != nil {
 		return nil, invalidBackupError("failed to extract database from zip backup")
 	}
 	if !isSQLiteBackupFile(tempDBPath) {
 		return nil, invalidBackupError("zip backup database is invalid")
 	}
 
-	replaceAssetsDir, assetsDirPath, err := extractAssetsFromZip(zipReader.File)
+	replaceAssetsDir, assetsDirPath, err := extractAssetsFromZip(zipReader.File, limits)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +446,7 @@ func findDatabaseBackupEntry(entries []*zip.File) (*zip.File, error) {
 	return nil, invalidBackupError("zip backup does not contain a database file")
 }
 
-func extractAssetsFromZip(entries []*zip.File) (bool, string, error) {
+func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool, string, error) {
 	shouldRestoreAssets := false
 	for _, entry := range entries {
 		cleanPath, ok := normalizeZipEntryPath(entry.Name)
@@ -455,6 +479,9 @@ func extractAssetsFromZip(entries []*zip.File) (bool, string, error) {
 		}
 	}()
 
+	var extractedSize int64
+	assetEntries := 0
+
 	for _, entry := range entries {
 		cleanPath, ok := normalizeZipEntryPath(entry.Name)
 		if !ok {
@@ -477,6 +504,19 @@ func extractAssetsFromZip(entries []*zip.File) (bool, string, error) {
 			return false, "", invalidBackupError("zip backup contains unsupported assets entry")
 		}
 
+		assetEntries++
+		if assetEntries > limits.maxAssetEntries {
+			return false, "", invalidBackupError("zip backup contains too many assets")
+		}
+
+		remainingSize := limits.maxAssetsExtractedSize - extractedSize
+		if remainingSize < 0 {
+			remainingSize = 0
+		}
+		if err := validateZipFileEntrySize(entry, remainingSize, "zip backup assets exceed extracted size limit"); err != nil {
+			return false, "", err
+		}
+
 		targetPath := filepath.Join(tempAssetsDir, filepath.FromSlash(relativePath))
 		if !isSubPath(tempAssetsDir, targetPath) {
 			return false, "", invalidBackupError("zip backup contains invalid assets path")
@@ -484,19 +524,32 @@ func extractAssetsFromZip(entries []*zip.File) (bool, string, error) {
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return false, "", err
 		}
-		if err := extractZipFileEntry(entry, targetPath); err != nil {
+		written, err := extractZipFileEntryLimited(entry, targetPath, remainingSize)
+		if err != nil {
 			return false, "", invalidBackupError("failed to extract assets from zip backup")
 		}
+		extractedSize += written
 	}
 
 	shouldCleanup = false
 	return true, tempAssetsDir, nil
 }
 
-func extractZipFileEntry(entry *zip.File, targetPath string) error {
+func validateZipFileEntrySize(entry *zip.File, maxBytes int64, message string) error {
+	if maxBytes < 0 || entry.UncompressedSize64 > uint64(maxBytes) {
+		return invalidBackupError(message)
+	}
+	return nil
+}
+
+func extractZipFileEntryLimited(entry *zip.File, targetPath string, maxBytes int64) (int64, error) {
+	if maxBytes < 0 {
+		return 0, invalidBackupError("zip backup entry exceeds extracted size limit")
+	}
+
 	source, err := entry.Open()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer source.Close()
 
@@ -507,15 +560,20 @@ func extractZipFileEntry(entry *zip.File, targetPath string) error {
 
 	target, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer target.Close()
 
-	if _, err := io.Copy(target, source); err != nil {
-		return err
+	limited := &io.LimitedReader{R: source, N: maxBytes + 1}
+	written, err := io.Copy(target, limited)
+	if err != nil {
+		return written, err
+	}
+	if written > maxBytes {
+		return written, invalidBackupError("zip backup entry exceeds extracted size limit")
 	}
 
-	return nil
+	return written, nil
 }
 
 func replaceDatabaseFile(sourcePath string, dbPath string) error {

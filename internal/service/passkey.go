@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -349,53 +347,22 @@ func (s *AuthService) buildWebAuthn(origin string, host string, scheme string) (
 	}
 
 	siteURL := normalizeSiteURL(s.getSetting("site_url"))
-
-	origins := make(map[string]struct{})
-	rpID := ""
-
-	if siteURL != "" {
-		parsed, _ := url.Parse(siteURL)
-		rpID = parsed.Hostname()
-		origins[siteURL] = struct{}{}
+	if siteURL == "" {
+		return nil, errors.New("site_url must be configured before passkeys can be used")
 	}
 
-	if origin != "" {
-		if parsed, err := url.Parse(origin); err == nil && parsed.Hostname() != "" {
-			if rpID == "" {
-				rpID = parsed.Hostname()
-			}
-			origins[fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)] = struct{}{}
-		}
+	parsed, err := url.Parse(siteURL)
+	if err != nil || parsed.Hostname() == "" {
+		return nil, errors.New("invalid configured site_url")
 	}
-
-	if rpID == "" {
-		hostname := extractHostName(host)
-		if hostname == "" {
-			return nil, errors.New("failed to determine relying party id")
-		}
-		rpID = hostname
+	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && isLoopbackWebAuthnHost(parsed.Hostname())) {
+		return nil, errors.New("site_url must use https except for loopback development hosts")
 	}
-
-	if len(origins) == 0 {
-		if scheme == "" {
-			scheme = "http"
-		}
-		if host == "" {
-			host = rpID
-		}
-		origins[fmt.Sprintf("%s://%s", scheme, host)] = struct{}{}
-	}
-
-	originList := make([]string, 0, len(origins))
-	for value := range origins {
-		originList = append(originList, value)
-	}
-	sort.Strings(originList)
 
 	config := &webauthn.Config{
 		RPDisplayName: siteName,
-		RPID:          rpID,
-		RPOrigins:     originList,
+		RPID:          parsed.Hostname(),
+		RPOrigins:     []string{siteURL},
 	}
 
 	return webauthn.New(config)
@@ -443,26 +410,9 @@ func normalizeSiteURL(raw string) string {
 	return fmt.Sprintf("%s://%s", scheme, parsed.Host)
 }
 
-func extractHostName(host string) string {
-	trimmed := strings.TrimSpace(host)
-	if trimmed == "" {
-		return ""
-	}
-
-	if strings.Contains(trimmed, ",") {
-		parts := strings.Split(trimmed, ",")
-		trimmed = strings.TrimSpace(parts[0])
-	}
-
-	if parsed, err := url.Parse(trimmed); err == nil && parsed.Hostname() != "" {
-		return parsed.Hostname()
-	}
-
-	if h, _, err := net.SplitHostPort(trimmed); err == nil {
-		return h
-	}
-
-	return strings.TrimSpace(trimmed)
+func isLoopbackWebAuthnHost(hostname string) bool {
+	normalized := strings.ToLower(strings.Trim(hostname, "[]"))
+	return normalized == "localhost" || normalized == "127.0.0.1" || normalized == "::1"
 }
 
 func encodeCredentialID(data []byte) string {
