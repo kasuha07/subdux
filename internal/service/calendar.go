@@ -106,7 +106,12 @@ func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subs
 	}
 
 	var subs []model.Subscription
-	if err := s.DB.Where("user_id = ? AND status = ? AND next_billing_date IS NOT NULL", userID, subscriptionStatusActive).
+	if err := s.DB.Where(
+		"user_id = ? AND status = ? AND renewal_mode != ? AND next_billing_date IS NOT NULL",
+		userID,
+		subscriptionStatusActive,
+		renewalModeCancelAtPeriodEnd,
+	).
 		Order("next_billing_date ASC").
 		Find(&subs).Error; err != nil {
 		return nil, err

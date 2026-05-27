@@ -140,7 +140,7 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 	scheduledDispatches := make(map[string]struct{})
 
 	for _, sub := range subs {
-		if sub.NextBillingDate == nil {
+		if sub.NextBillingDate == nil || !subscriptionHasFutureCharge(sub) {
 			continue
 		}
 

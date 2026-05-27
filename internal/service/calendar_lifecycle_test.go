@@ -40,3 +40,37 @@ func TestGenerateICalFeedOmitsRRuleForNonAutoRenewRecurring(t *testing.T) {
 		t.Fatal("manual_renew subscription should not emit RRULE in iCal feed")
 	}
 }
+
+func TestGenerateICalFeedOmitsCancelAtPeriodEndSubscription(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+	calendarService := NewCalendarService(db)
+
+	intervalCount := 1
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending recurring",
+		Amount:          7.99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-10",
+	}); err != nil {
+		t.Fatalf("create ending recurring subscription failed: %v", err)
+	}
+
+	feed, err := calendarService.GenerateICalFeed(user.ID)
+	if err != nil {
+		t.Fatalf("GenerateICalFeed() error = %v", err)
+	}
+
+	if strings.Contains(feed, "Ending recurring") {
+		t.Fatal("cancel_at_period_end subscription should not emit a billing event in iCal feed")
+	}
+}

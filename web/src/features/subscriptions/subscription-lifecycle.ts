@@ -43,6 +43,10 @@ export function hasFutureRecurringSchedule(subscription: Subscription): boolean 
   )
 }
 
+export function hasFutureCharge(subscription: Subscription): boolean {
+  return isSubscriptionActive(subscription) && getSubscriptionRenewalMode(subscription) !== "cancel_at_period_end"
+}
+
 export function hasActiveRecurringCycle(subscription: Subscription): boolean {
   return subscription.billing_type === "recurring" && isSubscriptionActive(subscription)
 }

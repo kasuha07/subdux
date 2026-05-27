@@ -239,7 +239,7 @@ func (s *SubscriptionService) subscriptionDetailNotificationLogs(userID, subscri
 }
 
 func subscriptionDetailUpcomingCharges(sub model.Subscription, limit int, now time.Time) []SubscriptionDetailUpcomingCharge {
-	if limit <= 0 || sub.NextBillingDate == nil || normalizeStatus(sub.Status) != subscriptionStatusActive {
+	if limit <= 0 || sub.NextBillingDate == nil || !subscriptionHasFutureCharge(sub) {
 		return []SubscriptionDetailUpcomingCharge{}
 	}
 

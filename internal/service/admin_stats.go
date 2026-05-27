@@ -15,7 +15,7 @@ func (s *AdminService) GetStats() (*AdminStats, error) {
 
 	for _, sub := range subs {
 		factor := subscriptionMonthlyFactor(sub)
-		if factor > 0 {
+		if factor > 0 && subscriptionContributesToOngoingSpend(sub) {
 			stats.TotalMonthlySpend += sub.Amount * factor
 		}
 	}

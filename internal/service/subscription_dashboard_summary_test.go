@@ -8,7 +8,7 @@ import (
 	"github.com/shiroha/subdux/internal/pkg"
 )
 
-func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
+func TestSubscriptionChargeDatesInRange(t *testing.T) {
 	intPtr := func(value int) *int {
 		return &value
 	}
@@ -29,6 +29,7 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 			start: "2026-02-01",
 			end:   "2026-03-01",
 			sub: model.Subscription{
+				Status:          subscriptionStatusActive,
 				BillingType:     billingTypeOneTime,
 				NextBillingDate: timePtr("2026-02-15"),
 			},
@@ -39,6 +40,7 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 			start: "2026-02-01",
 			end:   "2026-03-01",
 			sub: model.Subscription{
+				Status:          subscriptionStatusActive,
 				BillingType:     billingTypeOneTime,
 				NextBillingDate: timePtr("2026-01-31"),
 			},
@@ -49,6 +51,8 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 			start: "2026-02-01",
 			end:   "2026-03-01",
 			sub: model.Subscription{
+				Status:          subscriptionStatusActive,
+				RenewalMode:     renewalModeAutoRenew,
 				BillingType:     billingTypeRecurring,
 				RecurrenceType:  recurrenceTypeInterval,
 				IntervalCount:   intPtr(1),
@@ -62,10 +66,42 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 			start: "2026-02-01",
 			end:   "2026-03-01",
 			sub: model.Subscription{
+				Status:          subscriptionStatusActive,
+				RenewalMode:     renewalModeAutoRenew,
 				BillingType:     billingTypeRecurring,
 				RecurrenceType:  recurrenceTypeMonthlyDate,
 				MonthlyDay:      intPtr(31),
 				NextBillingDate: timePtr("2026-01-31"),
+			},
+			want: 1,
+		},
+		{
+			name:  "cancel-at-period-end has no future charge",
+			start: "2026-02-01",
+			end:   "2026-03-01",
+			sub: model.Subscription{
+				Status:          subscriptionStatusActive,
+				RenewalMode:     renewalModeCancelAtPeriodEnd,
+				BillingType:     billingTypeRecurring,
+				RecurrenceType:  recurrenceTypeInterval,
+				IntervalCount:   intPtr(1),
+				IntervalUnit:    intervalUnitMonth,
+				NextBillingDate: timePtr("2026-02-15"),
+			},
+			want: 0,
+		},
+		{
+			name:  "manual renewal only counts the known next charge",
+			start: "2026-02-01",
+			end:   "2026-05-01",
+			sub: model.Subscription{
+				Status:          subscriptionStatusActive,
+				RenewalMode:     renewalModeManualRenew,
+				BillingType:     billingTypeRecurring,
+				RecurrenceType:  recurrenceTypeInterval,
+				IntervalCount:   intPtr(1),
+				IntervalUnit:    intervalUnitMonth,
+				NextBillingDate: timePtr("2026-02-15"),
 			},
 			want: 1,
 		},
@@ -75,8 +111,8 @@ func TestCountSubscriptionOccurrencesInRange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			start := mustDate(t, tt.start)
 			end := mustDate(t, tt.end)
-			if got := countSubscriptionOccurrencesInRange(tt.sub, start, end); got != tt.want {
-				t.Fatalf("countSubscriptionOccurrencesInRange() = %d, want %d", got, tt.want)
+			if got := len(subscriptionChargeDatesInRange(tt.sub, start, end)); got != tt.want {
+				t.Fatalf("subscriptionChargeDatesInRange() length = %d, want %d", got, tt.want)
 			}
 		})
 	}
@@ -132,5 +168,64 @@ func TestGetDashboardSummarySplitsCommittedSpend(t *testing.T) {
 	}
 	if got, want := summary.CommittedYearly, 120.0; got != want {
 		t.Fatalf("committed_yearly = %v, want %v", got, want)
+	}
+}
+
+func TestGetDashboardSummaryExcludesCancelAtPeriodEndFromSpend(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	intervalCount := 1
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Auto renew monthly",
+		Amount:          10,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-20",
+	}); err != nil {
+		t.Fatalf("create auto renew subscription failed: %v", err)
+	}
+
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending monthly",
+		Amount:          99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-22",
+	}); err != nil {
+		t.Fatalf("create cancel-at-period-end subscription failed: %v", err)
+	}
+
+	summary, err := service.GetDashboardSummary(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary() error = %v", err)
+	}
+
+	if got, want := summary.ActiveCount, int64(2); got != want {
+		t.Fatalf("active_count = %d, want %d", got, want)
+	}
+	if got, want := summary.TotalMonthly, 10.0; got != want {
+		t.Fatalf("total_monthly = %v, want %v", got, want)
+	}
+	if got, want := summary.TotalYearly, 120.0; got != want {
+		t.Fatalf("total_yearly = %v, want %v", got, want)
+	}
+	if got, want := summary.DueThisMonth, 10.0; got != want {
+		t.Fatalf("due_this_month = %v, want %v", got, want)
+	}
+	if got, want := summary.UpcomingRenewalCount, int64(0); got != want {
+		t.Fatalf("upcoming_renewal_count = %d, want %d", got, want)
 	}
 }

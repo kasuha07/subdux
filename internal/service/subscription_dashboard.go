@@ -36,20 +36,14 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 		}
 
 		factor := subscriptionMonthlyFactor(sub)
-		if factor <= 0 {
-			occurrences := countSubscriptionOccurrencesInRange(sub, today, startOfNextMonth)
-			if occurrences > 0 {
-				dueThisMonth += amount * float64(occurrences)
+		if factor > 0 && subscriptionContributesToOngoingSpend(sub) {
+			totalMonthly += amount * factor
+			if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
+				committedMonthly += amount * factor
 			}
-			continue
 		}
 
-		totalMonthly += amount * factor
-		if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
-			committedMonthly += amount * factor
-		}
-
-		occurrences := countSubscriptionOccurrencesInRange(sub, today, startOfNextMonth)
+		occurrences := len(subscriptionChargeDatesInRange(sub, today, startOfNextMonth))
 		if occurrences > 0 {
 			dueThisMonth += amount * float64(occurrences)
 		}
@@ -57,15 +51,16 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 
 	sevenDays := today.AddDate(0, 0, 7)
 	var upcomingRenewalCount int64
-	if err := s.DB.Model(&model.Subscription{}).Where(
-		"user_id = ? AND status = ? AND billing_type = ? AND next_billing_date IS NOT NULL AND next_billing_date >= ? AND next_billing_date <= ?",
-		userID,
-		subscriptionStatusActive,
-		billingTypeRecurring,
-		today,
-		sevenDays,
-	).Count(&upcomingRenewalCount).Error; err != nil {
-		return nil, err
+	for _, sub := range subs {
+		if !subscriptionHasFutureCharge(sub) || sub.NextBillingDate == nil {
+			continue
+		}
+
+		nextBillingDate := normalizeDateUTC(*sub.NextBillingDate)
+		if nextBillingDate.Before(today) || nextBillingDate.After(sevenDays) {
+			continue
+		}
+		upcomingRenewalCount++
 	}
 
 	return &DashboardSummary{
@@ -80,43 +75,57 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 	}, nil
 }
 
-func countSubscriptionOccurrencesInRange(sub model.Subscription, startInclusive, endExclusive time.Time) int {
+func subscriptionContributesToOngoingSpend(sub model.Subscription) bool {
+	return normalizeStatus(sub.Status) == subscriptionStatusActive &&
+		normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd
+}
+
+func subscriptionHasFutureCharge(sub model.Subscription) bool {
+	return normalizeStatus(sub.Status) == subscriptionStatusActive &&
+		normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd
+}
+
+func subscriptionChargeDatesInRange(sub model.Subscription, startInclusive, endExclusive time.Time) []time.Time {
+	if !subscriptionHasFutureCharge(sub) {
+		return nil
+	}
+
 	startInclusive = normalizeDateUTC(startInclusive)
 	endExclusive = normalizeDateUTC(endExclusive)
 	if !startInclusive.Before(endExclusive) {
-		return 0
+		return nil
 	}
 	if sub.NextBillingDate == nil {
-		return 0
+		return nil
 	}
 
 	current := normalizeDateUTC(*sub.NextBillingDate)
-	if sub.BillingType != billingTypeRecurring {
+	if sub.BillingType != billingTypeRecurring || normalizeRenewalMode(sub.RenewalMode) != renewalModeAutoRenew {
 		if current.Before(startInclusive) || !current.Before(endExclusive) {
-			return 0
+			return nil
 		}
-		return 1
+		return []time.Time{current}
 	}
 	if !isRecurringScheduleValid(sub) {
-		return 0
+		return nil
 	}
 
 	if current.Before(startInclusive) {
 		next, ok := nextRecurringOccurrenceOnOrAfter(sub, current, startInclusive)
 		if !ok {
-			return 0
+			return nil
 		}
 		current = next
 	}
 
 	if !current.Before(endExclusive) {
-		return 0
+		return nil
 	}
 
-	occurrences := 0
+	var dates []time.Time
 	for current.Before(endExclusive) {
 		if !current.Before(startInclusive) {
-			occurrences++
+			dates = append(dates, current)
 		}
 
 		next, ok := nextRecurringOccurrenceAfter(sub, current)
@@ -126,7 +135,7 @@ func countSubscriptionOccurrencesInRange(sub model.Subscription, startInclusive,
 		current = next
 	}
 
-	return occurrences
+	return dates
 }
 
 func nextRecurringOccurrenceOnOrAfter(sub model.Subscription, anchor, from time.Time) (time.Time, bool) {

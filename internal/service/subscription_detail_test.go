@@ -138,6 +138,47 @@ func TestGetSubscriptionDetailLimitsManualRenewToCurrentCharge(t *testing.T) {
 	}
 }
 
+func TestGetSubscriptionDetailExcludesCancelAtPeriodEndUpcomingCharges(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.NotificationLog{}); err != nil {
+		t.Fatalf("failed to migrate notification logs: %v", err)
+	}
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending Tool",
+		Amount:          20,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-15",
+	})
+	if err != nil {
+		t.Fatalf("create subscription failed: %v", err)
+	}
+
+	detail, err := service.GetDetail(user.ID, sub.ID)
+	if err != nil {
+		t.Fatalf("GetDetail() error = %v", err)
+	}
+
+	if got, want := len(detail.UpcomingCharges), 0; got != want {
+		t.Fatalf("upcoming charges length = %d, want %d", got, want)
+	}
+	if detail.Calendar.HasUpcomingEvent || detail.Calendar.NextEventDate != nil {
+		t.Fatal("calendar summary should not expose an upcoming charge for cancel-at-period-end subscription")
+	}
+}
+
 func TestGetSubscriptionDetailPriceHistoryIsNotLimitedByTimeline(t *testing.T) {
 	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
 	t.Cleanup(restoreClock)

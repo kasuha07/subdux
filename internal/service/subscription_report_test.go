@@ -108,6 +108,88 @@ func TestGetAnalyticsReportAggregatesSubscriptionSpend(t *testing.T) {
 	}
 }
 
+func TestGetAnalyticsReportExcludesCancelAtPeriodEndFromSpendAndForecast(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Active Video",
+		Amount:          12,
+		Icon:            "custom:netflix",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-15",
+		Category:        "Video",
+	}); err != nil {
+		t.Fatalf("create active subscription failed: %v", err)
+	}
+
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending Video",
+		Amount:          99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-20",
+		Category:        "Ending",
+	}); err != nil {
+		t.Fatalf("create ending subscription failed: %v", err)
+	}
+
+	report, err := service.GetAnalyticsReport(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetAnalyticsReport() error = %v", err)
+	}
+
+	if got, want := report.KPIs.ActiveCount, int64(2); got != want {
+		t.Fatalf("active_count = %d, want %d", got, want)
+	}
+	if got, want := report.KPIs.CancelingCount, int64(1); got != want {
+		t.Fatalf("canceling_count = %d, want %d", got, want)
+	}
+	assertFloatEqual(t, report.KPIs.TotalMonthly, 12, "total_monthly")
+	assertFloatEqual(t, report.KPIs.TotalYearly, 144, "total_yearly")
+	assertFloatEqual(t, report.KPIs.DueThisMonth, 12, "due_this_month")
+	assertFloatEqual(t, report.KPIs.DueNext30Days, 12, "due_next_30_days")
+
+	if got, want := len(report.UpcomingRenewals), 1; got != want {
+		t.Fatalf("upcoming_renewals length = %d, want %d", got, want)
+	}
+	if got, want := report.UpcomingRenewals[0].Name, "Active Video"; got != want {
+		t.Fatalf("upcoming renewal = %q, want %q", got, want)
+	}
+	assertFloatEqual(t, report.MonthlyForecast[0].AmountDue, 12, "march amount_due")
+
+	if got, want := len(report.TopSubscriptions), 1; got != want {
+		t.Fatalf("top_subscriptions length = %d, want %d", got, want)
+	}
+	if got, want := report.TopSubscriptions[0].Name, "Active Video"; got != want {
+		t.Fatalf("top subscription = %q, want %q", got, want)
+	}
+	for _, item := range report.CategoryBreakdown {
+		if item.Label == "Ending" {
+			t.Fatal("cancel-at-period-end subscription should not appear in category breakdown")
+		}
+	}
+	for _, item := range report.RenewalModeBreakdown {
+		if item.Key == renewalModeCancelAtPeriodEnd {
+			t.Fatal("cancel-at-period-end subscription should not appear in spend breakdown")
+		}
+	}
+}
+
 func TestSubscriptionEventsTrackChangesForAnalytics(t *testing.T) {
 	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
 	t.Cleanup(restoreClock)

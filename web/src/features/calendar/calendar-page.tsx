@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import {
+  hasFutureCharge,
   hasFutureRecurringSchedule,
   isSubscriptionActive,
 } from "@/features/subscriptions/subscription-lifecycle"
@@ -84,6 +85,10 @@ function renderCalendarIcon(icon: string, name: string) {
 function getBillingDatesInMonth(sub: Subscription, year: number, month: number): Set<number> {
   const days = new Set<number>()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  if (!hasFutureCharge(sub)) {
+    return days
+  }
 
   // recurring auto-renew schedules keep future recurrence expansion
   if (!hasFutureRecurringSchedule(sub)) {

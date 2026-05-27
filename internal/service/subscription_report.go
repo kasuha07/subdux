@@ -191,7 +191,10 @@ func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency str
 	for _, sub := range subs {
 		amount := convertSubscriptionAmount(sub, targetCurrency, converter)
 		factor := subscriptionMonthlyFactor(sub)
-		monthlyAmount := amount * factor
+		monthlyAmount := 0.0
+		if subscriptionContributesToOngoingSpend(sub) {
+			monthlyAmount = amount * factor
+		}
 
 		renewalMode := normalizeRenewalMode(sub.RenewalMode)
 		switch renewalMode {
@@ -206,10 +209,10 @@ func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency str
 
 		report.KPIs.TotalMonthly += monthlyAmount
 
-		thisMonthRenewalDates := subscriptionReportOccurrenceDatesInRange(sub, today, startOfNextMonth)
+		thisMonthRenewalDates := subscriptionChargeDatesInRange(sub, today, startOfNextMonth)
 		report.KPIs.DueThisMonth += amount * float64(len(thisMonthRenewalDates))
 
-		renewalDates := subscriptionReportOccurrenceDatesInRange(sub, today, next30DaysExclusive)
+		renewalDates := subscriptionChargeDatesInRange(sub, today, next30DaysExclusive)
 		report.KPIs.UpcomingRenewalCount += int64(len(renewalDates))
 		report.KPIs.DueNext30Days += amount * float64(len(renewalDates))
 		for _, renewalDate := range renewalDates {
@@ -232,22 +235,22 @@ func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency str
 				periodStart = today
 			}
 			periodEnd := startOfThisMonth.AddDate(0, i+1, 0)
-			occurrences := subscriptionReportOccurrenceDatesInRange(sub, periodStart, periodEnd)
+			occurrences := subscriptionChargeDatesInRange(sub, periodStart, periodEnd)
 			if len(occurrences) > 0 {
 				report.MonthlyForecast[i].OccurrenceCount += len(occurrences)
 				report.MonthlyForecast[i].AmountDue += amount * float64(len(occurrences))
 			}
 		}
 
-		categoryKey, categoryLabel := reportCategoryKeyAndLabel(sub, categoryLabels)
-		addReportBreakdown(categoryBreakdowns, categoryKey, categoryLabel, monthlyAmount)
-
-		paymentKey, paymentLabel := reportPaymentMethodKeyAndLabel(sub, paymentMethodLabels)
-		addReportBreakdown(paymentMethodBreakdowns, paymentKey, paymentLabel, monthlyAmount)
-
-		addReportBreakdown(renewalModeBreakdowns, renewalMode, renewalMode, monthlyAmount)
-
 		if monthlyAmount > 0 {
+			categoryKey, categoryLabel := reportCategoryKeyAndLabel(sub, categoryLabels)
+			addReportBreakdown(categoryBreakdowns, categoryKey, categoryLabel, monthlyAmount)
+
+			paymentKey, paymentLabel := reportPaymentMethodKeyAndLabel(sub, paymentMethodLabels)
+			addReportBreakdown(paymentMethodBreakdowns, paymentKey, paymentLabel, monthlyAmount)
+
+			addReportBreakdown(renewalModeBreakdowns, renewalMode, renewalMode, monthlyAmount)
+
 			nextBillingDate := ""
 			if sub.NextBillingDate != nil {
 				nextBillingDate = normalizeDateUTC(*sub.NextBillingDate).Format("2006-01-02")
@@ -600,63 +603,4 @@ func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMon
 		return result[i].MonthlyAmount > result[j].MonthlyAmount
 	})
 	return result
-}
-
-func subscriptionOccurrenceDatesInRange(sub model.Subscription, startInclusive, endExclusive time.Time) []time.Time {
-	startInclusive = normalizeDateUTC(startInclusive)
-	endExclusive = normalizeDateUTC(endExclusive)
-	if !startInclusive.Before(endExclusive) || sub.NextBillingDate == nil {
-		return nil
-	}
-
-	current := normalizeDateUTC(*sub.NextBillingDate)
-	if sub.BillingType != billingTypeRecurring {
-		if current.Before(startInclusive) || !current.Before(endExclusive) {
-			return nil
-		}
-		return []time.Time{current}
-	}
-	if !isRecurringScheduleValid(sub) {
-		return nil
-	}
-
-	if current.Before(startInclusive) {
-		next, ok := nextRecurringOccurrenceOnOrAfter(sub, current, startInclusive)
-		if !ok {
-			return nil
-		}
-		current = next
-	}
-
-	var dates []time.Time
-	for current.Before(endExclusive) {
-		if !current.Before(startInclusive) {
-			dates = append(dates, current)
-		}
-
-		next, ok := nextRecurringOccurrenceAfter(sub, current)
-		if !ok || !next.After(current) {
-			break
-		}
-		current = next
-	}
-	return dates
-}
-
-func subscriptionReportOccurrenceDatesInRange(sub model.Subscription, startInclusive, endExclusive time.Time) []time.Time {
-	if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
-		return subscriptionOccurrenceDatesInRange(sub, startInclusive, endExclusive)
-	}
-
-	startInclusive = normalizeDateUTC(startInclusive)
-	endExclusive = normalizeDateUTC(endExclusive)
-	if !startInclusive.Before(endExclusive) || sub.NextBillingDate == nil {
-		return nil
-	}
-
-	nextBillingDate := normalizeDateUTC(*sub.NextBillingDate)
-	if nextBillingDate.Before(startInclusive) || !nextBillingDate.Before(endExclusive) {
-		return nil
-	}
-	return []time.Time{nextBillingDate}
 }

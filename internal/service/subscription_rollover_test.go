@@ -394,3 +394,54 @@ func TestProcessUserNotificationsAutoAdvancesOverdueRecurringNextBillingDate(t *
 		t.Fatalf("recurring next billing date = %s, want %s", got, want)
 	}
 }
+
+func TestProcessUserNotificationsSkipsCancelAtPeriodEndSubscription(t *testing.T) {
+	db := newSubscriptionRolloverTestDB(t)
+	user := createSubscriptionRolloverTestUser(t, db)
+	subscriptionService := NewSubscriptionService(db)
+	notificationService := NewNotificationService(db, nil, nil)
+
+	today := setSubscriptionRolloverTestNow(t)
+	intervalCount := 1
+	if _, err := subscriptionService.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending notification",
+		Amount:          5.99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: today.Format("2006-01-02"),
+	}); err != nil {
+		t.Fatalf("Create cancel-at-period-end subscription error = %v", err)
+	}
+
+	if err := db.Create(&model.NotificationPolicy{
+		UserID:         user.ID,
+		DaysBefore:     3,
+		NotifyOnDueDay: true,
+	}).Error; err != nil {
+		t.Fatalf("create notification policy failed: %v", err)
+	}
+	if err := db.Create(&model.NotificationChannel{
+		UserID:  user.ID,
+		Type:    "unsupported-test",
+		Enabled: true,
+		Config:  "{}",
+	}).Error; err != nil {
+		t.Fatalf("create notification channel failed: %v", err)
+	}
+
+	if err := notificationService.processUserNotifications(user.ID); err != nil {
+		t.Fatalf("processUserNotifications() error = %v", err)
+	}
+
+	var logCount int64
+	if err := db.Model(&model.NotificationLog{}).Count(&logCount).Error; err != nil {
+		t.Fatalf("count notification logs failed: %v", err)
+	}
+	if logCount != 0 {
+		t.Fatalf("notification log count = %d, want 0", logCount)
+	}
+}
