@@ -713,7 +713,13 @@ export default function DashboardPage() {
           <SubscriptionDetailDrawer
             open={!!detailSub}
             subscription={detailSub}
+            categoryName={getSubscriptionCategoryName(detailSub)}
             currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+            paymentMethodName={
+              detailSub.payment_method_id
+                ? paymentMethodLabelMap.get(detailSub.payment_method_id)
+                : undefined
+            }
             onOpenChange={(open) => {
               if (!open) setDetailSub(null)
             }}

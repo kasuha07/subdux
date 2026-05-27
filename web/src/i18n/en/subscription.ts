@@ -56,6 +56,26 @@ const subscription = {
       "latestActivity": "Latest activity",
       "lastNotification": "Last via {{channel}}"
     },
+    "info": {
+      "title": "Subscription information",
+      "amount": "Amount",
+      "billingType": "Billing type",
+      "recurrence": "Recurrence",
+      "nextBillingDate": "Next billing date",
+      "status": "Lifecycle",
+      "renewalMode": "Renewal mode",
+      "endsAt": "Ended on",
+      "category": "Category",
+      "paymentMethod": "Payment method",
+      "notification": "Notification",
+      "notificationDefault": "Use default policy",
+      "notificationEnabled": "Enabled",
+      "notificationEnabledWithDays": "Enabled, {{days}} day(s) before",
+      "notificationDisabled": "Disabled",
+      "createdAt": "Created",
+      "url": "URL",
+      "notes": "Notes"
+    },
     "empty": {
       "none": "None",
       "noUpcomingCharges": "No upcoming charge",

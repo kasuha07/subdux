@@ -1,10 +1,12 @@
 import { type CSSProperties, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import {
   Bell,
   CalendarDays,
   CircleDollarSign,
+  ExternalLink,
   History,
   Pencil,
   ReceiptText,
@@ -37,7 +39,9 @@ import {
 interface Props {
   open: boolean
   subscription: Subscription | null
+  categoryName?: string
   currencySymbol?: string
+  paymentMethodName?: string
   onOpenChange: (open: boolean) => void
   onEdit: (subscription: Subscription) => void
 }
@@ -71,7 +75,9 @@ function rowAnimationDelay(index: number): DetailAnimationStyle {
 export default function SubscriptionDetailDrawer({
   open,
   subscription,
+  categoryName,
   currencySymbol,
+  paymentMethodName,
   onOpenChange,
   onEdit,
 }: Props) {
@@ -196,6 +202,13 @@ export default function SubscriptionDetailDrawer({
                   formatAmount={formatAmount}
                   language={i18n.language}
                 />
+                <DetailInfoPanel
+                  detail={detail}
+                  categoryName={categoryName}
+                  paymentMethodName={paymentMethodName}
+                  formatAmount={formatAmount}
+                  language={i18n.language}
+                />
 
                 <Tabs defaultValue="timeline" className="detail-drawer-stage gap-4" style={animationDelay(120)}>
                   <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
@@ -309,6 +322,11 @@ function Overview({
   const nextCharge = detail.upcoming_charges[0]
   const latestEvent = detail.timeline[0]
   const latestLog = detail.notification_logs[0]
+  const lifecycleDetail = sub.status === "ended" && sub.ends_at
+    ? t("subscription.card.endedOn", { date: formatDate(sub.ends_at, language) })
+    : sub.renewal_mode
+      ? t(`subscription.card.renewalMode.${sub.renewal_mode}`)
+      : ""
 
   return (
     <div className="grid gap-3 sm:grid-cols-3">
@@ -321,7 +339,7 @@ function Overview({
       <SummaryTile
         label={t("subscription.detail.summary.lifecycle")}
         value={t(`subscription.card.status.${sub.status}`)}
-        detail={sub.renewal_mode ? t(`subscription.card.renewalMode.${sub.renewal_mode}`) : ""}
+        detail={lifecycleDetail}
         delay={40}
       />
       <SummaryTile
@@ -330,6 +348,138 @@ function Overview({
         detail={latestLog ? t("subscription.detail.summary.lastNotification", { channel: latestLog.channel_type }) : t("subscription.detail.empty.noNotifications")}
         delay={80}
       />
+    </div>
+  )
+}
+
+function DetailInfoPanel({
+  detail,
+  categoryName,
+  paymentMethodName,
+  formatAmount,
+  language,
+}: {
+  detail: SubscriptionDetail
+  categoryName?: string
+  paymentMethodName?: string
+  formatAmount: (amount: number, currency?: string) => string
+  language: string
+}) {
+  const { t } = useTranslation()
+  const sub = detail.subscription
+  const empty = t("subscription.detail.empty.none")
+  const resolvedCategory = categoryName?.trim() || sub.category?.trim() || empty
+  const resolvedPaymentMethod = paymentMethodName?.trim() || empty
+  const formattedUrl = sub.url?.trim()
+  const notes = sub.notes?.trim()
+
+  const rows = [
+    {
+      label: t("subscription.detail.info.amount"),
+      value: formatAmount(sub.amount, sub.currency),
+    },
+    {
+      label: t("subscription.detail.info.billingType"),
+      value: t(`subscription.form.billingType.${sub.billing_type}`, {
+        defaultValue: sub.billing_type || empty,
+      }),
+    },
+    {
+      label: t("subscription.detail.info.recurrence"),
+      value: formatRecurrenceRule(sub, t),
+    },
+    {
+      label: t("subscription.detail.info.nextBillingDate"),
+      value: sub.next_billing_date ? formatDate(sub.next_billing_date, language) : empty,
+    },
+    {
+      label: t("subscription.detail.info.status"),
+      value: t(`subscription.card.status.${sub.status}`),
+    },
+    {
+      label: t("subscription.detail.info.renewalMode"),
+      value: t(`subscription.card.renewalMode.${sub.renewal_mode}`),
+    },
+    {
+      label: t("subscription.detail.info.endsAt"),
+      value: sub.ends_at ? formatDate(sub.ends_at, language) : empty,
+    },
+    {
+      label: t("subscription.detail.info.category"),
+      value: resolvedCategory,
+    },
+    {
+      label: t("subscription.detail.info.paymentMethod"),
+      value: resolvedPaymentMethod,
+    },
+    {
+      label: t("subscription.detail.info.notification"),
+      value: formatNotificationSetting(sub, t),
+    },
+    {
+      label: t("subscription.detail.info.createdAt"),
+      value: sub.created_at ? formatDate(sub.created_at, language) : empty,
+    },
+  ]
+
+  return (
+    <section
+      className="detail-drawer-stage overflow-hidden rounded-lg border bg-background"
+      style={animationDelay(80)}
+    >
+      <div className="border-b bg-muted/25 px-3 py-2">
+        <p className="text-sm font-medium">{t("subscription.detail.info.title")}</p>
+      </div>
+      <dl className="grid sm:grid-cols-2">
+        {rows.map((row) => (
+          <DetailInfoItem key={row.label} label={row.label} value={row.value} />
+        ))}
+        <DetailInfoItem
+          label={t("subscription.detail.info.url")}
+          value={formattedUrl || empty}
+          href={formattedUrl}
+          wide
+        />
+        <DetailInfoItem
+          label={t("subscription.detail.info.notes")}
+          value={notes || empty}
+          wide
+        />
+      </dl>
+    </section>
+  )
+}
+
+function DetailInfoItem({
+  href,
+  label,
+  value,
+  wide = false,
+}: {
+  href?: string
+  label: string
+  value: string
+  wide?: boolean
+}) {
+  return (
+    <div className={`min-w-0 border-b px-3 py-2.5 last:border-b-0 ${wide ? "sm:col-span-2" : ""}`}>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 min-w-0 text-sm">
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex max-w-full items-center gap-1 text-primary hover:underline"
+            title={value}
+          >
+            <span className="truncate">{value}</span>
+            <ExternalLink className="size-3.5 shrink-0" />
+          </a>
+        ) : (
+          <span className="break-words" title={value}>{value}</span>
+        )}
+      </dd>
     </div>
   )
 }
@@ -364,31 +514,69 @@ function TimelinePanel({
   return (
     <div className="divide-y rounded-lg border">
       {items.map((item, index) => (
-        <div
+        <TimelineItem
           key={item.id}
-          className="group detail-drawer-row grid gap-3 p-3 transition-colors duration-200 hover:bg-muted/35 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-          style={rowAnimationDelay(index)}
-        >
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <Badge variant="outline" className={`transition-transform duration-200 group-hover:scale-[1.03] ${eventBadgeStyles[item.type] || ""}`}>
-                {eventTypeLabel(item.type, t)}
-              </Badge>
-              <p className="truncate text-sm text-muted-foreground">
-                {formatDate(item.changed_at, language)}
-              </p>
-            </div>
-            {item.changed_fields.length > 0 ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {item.changed_fields.map((field) => eventFieldLabel(field, t)).join(", ")}
-              </p>
-            ) : null}
-          </div>
-          <p className="text-left text-sm tabular-nums sm:text-right">
-            {formatEventAmountChange(item, formatAmount)}
+          item={item}
+          index={index}
+          formatAmount={formatAmount}
+          language={language}
+        />
+      ))}
+    </div>
+  )
+}
+
+function TimelineItem({
+  item,
+  index,
+  formatAmount,
+  language,
+}: {
+  item: SubscriptionDetailEvent
+  index: number
+  formatAmount: (amount: number, currency?: string) => string
+  language: string
+}) {
+  const { t } = useTranslation()
+  const changeRows = eventChangeRows(item, formatAmount, language, t)
+
+  return (
+    <div
+      className="group detail-drawer-row grid gap-3 p-3 transition-colors duration-200 hover:bg-muted/35 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+      style={rowAnimationDelay(index)}
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Badge variant="outline" className={`transition-transform duration-200 group-hover:scale-[1.03] ${eventBadgeStyles[item.type] || ""}`}>
+            {eventTypeLabel(item.type, t)}
+          </Badge>
+          <p className="truncate text-sm text-muted-foreground">
+            {formatDate(item.changed_at, language)}
           </p>
         </div>
-      ))}
+        {item.changed_fields.length > 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {item.changed_fields.map((field) => eventFieldLabel(field, t)).join(", ")}
+          </p>
+        ) : null}
+      </div>
+      <p className="text-left text-sm tabular-nums sm:text-right">
+        {formatEventAmountChange(item, formatAmount)}
+      </p>
+      {changeRows.length > 0 ? (
+        <div className="grid gap-1.5 rounded-md bg-muted/30 p-2 sm:col-span-2">
+          {changeRows.map((row) => (
+            <div key={row.label} className="grid gap-1 text-xs sm:grid-cols-[8rem_minmax(0,1fr)]">
+              <p className="font-medium text-muted-foreground">{row.label}</p>
+              <p className="min-w-0 break-words">
+                <span>{row.previous}</span>
+                <span className="px-1.5 text-muted-foreground">-&gt;</span>
+                <span>{row.next}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -565,6 +753,192 @@ function formatEventAmountChange(
     return formatAmount(item.previous_amount, item.previous_currency)
   }
   return ""
+}
+
+function formatRecurrenceRule(sub: Subscription, t: TFunction): string {
+  const empty = t("subscription.detail.empty.none")
+  if (sub.billing_type !== "recurring") {
+    return t(`subscription.form.billingType.${sub.billing_type}`, {
+      defaultValue: sub.billing_type || empty,
+    })
+  }
+
+  if (sub.recurrence_type === "interval" && sub.interval_count && sub.interval_unit) {
+    return t(`subscription.card.recurrence.interval.${sub.interval_unit}`, {
+      count: sub.interval_count,
+    })
+  }
+  if (sub.recurrence_type === "monthly_date" && sub.monthly_day) {
+    return t("subscription.card.recurrence.monthlyDate", { day: sub.monthly_day })
+  }
+  if (sub.recurrence_type === "yearly_date" && sub.yearly_month && sub.yearly_day) {
+    return t("subscription.card.recurrence.yearlyDate", {
+      month: sub.yearly_month,
+      day: sub.yearly_day,
+    })
+  }
+  return empty
+}
+
+function formatNotificationSetting(sub: Subscription, t: TFunction): string {
+  if (sub.notify_enabled === null) {
+    return t("subscription.detail.info.notificationDefault")
+  }
+  if (sub.notify_enabled === false) {
+    return t("subscription.detail.info.notificationDisabled")
+  }
+  if (sub.notify_days_before !== null) {
+    return t("subscription.detail.info.notificationEnabledWithDays", {
+      days: sub.notify_days_before,
+    })
+  }
+  return t("subscription.detail.info.notificationEnabled")
+}
+
+function eventChangeRows(
+  item: SubscriptionDetailEvent,
+  formatAmount: (amount: number, currency?: string) => string,
+  language: string,
+  t: TFunction
+): Array<{ label: string, previous: string, next: string }> {
+  const fields = item.changed_fields.length > 0 ? item.changed_fields : ["amount"]
+  if (item.type === "created") {
+    return ["amount", "monthly_amount", "next_billing_date", "status", "renewal_mode", "category", "payment_method"]
+      .map((field) => eventChangeRow(field, item, formatAmount, language, t, "created"))
+      .filter((row): row is { label: string, previous: string, next: string } => row !== null)
+  }
+  if (item.type === "deleted") {
+    return ["amount", "monthly_amount", "next_billing_date", "status", "renewal_mode", "category", "payment_method"]
+      .map((field) => eventChangeRow(field, item, formatAmount, language, t, "deleted"))
+      .filter((row): row is { label: string, previous: string, next: string } => row !== null)
+  }
+  return fields
+    .map((field) => eventChangeRow(field, item, formatAmount, language, t))
+    .filter((row): row is { label: string, previous: string, next: string } => row !== null)
+}
+
+function eventChangeRow(
+  field: string,
+  item: SubscriptionDetailEvent,
+  formatAmount: (amount: number, currency?: string) => string,
+  language: string,
+  t: TFunction,
+  mode?: "created" | "deleted"
+): { label: string, previous: string, next: string } | null {
+  const empty = t("subscription.detail.empty.none")
+  const label = eventFieldLabel(field, t)
+
+  function valueForText(previous: string, next: string): { previous: string, next: string } | null {
+    if (!previous && !next) {
+      return null
+    }
+    if (mode === "created") {
+      return { previous: empty, next: next || empty }
+    }
+    if (mode === "deleted") {
+      return { previous: previous || empty, next: empty }
+    }
+    return { previous: previous || empty, next: next || empty }
+  }
+
+  if (field === "amount") {
+    const values = valueForAmount(
+      item.previous_amount,
+      item.previous_currency || item.new_currency,
+      item.new_amount,
+      item.new_currency || item.previous_currency,
+      formatAmount,
+      mode,
+      empty
+    )
+    return values ? { label, ...values } : null
+  }
+  if (field === "monthly_amount") {
+    const values = valueForAmount(
+      item.previous_monthly_amount,
+      item.previous_currency || item.new_currency,
+      item.new_monthly_amount,
+      item.new_currency || item.previous_currency,
+      formatAmount,
+      mode,
+      empty
+    )
+    return values ? { label, ...values } : null
+  }
+  if (field === "currency") {
+    const values = valueForText(item.previous_currency, item.new_currency)
+    return values ? { label, ...values } : null
+  }
+  if (field === "next_billing_date") {
+    const previous = item.previous_next_billing_date
+      ? formatDate(item.previous_next_billing_date, language)
+      : ""
+    const next = item.new_next_billing_date
+      ? formatDate(item.new_next_billing_date, language)
+      : ""
+    const values = valueForText(previous, next)
+    return values ? { label, ...values } : null
+  }
+  if (field === "status") {
+    const values = valueForText(
+      lifecycleStatusLabel(item.previous_status, t),
+      lifecycleStatusLabel(item.new_status, t)
+    )
+    return values ? { label, ...values } : null
+  }
+  if (field === "renewal_mode") {
+    const values = valueForText(
+      renewalModeLabel(item.previous_renewal_mode, t),
+      renewalModeLabel(item.new_renewal_mode, t)
+    )
+    return values ? { label, ...values } : null
+  }
+  if (field === "category") {
+    const values = valueForText(item.previous_category_name, item.new_category_name)
+    return values ? { label, ...values } : null
+  }
+  if (field === "payment_method") {
+    const values = valueForText(item.previous_payment_method_name, item.new_payment_method_name)
+    return values ? { label, ...values } : null
+  }
+  return null
+}
+
+function valueForAmount(
+  previousAmount: number | null,
+  previousCurrency: string,
+  newAmount: number | null,
+  newCurrency: string,
+  formatAmount: (amount: number, currency?: string) => string,
+  mode: "created" | "deleted" | undefined,
+  empty: string
+): { previous: string, next: string } | null {
+  if (previousAmount === null && newAmount === null) {
+    return null
+  }
+  const previous = previousAmount !== null ? formatAmount(previousAmount, previousCurrency) : ""
+  const next = newAmount !== null ? formatAmount(newAmount, newCurrency) : ""
+  if (mode === "created") {
+    return { previous: empty, next: next || empty }
+  }
+  if (mode === "deleted") {
+    return { previous: previous || empty, next: empty }
+  }
+  return { previous: previous || empty, next: next || empty }
+}
+
+function lifecycleStatusLabel(value: string, t: TFunction): string {
+  if (!value) {
+    return ""
+  }
+  return t(`subscription.card.status.${value}`, { defaultValue: value })
+}
+
+function renewalModeLabel(value: string, t: TFunction): string {
+  if (!value) {
+    return ""
+  }
+  return t(`subscription.card.renewalMode.${value}`, { defaultValue: value })
 }
 
 function priceHistoryDisplayAmounts(item: SubscriptionDetailPriceHistoryItem): {

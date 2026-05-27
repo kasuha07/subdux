@@ -56,6 +56,26 @@ const subscription = {
       "latestActivity": "最新アクティビティ",
       "lastNotification": "直近: {{channel}}"
     },
+    "info": {
+      "title": "サブスク情報",
+      "amount": "金額",
+      "billingType": "課金タイプ",
+      "recurrence": "繰り返し",
+      "nextBillingDate": "次回請求日",
+      "status": "ライフサイクル",
+      "renewalMode": "更新方法",
+      "endsAt": "終了日",
+      "category": "カテゴリ",
+      "paymentMethod": "支払い方法",
+      "notification": "通知",
+      "notificationDefault": "デフォルトポリシーを使用",
+      "notificationEnabled": "有効",
+      "notificationEnabledWithDays": "有効、{{days}}日前",
+      "notificationDisabled": "無効",
+      "createdAt": "作成日",
+      "url": "URL",
+      "notes": "メモ"
+    },
     "empty": {
       "none": "なし",
       "noUpcomingCharges": "今後の請求なし",

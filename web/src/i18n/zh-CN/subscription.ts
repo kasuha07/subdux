@@ -56,6 +56,26 @@ const subscription = {
       "latestActivity": "最近动态",
       "lastNotification": "最近通过 {{channel}}"
     },
+    "info": {
+      "title": "订阅信息",
+      "amount": "金额",
+      "billingType": "计费类型",
+      "recurrence": "重复规则",
+      "nextBillingDate": "下次计费日期",
+      "status": "生命周期",
+      "renewalMode": "续费方式",
+      "endsAt": "结束日期",
+      "category": "分类",
+      "paymentMethod": "支付方式",
+      "notification": "通知",
+      "notificationDefault": "使用默认策略",
+      "notificationEnabled": "已开启",
+      "notificationEnabledWithDays": "已开启，提前 {{days}} 天",
+      "notificationDisabled": "已关闭",
+      "createdAt": "创建时间",
+      "url": "网址",
+      "notes": "备注"
+    },
     "empty": {
       "none": "无",
       "noUpcomingCharges": "暂无未来扣费",
