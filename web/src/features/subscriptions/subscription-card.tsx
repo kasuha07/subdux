@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
-import { Pencil, Trash2, ExternalLink, BellOff } from "lucide-react"
+import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
 import {
   getSubscriptionEndsAt,
@@ -74,6 +74,7 @@ interface SubscriptionCardProps {
   showCycleProgress?: boolean
   paymentMethodName?: string
   paymentMethodIcon?: string
+  onOpenDetail: (sub: Subscription) => void
   onEdit: (sub: Subscription) => void
   onDelete: (id: number) => void
 }
@@ -151,6 +152,7 @@ export default function SubscriptionCard({
   showCycleProgress = false,
   paymentMethodName,
   paymentMethodIcon,
+  onOpenDetail,
   onEdit,
   onDelete,
 }: SubscriptionCardProps) {
@@ -281,8 +283,21 @@ export default function SubscriptionCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate font-medium">{subscription.name}</h3>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="min-w-0 truncate font-medium">{subscription.name}</h3>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpenDetail(subscription)
+              }}
+              aria-label={t("subscription.detail.open")}
+              title={t("subscription.detail.open")}
+            >
+              <PanelRightOpen className="size-3.5" />
+            </Button>
             {subscription.url && (
               <a
                 href={subscription.url}
@@ -370,14 +385,24 @@ export default function SubscriptionCard({
         <div
           className={`flex self-center flex-col items-center gap-1 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 ${actionsVisibilityClass}`}
         >
-          <Button variant="ghost" size="icon-sm" onClick={() => onEdit(subscription)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={(event) => {
+              event.stopPropagation()
+              onEdit(subscription)
+            }}
+          >
             <Pencil className="size-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="icon-sm"
             className="text-destructive hover:text-destructive"
-            onClick={() => onDelete(subscription.id)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete(subscription.id)
+            }}
           >
             <Trash2 className="size-3.5" />
           </Button>

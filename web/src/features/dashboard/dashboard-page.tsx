@@ -31,6 +31,7 @@ import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import DashboardSummaryCards from "./dashboard-summary-cards"
 
 const SubscriptionForm = lazy(() => import("@/features/subscriptions/subscription-form"))
+const SubscriptionDetailDrawer = lazy(() => import("@/features/subscriptions/subscription-detail-drawer"))
 
 function DashboardSkeleton() {
   return (
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   const [subscriptionView, setSubscriptionView] = useState<"list" | "cards">("list")
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
+  const [detailSub, setDetailSub] = useState<Subscription | null>(null)
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
     getDisplayAllAmountsInPrimaryCurrency()
   )
@@ -225,6 +227,10 @@ export default function DashboardPage() {
   function handleEdit(sub: Subscription) {
     setEditingSub(sub)
     setFormOpen(true)
+  }
+
+  function handleOpenDetail(sub: Subscription) {
+    setDetailSub(sub)
   }
 
   async function handleDelete(id: number) {
@@ -429,6 +435,7 @@ export default function DashboardPage() {
                             ? paymentMethodIconMap.get(sub.payment_method_id)
                             : undefined
                         }
+                        onOpenDetail={handleOpenDetail}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                       />
@@ -451,6 +458,7 @@ export default function DashboardPage() {
                           ? paymentMethodLabelMap.get(sub.payment_method_id)
                           : undefined
                       }
+                      onOpenDetail={handleOpenDetail}
                       onEdit={handleEdit}
                     />
                   )
@@ -476,6 +484,20 @@ export default function DashboardPage() {
             userCurrencies={userCurrencies}
             categories={categories}
             paymentMethods={paymentMethods}
+          />
+        </Suspense>
+      )}
+
+      {detailSub && (
+        <Suspense fallback={null}>
+          <SubscriptionDetailDrawer
+            open={!!detailSub}
+            subscription={detailSub}
+            currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+            onOpenChange={(open) => {
+              if (!open) setDetailSub(null)
+            }}
+            onEdit={handleEdit}
           />
         </Suspense>
       )}

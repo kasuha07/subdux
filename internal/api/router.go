@@ -227,6 +227,7 @@ func SetupRoutes(
 
 	protected.GET("/subscriptions", subHandler.List)
 	protected.POST("/subscriptions", subHandler.Create)
+	protected.GET("/subscriptions/:id/detail", subHandler.GetDetail)
 	protected.GET("/subscriptions/:id", subHandler.GetByID)
 	protected.PUT("/subscriptions/:id", subHandler.Update)
 	protected.DELETE("/subscriptions/:id", subHandler.Delete)

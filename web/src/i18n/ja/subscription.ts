@@ -37,6 +37,56 @@ const subscription = {
       "cancel_at_period_end": "今期終了で終了"
     }
   },
+  "detail": {
+    "open": "詳細",
+    "edit": "編集",
+    "titleFallback": "サブスク詳細",
+    "description": "履歴、通知、今後の請求を表示するサブスクリプション詳細ドロワーです。",
+    "error": "詳細の読み込みに失敗しました",
+    "errorTitle": "詳細を表示できません",
+    "tabs": {
+      "timeline": "履歴",
+      "prices": "価格",
+      "notifications": "ログ",
+      "charges": "請求"
+    },
+    "summary": {
+      "nextCharge": "次回請求",
+      "lifecycle": "ライフサイクル",
+      "latestActivity": "最新アクティビティ",
+      "lastNotification": "直近: {{channel}}"
+    },
+    "empty": {
+      "none": "なし",
+      "noUpcomingCharges": "今後の請求なし",
+      "noNotifications": "通知なし"
+    },
+    "timeline": {
+      "emptyTitle": "履歴はまだありません",
+      "emptyDescription": "このサブスクリプションの変更がここに表示されます。"
+    },
+    "prices": {
+      "emptyTitle": "価格履歴なし",
+      "emptyDescription": "価格を編集すると変更がここに表示されます。",
+      "from": "{{amount}} から"
+    },
+    "notifications": {
+      "emptyTitle": "通知ログなし",
+      "emptyDescription": "このサブスクリプションの最近の通知がここに表示されます。",
+      "statusSent": "送信済み",
+      "statusFailed": "失敗"
+    },
+    "charges": {
+      "emptyTitle": "今後の請求なし",
+      "emptyDescription": "このサブスクリプションには今後の請求日がありません。"
+    },
+    "calendar": {
+      "title": "カレンダー",
+      "next": "次のカレンダー予定: {{date}}",
+      "noEvent": "今後のカレンダー予定なし",
+      "open": "カレンダーを開く"
+    }
+  },
   "form": {
     "editTitle": "サブスクリプションを編集",
     "addTitle": "サブスクリプションを追加",

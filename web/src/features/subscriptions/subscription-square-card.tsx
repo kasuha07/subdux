@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { BellOff, ExternalLink, Pencil } from "lucide-react"
+import { BellOff, ExternalLink, PanelRightOpen, Pencil } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,7 @@ interface SubscriptionSquareCardProps {
   showMonthlyAmount?: boolean
   showCycleProgress?: boolean
   paymentMethodName?: string
+  onOpenDetail: (sub: Subscription) => void
   onEdit: (sub: Subscription) => void
 }
 
@@ -86,6 +87,7 @@ export default function SubscriptionSquareCard({
   showMonthlyAmount = false,
   showCycleProgress = false,
   paymentMethodName,
+  onOpenDetail,
   onEdit,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
@@ -246,19 +248,41 @@ export default function SubscriptionSquareCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1">
           <Badge variant="outline" className={`max-w-[10rem] truncate ${dueBadgeClass}`}>
             {renderDueText()}
           </Badge>
 
           <Button
             variant="ghost"
-            size="icon"
-            className={`size-9 shrink-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 ${actionsVisibilityClass}`}
-            onClick={() => onEdit(subscription)}
+            size="icon-sm"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={(event) => {
+              event.stopPropagation()
+              onOpenDetail(subscription)
+            }}
+            aria-label={t("subscription.detail.open")}
+            title={t("subscription.detail.open")}
           >
-            <Pencil className="size-3.5" />
+            <PanelRightOpen className="size-3.5" />
           </Button>
+
+          <div
+            className={`flex shrink-0 items-center gap-1 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 ${actionsVisibilityClass}`}
+          >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={(event) => {
+                event.stopPropagation()
+                onEdit(subscription)
+              }}
+              aria-label={t("subscription.form.editTitle")}
+              title={t("subscription.form.editTitle")}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </div>
         </div>
       </CardContent>
       {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}

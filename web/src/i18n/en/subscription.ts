@@ -37,6 +37,56 @@ const subscription = {
       "cancel_at_period_end": "End at period end"
     }
   },
+  "detail": {
+    "open": "Details",
+    "edit": "Edit",
+    "titleFallback": "Subscription details",
+    "description": "Subscription detail drawer with history, notifications, and upcoming charges.",
+    "error": "Failed to load details",
+    "errorTitle": "Details unavailable",
+    "tabs": {
+      "timeline": "Timeline",
+      "prices": "Prices",
+      "notifications": "Logs",
+      "charges": "Charges"
+    },
+    "summary": {
+      "nextCharge": "Next charge",
+      "lifecycle": "Lifecycle",
+      "latestActivity": "Latest activity",
+      "lastNotification": "Last via {{channel}}"
+    },
+    "empty": {
+      "none": "None",
+      "noUpcomingCharges": "No upcoming charge",
+      "noNotifications": "No notifications"
+    },
+    "timeline": {
+      "emptyTitle": "No timeline yet",
+      "emptyDescription": "Changes to this subscription will appear here."
+    },
+    "prices": {
+      "emptyTitle": "No price history",
+      "emptyDescription": "Price changes will appear here after edits.",
+      "from": "from {{amount}}"
+    },
+    "notifications": {
+      "emptyTitle": "No notification logs",
+      "emptyDescription": "Recent notifications for this subscription will appear here.",
+      "statusSent": "Sent",
+      "statusFailed": "Failed"
+    },
+    "charges": {
+      "emptyTitle": "No upcoming charges",
+      "emptyDescription": "This subscription has no future billing dates."
+    },
+    "calendar": {
+      "title": "Calendar",
+      "next": "Next calendar event: {{date}}",
+      "noEvent": "No upcoming calendar event",
+      "open": "Open calendar"
+    }
+  },
   "form": {
     "editTitle": "Edit subscription",
     "addTitle": "Add subscription",

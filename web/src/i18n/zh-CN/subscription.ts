@@ -37,6 +37,56 @@ const subscription = {
       "cancel_at_period_end": "本期结束后终止"
     }
   },
+  "detail": {
+    "open": "详情",
+    "edit": "编辑",
+    "titleFallback": "订阅详情",
+    "description": "订阅详情抽屉，包含历史、通知和未来扣费点。",
+    "error": "加载详情失败",
+    "errorTitle": "详情不可用",
+    "tabs": {
+      "timeline": "时间线",
+      "prices": "价格",
+      "notifications": "日志",
+      "charges": "扣费"
+    },
+    "summary": {
+      "nextCharge": "下次扣费",
+      "lifecycle": "生命周期",
+      "latestActivity": "最近动态",
+      "lastNotification": "最近通过 {{channel}}"
+    },
+    "empty": {
+      "none": "无",
+      "noUpcomingCharges": "暂无未来扣费",
+      "noNotifications": "暂无通知"
+    },
+    "timeline": {
+      "emptyTitle": "暂无时间线",
+      "emptyDescription": "此订阅的变更会显示在这里。"
+    },
+    "prices": {
+      "emptyTitle": "暂无价格历史",
+      "emptyDescription": "编辑价格后，变化会显示在这里。",
+      "from": "原为 {{amount}}"
+    },
+    "notifications": {
+      "emptyTitle": "暂无通知日志",
+      "emptyDescription": "此订阅的最近通知会显示在这里。",
+      "statusSent": "已发送",
+      "statusFailed": "失败"
+    },
+    "charges": {
+      "emptyTitle": "暂无未来扣费",
+      "emptyDescription": "此订阅没有未来计费日期。"
+    },
+    "calendar": {
+      "title": "日历",
+      "next": "下个日历事件：{{date}}",
+      "noEvent": "暂无未来日历事件",
+      "open": "打开日历"
+    }
+  },
   "form": {
     "editTitle": "编辑订阅",
     "addTitle": "添加订阅",

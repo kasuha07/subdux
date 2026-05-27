@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
+	"gorm.io/gorm"
 )
 
 type SubscriptionHandler struct {
@@ -47,6 +49,15 @@ type subscriptionResponse struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
+type subscriptionDetailResponse struct {
+	Subscription     subscriptionResponse                         `json:"subscription"`
+	Timeline         []service.SubscriptionDetailEvent            `json:"timeline"`
+	PriceHistory     []service.SubscriptionDetailPriceHistoryItem `json:"price_history"`
+	NotificationLogs []service.SubscriptionDetailNotificationLog  `json:"notification_logs"`
+	UpcomingCharges  []service.SubscriptionDetailUpcomingCharge   `json:"upcoming_charges"`
+	Calendar         service.SubscriptionDetailCalendar           `json:"calendar"`
+}
+
 func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 	return subscriptionResponse{
 		ID:               sub.ID,
@@ -73,6 +84,17 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 		URL:              sub.URL,
 		Notes:            sub.Notes,
 		CreatedAt:        sub.CreatedAt,
+	}
+}
+
+func mapSubscriptionDetailResponse(detail service.SubscriptionDetail) subscriptionDetailResponse {
+	return subscriptionDetailResponse{
+		Subscription:     mapSubscriptionResponse(detail.Subscription),
+		Timeline:         detail.Timeline,
+		PriceHistory:     detail.PriceHistory,
+		NotificationLogs: detail.NotificationLogs,
+		UpcomingCharges:  detail.UpcomingCharges,
+		Calendar:         detail.Calendar,
 	}
 }
 
@@ -115,6 +137,24 @@ func (h *SubscriptionHandler) GetByID(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
+}
+
+func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
+	userID := getUserID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	}
+
+	detail, err := h.Service.GetDetail(userID, uint(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, echo.Map{"error": "Subscription not found"})
+		}
+		return writeInternalServerError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapSubscriptionDetailResponse(*detail))
 }
 
 func (h *SubscriptionHandler) Create(c echo.Context) error {
