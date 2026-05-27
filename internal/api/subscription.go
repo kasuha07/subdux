@@ -47,6 +47,7 @@ type subscriptionResponse struct {
 	URL              string    `json:"url"`
 	Notes            string    `json:"notes"`
 	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type subscriptionDetailResponse struct {
@@ -84,6 +85,7 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 		URL:              sub.URL,
 		Notes:            sub.Notes,
 		CreatedAt:        sub.CreatedAt,
+		UpdatedAt:        sub.UpdatedAt,
 	}
 }
 

@@ -73,6 +73,7 @@ const subscription = {
       "notificationEnabledWithDays": "已开启，提前 {{days}} 天",
       "notificationDisabled": "已关闭",
       "createdAt": "创建时间",
+      "updatedAt": "更新时间",
       "url": "网址",
       "notes": "备注"
     },

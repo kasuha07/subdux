@@ -73,6 +73,7 @@ const subscription = {
       "notificationEnabledWithDays": "Enabled, {{days}} day(s) before",
       "notificationDisabled": "Disabled",
       "createdAt": "Created",
+      "updatedAt": "Updated",
       "url": "URL",
       "notes": "Notes"
     },

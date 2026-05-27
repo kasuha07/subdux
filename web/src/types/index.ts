@@ -43,6 +43,7 @@ export interface Subscription {
   url: string
   notes: string
   created_at: string
+  updated_at: string
 }
 
 export interface DashboardSummary {

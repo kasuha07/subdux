@@ -420,6 +420,10 @@ function DetailInfoPanel({
       label: t("subscription.detail.info.createdAt"),
       value: sub.created_at ? formatDate(sub.created_at, language) : empty,
     },
+    {
+      label: t("subscription.detail.info.updatedAt"),
+      value: sub.updated_at ? formatDate(sub.updated_at, language) : empty,
+    },
   ]
 
   return (

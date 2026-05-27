@@ -73,6 +73,7 @@ const subscription = {
       "notificationEnabledWithDays": "有効、{{days}}日前",
       "notificationDisabled": "無効",
       "createdAt": "作成日",
+      "updatedAt": "更新日",
       "url": "URL",
       "notes": "メモ"
     },
