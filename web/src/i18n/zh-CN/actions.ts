@@ -57,7 +57,7 @@ const actions = {
     "itemCount": "{{count}} 项行动"
   },
   "command": {
-    "markRenewed": "标记已续费",
+    "markRenewed": "手动续费",
     "keepSubscription": "继续保留",
     "cancelAtPeriodEnd": "到期终止",
     "snooze": "暂时忽略"

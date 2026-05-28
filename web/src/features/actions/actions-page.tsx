@@ -578,7 +578,7 @@ function ActionGroupItem({
               </Button>
             ) : null}
             {cancelAtPeriodEndAction ? (
-              <Button size="sm" variant="outline" onClick={() => void onCancelAtPeriodEnd(cancelAtPeriodEndAction)} disabled={busy}>
+              <Button size="sm" onClick={() => void onCancelAtPeriodEnd(cancelAtPeriodEndAction)} disabled={busy}>
                 <Clock3 className="size-4" />
                 {t("actions.command.cancelAtPeriodEnd")}
               </Button>

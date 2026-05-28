@@ -57,7 +57,7 @@ const actions = {
     "itemCount": "{{count}}件のアクション"
   },
   "command": {
-    "markRenewed": "更新済み",
+    "markRenewed": "手動更新",
     "keepSubscription": "継続する",
     "cancelAtPeriodEnd": "キャンセル予定",
     "snooze": "スヌーズ"

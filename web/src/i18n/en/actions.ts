@@ -57,7 +57,7 @@ const actions = {
     "itemCount": "{{count}} actions"
   },
   "command": {
-    "markRenewed": "Mark renewed",
+    "markRenewed": "Manual renew",
     "keepSubscription": "Keep subscription",
     "cancelAtPeriodEnd": "Cancel later",
     "snooze": "Snooze"
