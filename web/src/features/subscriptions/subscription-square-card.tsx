@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { BellOff, ExternalLink, PanelRightOpen } from "lucide-react"
+import { ExternalLink, PanelRightOpen } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -154,7 +154,6 @@ export default function SubscriptionSquareCard({
     : isOverdue
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
-  const reminderOff = subscription.notify_enabled === false
 
   return (
     <Card
@@ -187,8 +186,8 @@ export default function SubscriptionSquareCard({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/35 px-3 py-2">
-          <div className="min-w-0 self-center">
+        <div className="flex items-start justify-between gap-2 rounded-lg bg-muted/35 px-3 py-2">
+          <div className="min-w-0">
             <p className="text-sm tabular-nums leading-tight">
               {formatCurrencyWithSymbol(amountToDisplay, currencyToDisplay, symbolToDisplay, i18n.language)}
             </p>
@@ -204,15 +203,6 @@ export default function SubscriptionSquareCard({
                 {t(`subscription.card.renewalMode.${renewalMode}`)}
               </Badge>
             ) : null}
-            <Badge
-              variant="outline"
-              className={`bg-zinc-500/10 text-zinc-600 border-zinc-200 px-1.5 ${reminderOff ? "" : "invisible"}`}
-              title={reminderOff ? t("subscription.card.reminder.off") : undefined}
-              aria-label={reminderOff ? t("subscription.card.reminder.off") : undefined}
-              aria-hidden={!reminderOff}
-            >
-              <BellOff className="size-3" />
-            </Badge>
           </div>
         </div>
 
