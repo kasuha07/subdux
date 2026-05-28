@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { BellOff, ExternalLink, PanelRightOpen, Pencil } from "lucide-react"
 
@@ -93,8 +93,6 @@ export default function SubscriptionSquareCard({
   onEdit,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [actionsVisible, setActionsVisible] = useState(false)
   const hoverCapablePointer = useHoverCapablePointer()
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
@@ -161,38 +159,10 @@ export default function SubscriptionSquareCard({
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
   const reminderOff = subscription.notify_enabled === false
-  const touchActionsVisible = !hoverCapablePointer && actionsVisible
-  const actionsVisibilityClass = touchActionsVisible
-    ? "opacity-100 pointer-events-auto"
-    : "opacity-0 pointer-events-none"
-
-  useEffect(() => {
-    if (!actionsVisible) {
-      return
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (cardRef.current?.contains(event.target as Node)) {
-        return
-      }
-      setActionsVisible(false)
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown)
-    return () => document.removeEventListener("pointerdown", handlePointerDown)
-  }, [actionsVisible])
-
-  function handleCardClick() {
-    if (!hoverCapablePointer) {
-      setActionsVisible(true)
-    }
-  }
 
   return (
     <Card
-      ref={cardRef}
       className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
-      onClick={handleCardClick}
     >
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
@@ -250,7 +220,11 @@ export default function SubscriptionSquareCard({
           </div>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1">
+        <div
+          className={`grid ${
+            hoverCapablePointer ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
+          } items-center gap-1`}
+        >
           <Badge variant="outline" className={`max-w-[10rem] truncate ${dueBadgeClass}`}>
             {renderDueText()}
           </Badge>
@@ -272,22 +246,22 @@ export default function SubscriptionSquareCard({
             <PanelRightOpen className="size-3.5" />
           </Button>
 
-          <div
-            className={`flex shrink-0 items-center gap-1 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 ${actionsVisibilityClass}`}
-          >
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={(event) => {
-                event.stopPropagation()
-                onEdit(subscription)
-              }}
-              aria-label={t("subscription.form.editTitle")}
-              title={t("subscription.form.editTitle")}
-            >
-              <Pencil className="size-3.5" />
-            </Button>
-          </div>
+          {hoverCapablePointer ? (
+            <div className="pointer-events-none flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onEdit(subscription)
+                }}
+                aria-label={t("subscription.form.editTitle")}
+                title={t("subscription.form.editTitle")}
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            </div>
+          ) : null}
         </div>
       </CardContent>
       {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import type { ReactNode } from "react"
 import type { Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
@@ -159,8 +159,6 @@ export default function SubscriptionCard({
   onDelete,
 }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [actionsVisible, setActionsVisible] = useState(false)
   const hoverCapablePointer = useHoverCapablePointer()
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
@@ -244,38 +242,10 @@ export default function SubscriptionCard({
   const secondaryBadgeText = dueText
   const secondaryBadgeClass = dueBadgeClass
   const secondaryBadgeTitle = secondaryBadgeText
-  const touchActionsVisible = !hoverCapablePointer && actionsVisible
-  const actionsVisibilityClass = touchActionsVisible
-    ? "opacity-100 pointer-events-auto"
-    : "opacity-0 pointer-events-none"
-
-  useEffect(() => {
-    if (!actionsVisible) {
-      return
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (cardRef.current?.contains(event.target as Node)) {
-        return
-      }
-      setActionsVisible(false)
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown)
-    return () => document.removeEventListener("pointerdown", handlePointerDown)
-  }, [actionsVisible])
-
-  function handleCardClick() {
-    if (!hoverCapablePointer) {
-      setActionsVisible(true)
-    }
-  }
 
   return (
     <Card
-      ref={cardRef}
       className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
-      onClick={handleCardClick}
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         <div
@@ -387,31 +357,31 @@ export default function SubscriptionCard({
           </div>
         </div>
 
-        <div
-          className={`flex self-center flex-col items-center gap-1 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 ${actionsVisibilityClass}`}
-        >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={(event) => {
-              event.stopPropagation()
-              onEdit(subscription)
-            }}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:text-destructive"
-            onClick={(event) => {
-              event.stopPropagation()
-              onDelete(subscription.id)
-            }}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+        {hoverCapablePointer ? (
+          <div className="pointer-events-none flex self-center flex-col items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={(event) => {
+                event.stopPropagation()
+                onEdit(subscription)
+              }}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-destructive hover:text-destructive"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete(subscription.id)
+              }}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
       {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}
     </Card>

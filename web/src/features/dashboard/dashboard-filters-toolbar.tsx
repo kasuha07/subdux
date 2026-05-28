@@ -133,10 +133,10 @@ export default function DashboardFiltersToolbar({
               {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-52">
+          <DropdownMenuContent align="start">
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48">
+              <DropdownMenuSubContent>
                 {statusOptions.map((status) => (
                   <DropdownMenuCheckboxItem
                     key={status}
@@ -154,7 +154,7 @@ export default function DashboardFiltersToolbar({
 
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>{t("dashboard.filters.renewalMode")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
+              <DropdownMenuSubContent>
                 {renewalModeOptions.map((mode) => (
                   <DropdownMenuCheckboxItem
                     key={mode}
@@ -172,7 +172,7 @@ export default function DashboardFiltersToolbar({
 
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
+              <DropdownMenuSubContent>
                 <DropdownMenuCheckboxItem
                   checked={includeNoCategory}
                   onSelect={(event) => event.preventDefault()}
@@ -205,7 +205,7 @@ export default function DashboardFiltersToolbar({
 
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
+              <DropdownMenuSubContent>
                 <DropdownMenuCheckboxItem
                   checked={includeNoPaymentMethod}
                   onSelect={(event) => event.preventDefault()}
@@ -258,7 +258,7 @@ export default function DashboardFiltersToolbar({
               {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start">
             {sortFieldOptions.map((field) => (
               <DropdownMenuItem
                 key={field}
