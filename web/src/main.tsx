@@ -7,4 +7,8 @@ import App from "./App"
 initTheme()
 watchSystemTheme()
 
+if (import.meta.env.DEV) {
+  void import("react-grep")
+}
+
 createRoot(document.getElementById("root")!).render(<App />)

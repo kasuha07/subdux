@@ -209,7 +209,7 @@ function SubscriptionDetailFallbackDrawer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+      <DialogContent className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-full md:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
         <DialogHeader className="detail-drawer-stage border-b px-5 pt-5 pb-4 sm:px-6">
           <div className="flex items-start justify-between gap-4 pr-8">
             <div className="min-w-0">
@@ -225,8 +225,8 @@ function SubscriptionDetailFallbackDrawer({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-          <div className="space-y-5">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-5 px-5 py-5 sm:px-6">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
                 <p className="text-xs font-medium text-muted-foreground">

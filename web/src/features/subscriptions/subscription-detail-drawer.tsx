@@ -162,7 +162,7 @@ export default function SubscriptionDetailDrawer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+        className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-full md:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
         showCloseButton={false}
       >
         <DialogHeader className="detail-drawer-stage flex-row items-start justify-between gap-3 border-b px-5 pt-5 pb-4 text-left sm:px-6">
@@ -231,7 +231,7 @@ export default function SubscriptionDetailDrawer({
                 />
 
                 <Tabs defaultValue="timeline" className="detail-drawer-stage gap-4" style={animationDelay(120)}>
-                  <div className="w-full overflow-x-auto pb-1">
+                  <div className="-mx-5 flex justify-center overflow-x-auto pb-1 sm:mx-0 sm:block">
                     <TabsList className="w-max min-w-max">
                       <TabsTrigger value="timeline" className="flex-none gap-2">
                         <History className="size-4" />

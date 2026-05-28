@@ -35,6 +35,7 @@
         "eslint-plugin-react-hooks": "7.0.1",
         "eslint-plugin-react-refresh": "^0.4.26",
         "globals": "^17.4.0",
+        "react-grep": "^0.3.3",
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.60.0",
         "vite": "^7.3.3",
@@ -668,6 +669,8 @@
     "react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
     "react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+
+    "react-grep": ["react-grep@0.3.3", "", {}, "sha512-3IPdz4HeKPYoh7baBM6GLzVKG4GS3r4n0ZTFtBAgUo2Bal5Bhdtl+4cblMc1q+78cM1azL0rH0RgQx67MVKszQ=="],
 
     "react-i18next": ["react-i18next@16.6.6", "", { "dependencies": { "@babel/runtime": "^7.29.2", "html-parse-stringify": "^3.0.1", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "i18next": ">= 25.10.9", "react": ">= 16.8.0", "typescript": "^5 || ^6" }, "optionalPeers": ["typescript"] }, "sha512-ZgL2HUoW34UKUkOV7uSQFE1CDnRPD+tCR3ywSuWH7u2iapnz86U8Bi3Vrs620qNDzCf1F47NxglCEkchCTDOHw=="],
 
