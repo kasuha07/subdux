@@ -1,3 +1,4 @@
+import actions from "./actions"
 import admin from "./admin"
 import calendar from "./calendar"
 import auth from "./auth"
@@ -9,6 +10,7 @@ import settings from "./settings"
 import subscription from "./subscription"
 
 const locale = {
+  actions,
   admin,
   calendar,
   auth,

@@ -45,7 +45,7 @@ const reports = {
     "title": "续费方式拆分",
     "auto_renew": "自动续费",
     "manual_renew": "手动续费",
-    "cancel_at_period_end": "周期结束后停止"
+    "cancel_at_period_end": "到期终止"
   },
   "topSubscriptions": {
     "title": "最高月成本订阅",
@@ -86,7 +86,7 @@ const reports = {
       "amount": "金额",
       "currency": "货币",
       "monthly_amount": "月均金额",
-      "next_billing_date": "计费/结束日期",
+      "next_billing_date": "计费/终止",
       "status": "状态",
       "renewal_mode": "续费方式",
       "category": "分类",

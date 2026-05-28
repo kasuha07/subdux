@@ -86,7 +86,7 @@ const reports = {
       "amount": "Amount",
       "currency": "Currency",
       "monthly_amount": "Monthly amount",
-      "next_billing_date": "Billing/end date",
+      "next_billing_date": "Billing/end",
       "status": "Status",
       "renewal_mode": "Renewal mode",
       "category": "Category",

@@ -37,7 +37,7 @@ const dashboard = {
     "sortBy": "並び替え項目",
     "order": "順序",
     "sortFields": {
-      "nextBillingDate": "次回請求日 / 終了日",
+      "nextBillingDate": "請求/終了",
       "name": "名前",
       "createdAt": "追加日時",
       "amount": "金額"

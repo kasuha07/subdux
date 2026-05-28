@@ -241,6 +241,7 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 		model interface{}
 	}{
 		{name: "subscriptions", model: &model.Subscription{}},
+		{name: "subscription_action_snoozes", model: &model.SubscriptionActionSnooze{}},
 		{name: "subscription_events", model: &model.SubscriptionEvent{}},
 		{name: "payment_methods", model: &model.PaymentMethod{}},
 		{name: "user_currencies", model: &model.UserCurrency{}},

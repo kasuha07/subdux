@@ -48,6 +48,7 @@ var applicationModels = []interface{}{
 
 var postIntegrityApplicationModels = []interface{}{
 	&model.SubscriptionEvent{},
+	&model.SubscriptionActionSnooze{},
 }
 
 var schemaMigrations = []schemaMigration{
@@ -56,6 +57,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260512_03_sqlite_integrity_hardening", Run: migrateSQLiteIntegrityHardening},
 	{Name: "20260512_04_auto_migrate_latest_schema", Run: autoMigrateLatestSchema},
 	{Name: "20260525_01_subscription_events", Run: migrateSubscriptionEventsSchema},
+	{Name: "20260527_01_subscription_action_snoozes", Run: migrateSubscriptionEventsSchema},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {

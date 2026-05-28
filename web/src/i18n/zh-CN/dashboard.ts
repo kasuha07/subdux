@@ -37,7 +37,7 @@ const dashboard = {
     "sortBy": "排序字段",
     "order": "排序方向",
     "sortFields": {
-      "nextBillingDate": "下次扣费/结束日期",
+      "nextBillingDate": "扣费/终止",
       "name": "名称",
       "createdAt": "添加时间",
       "amount": "金额"

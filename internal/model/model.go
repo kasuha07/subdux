@@ -131,6 +131,18 @@ type SubscriptionEvent struct {
 	Subscription              *Subscription `gorm:"foreignKey:SubscriptionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-"`
 }
 
+type SubscriptionActionSnooze struct {
+	ID             uint          `gorm:"primaryKey" json:"id"`
+	UserID         uint          `gorm:"not null;index;uniqueIndex:idx_action_snooze_user_sub_key,priority:1" json:"user_id"`
+	SubscriptionID uint          `gorm:"not null;index;uniqueIndex:idx_action_snooze_user_sub_key,priority:2" json:"subscription_id"`
+	ActionKey      string        `gorm:"not null;size:100;uniqueIndex:idx_action_snooze_user_sub_key,priority:3" json:"action_key"`
+	SnoozedUntil   time.Time     `gorm:"not null;index" json:"snoozed_until"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	User           *User         `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	Subscription   *Subscription `gorm:"foreignKey:SubscriptionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+}
+
 type ExchangeRate struct {
 	ID             uint      `gorm:"primaryKey" json:"id"`
 	BaseCurrency   string    `gorm:"not null;size:10;uniqueIndex:idx_base_target" json:"base_currency"`

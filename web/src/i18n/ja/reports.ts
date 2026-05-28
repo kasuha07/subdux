@@ -86,7 +86,7 @@ const reports = {
       "amount": "金額",
       "currency": "通貨",
       "monthly_amount": "月平均金額",
-      "next_billing_date": "請求 / 終了日",
+      "next_billing_date": "請求/終了",
       "status": "ステータス",
       "renewal_mode": "更新方法",
       "category": "カテゴリ",

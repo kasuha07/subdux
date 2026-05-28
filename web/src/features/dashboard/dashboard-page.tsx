@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { BarChart3, CalendarDays, Plus, Settings, Shield } from "lucide-react"
+import { BarChart3, CalendarDays, ListChecks, Plus, Settings, Shield } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -493,6 +493,11 @@ export default function DashboardPage() {
             <Button variant="outline" size="sm" onClick={openNewForm} disabled={loading}>
               <Plus className="size-4" />
               {t("dashboard.add")}
+            </Button>
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/actions" aria-label={t("actions.title")} title={t("actions.title")}>
+                <ListChecks className="size-4" />
+              </Link>
             </Button>
             <Button variant="ghost" size="icon-sm" asChild>
               <Link to="/calendar">

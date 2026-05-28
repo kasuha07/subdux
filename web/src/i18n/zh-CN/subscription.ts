@@ -34,7 +34,7 @@ const subscription = {
     "renewalMode": {
       "auto_renew": "自动续费",
       "manual_renew": "手动续费",
-      "cancel_at_period_end": "本期结束后终止"
+      "cancel_at_period_end": "到期终止"
     }
   },
   "detail": {
@@ -53,7 +53,7 @@ const subscription = {
     "summary": {
       "nextCharge": "下次扣费",
       "periodEnd": "本期结束",
-      "endingAtPeriodEnd": "本期结束后终止",
+      "endingAtPeriodEnd": "到期终止",
       "lifecycle": "生命周期",
       "latestActivity": "最近动态",
       "lastNotification": "最近通过 {{channel}}"
@@ -135,7 +135,7 @@ const subscription = {
     "renewalMode": {
       "auto_renew": "自动续费",
       "manual_renew": "手动续费",
-      "cancel_at_period_end": "本期结束后终止"
+      "cancel_at_period_end": "到期终止"
     },
     "endsAtLabel": "结束日期",
     "purchaseDateLabel": "购买日期",

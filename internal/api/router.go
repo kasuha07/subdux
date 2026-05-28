@@ -234,6 +234,8 @@ func SetupRoutes(
 	protected.POST("/subscriptions/:id/mark-renewed", subHandler.MarkRenewed)
 	protected.POST("/subscriptions/:id/icon", subHandler.UploadIcon)
 	protected.GET("/dashboard/summary", subHandler.Dashboard)
+	protected.GET("/actions", subHandler.ActionCenter)
+	protected.POST("/actions/snooze", subHandler.SnoozeAction)
 	protected.GET("/reports/analytics", subHandler.AnalyticsReport)
 
 	protected.GET("/auth/me", authHandler.Me)

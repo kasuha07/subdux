@@ -26,6 +26,8 @@ func newTestDB(t *testing.T) *gorm.DB {
 		&model.PaymentMethod{},
 		&model.Subscription{},
 		&model.SubscriptionEvent{},
+		&model.SubscriptionActionSnooze{},
+		&model.NotificationLog{},
 		&model.NotificationTemplate{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)

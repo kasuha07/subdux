@@ -251,6 +251,36 @@ func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
+func (h *SubscriptionHandler) ActionCenter(c echo.Context) error {
+	userID := getUserID(c)
+	center, err := h.Service.GetActionCenter(userID)
+	if err != nil {
+		return writeInternalServerError(c, err)
+	}
+	return c.JSON(http.StatusOK, center)
+}
+
+func (h *SubscriptionHandler) SnoozeAction(c echo.Context) error {
+	userID := getUserID(c)
+	var input service.SnoozeSubscriptionActionInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+
+	snooze, err := h.Service.SnoozeAction(userID, input)
+	if err != nil {
+		if isSubscriptionBadRequestError(err.Error()) || strings.Contains(err.Error(), "action key") || strings.Contains(err.Error(), "snooze") {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
+		if err.Error() == "subscription not found" {
+			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+		}
+		return writeInternalServerError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, snooze)
+}
+
 func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 	userID := getUserID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
