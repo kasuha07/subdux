@@ -373,10 +373,6 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    if (!displayAllAmountsInPrimaryCurrency && sortField !== "amount") {
-      return
-    }
-
     const targetCurrency = preferredCurrency.toUpperCase()
     const sourceCurrencies = Array.from(
       new Set(
@@ -409,7 +405,7 @@ export default function DashboardPage() {
     return () => {
       active = false
     }
-  }, [displayAllAmountsInPrimaryCurrency, preferredCurrency, sortField, subscriptions])
+  }, [preferredCurrency, subscriptions])
 
   function handleEdit(sub: Subscription) {
     preloadSubscriptionForm()
@@ -605,13 +601,15 @@ export default function DashboardPage() {
                 filteredSubscriptions.map((sub) => {
                   const targetCurrency = preferredCurrency.toUpperCase()
                   const sourceCurrency = sub.currency.toUpperCase()
-                  const shouldConvert =
-                    displayAllAmountsInPrimaryCurrency && sourceCurrency !== targetCurrency
-                  const conversionRate = shouldConvert
+                  const sourceIsPrimaryCurrency = sourceCurrency === targetCurrency
+                  const conversionRate = !sourceIsPrimaryCurrency
                     ? exchangeRates[`${sourceCurrency}->${targetCurrency}`]
                     : undefined
-                  const displayAmount = conversionRate ? sub.amount * conversionRate : undefined
-                  const displayCurrency = conversionRate ? targetCurrency : undefined
+                  const hasConversionRate =
+                    typeof conversionRate === "number" && Number.isFinite(conversionRate) && conversionRate > 0
+                  const shouldConvert = displayAllAmountsInPrimaryCurrency && hasConversionRate
+                  const displayAmount = shouldConvert ? sub.amount * conversionRate : undefined
+                  const displayCurrency = shouldConvert ? targetCurrency : undefined
                   const displayCurrencySymbol = displayCurrency
                     ? currencySymbolMap.get(displayCurrency)
                     : undefined
@@ -621,6 +619,15 @@ export default function DashboardPage() {
                   const monthlyDisplayAmount = monthlyFactor
                     ? (displayAmount ?? sub.amount) * monthlyFactor
                     : undefined
+                  const priceTitle =
+                    !sourceIsPrimaryCurrency && !shouldConvert && hasConversionRate
+                      ? formatCurrencyWithSymbol(
+                          sub.amount * conversionRate * (monthlyFactor ?? 1),
+                          targetCurrency,
+                          currencySymbolMap.get(targetCurrency),
+                          i18n.language
+                        )
+                      : undefined
 
                   if (subscriptionView === "list") {
                     return (
@@ -632,6 +639,7 @@ export default function DashboardPage() {
                         displayAmount={monthlyDisplayAmount ?? displayAmount}
                         displayCurrency={displayCurrency}
                         displayCurrencySymbol={displayCurrencySymbol}
+                        priceTitle={priceTitle}
                         showMonthlyAmount={monthlyFactor !== null}
                         showCycleProgress={displaySubscriptionCycleProgress && isSubscriptionActive(sub)}
                         paymentMethodName={
@@ -661,6 +669,7 @@ export default function DashboardPage() {
                       displayAmount={monthlyDisplayAmount ?? displayAmount}
                       displayCurrency={displayCurrency}
                       displayCurrencySymbol={displayCurrencySymbol}
+                      priceTitle={priceTitle}
                       showMonthlyAmount={monthlyFactor !== null}
                       showCycleProgress={displaySubscriptionCycleProgress && isSubscriptionActive(sub)}
                       paymentMethodName={

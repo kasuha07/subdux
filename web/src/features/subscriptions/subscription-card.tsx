@@ -70,6 +70,7 @@ interface SubscriptionCardProps {
   displayAmount?: number
   displayCurrency?: string
   displayCurrencySymbol?: string
+  priceTitle?: string
   showMonthlyAmount?: boolean
   showCycleProgress?: boolean
   paymentMethodName?: string
@@ -149,6 +150,7 @@ export default function SubscriptionCard({
   displayAmount,
   displayCurrency,
   displayCurrencySymbol,
+  priceTitle,
   showMonthlyAmount = false,
   showCycleProgress = false,
   paymentMethodName,
@@ -323,7 +325,7 @@ export default function SubscriptionCard({
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           <div className="flex max-w-[14rem] items-baseline gap-1 text-right">
-            <p className="font-semibold tabular-nums whitespace-nowrap">
+            <p className="font-semibold tabular-nums whitespace-nowrap" title={priceTitle}>
               {formatCurrencyWithSymbol(
                 amountToDisplay,
                 currencyToDisplay,

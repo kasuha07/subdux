@@ -58,6 +58,7 @@ interface SubscriptionSquareCardProps {
   displayAmount?: number
   displayCurrency?: string
   displayCurrencySymbol?: string
+  priceTitle?: string
   showMonthlyAmount?: boolean
   showCycleProgress?: boolean
   paymentMethodName?: string
@@ -83,6 +84,7 @@ export default function SubscriptionSquareCard({
   displayAmount,
   displayCurrency,
   displayCurrencySymbol,
+  priceTitle,
   showMonthlyAmount = false,
   showCycleProgress = false,
   paymentMethodName,
@@ -188,7 +190,7 @@ export default function SubscriptionSquareCard({
 
         <div className="flex items-start justify-between gap-2 rounded-lg bg-muted/35 px-3 py-2">
           <div className="min-w-0">
-            <p className="text-sm tabular-nums leading-tight">
+            <p className="text-sm tabular-nums leading-tight" title={priceTitle}>
               {formatCurrencyWithSymbol(amountToDisplay, currencyToDisplay, symbolToDisplay, i18n.language)}
             </p>
             <p className="mt-1 truncate text-[11px] text-muted-foreground">{renderBillingLabel()}</p>
