@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, lazy, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Copy, Plus, Trash2, Link2 } from "lucide-react"
@@ -20,13 +20,18 @@ import { Separator } from "@/components/ui/separator"
 import { api } from "@/lib/api"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { cn } from "@/lib/utils"
+import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
+import { preloadSubscriptionDetail } from "@/features/subscriptions/subscription-detail-cache"
 import {
   hasFutureCharge,
   hasFutureRecurringSchedule,
   isSubscriptionActive,
 } from "@/features/subscriptions/subscription-lifecycle"
+
+const loadSubscriptionDetailDrawer = () => import("@/features/subscriptions/subscription-detail-drawer")
+const SubscriptionDetailDrawer = lazy(loadSubscriptionDetailDrawer)
 
 interface CalendarToken {
   id: number
@@ -193,10 +198,26 @@ export default function CalendarPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [newlyCreatedUrl, setNewlyCreatedUrl] = useState<string | null>(null)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
+  const [detailSub, setDetailSub] = useState<Subscription | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
+
+  const categoryMap = useMemo(
+    () => new Map(categories.map((item) => [item.id, item] as const)),
+    [categories]
+  )
+
+  const paymentMethodLabelMap = useMemo(
+    () => new Map(paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)),
+    [paymentMethods, t]
+  )
+
+  const currencySymbolMap = useMemo(
+    () => new Map(userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)),
+    [userCurrencies]
+  )
 
   useEffect(() => {
     Promise.all([
@@ -297,6 +318,22 @@ export default function CalendarPage() {
     navigator.clipboard.writeText(text).then(() => {
       toast.success(t("calendar.token.copied"))
     }).catch(() => void 0)
+  }
+
+  function getSubscriptionCategoryName(sub: Subscription): string {
+    if (sub.category_id != null) {
+      const category = categoryMap.get(sub.category_id)
+      if (category) {
+        return getCategoryLabel(category, t)
+      }
+    }
+    return sub.category.trim()
+  }
+
+  function openSubscriptionDetail(sub: Subscription) {
+    void loadSubscriptionDetailDrawer()
+    preloadSubscriptionDetail(sub.id)
+    setDetailSub(sub)
   }
 
   async function handleFormSubmit(data: CreateSubscriptionInput) {
@@ -468,7 +505,7 @@ export default function CalendarPage() {
                     <div
                       key={sub.id}
                       className="flex items-center gap-3 rounded-md border p-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => { setEditingSub(sub); setFormOpen(true) }}
+                      onClick={() => openSubscriptionDetail(sub)}
                     >
                       {renderCalendarIcon(sub.icon, sub.name)}
                       <div className="min-w-0 flex-1">
@@ -632,6 +669,30 @@ export default function CalendarPage() {
         categories={categories}
         paymentMethods={paymentMethods}
       />
+
+      {detailSub && (
+        <Suspense fallback={null}>
+          <SubscriptionDetailDrawer
+            open={!!detailSub}
+            subscription={detailSub}
+            categoryName={getSubscriptionCategoryName(detailSub)}
+            currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+            paymentMethodName={
+              detailSub.payment_method_id
+                ? paymentMethodLabelMap.get(detailSub.payment_method_id)
+                : undefined
+            }
+            onOpenChange={(open) => {
+              if (!open) setDetailSub(null)
+            }}
+            onEdit={(sub) => {
+              setDetailSub(null)
+              setEditingSub(sub)
+              setFormOpen(true)
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
