@@ -479,7 +479,7 @@ function SummaryCard({
   value: string
 }) {
   return (
-    <Card>
+    <Card className="py-0">
       <CardContent className="px-2 py-1.5 sm:p-4">
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
