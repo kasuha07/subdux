@@ -670,7 +670,6 @@ export default function DashboardPage() {
                       }
                       onOpenDetail={handleOpenDetail}
                       onPreloadDetail={handlePreloadDetail}
-                      onEdit={handleEdit}
                     />
                   )
                 })

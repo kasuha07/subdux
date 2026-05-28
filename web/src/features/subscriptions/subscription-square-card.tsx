@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { BellOff, ExternalLink, PanelRightOpen, Pencil } from "lucide-react"
+import { BellOff, ExternalLink, PanelRightOpen } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,6 @@ import {
   getSubscriptionStatus,
   isSubscriptionEnded,
 } from "@/features/subscriptions/subscription-lifecycle"
-import { useHoverCapablePointer } from "@/features/subscriptions/hooks/use-hover-capable-pointer"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
 import { daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
@@ -64,7 +63,6 @@ interface SubscriptionSquareCardProps {
   paymentMethodName?: string
   onOpenDetail: (sub: Subscription) => void
   onPreloadDetail?: (sub: Subscription) => void
-  onEdit: (sub: Subscription) => void
 }
 
 const statusStyles: Record<string, string> = {
@@ -90,10 +88,8 @@ export default function SubscriptionSquareCard({
   paymentMethodName,
   onOpenDetail,
   onPreloadDetail,
-  onEdit,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
-  const hoverCapablePointer = useHoverCapablePointer()
   const amountToDisplay = displayAmount ?? subscription.amount
   const currencyToDisplay = displayCurrency ?? subscription.currency
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
@@ -220,11 +216,7 @@ export default function SubscriptionSquareCard({
           </div>
         </div>
 
-        <div
-          className={`grid ${
-            hoverCapablePointer ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
-          } items-center gap-1`}
-        >
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
           <Badge variant="outline" className={`max-w-[10rem] truncate ${dueBadgeClass}`}>
             {renderDueText()}
           </Badge>
@@ -245,23 +237,6 @@ export default function SubscriptionSquareCard({
           >
             <PanelRightOpen className="size-3.5" />
           </Button>
-
-          {hoverCapablePointer ? (
-            <div className="pointer-events-none flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onEdit(subscription)
-                }}
-                aria-label={t("subscription.form.editTitle")}
-                title={t("subscription.form.editTitle")}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-            </div>
-          ) : null}
         </div>
       </CardContent>
       {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}
