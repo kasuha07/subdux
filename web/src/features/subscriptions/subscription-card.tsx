@@ -180,10 +180,6 @@ export default function SubscriptionCard({
       return t("subscription.card.recurrence.monthlyCost")
     }
 
-    if (!subscription.recurrence_type) {
-      return t("subscription.card.billingType.legacy")
-    }
-
     if (subscription.recurrence_type === "monthly_date") {
       return t("subscription.card.recurrence.monthlyDate", { day: subscription.monthly_day ?? 1 })
     }
@@ -351,11 +347,9 @@ export default function SubscriptionCard({
             <Badge variant="outline" className={statusStyles[status] || ""}>
               {t(`subscription.card.status.${status}`)}
             </Badge>
-            {subscription.billing_type === "recurring" ? (
-              <Badge variant="outline" className={renewalModeStyles[renewalMode] || ""}>
-                {t(`subscription.card.renewalMode.${renewalMode}`)}
-              </Badge>
-            ) : null}
+            <Badge variant="outline" className={renewalModeStyles[renewalMode] || ""}>
+              {t(`subscription.card.renewalMode.${renewalMode}`)}
+            </Badge>
           </div>
         </div>
 

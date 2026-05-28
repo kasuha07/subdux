@@ -17,14 +17,9 @@ func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 	for i := range subs {
 		sub := subs[i]
 		updates := map[string]interface{}{}
-		billingType := strings.ToLower(strings.TrimSpace(sub.BillingType))
-		migratingLegacyBuyout := billingType != subscriptionBillingTypeRecurring
 
-		status := strings.ToLower(strings.TrimSpace(sub.Status))
-		if migratingLegacyBuyout {
-			status = subscriptionStatusEnded
-			updates["status"] = status
-		} else if status == "" {
+		status := normalizeSubscriptionLifecycleValue(sub.Status)
+		if status == "" {
 			if sub.Enabled {
 				status = subscriptionStatusActive
 			} else {
@@ -33,11 +28,8 @@ func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 			updates["status"] = status
 		}
 
-		renewalMode := strings.ToLower(strings.TrimSpace(sub.RenewalMode))
-		if migratingLegacyBuyout {
-			renewalMode = subscriptionRenewalModeCancelEnd
-			updates["renewal_mode"] = renewalMode
-		} else if renewalMode == "" {
+		renewalMode := normalizeSubscriptionLifecycleValue(sub.RenewalMode)
+		if renewalMode == "" {
 			if status == subscriptionStatusEnded {
 				renewalMode = subscriptionRenewalModeCancelEnd
 			} else {
@@ -59,17 +51,6 @@ func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 			}
 		}
 
-		if migratingLegacyBuyout {
-			updates["billing_type"] = subscriptionBillingTypeRecurring
-			updates["recurrence_type"] = ""
-			updates["interval_count"] = nil
-			updates["interval_unit"] = ""
-			updates["monthly_day"] = nil
-			updates["yearly_month"] = nil
-			updates["yearly_day"] = nil
-			billingType = subscriptionBillingTypeRecurring
-		}
-
 		expectedEnabled := status == subscriptionStatusActive
 		if sub.Enabled != expectedEnabled {
 			updates["enabled"] = expectedEnabled
@@ -84,6 +65,10 @@ func backfillSubscriptionLifecycleFields(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+func normalizeSubscriptionLifecycleValue(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func normalizeSubscriptionDate(value time.Time) time.Time {

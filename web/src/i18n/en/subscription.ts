@@ -1,8 +1,5 @@
 const subscription = {
   "card": {
-    "billingType": {
-      "legacy": "Legacy purchase"
-    },
     "recurrence": {
       "interval": {
         "day": "Every {{count}} day(s)",
@@ -61,7 +58,6 @@ const subscription = {
     "info": {
       "title": "Subscription information",
       "amount": "Amount",
-      "billingType": "Billing type",
       "recurrence": "Recurrence",
       "nextBillingDate": "Next billing date",
       "periodEndDate": "Period end date",
@@ -121,11 +117,6 @@ const subscription = {
     "amountLabel": "Amount",
     "amountPlaceholder": "9.99",
     "currencyLabel": "Currency",
-    "billingTypeLabel": "Billing type",
-    "billingType": {
-      "recurring": "Subscription-based",
-      "one_time": "Legacy purchase (unsupported)"
-    },
     "statusLabel": "Lifecycle",
     "status": {
       "active": "Active",

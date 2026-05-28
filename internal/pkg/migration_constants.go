@@ -6,6 +6,5 @@ const (
 	subscriptionRenewalModeAutoRenew   = "auto_renew"
 	subscriptionRenewalModeManualRenew = "manual_renew"
 	subscriptionRenewalModeCancelEnd   = "cancel_at_period_end"
-	subscriptionBillingTypeRecurring   = "recurring"
 	sqliteRebuildTableSuffix           = "__pre_fk_migration"
 )

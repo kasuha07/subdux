@@ -246,7 +246,6 @@ export default function SubscriptionForm({
             ) : null}
 
             <SubscriptionRecurrenceFields
-              billingType={values.billingType}
               recurrenceType={values.recurrenceType}
               onRecurrenceTypeChange={(value) => setField("recurrenceType", value)}
               intervalCount={values.intervalCount}

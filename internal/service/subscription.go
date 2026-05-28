@@ -10,8 +10,6 @@ import (
 
 const (
 	billingTypeRecurring = "recurring"
-	billingTypeOneTime   = "one_time"
-	billingTypeLifetime  = "lifetime"
 
 	subscriptionStatusActive = "active"
 	subscriptionStatusEnded  = "ended"

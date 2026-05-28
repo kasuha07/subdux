@@ -720,7 +720,6 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				!isValidRenewalMode(normalizeRenewalMode(lifecycle.RenewalMode)) {
 				legacy := deriveLegacyLifecycle(
 					incoming.Enabled,
-					incoming.BillingType,
 					incoming.NextBillingDate,
 					incoming.EndsAt,
 					pkg.NowUTC(),
@@ -729,7 +728,6 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			}
 			normalizedLifecycle, err := normalizeLifecycleDraft(
 				lifecycle,
-				incoming.BillingType,
 				incoming.NextBillingDate,
 				pkg.NowInSystemTimezone(),
 			)

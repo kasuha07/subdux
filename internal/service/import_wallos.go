@@ -253,7 +253,7 @@ func mapPaymentCycle(cycle string) (billingType, recurrenceType, intervalUnit st
 		}
 	}
 
-	return "one_time", "", "", 0
+	return "", "", "", 0
 }
 
 var dateFormats = []string{
@@ -489,10 +489,9 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			}
 
 			notifyEnabled := parseEnabled(item.Notifications)
-			lifecycle := deriveLegacyLifecycle(enabled, billingType, nextBilling, nil, pkg.NowUTC())
+			lifecycle := deriveLegacyLifecycle(enabled, nextBilling, nil, pkg.NowUTC())
 			normalizedLifecycle, lifecycleErr := normalizeLifecycleDraft(
 				lifecycle,
-				billingType,
 				nextBilling,
 				pkg.NowInSystemTimezone(),
 			)

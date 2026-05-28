@@ -406,12 +406,6 @@ function DetailInfoPanel({
       value: formatAmount(sub.amount, sub.currency),
     },
     {
-      label: t("subscription.detail.info.billingType"),
-      value: t(`subscription.form.billingType.${sub.billing_type}`, {
-        defaultValue: sub.billing_type || empty,
-      }),
-    },
-    {
       label: t("subscription.detail.info.recurrence"),
       value: formatRecurrenceRule(sub, t),
     },
@@ -794,11 +788,6 @@ function formatEventAmountChange(
 
 function formatRecurrenceRule(sub: Subscription, t: TFunction): string {
   const empty = t("subscription.detail.empty.none")
-  if (sub.billing_type !== "recurring") {
-    return t(`subscription.form.billingType.${sub.billing_type}`, {
-      defaultValue: sub.billing_type || empty,
-    })
-  }
 
   if (sub.recurrence_type === "interval" && sub.interval_count && sub.interval_unit) {
     return t(`subscription.card.recurrence.interval.${sub.interval_unit}`, {

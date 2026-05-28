@@ -80,7 +80,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		Status:      input.Status,
 		RenewalMode: input.RenewalMode,
 		EndsAt:      endsAt,
-	}, normalizedDraft.BillingType, nextBillingDate, pkg.NowInSystemTimezone())
+	}, nextBillingDate, pkg.NowInSystemTimezone())
 	if err != nil {
 		return nil, err
 	}
@@ -303,12 +303,6 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 
 		normalizedLifecycle, err := normalizeLifecycleDraft(
 			lifecycle,
-			func() string {
-				if billingTypeUpdate, ok := updates["billing_type"].(string); ok {
-					return billingTypeUpdate
-				}
-				return sub.BillingType
-			}(),
 			nextBillingDate,
 			pkg.NowInSystemTimezone(),
 		)
@@ -402,14 +396,10 @@ func normalizeSubscriptionForResponse(sub *model.Subscription) {
 		return
 	}
 	if !isValidSubscriptionStatus(normalizeStatus(sub.Status)) || !isValidRenewalMode(normalizeRenewalMode(sub.RenewalMode)) {
-		legacy := deriveLegacyLifecycle(sub.Enabled, sub.BillingType, sub.NextBillingDate, sub.EndsAt, sub.UpdatedAt)
+		legacy := deriveLegacyLifecycle(sub.Enabled, sub.NextBillingDate, sub.EndsAt, sub.UpdatedAt)
 		sub.Status = legacy.Status
 		sub.RenewalMode = legacy.RenewalMode
 		sub.EndsAt = copyTimePointer(legacy.EndsAt)
 	}
 	syncLegacyEnabledForLifecycle(sub)
-	billingType := strings.ToLower(strings.TrimSpace(sub.BillingType))
-	if billingType == billingTypeLifetime || billingType == "payg" || billingType == billingTypeOneTime {
-		sub.BillingType = billingTypeRecurring
-	}
 }

@@ -257,21 +257,21 @@ func TestAutoAdvanceRecurringNextBillingDatesForUserOnlyAdvancesAutoRenew(t *tes
 	}
 }
 
-func TestCreateRejectsLegacyOneTimeSubscriptions(t *testing.T) {
+func TestCreateRejectsNonRecurringBillingType(t *testing.T) {
 	db := newSubscriptionRolloverTestDB(t)
 	user := createSubscriptionRolloverTestUser(t, db)
 	service := NewSubscriptionService(db)
 
 	_, err := service.Create(user.ID, CreateSubscriptionInput{
-		Name:            "Legacy buyout",
+		Name:            "Usage billed service",
 		Amount:          4.99,
-		BillingType:     billingTypeOneTime,
+		BillingType:     "usage",
 		NextBillingDate: setSubscriptionRolloverTestNow(t).Format("2006-01-02"),
 	})
 	if err == nil {
-		t.Fatal("Create() error = nil, want unsupported one_time error")
+		t.Fatal("Create() error = nil, want non-recurring billing type error")
 	}
-	if got, want := err.Error(), "one_time subscriptions are no longer supported"; got != want {
+	if got, want := err.Error(), "billing_type must be recurring"; got != want {
 		t.Fatalf("Create() error = %q, want %q", got, want)
 	}
 }

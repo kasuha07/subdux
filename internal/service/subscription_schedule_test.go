@@ -125,26 +125,19 @@ func TestNormalizeBillingDraft_RequiresNextBillingDate(t *testing.T) {
 	}
 }
 
-func TestNormalizeBillingDraft_RejectsLegacyBuyoutBillingTypes(t *testing.T) {
+func TestNormalizeBillingDraft_RejectsNonRecurringBillingType(t *testing.T) {
 	nextBillingDate := mustDate(t, "2025-02-20")
+	draft := billingDraft{
+		BillingType:     "usage",
+		NextBillingDate: &nextBillingDate,
+	}
 
-	testCases := []string{billingTypeOneTime, billingTypeLifetime}
-	for _, billingType := range testCases {
-		billingType := billingType
-		t.Run(billingType, func(t *testing.T) {
-			draft := billingDraft{
-				BillingType:     billingType,
-				NextBillingDate: &nextBillingDate,
-			}
-
-			_, _, err := normalizeBillingDraft(draft)
-			if err == nil {
-				t.Fatal("normalizeBillingDraft() expected unsupported one_time error")
-			}
-			if got, want := err.Error(), "one_time subscriptions are no longer supported"; got != want {
-				t.Fatalf("normalizeBillingDraft() error = %q, want %q", got, want)
-			}
-		})
+	_, _, err := normalizeBillingDraft(draft)
+	if err == nil {
+		t.Fatal("normalizeBillingDraft() expected non-recurring billing type error")
+	}
+	if got, want := err.Error(), "billing_type must be recurring"; got != want {
+		t.Fatalf("normalizeBillingDraft() error = %q, want %q", got, want)
 	}
 }
 

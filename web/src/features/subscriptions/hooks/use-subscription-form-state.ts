@@ -19,7 +19,6 @@ interface SubscriptionFormValues {
   amount: string
   nextBillingDate: string
   endsAt: string
-  billingType: string
   categoryId: string
   currency: string
   icon: string
@@ -99,7 +98,6 @@ function buildInitialValues(
       amount: subscription.amount.toString(),
       nextBillingDate: formatDateInput(subscription.next_billing_date),
       endsAt: formatDateInput(subscription.ends_at || subscription.next_billing_date),
-      billingType: "recurring",
       categoryId: subscription.category_id?.toString() || "",
       currency: subscription.currency || fallbackCurrencyCode,
       icon: subscription.icon || "",
@@ -130,7 +128,6 @@ function buildInitialValues(
     amount: "",
     nextBillingDate: todayDate,
     endsAt: todayDate,
-    billingType: "recurring",
     categoryId: "",
     currency: fallbackCurrencyCode,
     icon: "",

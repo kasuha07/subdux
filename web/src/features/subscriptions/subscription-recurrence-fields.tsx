@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/select"
 
 interface SubscriptionRecurrenceFieldsProps {
-  billingType: string
   intervalCount: string
   intervalUnit: string
   monthlyDay: string
@@ -27,7 +26,6 @@ interface SubscriptionRecurrenceFieldsProps {
 }
 
 export default function SubscriptionRecurrenceFields({
-  billingType,
   intervalCount,
   intervalUnit,
   monthlyDay,
@@ -42,10 +40,6 @@ export default function SubscriptionRecurrenceFields({
   yearlyMonth,
 }: SubscriptionRecurrenceFieldsProps) {
   const { t } = useTranslation()
-
-  if (billingType !== "recurring") {
-    return null
-  }
 
   return (
     <>

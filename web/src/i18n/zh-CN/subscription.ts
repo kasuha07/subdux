@@ -1,8 +1,5 @@
 const subscription = {
   "card": {
-    "billingType": {
-      "legacy": "历史买断"
-    },
     "recurrence": {
       "interval": {
         "day": "每 {{count}} 天",
@@ -61,7 +58,6 @@ const subscription = {
     "info": {
       "title": "订阅信息",
       "amount": "金额",
-      "billingType": "计费类型",
       "recurrence": "重复规则",
       "nextBillingDate": "下次计费日期",
       "periodEndDate": "本期结束日期",
@@ -121,11 +117,6 @@ const subscription = {
     "amountLabel": "金额",
     "amountPlaceholder": "9.99",
     "currencyLabel": "货币",
-    "billingTypeLabel": "计费类型",
-    "billingType": {
-      "recurring": "订阅制",
-      "one_time": "历史买断（已停用）"
-    },
     "statusLabel": "生命周期",
     "status": {
       "active": "有效",

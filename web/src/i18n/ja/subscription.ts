@@ -1,8 +1,5 @@
 const subscription = {
   "card": {
-    "billingType": {
-      "legacy": "旧買い切り"
-    },
     "recurrence": {
       "interval": {
         "day": "{{count}}日ごと",
@@ -61,7 +58,6 @@ const subscription = {
     "info": {
       "title": "サブスク情報",
       "amount": "金額",
-      "billingType": "課金タイプ",
       "recurrence": "繰り返し",
       "nextBillingDate": "次回請求日",
       "periodEndDate": "期間終了日",
@@ -121,11 +117,6 @@ const subscription = {
     "amountLabel": "金額",
     "amountPlaceholder": "9.99",
     "currencyLabel": "通貨",
-    "billingTypeLabel": "課金タイプ",
-    "billingType": {
-      "recurring": "サブスク制",
-      "one_time": "旧買い切り（非推奨）"
-    },
     "statusLabel": "ライフサイクル",
     "status": {
       "active": "有効",

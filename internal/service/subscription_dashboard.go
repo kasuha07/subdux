@@ -77,11 +77,13 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 
 func subscriptionContributesToOngoingSpend(sub model.Subscription) bool {
 	return normalizeStatus(sub.Status) == subscriptionStatusActive &&
+		sub.BillingType == billingTypeRecurring &&
 		normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd
 }
 
 func subscriptionHasFutureCharge(sub model.Subscription) bool {
 	return normalizeStatus(sub.Status) == subscriptionStatusActive &&
+		sub.BillingType == billingTypeRecurring &&
 		normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd
 }
 
@@ -100,7 +102,7 @@ func subscriptionChargeDatesInRange(sub model.Subscription, startInclusive, endE
 	}
 
 	current := normalizeDateUTC(*sub.NextBillingDate)
-	if sub.BillingType != billingTypeRecurring || normalizeRenewalMode(sub.RenewalMode) != renewalModeAutoRenew {
+	if normalizeRenewalMode(sub.RenewalMode) != renewalModeAutoRenew {
 		if current.Before(startInclusive) || !current.Before(endExclusive) {
 			return nil
 		}

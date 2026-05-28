@@ -43,7 +43,6 @@ func isValidRenewalMode(value string) bool {
 
 func normalizeLifecycleDraft(
 	draft lifecycleDraft,
-	billingType string,
 	nextBillingDate *time.Time,
 	now time.Time,
 ) (lifecycleDraft, error) {
@@ -59,10 +58,8 @@ func normalizeLifecycleDraft(
 	if draft.RenewalMode == "" {
 		if draft.Status == subscriptionStatusEnded {
 			draft.RenewalMode = renewalModeCancelAtPeriodEnd
-		} else if normalizeBillingType(billingType) == billingTypeRecurring {
-			draft.RenewalMode = renewalModeAutoRenew
 		} else {
-			draft.RenewalMode = renewalModeManualRenew
+			draft.RenewalMode = renewalModeAutoRenew
 		}
 	}
 	if !isValidRenewalMode(draft.RenewalMode) {
@@ -72,19 +69,6 @@ func normalizeLifecycleDraft(
 	if draft.EndsAt != nil {
 		normalized := normalizeDateUTC(*draft.EndsAt)
 		draft.EndsAt = &normalized
-	}
-
-	if normalizeBillingType(billingType) != billingTypeRecurring {
-		draft.Status = subscriptionStatusEnded
-		draft.RenewalMode = renewalModeCancelAtPeriodEnd
-		if draft.EndsAt == nil {
-			endedAt := normalizeDateUTC(now)
-			if nextBillingDate != nil {
-				endedAt = normalizeDateUTC(*nextBillingDate)
-			}
-			draft.EndsAt = &endedAt
-		}
-		return draft, nil
 	}
 
 	if draft.Status == subscriptionStatusEnded {
@@ -196,24 +180,7 @@ func reconcileSubscriptionLifecycleForUser(db *gorm.DB, userID uint, referenceDa
 	return nil
 }
 
-func deriveLegacyLifecycle(enabled bool, billingType string, nextBillingDate, endsAt *time.Time, updatedAt time.Time) lifecycleDraft {
-	if normalizeBillingType(billingType) != billingTypeRecurring {
-		draft := lifecycleDraft{
-			Status:      subscriptionStatusEnded,
-			RenewalMode: renewalModeCancelAtPeriodEnd,
-			EndsAt:      copyTimePointer(endsAt),
-		}
-		if draft.EndsAt == nil {
-			if nextBillingDate != nil {
-				draft.EndsAt = copyTimePointer(nextBillingDate)
-			} else {
-				endedAt := normalizeDateUTC(updatedAt)
-				draft.EndsAt = &endedAt
-			}
-		}
-		return draft
-	}
-
+func deriveLegacyLifecycle(enabled bool, nextBillingDate, endsAt *time.Time, updatedAt time.Time) lifecycleDraft {
 	status := subscriptionStatusActive
 	if !enabled {
 		status = subscriptionStatusEnded

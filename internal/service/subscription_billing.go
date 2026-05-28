@@ -11,9 +11,6 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 	if draft.BillingType == "" {
 		draft.BillingType = billingTypeRecurring
 	}
-	if draft.BillingType == billingTypeOneTime {
-		return draft, nil, errors.New("one_time subscriptions are no longer supported")
-	}
 
 	if draft.NextBillingDate == nil {
 		return draft, nil, errors.New("next_billing_date is required for recurring subscriptions")
@@ -85,11 +82,7 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 }
 
 func normalizeBillingType(value string) string {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	if normalized == billingTypeLifetime {
-		return billingTypeOneTime
-	}
-	return normalized
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func normalizeRecurrenceType(value string) string {

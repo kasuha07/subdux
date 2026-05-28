@@ -25,24 +25,13 @@ func TestSubscriptionChargeDatesInRange(t *testing.T) {
 		want  int
 	}{
 		{
-			name:  "one-time due within range",
+			name:  "non-recurring billing type is ignored",
 			start: "2026-02-01",
 			end:   "2026-03-01",
 			sub: model.Subscription{
 				Status:          subscriptionStatusActive,
-				BillingType:     billingTypeOneTime,
+				BillingType:     "usage",
 				NextBillingDate: timePtr("2026-02-15"),
-			},
-			want: 1,
-		},
-		{
-			name:  "one-time due before range",
-			start: "2026-02-01",
-			end:   "2026-03-01",
-			sub: model.Subscription{
-				Status:          subscriptionStatusActive,
-				BillingType:     billingTypeOneTime,
-				NextBillingDate: timePtr("2026-01-31"),
 			},
 			want: 0,
 		},
