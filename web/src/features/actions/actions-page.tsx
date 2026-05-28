@@ -610,8 +610,6 @@ function ActionTypeBadge({ action }: { action: SubscriptionAction }) {
     <Badge variant="outline" className={cn("gap-1", severityStyles[action.severity])}>
       <Icon className="size-3.5" />
       {t(`actions.type.${action.type}`)}
-      <span className="text-current/70">·</span>
-      {t(`actions.severity.${action.severity}`)}
     </Badge>
   )
 }
