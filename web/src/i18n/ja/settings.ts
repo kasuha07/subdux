@@ -305,6 +305,8 @@ const settings = {
     "copied": "クリップボードにコピーしました",
     "usage": "使用方法",
     "usageDescription": "リクエスト時にX-API-KeyヘッダーにAPIキーを設定してください。",
+    "mcpUsage": "MCP設定",
+    "mcpUsageDescription": "このserver設定をMCP互換のagentに追加してください。",
     "limitReached": "APIキーは最大5個までです"
   },
   "notifications": {

@@ -305,6 +305,8 @@ const settings = {
     "copied": "Copied to clipboard",
     "usage": "Usage",
     "usageDescription": "Use the API key in the X-API-Key header when making requests.",
+    "mcpUsage": "MCP configuration",
+    "mcpUsageDescription": "Add this server entry to an MCP-compatible agent.",
     "limitReached": "Maximum of 5 API keys reached"
   },
   "notifications": {

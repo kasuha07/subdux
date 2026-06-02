@@ -97,6 +97,23 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     return new Date(dateStr).toLocaleDateString()
   }
 
+  function getMCPConfig(key: string) {
+    const origin = typeof window === "undefined" ? "" : window.location.origin
+    return JSON.stringify(
+      {
+        mcpServers: {
+          subdux: {
+            type: "http",
+            url: `${origin}/mcp`,
+            headers: { "X-API-Key": key },
+          },
+        },
+      },
+      null,
+      2
+    )
+  }
+
   return (
     <TabsContent value="apikey">
       <div className="space-y-4">
@@ -153,6 +170,24 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                     <code className="block rounded-md border bg-muted px-3 py-2 text-xs">
                       X-API-Key: {newKey}
                     </code>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("settings.apiKeys.mcpUsage")}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.apiKeys.mcpUsageDescription")}
+                    </p>
+                    <div className="flex gap-2">
+                      <code className="block max-h-40 flex-1 overflow-auto rounded-md border bg-muted px-3 py-2 text-xs whitespace-pre">
+                        {getMCPConfig(newKey)}
+                      </code>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        onClick={() => handleCopy(getMCPConfig(newKey))}
+                      >
+                        <Copy className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (

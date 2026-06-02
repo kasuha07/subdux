@@ -101,6 +101,21 @@ Subdux 虽然是 monorepo，但最终以单应用方式部署：
 - `/api/*` —— REST API
 - `/uploads/*` —— 上传资源
 - `/api/calendar/feed` —— 带 token 的只读日历订阅地址
+- `/mcp` —— MCP Streamable HTTP 端点，供 agent 通过 `X-API-Key` 接入
+
+MCP 客户端可以使用用户创建的 API 密钥连接：
+
+```json
+{
+  "mcpServers": {
+    "subdux": {
+      "type": "http",
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": { "X-API-Key": "sdx_xxx..." }
+    }
+  }
+}
+```
 
 服务启动后会自动运行以下后台任务：
 

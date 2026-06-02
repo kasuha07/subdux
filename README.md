@@ -101,6 +101,21 @@ Runtime routing:
 - `/api/*` — REST API
 - `/uploads/*` — uploaded assets
 - `/api/calendar/feed` — tokenized read-only calendar feed
+- `/mcp` — MCP Streamable HTTP endpoint for agent access with the `X-API-Key` header
+
+MCP clients can connect with a user-created API key:
+
+```json
+{
+  "mcpServers": {
+    "subdux": {
+      "type": "http",
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": { "X-API-Key": "sdx_xxx..." }
+    }
+  }
+}
+```
 
 Background jobs started by the server include:
 

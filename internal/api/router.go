@@ -143,6 +143,13 @@ func SetupRoutes(
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService)
 	importHandler := NewImportHandler(importService)
+	mcpHandler := NewMCPHandler(apiKeyService, subService, erService, categoryService, paymentMethodService)
+
+	e.POST("/mcp", mcpHandler.HandlePost, requestBodyLimitMiddleware(1<<20, nil))
+	e.GET("/mcp", mcpHandler.MethodNotAllowed)
+	e.PUT("/mcp", mcpHandler.MethodNotAllowed)
+	e.PATCH("/mcp", mcpHandler.MethodNotAllowed)
+	e.DELETE("/mcp", mcpHandler.MethodNotAllowed)
 
 	api := e.Group("/api")
 	api.Use(requestBodyLimitMiddleware(1<<20, func(c echo.Context) bool {
