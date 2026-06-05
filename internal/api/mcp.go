@@ -582,7 +582,7 @@ func updateSubscriptionInputFromMCPArgs(args map[string]interface{}) (service.Up
 }
 
 func validateSubscriptionWriteArgTypes(args map[string]interface{}) error {
-	return validateMCPArgTypes(args, []mcpArgSpec{
+	if err := validateMCPArgTypes(args, []mcpArgSpec{
 		{Key: "id", Type: "integer"},
 		{Key: "name", Type: "string"},
 		{Key: "amount", Type: "number"},
@@ -606,7 +606,16 @@ func validateSubscriptionWriteArgTypes(args map[string]interface{}) error {
 		{Key: "icon", Type: "string"},
 		{Key: "url", Type: "string"},
 		{Key: "notes", Type: "string"},
-	})
+	}); err != nil {
+		return err
+	}
+
+	if value, ok := readNullableIntArg(args, "notify_days_before"); ok && value != nil {
+		if *value < 0 || *value > 10 {
+			return errors.New("notify_days_before must be between 0 and 10")
+		}
+	}
+	return nil
 }
 
 type mcpArgSpec struct {
@@ -973,7 +982,7 @@ func subscriptionWriteInputSchema(required []string) map[string]interface{} {
 		"category_id":        nullableIntegerSchema("Category ID. Use null to clear on update."),
 		"payment_method_id":  nullableIntegerSchema("Payment method ID. Use null to clear on update."),
 		"notify_enabled":     nullableBoolSchema("Notification override. Use null for default policy."),
-		"notify_days_before": nullableIntegerSchema("Notification lead time, 0-10 days."),
+		"notify_days_before": nullableIntegerRangeSchema("Notification lead time, 0-10 days.", 0, 10),
 		"icon":               stringSchema("Emoji, icon identifier, managed file, or image URL."),
 		"url":                stringSchema("Related website URL."),
 		"notes":              stringSchema("Free-form notes."),
@@ -1011,6 +1020,16 @@ func idSchema(description string) map[string]interface{} {
 
 func nullableIntegerSchema(description string) map[string]interface{} {
 	return map[string]interface{}{"type": []string{"integer", "null"}, "description": description, "minimum": 0}
+}
+
+func nullableIntegerRangeSchema(description string, minimum, maximum int) map[string]interface{} {
+	return map[string]interface{}{
+		"anyOf": []map[string]interface{}{
+			{"type": "integer", "minimum": minimum, "maximum": maximum},
+			{"type": "null"},
+		},
+		"description": description,
+	}
 }
 
 func numberSchema(description string) map[string]interface{} {

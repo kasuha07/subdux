@@ -420,6 +420,85 @@ func TestMCPRejectsInvalidToolArgumentType(t *testing.T) {
 	}
 }
 
+func TestMCPRejectsNegativeNotifyDaysBefore(t *testing.T) {
+	tests := []struct {
+		name      string
+		toolName  string
+		arguments map[string]interface{}
+		setup     func(t *testing.T, db *gorm.DB, user model.User) uint
+	}{
+		{
+			name:     "create",
+			toolName: "create_subscription",
+			arguments: map[string]interface{}{
+				"name":               "Claude Pro",
+				"amount":             20,
+				"next_billing_date":  "2026-06-15",
+				"notify_days_before": -1,
+			},
+		},
+		{
+			name:     "update",
+			toolName: "update_subscription",
+			arguments: map[string]interface{}{
+				"notify_days_before": -1,
+			},
+			setup: func(t *testing.T, db *gorm.DB, user model.User) uint {
+				t.Helper()
+				intervalCount := 1
+				sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+					Name:            "Claude Pro",
+					Amount:          20,
+					Currency:        "USD",
+					BillingType:     "recurring",
+					RecurrenceType:  "interval",
+					IntervalCount:   &intervalCount,
+					IntervalUnit:    "month",
+					NextBillingDate: "2026-06-15",
+				})
+				if err != nil {
+					t.Fatalf("failed to create subscription: %v", err)
+				}
+				return sub.ID
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newMCPTestDB(t)
+			user := createMCPTestUser(t, db)
+			apiKey := createMCPAPIKey(t, db, user, nil)
+			handler := newMCPTestHandler(db)
+
+			if tt.setup != nil {
+				tt.arguments["id"] = tt.setup(t, db, user)
+			}
+
+			rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  "tools/call",
+				"params": map[string]interface{}{
+					"name":      tt.toolName,
+					"arguments": tt.arguments,
+				},
+			})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			errPayload := resp["error"].(map[string]interface{})
+			if int(errPayload["code"].(float64)) != -32602 {
+				t.Fatalf("error code = %v, want -32602", errPayload["code"])
+			}
+			if errPayload["message"] != "notify_days_before must be between 0 and 10" {
+				t.Fatalf("error message = %v, want notify_days_before validation", errPayload["message"])
+			}
+		})
+	}
+}
+
 func TestMCPRejectsInvalidDashboardCurrency(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
