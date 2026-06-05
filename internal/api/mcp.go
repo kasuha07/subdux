@@ -323,9 +323,14 @@ func (h *MCPHandler) callSearchSubscriptions(userID uint, args map[string]interf
 		return nil, internalMCPError(err)
 	}
 
+	categoryLabels, err := h.mcpCategoryLabels(userID, filters)
+	if err != nil {
+		return nil, internalMCPError(err)
+	}
+
 	matches := make([]model.Subscription, 0, len(subs))
 	for _, sub := range subs {
-		if matchesMCPSubscriptionSearch(sub, filters) {
+		if matchesMCPSubscriptionSearch(sub, filters, categoryLabels) {
 			matches = append(matches, sub)
 		}
 	}
@@ -341,6 +346,23 @@ func (h *MCPHandler) callSearchSubscriptions(userID uint, args map[string]interf
 		"total_matches": totalMatches,
 		"limit":         filters.Limit,
 	}), nil
+}
+
+func (h *MCPHandler) mcpCategoryLabels(userID uint, filters mcpSubscriptionSearchFilters) (map[uint]string, error) {
+	if filters.Query == "" && filters.Category == "" {
+		return nil, nil
+	}
+
+	categories, err := h.categories.List(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := make(map[uint]string, len(categories))
+	for _, category := range categories {
+		labels[category.ID] = category.Name
+	}
+	return labels, nil
 }
 
 func (h *MCPHandler) callGetSubscription(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -773,8 +795,8 @@ func parseMCPDateArg(key, value string) (*time.Time, error) {
 	return &parsed, nil
 }
 
-func matchesMCPSubscriptionSearch(sub model.Subscription, filters mcpSubscriptionSearchFilters) bool {
-	if filters.Query != "" && !strings.Contains(mcpSubscriptionSearchText(sub), filters.Query) {
+func matchesMCPSubscriptionSearch(sub model.Subscription, filters mcpSubscriptionSearchFilters, categoryLabels map[uint]string) bool {
+	if filters.Query != "" && !strings.Contains(mcpSubscriptionSearchText(sub, categoryLabels), filters.Query) {
 		return false
 	}
 	if filters.Status != "" && sub.Status != filters.Status {
@@ -792,7 +814,7 @@ func matchesMCPSubscriptionSearch(sub model.Subscription, filters mcpSubscriptio
 	if filters.RecurrenceType != "" && sub.RecurrenceType != filters.RecurrenceType {
 		return false
 	}
-	if filters.Category != "" && !strings.Contains(strings.ToLower(sub.Category), filters.Category) {
+	if filters.Category != "" && !strings.Contains(mcpSubscriptionCategorySearchText(sub, categoryLabels), filters.Category) {
 		return false
 	}
 	if filters.CategoryIDSet && !uintPointersEqual(sub.CategoryID, filters.CategoryID) {
@@ -814,10 +836,11 @@ func matchesMCPSubscriptionSearch(sub model.Subscription, filters mcpSubscriptio
 	return true
 }
 
-func mcpSubscriptionSearchText(sub model.Subscription) string {
+func mcpSubscriptionSearchText(sub model.Subscription, categoryLabels map[uint]string) string {
 	return strings.ToLower(strings.Join([]string{
 		sub.Name,
 		sub.Category,
+		mcpSubscriptionCategoryName(sub, categoryLabels),
 		sub.Currency,
 		sub.Status,
 		sub.RenewalMode,
@@ -826,6 +849,20 @@ func mcpSubscriptionSearchText(sub model.Subscription) string {
 		sub.URL,
 		sub.Notes,
 	}, " "))
+}
+
+func mcpSubscriptionCategorySearchText(sub model.Subscription, categoryLabels map[uint]string) string {
+	return strings.ToLower(strings.Join([]string{
+		sub.Category,
+		mcpSubscriptionCategoryName(sub, categoryLabels),
+	}, " "))
+}
+
+func mcpSubscriptionCategoryName(sub model.Subscription, categoryLabels map[uint]string) string {
+	if sub.CategoryID == nil {
+		return ""
+	}
+	return strings.TrimSpace(categoryLabels[*sub.CategoryID])
 }
 
 func uintPointersEqual(left, right *uint) bool {
@@ -1134,7 +1171,7 @@ func (h *MCPHandler) buildTools() []mcpTool {
 				"renewal_mode":      enumSchema("Optional renewal mode.", []string{"auto_renew", "manual_renew", "cancel_at_period_end"}),
 				"billing_type":      enumSchema("Optional billing type.", []string{"recurring"}),
 				"recurrence_type":   enumSchema("Optional recurrence type.", []string{"interval", "monthly_date", "yearly_date"}),
-				"category":          stringSchema("Optional legacy category label substring."),
+				"category":          stringSchema("Optional category name substring. Matches the category_id label and legacy category label."),
 				"category_id":       nullableIntegerSchema("Optional category ID. Use null to find subscriptions without a category."),
 				"payment_method_id": nullableIntegerSchema("Optional payment method ID. Use null to find subscriptions without a payment method."),
 				"next_billing_from": stringSchema("Optional inclusive next billing start date in YYYY-MM-DD format."),

@@ -451,6 +451,108 @@ func TestMCPSearchSubscriptions(t *testing.T) {
 	}
 }
 
+func TestMCPSearchSubscriptionsMatchesCategoryName(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, []string{service.APIKeyScopeRead})
+	handler := newMCPTestHandler(db)
+
+	category := model.Category{UserID: user.ID, Name: "Developer Tools"}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+	otherCategory := model.Category{UserID: user.ID, Name: "Video"}
+	if err := db.Create(&otherCategory).Error; err != nil {
+		t.Fatalf("failed to create other category: %v", err)
+	}
+
+	subscriptionService := service.NewSubscriptionService(db)
+	intervalCount := 1
+	target, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "GitHub Copilot",
+		Amount:          10,
+		Currency:        "USD",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-07-15",
+		CategoryID:      &category.ID,
+	})
+	if err != nil {
+		t.Fatalf("failed to create target subscription: %v", err)
+	}
+	if _, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Netflix",
+		Amount:          15.49,
+		Currency:        "USD",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-07-20",
+		CategoryID:      &otherCategory.ID,
+	}); err != nil {
+		t.Fatalf("failed to create unrelated subscription: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		arguments map[string]interface{}
+	}{
+		{
+			name: "category filter matches category_id name",
+			arguments: map[string]interface{}{
+				"category": "developer",
+			},
+		},
+		{
+			name: "query matches category_id name",
+			arguments: map[string]interface{}{
+				"query": "developer",
+			},
+		},
+		{
+			name: "category and category_id can target same category",
+			arguments: map[string]interface{}{
+				"category":    "developer",
+				"category_id": category.ID,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  "tools/call",
+				"params": map[string]interface{}{
+					"name":      "search_subscriptions",
+					"arguments": tt.arguments,
+				},
+			})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			result := resp["result"].(map[string]interface{})
+			if result["isError"] == true {
+				t.Fatalf("search_subscriptions returned tool error: %#v", result)
+			}
+			structured := result["structuredContent"].(map[string]interface{})
+			if structured["count"] != float64(1) {
+				t.Fatalf("count = %v, want 1; structured = %#v", structured["count"], structured)
+			}
+			subs := structured["subscriptions"].([]interface{})
+			found := subs[0].(map[string]interface{})
+			if uint(found["id"].(float64)) != target.ID {
+				t.Fatalf("matched subscription id = %v, want %d", found["id"], target.ID)
+			}
+		})
+	}
+}
+
 func TestMCPSearchSubscriptionsValidatesArguments(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
