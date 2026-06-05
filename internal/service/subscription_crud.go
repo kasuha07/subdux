@@ -165,8 +165,8 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 	if input.Category != nil {
 		updates["category"] = *input.Category
 	}
-	if input.CategoryID != nil {
-		if *input.CategoryID == 0 {
+	if input.CategoryIDSet || input.CategoryID != nil {
+		if input.CategoryID == nil || *input.CategoryID == 0 {
 			updates["category_id"] = nil
 		} else {
 			if err := s.validateCategory(userID, *input.CategoryID); err != nil {
@@ -175,8 +175,8 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 			updates["category_id"] = *input.CategoryID
 		}
 	}
-	if input.PaymentMethodID != nil {
-		if *input.PaymentMethodID == 0 {
+	if input.PaymentMethodIDSet || input.PaymentMethodID != nil {
+		if input.PaymentMethodID == nil || *input.PaymentMethodID == 0 {
 			updates["payment_method_id"] = nil
 		} else {
 			if err := s.validatePaymentMethod(userID, *input.PaymentMethodID); err != nil {

@@ -89,6 +89,8 @@ type UpdateSubscriptionInput struct {
 	URL              *string  `json:"url"`
 	Notes            *string  `json:"notes"`
 
+	CategoryIDSet       bool `json:"-"`
+	PaymentMethodIDSet  bool `json:"-"`
 	NotifyEnabledSet    bool `json:"-"`
 	NotifyDaysBeforeSet bool `json:"-"`
 }
@@ -111,6 +113,12 @@ func (input *UpdateSubscriptionInput) UnmarshalJSON(data []byte) error {
 	}
 	if _, ok := raw["notify_days_before"]; ok {
 		input.NotifyDaysBeforeSet = true
+	}
+	if _, ok := raw["category_id"]; ok {
+		input.CategoryIDSet = true
+	}
+	if _, ok := raw["payment_method_id"]; ok {
+		input.PaymentMethodIDSet = true
 	}
 
 	return nil

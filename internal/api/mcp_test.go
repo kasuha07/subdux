@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -34,6 +35,7 @@ func newMCPTestDB(t *testing.T) *gorm.DB {
 		&model.SubscriptionActionSnooze{},
 		&model.Category{},
 		&model.PaymentMethod{},
+		&model.UserCurrency{},
 		&model.UserPreference{},
 		&model.ExchangeRate{},
 	); err != nil {
@@ -63,6 +65,7 @@ func newMCPTestHandler(db *gorm.DB) *MCPHandler {
 		service.NewAPIKeyService(db),
 		service.NewSubscriptionService(db),
 		service.NewExchangeRateService(db),
+		service.NewCurrencyService(db),
 		service.NewCategoryService(db),
 		service.NewPaymentMethodService(db),
 	)
@@ -414,6 +417,147 @@ func TestMCPRejectsInvalidToolArgumentType(t *testing.T) {
 	errPayload := resp["error"].(map[string]interface{})
 	if int(errPayload["code"].(float64)) != -32602 {
 		t.Fatalf("error code = %v, want -32602", errPayload["code"])
+	}
+}
+
+func TestMCPRejectsInvalidDashboardCurrency(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "get_dashboard_summary",
+			"arguments": map[string]interface{}{
+				"currency": "INVALID",
+			},
+		},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	errPayload := resp["error"].(map[string]interface{})
+	if int(errPayload["code"].(float64)) != -32602 {
+		t.Fatalf("error code = %v, want -32602", errPayload["code"])
+	}
+	if errPayload["message"] != "currency not found" {
+		t.Fatalf("error message = %v, want currency not found", errPayload["message"])
+	}
+}
+
+func TestMCPUpdateSubscriptionClearsNullableReferences(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	category := model.Category{UserID: user.ID, Name: "Video"}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+	method := model.PaymentMethod{UserID: user.ID, Name: "Visa"}
+	if err := db.Create(&method).Error; err != nil {
+		t.Fatalf("failed to create payment method: %v", err)
+	}
+
+	intervalCount := 1
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Claude Pro",
+		Amount:          20,
+		Currency:        "USD",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-06-15",
+		CategoryID:      &category.ID,
+		PaymentMethodID: &method.ID,
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+
+	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "update_subscription",
+			"arguments": map[string]interface{}{
+				"id":                sub.ID,
+				"category_id":       nil,
+				"payment_method_id": nil,
+			},
+		},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	result := resp["result"].(map[string]interface{})
+	if result["isError"] == true {
+		t.Fatalf("update_subscription returned tool error: %#v", result)
+	}
+	updated := result["structuredContent"].(map[string]interface{})
+	if updated["category_id"] != nil {
+		t.Fatalf("category_id = %v, want nil", updated["category_id"])
+	}
+	if updated["payment_method_id"] != nil {
+		t.Fatalf("payment_method_id = %v, want nil", updated["payment_method_id"])
+	}
+
+	var stored model.Subscription
+	if err := db.Where("id = ? AND user_id = ?", sub.ID, user.ID).First(&stored).Error; err != nil {
+		t.Fatalf("failed to reload subscription: %v", err)
+	}
+	if stored.CategoryID != nil {
+		t.Fatalf("stored category_id = %v, want nil", *stored.CategoryID)
+	}
+	if stored.PaymentMethodID != nil {
+		t.Fatalf("stored payment_method_id = %v, want nil", *stored.PaymentMethodID)
+	}
+}
+
+func TestMCPMissingSubscriptionIDsReturnToolErrors(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	for _, id := range []int{-1, 0} {
+		t.Run(strconv.Itoa(id), func(t *testing.T) {
+			rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  "tools/call",
+				"params": map[string]interface{}{
+					"name": "get_subscription",
+					"arguments": map[string]interface{}{
+						"id": id,
+					},
+				},
+			})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+			if _, ok := resp["error"]; ok {
+				t.Fatalf("response has RPC error, want tool error: %#v", resp)
+			}
+
+			result := resp["result"].(map[string]interface{})
+			if result["isError"] != true {
+				t.Fatalf("isError = %v, want true; response = %#v", result["isError"], result)
+			}
+			structured := result["structuredContent"].(map[string]interface{})
+			if structured["error"] != "subscription not found" {
+				t.Fatalf("tool error = %v, want subscription not found", structured["error"])
+			}
+		})
 	}
 }
 

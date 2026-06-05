@@ -144,7 +144,7 @@ func SetupRoutes(
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService)
 	importHandler := NewImportHandler(importService)
-	mcpHandler := NewMCPHandler(apiKeyService, subService, erService, categoryService, paymentMethodService)
+	mcpHandler := NewMCPHandler(apiKeyService, subService, erService, currencyService, categoryService, paymentMethodService)
 
 	requireMCPEnabled := mcpEnabledMiddleware(db)
 	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, requestBodyLimitMiddleware(1<<20, nil))

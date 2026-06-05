@@ -23,6 +23,7 @@ type MCPHandler struct {
 	apiKeys        *service.APIKeyService
 	subscriptions  *service.SubscriptionService
 	exchangeRates  *service.ExchangeRateService
+	currencies     *service.CurrencyService
 	categories     *service.CategoryService
 	paymentMethods *service.PaymentMethodService
 	tools          []mcpTool
@@ -32,6 +33,7 @@ func NewMCPHandler(
 	apiKeys *service.APIKeyService,
 	subscriptions *service.SubscriptionService,
 	exchangeRates *service.ExchangeRateService,
+	currencies *service.CurrencyService,
 	categories *service.CategoryService,
 	paymentMethods *service.PaymentMethodService,
 ) *MCPHandler {
@@ -39,6 +41,7 @@ func NewMCPHandler(
 		apiKeys:        apiKeys,
 		subscriptions:  subscriptions,
 		exchangeRates:  exchangeRates,
+		currencies:     currencies,
 		categories:     categories,
 		paymentMethods: paymentMethods,
 	}
@@ -289,7 +292,7 @@ func (h *MCPHandler) callListSubscriptions(userID uint) (*mcpToolResult, *mcpErr
 }
 
 func (h *MCPHandler) callGetSubscription(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-	id, err := readRequiredUintArg(args, "id")
+	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -327,7 +330,7 @@ func (h *MCPHandler) callCreateSubscription(userID uint, args map[string]interfa
 }
 
 func (h *MCPHandler) callUpdateSubscription(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-	id, err := readRequiredUintArg(args, "id")
+	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -353,7 +356,7 @@ func (h *MCPHandler) callUpdateSubscription(userID uint, args map[string]interfa
 }
 
 func (h *MCPHandler) callDeleteSubscription(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-	id, err := readRequiredUintArg(args, "id")
+	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -367,7 +370,7 @@ func (h *MCPHandler) callDeleteSubscription(userID uint, args map[string]interfa
 }
 
 func (h *MCPHandler) callMarkSubscriptionRenewed(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-	id, err := readRequiredUintArg(args, "id")
+	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -382,9 +385,16 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(userID uint, args map[string]in
 }
 
 func (h *MCPHandler) callDashboardSummary(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+	if err := validateMCPArgTypes(args, []mcpArgSpec{{Key: "currency", Type: "string"}}); err != nil {
+		return nil, invalidMCPParams(err)
+	}
 	currency, _ := readStringArg(args, "currency")
 	currency = strings.ToUpper(strings.TrimSpace(currency))
-	if currency == "" {
+	if currency != "" {
+		if err := h.validateUserCurrency(userID, currency); err != nil {
+			return nil, invalidMCPParams(err)
+		}
+	} else {
 		pref, _ := h.exchangeRates.GetUserPreference(userID)
 		currency = pref.PreferredCurrency
 	}
@@ -394,6 +404,19 @@ func (h *MCPHandler) callDashboardSummary(userID uint, args map[string]interface
 		return nil, internalMCPError(err)
 	}
 	return mcpStructuredResult(summary), nil
+}
+
+func (h *MCPHandler) validateUserCurrency(userID uint, code string) error {
+	currencies, err := h.currencies.List(userID)
+	if err != nil {
+		return err
+	}
+	for _, currency := range currencies {
+		if strings.EqualFold(currency.Code, code) {
+			return nil
+		}
+	}
+	return errors.New("currency not found")
 }
 
 func (h *MCPHandler) callListCategories(userID uint) (*mcpToolResult, *mcpError) {
@@ -531,9 +554,11 @@ func updateSubscriptionInputFromMCPArgs(args map[string]interface{}) (service.Up
 		input.Category = &value
 	}
 	if value, ok := readNullableUintArg(args, "category_id"); ok {
+		input.CategoryIDSet = true
 		input.CategoryID = value
 	}
 	if value, ok := readNullableUintArg(args, "payment_method_id"); ok {
+		input.PaymentMethodIDSet = true
 		input.PaymentMethodID = value
 	}
 	if value, ok := readNullableBoolArg(args, "notify_enabled"); ok {
@@ -623,12 +648,15 @@ func validateMCPArgTypes(args map[string]interface{}, specs []mcpArgSpec) error 
 	return nil
 }
 
-func readRequiredUintArg(args map[string]interface{}, key string) (uint, error) {
-	value, ok := readUintArg(args, key)
+func readRequiredIDArg(args map[string]interface{}, key string) (uint, error) {
+	value, ok := readIntArg(args, key)
 	if !ok {
 		return 0, fmt.Errorf("%s is required", key)
 	}
-	return value, nil
+	if value < 1 {
+		return 0, nil
+	}
+	return uint(value), nil
 }
 
 func readStringArgOrDefault(args map[string]interface{}, key, fallback string) string {
@@ -862,7 +890,7 @@ func (h *MCPHandler) buildTools() []mcpTool {
 			Title:       "Get Subscription",
 			Description: "Get one subscription by ID.",
 			InputSchema: objectSchema(map[string]interface{}{
-				"id": integerSchema("Subscription ID."),
+				"id": idSchema("Subscription ID."),
 			}, []string{"id"}),
 			Annotations: readOnlyToolAnnotation(),
 		},
@@ -885,7 +913,7 @@ func (h *MCPHandler) buildTools() []mcpTool {
 			Title:       "Delete Subscription",
 			Description: "Delete a subscription by ID.",
 			InputSchema: objectSchema(map[string]interface{}{
-				"id": integerSchema("Subscription ID."),
+				"id": idSchema("Subscription ID."),
 			}, []string{"id"}),
 			Annotations: destructiveToolAnnotation(),
 		},
@@ -894,7 +922,7 @@ func (h *MCPHandler) buildTools() []mcpTool {
 			Title:       "Mark Subscription Renewed",
 			Description: "Advance a manual-renew subscription to its next billing date.",
 			InputSchema: objectSchema(map[string]interface{}{
-				"id": integerSchema("Subscription ID."),
+				"id": idSchema("Subscription ID."),
 			}, []string{"id"}),
 			Annotations: destructiveToolAnnotation(),
 		},
@@ -926,7 +954,7 @@ func (h *MCPHandler) buildTools() []mcpTool {
 
 func subscriptionWriteInputSchema(required []string) map[string]interface{} {
 	properties := map[string]interface{}{
-		"id":                 integerSchema("Subscription ID. Required for updates."),
+		"id":                 idSchema("Subscription ID. Required for updates."),
 		"name":               stringSchema("Subscription name."),
 		"amount":             numberSchema("Subscription amount."),
 		"currency":           stringSchema("Currency code, such as USD or CNY."),
@@ -975,6 +1003,10 @@ func nullableStringSchema(description string) map[string]interface{} {
 
 func integerSchema(description string) map[string]interface{} {
 	return map[string]interface{}{"type": "integer", "description": description, "minimum": 0}
+}
+
+func idSchema(description string) map[string]interface{} {
+	return map[string]interface{}{"type": "integer", "description": description}
 }
 
 func nullableIntegerSchema(description string) map[string]interface{} {
