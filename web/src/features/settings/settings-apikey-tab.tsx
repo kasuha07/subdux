@@ -138,7 +138,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                 {t("settings.apiKeys.create")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="w-[calc(100vw-2rem)] max-w-md min-w-0 overflow-hidden">
               <DialogHeader>
                 <DialogTitle>{t("settings.apiKeys.create")}</DialogTitle>
                 <DialogDescription className="sr-only">
@@ -148,47 +148,49 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                 </DialogDescription>
               </DialogHeader>
               {newKey ? (
-                <div className="space-y-3">
-                  <div className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                <div className="min-w-0 max-w-full space-y-3">
+                  <div className="min-w-0 max-w-full rounded-md bg-amber-500/10 px-3 py-2 text-sm break-words text-amber-700 dark:text-amber-400">
                     {t("settings.apiKeys.copyWarning")}
                   </div>
-                  <div className="space-y-2">
+                  <div className="min-w-0 max-w-full space-y-2">
                     <Label>{t("settings.apiKeys.key")}</Label>
-                    <div className="flex gap-2">
-                      <code className="flex-1 rounded-md border bg-muted px-3 py-2 text-xs break-all">
+                    <div className="relative min-w-0 max-w-full">
+                      <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 pr-12 text-xs break-all">
                         {newKey}
                       </code>
                       <Button
                         size="icon-sm"
                         variant="outline"
+                        className="absolute top-2 right-2"
                         onClick={() => handleCopy(newKey)}
                       >
                         <Copy className="size-4" />
                       </Button>
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="min-w-0 max-w-full space-y-2">
                     <Label>{t("settings.apiKeys.usage")}</Label>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="min-w-0 max-w-full text-sm break-words text-muted-foreground">
                       {t("settings.apiKeys.usageDescription")}
                     </p>
-                    <code className="block rounded-md border bg-muted px-3 py-2 text-xs">
+                    <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 text-xs break-all">
                       X-API-Key: {newKey}
                     </code>
                   </div>
                   {mcpEnabled ? (
-                    <div className="space-y-2">
+                    <div className="min-w-0 max-w-full space-y-2">
                       <Label>{t("settings.apiKeys.mcpUsage")}</Label>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="min-w-0 max-w-full text-sm break-words text-muted-foreground">
                         {t("settings.apiKeys.mcpUsageDescription")}
                       </p>
-                      <div className="flex gap-2">
-                        <code className="block max-h-40 flex-1 overflow-auto rounded-md border bg-muted px-3 py-2 text-xs whitespace-pre">
+                      <div className="relative min-w-0 max-w-full">
+                        <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 pr-12 text-xs break-all whitespace-pre-wrap">
                           {getMCPConfig(newKey)}
                         </code>
                         <Button
                           size="icon-sm"
                           variant="outline"
+                          className="absolute top-2 right-2"
                           onClick={() => handleCopy(getMCPConfig(newKey))}
                         >
                           <Copy className="size-4" />
@@ -196,7 +198,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                    <div className="min-w-0 max-w-full rounded-md border border-dashed px-3 py-2 text-sm break-words text-muted-foreground">
                       {t("settings.apiKeys.mcpDisabled")}
                     </div>
                   )}
