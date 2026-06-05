@@ -48,6 +48,8 @@ const admin = {
     "emailDomainWhitelistDescription": "每行一个域名，留空表示允许所有域名；也支持逗号和分号分隔。",
     "emailDomainWhitelistPlaceholder": "example.com\nschool.edu",
     "registrationEmailVerificationSmtpWarning": "请先完成有效的 SMTP 配置，再启用注册邮箱验证码",
+    "mcpEnabled": "启用 MCP 端点",
+    "mcpEnabledDescription": "允许用户使用自己的 API 密钥连接兼容 MCP 的 agent。默认关闭。",
     "save": "保存设置",
     "saved": "设置已保存",
     "saveSuccess": "设置保存成功",

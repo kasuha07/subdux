@@ -306,7 +306,8 @@ const settings = {
     "usage": "使用方法",
     "usageDescription": "在请求时将 API 密钥放入 X-API-Key 请求头中。",
     "mcpUsage": "MCP 配置",
-    "mcpUsageDescription": "将此 server 配置添加到兼容 MCP 的 agent 中。",
+    "mcpUsageDescription": "管理员已启用 MCP。将此 server 配置添加到兼容 MCP 的 agent 中。",
+    "mcpDisabled": "MCP 当前未启用。请联系管理员启用 MCP 后，再使用此 API 密钥连接 agent。",
     "limitReached": "最多只能创建 5 个 API 密钥"
   },
   "notifications": {

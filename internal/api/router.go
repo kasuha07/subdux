@@ -128,6 +128,7 @@ func SetupRoutes(
 	calendarService := service.NewCalendarService(db)
 	exportService := service.NewExportService(db)
 	importService := service.NewImportService(db)
+	seedDefaultSettings(db)
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
@@ -145,11 +146,12 @@ func SetupRoutes(
 	importHandler := NewImportHandler(importService)
 	mcpHandler := NewMCPHandler(apiKeyService, subService, erService, categoryService, paymentMethodService)
 
-	e.POST("/mcp", mcpHandler.HandlePost, requestBodyLimitMiddleware(1<<20, nil))
-	e.GET("/mcp", mcpHandler.MethodNotAllowed)
-	e.PUT("/mcp", mcpHandler.MethodNotAllowed)
-	e.PATCH("/mcp", mcpHandler.MethodNotAllowed)
-	e.DELETE("/mcp", mcpHandler.MethodNotAllowed)
+	requireMCPEnabled := mcpEnabledMiddleware(db)
+	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, requestBodyLimitMiddleware(1<<20, nil))
+	e.GET("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
+	e.PUT("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
+	e.PATCH("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
+	e.DELETE("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
 
 	api := e.Group("/api")
 	api.Use(requestBodyLimitMiddleware(1<<20, func(c echo.Context) bool {
@@ -338,12 +340,32 @@ func SetupRoutes(
 		if err := db.Where("key = ?", "site_name").First(&setting).Error; err == nil && setting.Value != "" {
 			siteName = setting.Value
 		}
-		return c.JSON(http.StatusOK, echo.Map{"site_name": siteName})
+		return c.JSON(http.StatusOK, echo.Map{
+			"site_name":   siteName,
+			"mcp_enabled": isMCPEnabled(db),
+		})
 	})
 
-	seedDefaultSettings(db)
-
 	return erService, notificationService
+}
+
+func mcpEnabledMiddleware(db *gorm.DB) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !isMCPEnabled(db) {
+				return c.JSON(http.StatusNotFound, echo.Map{"error": "mcp is not enabled"})
+			}
+			return next(c)
+		}
+	}
+}
+
+func isMCPEnabled(db *gorm.DB) bool {
+	var setting model.SystemSetting
+	if err := db.Where("key = ?", "mcp_enabled").First(&setting).Error; err != nil {
+		return false
+	}
+	return setting.Value == "true"
 }
 
 func seedDefaultSettings(db *gorm.DB) {
@@ -359,6 +381,7 @@ func seedDefaultSettings(db *gorm.DB) {
 		{Key: "max_icon_file_size", Value: "65536"},
 		{Key: "icon_proxy_enabled", Value: "true"},
 		{Key: "icon_proxy_domain_whitelist", Value: "google.com\nicon.horse"},
+		{Key: "mcp_enabled", Value: "false"},
 		{Key: "system_proxy_enabled", Value: "false"},
 		{Key: "system_proxy_type", Value: "http"},
 		{Key: "system_proxy_url", Value: ""},

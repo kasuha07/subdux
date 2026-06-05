@@ -36,6 +36,7 @@ type SystemSettings struct {
 	MaxIconFileSize                      int64  `json:"max_icon_file_size"`
 	IconProxyEnabled                     bool   `json:"icon_proxy_enabled"`
 	IconProxyDomainWhitelist             string `json:"icon_proxy_domain_whitelist"`
+	MCPEnabled                           bool   `json:"mcp_enabled"`
 	SystemProxyEnabled                   bool   `json:"system_proxy_enabled"`
 	SystemProxyType                      string `json:"system_proxy_type"`
 	SystemProxyURLSet                    bool   `json:"system_proxy_url_configured"`
@@ -80,6 +81,7 @@ type UpdateSettingsInput struct {
 	MaxIconFileSize                      *int64  `json:"max_icon_file_size"`
 	IconProxyEnabled                     *bool   `json:"icon_proxy_enabled"`
 	IconProxyDomainWhitelist             *string `json:"icon_proxy_domain_whitelist"`
+	MCPEnabled                           *bool   `json:"mcp_enabled"`
 	SystemProxyEnabled                   *bool   `json:"system_proxy_enabled"`
 	SystemProxyType                      *string `json:"system_proxy_type"`
 	SystemProxyURL                       *string `json:"system_proxy_url"`

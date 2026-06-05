@@ -48,6 +48,8 @@ const admin = {
     "emailDomainWhitelistDescription": "1行につき1ドメイン。空欄はすべて許可。カンマとセミコロン区切りにも対応します。",
     "emailDomainWhitelistPlaceholder": "example.com\nschool.edu",
     "registrationEmailVerificationSmtpWarning": "有効な SMTP 設定を先に完了してから登録メール認証を有効にしてください",
+    "mcpEnabled": "MCPエンドポイントを有効化",
+    "mcpEnabledDescription": "ユーザーが自分のAPIキーでMCP互換エージェントに接続できるようにします。既定では無効です。",
     "save": "設定を保存",
     "saved": "設定を保存しました",
     "saveSuccess": "設定を保存しました",

@@ -14,11 +14,13 @@ export default function AdminSettingsGeneralSection({
   iconProxyDomainWhitelist,
   iconProxyEnabled,
   maxIconFileSize,
+  mcpEnabled,
   onAllowImageUploadChange,
   onEmailDomainWhitelistChange,
   onIconProxyDomainWhitelistChange,
   onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
+  onMCPEnabledChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
   onSiteNameChange,
@@ -102,6 +104,20 @@ export default function AdminSettingsGeneralSection({
           id="registration-email-verification"
           checked={registrationEmailVerificationEnabled}
           onCheckedChange={onRegistrationEmailVerificationEnabledChange}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <Label htmlFor="mcp-enabled">{t("admin.settings.mcpEnabled")}</Label>
+          <p className="text-sm text-muted-foreground">{t("admin.settings.mcpEnabledDescription")}</p>
+        </div>
+        <Switch
+          id="mcp-enabled"
+          checked={mcpEnabled}
+          onCheckedChange={onMCPEnabledChange}
         />
       </div>
 

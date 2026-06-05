@@ -81,6 +81,16 @@ func createMCPAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string
 	return resp.Key
 }
 
+func enableMCP(t *testing.T, db *gorm.DB) {
+	t.Helper()
+
+	if err := db.Where("key = ?", "mcp_enabled").
+		Assign(model.SystemSetting{Value: "true"}).
+		FirstOrCreate(&model.SystemSetting{Key: "mcp_enabled"}).Error; err != nil {
+		t.Fatalf("failed to enable mcp: %v", err)
+	}
+}
+
 func performMCPRequest(t *testing.T, handler *MCPHandler, apiKey string, body map[string]interface{}) (*httptest.ResponseRecorder, map[string]interface{}) {
 	t.Helper()
 
@@ -177,6 +187,7 @@ func TestSetupRoutesRegistersMCPAtRoot(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
 	apiKey := createMCPAPIKey(t, db, user, nil)
+	enableMCP(t, db)
 	if err := pkg.InitJWTSecret(db); err != nil {
 		t.Fatalf("failed to initialize jwt secret: %v", err)
 	}
@@ -200,6 +211,55 @@ func TestSetupRoutesRegistersMCPAtRoot(t *testing.T) {
 	}
 	if _, ok := resp["result"]; !ok {
 		t.Fatalf("response missing result: %#v", resp)
+	}
+}
+
+func TestSetupRoutesMCPDisabledByDefault(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	if err := pkg.InitJWTSecret(db); err != nil {
+		t.Fatalf("failed to initialize jwt secret: %v", err)
+	}
+
+	e := echo.New()
+	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestSiteInfoIncludesMCPEnabled(t *testing.T) {
+	db := newMCPTestDB(t)
+	enableMCP(t, db)
+	if err := pkg.InitJWTSecret(db); err != nil {
+		t.Fatalf("failed to initialize jwt secret: %v", err)
+	}
+
+	e := echo.New()
+	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/site-info", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["mcp_enabled"] != true {
+		t.Fatalf("mcp_enabled = %v, want true", resp["mcp_enabled"])
 	}
 }
 

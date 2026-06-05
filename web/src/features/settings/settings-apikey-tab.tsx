@@ -32,6 +32,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   const [creating, setCreating] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [mcpEnabled, setMCPEnabled] = useState(false)
 
   const loadKeys = useCallback(() => {
     setLoading(true)
@@ -45,6 +46,10 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   useEffect(() => {
     if (active) {
       loadKeys()
+      api
+        .get<{ mcp_enabled: boolean }>("/site-info")
+        .then((info) => setMCPEnabled(info?.mcp_enabled ?? false))
+        .catch(() => setMCPEnabled(false))
     }
   }, [active, loadKeys])
 
@@ -171,24 +176,30 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                       X-API-Key: {newKey}
                     </code>
                   </div>
-                  <div className="space-y-2">
-                    <Label>{t("settings.apiKeys.mcpUsage")}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t("settings.apiKeys.mcpUsageDescription")}
-                    </p>
-                    <div className="flex gap-2">
-                      <code className="block max-h-40 flex-1 overflow-auto rounded-md border bg-muted px-3 py-2 text-xs whitespace-pre">
-                        {getMCPConfig(newKey)}
-                      </code>
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
-                        onClick={() => handleCopy(getMCPConfig(newKey))}
-                      >
-                        <Copy className="size-4" />
-                      </Button>
+                  {mcpEnabled ? (
+                    <div className="space-y-2">
+                      <Label>{t("settings.apiKeys.mcpUsage")}</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {t("settings.apiKeys.mcpUsageDescription")}
+                      </p>
+                      <div className="flex gap-2">
+                        <code className="block max-h-40 flex-1 overflow-auto rounded-md border bg-muted px-3 py-2 text-xs whitespace-pre">
+                          {getMCPConfig(newKey)}
+                        </code>
+                        <Button
+                          size="icon-sm"
+                          variant="outline"
+                          onClick={() => handleCopy(getMCPConfig(newKey))}
+                        >
+                          <Copy className="size-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                      {t("settings.apiKeys.mcpDisabled")}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <form

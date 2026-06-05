@@ -22,6 +22,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		MaxIconFileSize:                      65536,
 		IconProxyEnabled:                     true,
 		IconProxyDomainWhitelist:             defaultIconProxyDomainWhitelist,
+		MCPEnabled:                           false,
 		SystemProxyEnabled:                   false,
 		SystemProxyType:                      systemProxyTypeHTTP,
 		SystemProxyURLSet:                    false,
@@ -89,6 +90,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.IconProxyEnabled = settingValue == "true"
 		case "icon_proxy_domain_whitelist":
 			settings.IconProxyDomainWhitelist = settingValue
+		case "mcp_enabled":
+			settings.MCPEnabled = settingValue == "true"
 		case "system_proxy_enabled":
 			settings.SystemProxyEnabled = settingValue == "true"
 		case "system_proxy_type":
@@ -278,6 +281,18 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "icon_proxy_domain_whitelist").
 				Assign(model.SystemSetting{Value: normalized}).
 				FirstOrCreate(&model.SystemSetting{Key: "icon_proxy_domain_whitelist"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.MCPEnabled != nil {
+			value := "false"
+			if *input.MCPEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "mcp_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "mcp_enabled"}).Error; err != nil {
 				return err
 			}
 		}

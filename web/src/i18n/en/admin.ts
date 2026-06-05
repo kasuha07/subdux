@@ -48,6 +48,8 @@ const admin = {
     "emailDomainWhitelistDescription": "One domain per line. Leave empty to allow all domains. Commas and semicolons are also supported.",
     "emailDomainWhitelistPlaceholder": "example.com\nschool.edu",
     "registrationEmailVerificationSmtpWarning": "Configure valid SMTP settings first, then enable registration email verification",
+    "mcpEnabled": "Enable MCP endpoint",
+    "mcpEnabledDescription": "Allow users to connect MCP-compatible agents with their API keys. Disabled by default.",
     "save": "Save settings",
     "saved": "Settings saved",
     "saveSuccess": "Settings saved successfully",

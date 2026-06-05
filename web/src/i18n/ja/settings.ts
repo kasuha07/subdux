@@ -306,7 +306,8 @@ const settings = {
     "usage": "使用方法",
     "usageDescription": "リクエスト時にX-API-KeyヘッダーにAPIキーを設定してください。",
     "mcpUsage": "MCP設定",
-    "mcpUsageDescription": "このserver設定をMCP互換のagentに追加してください。",
+    "mcpUsageDescription": "管理者がMCPを有効化しています。このserver設定をMCP互換のagentに追加してください。",
+    "mcpDisabled": "MCPは現在無効です。このAPIキーをagentで使う前に、管理者にMCPの有効化を依頼してください。",
     "limitReached": "APIキーは最大5個までです"
   },
   "notifications": {

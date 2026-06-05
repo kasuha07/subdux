@@ -176,6 +176,7 @@ export default function AdminPage() {
                     admin.handleRegistrationEmailVerificationChange
                   }
                   maxIconFileSize={settingsForm.maxIconFileSize}
+                  mcpEnabled={settingsForm.mcpEnabled}
                   onAllowImageUploadChange={(enabled) =>
                     admin.setSettingsField("allowImageUpload", enabled)
                   }
@@ -186,6 +187,7 @@ export default function AdminPage() {
                     admin.setSettingsField("iconProxyDomainWhitelist", value)
                   }
                   onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
+                  onMCPEnabledChange={(enabled) => admin.setSettingsField("mcpEnabled", enabled)}
                   onSave={admin.handleSaveSettings}
                 />
               </Suspense>

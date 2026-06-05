@@ -21,6 +21,7 @@ interface AdminSettingsFormState {
   iconProxyDomainWhitelist: string
   iconProxyEnabled: boolean
   maxIconFileSize: number
+  mcpEnabled: boolean
   oidcAudience: string
   oidcAuthorizationEndpoint: string
   oidcAutoCreateUser: boolean
@@ -121,6 +122,7 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     maxIconFileSize: settings?.max_icon_file_size
       ? Math.round(settings.max_icon_file_size / 1024)
       : 64,
+    mcpEnabled: settings?.mcp_enabled ?? false,
     oidcAudience: settings?.oidc_audience || "",
     oidcAuthorizationEndpoint: settings?.oidc_authorization_endpoint || "",
     oidcAutoCreateUser: settings?.oidc_auto_create_user ?? false,
@@ -336,6 +338,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         exchange_rate_source: settingsForm.exchangeRateSource,
         allow_image_upload: settingsForm.allowImageUpload,
         max_icon_file_size: settingsForm.maxIconFileSize * 1024,
+        mcp_enabled: settingsForm.mcpEnabled,
         smtp_enabled: settingsForm.smtpEnabled,
         smtp_host: settingsForm.smtpHost,
         smtp_port: settingsForm.smtpPort,
