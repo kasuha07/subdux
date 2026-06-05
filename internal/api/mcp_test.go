@@ -313,9 +313,49 @@ func TestMCPCreateAndListSubscriptionWithAPIKey(t *testing.T) {
 	}
 
 	listResult := resp["result"].(map[string]interface{})
-	subs := listResult["structuredContent"].([]interface{})
+	structured := listResult["structuredContent"].(map[string]interface{})
+	subs := structured["subscriptions"].([]interface{})
 	if len(subs) != 1 {
 		t.Fatalf("subscription count = %d, want 1", len(subs))
+	}
+}
+
+func TestMCPListReferenceToolsReturnStructuredObjects(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	tests := []struct {
+		name string
+		key  string
+	}{
+		{name: "list_categories", key: "categories"},
+		{name: "list_payment_methods", key: "payment_methods"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  "tools/call",
+				"params": map[string]interface{}{
+					"name":      tt.name,
+					"arguments": map[string]interface{}{},
+				},
+			})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			result := resp["result"].(map[string]interface{})
+			structured := result["structuredContent"].(map[string]interface{})
+			items := structured[tt.key].([]interface{})
+			if len(items) != 0 {
+				t.Fatalf("%s count = %d, want 0", tt.key, len(items))
+			}
+		})
 	}
 }
 

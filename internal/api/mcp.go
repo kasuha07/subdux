@@ -283,7 +283,9 @@ func (h *MCPHandler) callListSubscriptions(userID uint) (*mcpToolResult, *mcpErr
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
-	return mcpStructuredResult(mapSubscriptionResponses(subs)), nil
+	return mcpStructuredResult(map[string]interface{}{
+		"subscriptions": mapSubscriptionResponses(subs),
+	}), nil
 }
 
 func (h *MCPHandler) callGetSubscription(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -399,7 +401,9 @@ func (h *MCPHandler) callListCategories(userID uint) (*mcpToolResult, *mcpError)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
-	return mcpStructuredResult(mapCategoryResponses(categories)), nil
+	return mcpStructuredResult(map[string]interface{}{
+		"categories": mapCategoryResponses(categories),
+	}), nil
 }
 
 func (h *MCPHandler) callListPaymentMethods(userID uint) (*mcpToolResult, *mcpError) {
@@ -407,7 +411,9 @@ func (h *MCPHandler) callListPaymentMethods(userID uint) (*mcpToolResult, *mcpEr
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
-	return mcpStructuredResult(mapPaymentMethodResponses(methods)), nil
+	return mcpStructuredResult(map[string]interface{}{
+		"payment_methods": mapPaymentMethodResponses(methods),
+	}), nil
 }
 
 func createSubscriptionInputFromMCPArgs(args map[string]interface{}) service.CreateSubscriptionInput {
