@@ -8,8 +8,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
 	"github.com/shiroha/subdux/internal/version"
 	"gorm.io/gorm"
@@ -242,6 +244,8 @@ func (h *MCPHandler) handleToolCall(principal *mcpPrincipal, rawParams json.RawM
 	switch params.Name {
 	case "list_subscriptions":
 		return h.callListSubscriptions(principal.UserID)
+	case "search_subscriptions":
+		return h.callSearchSubscriptions(principal.UserID, params.Arguments)
 	case "get_subscription":
 		return h.callGetSubscription(principal.UserID, params.Arguments)
 	case "create_subscription":
@@ -288,6 +292,54 @@ func (h *MCPHandler) callListSubscriptions(userID uint) (*mcpToolResult, *mcpErr
 	}
 	return mcpStructuredResult(map[string]interface{}{
 		"subscriptions": mapSubscriptionResponses(subs),
+	}), nil
+}
+
+type mcpSubscriptionSearchFilters struct {
+	Query              string
+	Status             string
+	Currency           string
+	RenewalMode        string
+	BillingType        string
+	RecurrenceType     string
+	Category           string
+	CategoryID         *uint
+	CategoryIDSet      bool
+	PaymentMethodID    *uint
+	PaymentMethodIDSet bool
+	NextBillingFrom    *time.Time
+	NextBillingTo      *time.Time
+	Limit              int
+}
+
+func (h *MCPHandler) callSearchSubscriptions(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+	filters, err := readMCPSubscriptionSearchFilters(args)
+	if err != nil {
+		return nil, invalidMCPParams(err)
+	}
+
+	subs, err := h.subscriptions.List(userID)
+	if err != nil {
+		return nil, internalMCPError(err)
+	}
+
+	matches := make([]model.Subscription, 0, len(subs))
+	for _, sub := range subs {
+		if matchesMCPSubscriptionSearch(sub, filters) {
+			matches = append(matches, sub)
+		}
+	}
+
+	totalMatches := len(matches)
+	if filters.Limit > 0 && totalMatches > filters.Limit {
+		matches = matches[:filters.Limit]
+	}
+
+	return mcpStructuredResult(map[string]interface{}{
+		"subscriptions": mapSubscriptionResponses(matches),
+		"count":         len(matches),
+		"total_matches": totalMatches,
+		"limit":         filters.Limit,
 	}), nil
 }
 
@@ -618,6 +670,183 @@ func validateSubscriptionWriteArgTypes(args map[string]interface{}) error {
 	return nil
 }
 
+func readMCPSubscriptionSearchFilters(args map[string]interface{}) (mcpSubscriptionSearchFilters, error) {
+	filters := mcpSubscriptionSearchFilters{Limit: 20}
+	if err := validateMCPArgTypes(args, []mcpArgSpec{
+		{Key: "query", Type: "string"},
+		{Key: "status", Type: "string"},
+		{Key: "currency", Type: "string"},
+		{Key: "renewal_mode", Type: "string"},
+		{Key: "billing_type", Type: "string"},
+		{Key: "recurrence_type", Type: "string"},
+		{Key: "category", Type: "string"},
+		{Key: "category_id", Type: "integer", Nullable: true},
+		{Key: "payment_method_id", Type: "integer", Nullable: true},
+		{Key: "next_billing_from", Type: "string"},
+		{Key: "next_billing_to", Type: "string"},
+		{Key: "limit", Type: "integer"},
+	}); err != nil {
+		return filters, err
+	}
+
+	if value, ok := readStringArg(args, "query"); ok {
+		filters.Query = strings.ToLower(strings.TrimSpace(value))
+	}
+	if value, ok := readStringArg(args, "status"); ok {
+		filters.Status = strings.TrimSpace(value)
+		if filters.Status != "" && filters.Status != "active" && filters.Status != "ended" {
+			return filters, errors.New("status must be active or ended")
+		}
+	}
+	if value, ok := readStringArg(args, "currency"); ok {
+		filters.Currency = strings.ToUpper(strings.TrimSpace(value))
+	}
+	if value, ok := readStringArg(args, "renewal_mode"); ok {
+		filters.RenewalMode = strings.TrimSpace(value)
+		switch filters.RenewalMode {
+		case "", "auto_renew", "manual_renew", "cancel_at_period_end":
+		default:
+			return filters, errors.New("renewal_mode must be auto_renew, manual_renew, or cancel_at_period_end")
+		}
+	}
+	if value, ok := readStringArg(args, "billing_type"); ok {
+		filters.BillingType = strings.TrimSpace(value)
+		if filters.BillingType != "" && filters.BillingType != "recurring" {
+			return filters, errors.New("billing_type must be recurring")
+		}
+	}
+	if value, ok := readStringArg(args, "recurrence_type"); ok {
+		filters.RecurrenceType = strings.TrimSpace(value)
+		switch filters.RecurrenceType {
+		case "", "interval", "monthly_date", "yearly_date":
+		default:
+			return filters, errors.New("recurrence_type must be interval, monthly_date, or yearly_date")
+		}
+	}
+	if value, ok := readStringArg(args, "category"); ok {
+		filters.Category = strings.ToLower(strings.TrimSpace(value))
+	}
+	if value, ok := readNullableUintArg(args, "category_id"); ok {
+		filters.CategoryID = value
+		filters.CategoryIDSet = true
+	}
+	if value, ok := readNullableUintArg(args, "payment_method_id"); ok {
+		filters.PaymentMethodID = value
+		filters.PaymentMethodIDSet = true
+	}
+	if value, ok := readStringArg(args, "next_billing_from"); ok {
+		parsed, err := parseMCPDateArg("next_billing_from", value)
+		if err != nil {
+			return filters, err
+		}
+		filters.NextBillingFrom = parsed
+	}
+	if value, ok := readStringArg(args, "next_billing_to"); ok {
+		parsed, err := parseMCPDateArg("next_billing_to", value)
+		if err != nil {
+			return filters, err
+		}
+		filters.NextBillingTo = parsed
+	}
+	if filters.NextBillingFrom != nil && filters.NextBillingTo != nil && filters.NextBillingFrom.After(*filters.NextBillingTo) {
+		return filters, errors.New("next_billing_from must be on or before next_billing_to")
+	}
+	if value, ok := readIntArg(args, "limit"); ok {
+		if value < 1 || value > 100 {
+			return filters, errors.New("limit must be between 1 and 100")
+		}
+		filters.Limit = value
+	}
+
+	return filters, nil
+}
+
+func parseMCPDateArg(key, value string) (*time.Time, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse("2006-01-02", trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be in YYYY-MM-DD format", key)
+	}
+	return &parsed, nil
+}
+
+func matchesMCPSubscriptionSearch(sub model.Subscription, filters mcpSubscriptionSearchFilters) bool {
+	if filters.Query != "" && !strings.Contains(mcpSubscriptionSearchText(sub), filters.Query) {
+		return false
+	}
+	if filters.Status != "" && sub.Status != filters.Status {
+		return false
+	}
+	if filters.Currency != "" && !strings.EqualFold(sub.Currency, filters.Currency) {
+		return false
+	}
+	if filters.RenewalMode != "" && sub.RenewalMode != filters.RenewalMode {
+		return false
+	}
+	if filters.BillingType != "" && sub.BillingType != filters.BillingType {
+		return false
+	}
+	if filters.RecurrenceType != "" && sub.RecurrenceType != filters.RecurrenceType {
+		return false
+	}
+	if filters.Category != "" && !strings.Contains(strings.ToLower(sub.Category), filters.Category) {
+		return false
+	}
+	if filters.CategoryIDSet && !uintPointersEqual(sub.CategoryID, filters.CategoryID) {
+		return false
+	}
+	if filters.PaymentMethodIDSet && !uintPointersEqual(sub.PaymentMethodID, filters.PaymentMethodID) {
+		return false
+	}
+	if filters.NextBillingFrom != nil {
+		if sub.NextBillingDate == nil || dateOnlyBefore(*sub.NextBillingDate, *filters.NextBillingFrom) {
+			return false
+		}
+	}
+	if filters.NextBillingTo != nil {
+		if sub.NextBillingDate == nil || dateOnlyAfter(*sub.NextBillingDate, *filters.NextBillingTo) {
+			return false
+		}
+	}
+	return true
+}
+
+func mcpSubscriptionSearchText(sub model.Subscription) string {
+	return strings.ToLower(strings.Join([]string{
+		sub.Name,
+		sub.Category,
+		sub.Currency,
+		sub.Status,
+		sub.RenewalMode,
+		sub.BillingType,
+		sub.RecurrenceType,
+		sub.URL,
+		sub.Notes,
+	}, " "))
+}
+
+func uintPointersEqual(left, right *uint) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func dateOnlyBefore(left, right time.Time) bool {
+	leftDate := time.Date(left.Year(), left.Month(), left.Day(), 0, 0, 0, 0, time.UTC)
+	rightDate := time.Date(right.Year(), right.Month(), right.Day(), 0, 0, 0, 0, time.UTC)
+	return leftDate.Before(rightDate)
+}
+
+func dateOnlyAfter(left, right time.Time) bool {
+	leftDate := time.Date(left.Year(), left.Month(), left.Day(), 0, 0, 0, 0, time.UTC)
+	rightDate := time.Date(right.Year(), right.Month(), right.Day(), 0, 0, 0, 0, time.UTC)
+	return leftDate.After(rightDate)
+}
+
 type mcpArgSpec struct {
 	Key      string
 	Type     string
@@ -895,6 +1124,26 @@ func (h *MCPHandler) buildTools() []mcpTool {
 			Annotations: readOnlyToolAnnotation(),
 		},
 		{
+			Name:        "search_subscriptions",
+			Title:       "Search Subscriptions",
+			Description: "Search subscriptions by text and optional filters. Text matches name, category, currency, status, renewal mode, billing type, recurrence type, URL, and notes.",
+			InputSchema: objectSchema(map[string]interface{}{
+				"query":             stringSchema("Optional case-insensitive text query."),
+				"status":            enumSchema("Optional subscription status.", []string{"active", "ended"}),
+				"currency":          stringSchema("Optional currency code, such as USD or CNY."),
+				"renewal_mode":      enumSchema("Optional renewal mode.", []string{"auto_renew", "manual_renew", "cancel_at_period_end"}),
+				"billing_type":      enumSchema("Optional billing type.", []string{"recurring"}),
+				"recurrence_type":   enumSchema("Optional recurrence type.", []string{"interval", "monthly_date", "yearly_date"}),
+				"category":          stringSchema("Optional legacy category label substring."),
+				"category_id":       nullableIntegerSchema("Optional category ID. Use null to find subscriptions without a category."),
+				"payment_method_id": nullableIntegerSchema("Optional payment method ID. Use null to find subscriptions without a payment method."),
+				"next_billing_from": stringSchema("Optional inclusive next billing start date in YYYY-MM-DD format."),
+				"next_billing_to":   stringSchema("Optional inclusive next billing end date in YYYY-MM-DD format."),
+				"limit":             integerRangeSchema("Maximum number of subscriptions to return. Defaults to 20.", 1, 100),
+			}, nil),
+			Annotations: readOnlyToolAnnotation(),
+		},
+		{
 			Name:        "get_subscription",
 			Title:       "Get Subscription",
 			Description: "Get one subscription by ID.",
@@ -1012,6 +1261,10 @@ func nullableStringSchema(description string) map[string]interface{} {
 
 func integerSchema(description string) map[string]interface{} {
 	return map[string]interface{}{"type": "integer", "description": description, "minimum": 0}
+}
+
+func integerRangeSchema(description string, minimum, maximum int) map[string]interface{} {
+	return map[string]interface{}{"type": "integer", "description": description, "minimum": minimum, "maximum": maximum}
 }
 
 func idSchema(description string) map[string]interface{} {

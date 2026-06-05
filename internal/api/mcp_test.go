@@ -173,16 +173,21 @@ func TestMCPInitializeAndListTools(t *testing.T) {
 	}
 
 	tools := resp["result"].(map[string]interface{})["tools"].([]interface{})
-	var foundCreate bool
+	var foundCreate, foundSearch bool
 	for _, item := range tools {
 		tool := item.(map[string]interface{})
 		if tool["name"] == "create_subscription" {
 			foundCreate = true
-			break
+		}
+		if tool["name"] == "search_subscriptions" {
+			foundSearch = true
 		}
 	}
 	if !foundCreate {
 		t.Fatalf("tools/list missing create_subscription: %#v", tools)
+	}
+	if !foundSearch {
+		t.Fatalf("tools/list missing search_subscriptions: %#v", tools)
 	}
 }
 
@@ -320,6 +325,183 @@ func TestMCPCreateAndListSubscriptionWithAPIKey(t *testing.T) {
 	subs := structured["subscriptions"].([]interface{})
 	if len(subs) != 1 {
 		t.Fatalf("subscription count = %d, want 1", len(subs))
+	}
+}
+
+func TestMCPSearchSubscriptions(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	otherUser := model.User{
+		Username: "other-mcp-user",
+		Email:    "other-mcp@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&otherUser).Error; err != nil {
+		t.Fatalf("failed to create other user: %v", err)
+	}
+	apiKey := createMCPAPIKey(t, db, user, []string{service.APIKeyScopeRead})
+	handler := newMCPTestHandler(db)
+
+	category := model.Category{UserID: user.ID, Name: "Developer Tools"}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+	method := model.PaymentMethod{UserID: user.ID, Name: "Visa"}
+	if err := db.Create(&method).Error; err != nil {
+		t.Fatalf("failed to create payment method: %v", err)
+	}
+
+	subscriptionService := service.NewSubscriptionService(db)
+	intervalCount := 1
+	target, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "GitHub Copilot",
+		Amount:          10,
+		Currency:        "USD",
+		Status:          "active",
+		RenewalMode:     "auto_renew",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-07-15",
+		CategoryID:      &category.ID,
+		PaymentMethodID: &method.ID,
+		URL:             "https://github.com/features/copilot",
+		Notes:           "Code assistant",
+	})
+	if err != nil {
+		t.Fatalf("failed to create target subscription: %v", err)
+	}
+	if _, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Netflix",
+		Amount:          15.49,
+		Currency:        "USD",
+		Status:          "active",
+		RenewalMode:     "manual_renew",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-07-20",
+		Category:        "Video",
+	}); err != nil {
+		t.Fatalf("failed to create unrelated subscription: %v", err)
+	}
+	if _, err := subscriptionService.Create(otherUser.ID, service.CreateSubscriptionInput{
+		Name:            "GitHub Enterprise",
+		Amount:          100,
+		Currency:        "USD",
+		Status:          "active",
+		RenewalMode:     "auto_renew",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-07-15",
+	}); err != nil {
+		t.Fatalf("failed to create other user's subscription: %v", err)
+	}
+
+	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "search_subscriptions",
+			"arguments": map[string]interface{}{
+				"query":             "github",
+				"status":            "active",
+				"currency":          "usd",
+				"renewal_mode":      "auto_renew",
+				"category_id":       category.ID,
+				"payment_method_id": method.ID,
+				"next_billing_from": "2026-07-01",
+				"next_billing_to":   "2026-07-31",
+				"limit":             10,
+			},
+		},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	result := resp["result"].(map[string]interface{})
+	if result["isError"] == true {
+		t.Fatalf("search_subscriptions returned tool error: %#v", result)
+	}
+	structured := result["structuredContent"].(map[string]interface{})
+	if structured["count"] != float64(1) {
+		t.Fatalf("count = %v, want 1; structured = %#v", structured["count"], structured)
+	}
+	if structured["total_matches"] != float64(1) {
+		t.Fatalf("total_matches = %v, want 1", structured["total_matches"])
+	}
+	subs := structured["subscriptions"].([]interface{})
+	if len(subs) != 1 {
+		t.Fatalf("subscription count = %d, want 1", len(subs))
+	}
+	found := subs[0].(map[string]interface{})
+	if uint(found["id"].(float64)) != target.ID {
+		t.Fatalf("matched subscription id = %v, want %d", found["id"], target.ID)
+	}
+	if found["name"] != "GitHub Copilot" {
+		t.Fatalf("matched name = %v, want GitHub Copilot", found["name"])
+	}
+}
+
+func TestMCPSearchSubscriptionsValidatesArguments(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	tests := []struct {
+		name      string
+		arguments map[string]interface{}
+		message   string
+	}{
+		{
+			name:      "invalid date",
+			arguments: map[string]interface{}{"next_billing_from": "07/01/2026"},
+			message:   "next_billing_from must be in YYYY-MM-DD format",
+		},
+		{
+			name:      "invalid range",
+			arguments: map[string]interface{}{"next_billing_from": "2026-08-01", "next_billing_to": "2026-07-01"},
+			message:   "next_billing_from must be on or before next_billing_to",
+		},
+		{
+			name:      "invalid limit",
+			arguments: map[string]interface{}{"limit": 101},
+			message:   "limit must be between 1 and 100",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  "tools/call",
+				"params": map[string]interface{}{
+					"name":      "search_subscriptions",
+					"arguments": tt.arguments,
+				},
+			})
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			errPayload := resp["error"].(map[string]interface{})
+			if int(errPayload["code"].(float64)) != -32602 {
+				t.Fatalf("error code = %v, want -32602", errPayload["code"])
+			}
+			if errPayload["message"] != tt.message {
+				t.Fatalf("error message = %v, want %s", errPayload["message"], tt.message)
+			}
+		})
 	}
 }
 
