@@ -191,6 +191,61 @@ func TestMCPInitializeAndListTools(t *testing.T) {
 	}
 }
 
+func TestMCPToolDefinitionsBuildDispatchableTools(t *testing.T) {
+	definitions := mcpToolDefinitions()
+	if len(definitions) == 0 {
+		t.Fatal("mcpToolDefinitions() returned no tools")
+	}
+
+	seen := make(map[string]bool, len(definitions))
+	handler := &MCPHandler{}
+	tools := handler.buildTools()
+	if len(tools) != len(definitions) {
+		t.Fatalf("tool count = %d, want %d", len(tools), len(definitions))
+	}
+
+	for i, definition := range definitions {
+		if definition.Name == "" {
+			t.Fatalf("definition %d has empty name", i)
+		}
+		if seen[definition.Name] {
+			t.Fatalf("duplicate tool definition name %q", definition.Name)
+		}
+		seen[definition.Name] = true
+		if definition.InputSchema == nil {
+			t.Fatalf("%s has nil input schema builder", definition.Name)
+		}
+		if definition.Handler == nil {
+			t.Fatalf("%s has nil handler", definition.Name)
+		}
+
+		lookup, ok := mcpToolDefinitionByName(definition.Name)
+		if !ok {
+			t.Fatalf("%s is missing from definition lookup", definition.Name)
+		}
+		if lookup.Write != definition.Write {
+			t.Fatalf("%s lookup write = %v, want %v", definition.Name, lookup.Write, definition.Write)
+		}
+		if isMCPWriteTool(definition.Name) != definition.Write {
+			t.Fatalf("%s write scope = %v, want %v", definition.Name, isMCPWriteTool(definition.Name), definition.Write)
+		}
+
+		tool := tools[i]
+		if tool.Name != definition.Name {
+			t.Fatalf("tool %d name = %q, want %q", i, tool.Name, definition.Name)
+		}
+		if tool.InputSchema == nil {
+			t.Fatalf("%s built tool has nil input schema", tool.Name)
+		}
+		if got := tool.Annotations["destructiveHint"]; got != definition.Write {
+			t.Fatalf("%s destructiveHint = %v, want %v", tool.Name, got, definition.Write)
+		}
+		if got := tool.Annotations["readOnlyHint"]; got != !definition.Write {
+			t.Fatalf("%s readOnlyHint = %v, want %v", tool.Name, got, !definition.Write)
+		}
+	}
+}
+
 func TestSetupRoutesRegistersMCPAtRoot(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
