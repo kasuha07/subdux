@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -85,6 +87,12 @@ func (h *MCPHandler) HandlePost(c echo.Context) error {
 	if err := validateMCPProtocolHeader(c); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
+	if err := validateMCPContentTypeHeader(c); err != nil {
+		return c.JSON(http.StatusUnsupportedMediaType, echo.Map{"error": err.Error()})
+	}
+	if err := validateMCPAcceptHeader(c); err != nil {
+		return c.JSON(http.StatusNotAcceptable, echo.Map{"error": err.Error()})
+	}
 
 	decoder := json.NewDecoder(c.Request().Body)
 	decoder.DisallowUnknownFields()
@@ -114,7 +122,7 @@ func (h *MCPHandler) HandlePost(c echo.Context) error {
 		}
 		return c.JSON(http.StatusOK, mcpSuccessResponse(request.ID, result))
 	default:
-		return c.JSON(http.StatusOK, mcpErrorResponse(request.ID, -32601, "method not found", nil))
+		return c.JSON(http.StatusOK, mcpErrorResponse(request.ID, -32601, "Method not found", nil))
 	}
 }
 
@@ -126,6 +134,12 @@ func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
 	}
 	if err := validateMCPOrigin(c); err != nil {
 		return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
+	}
+	if err := validateMCPAcceptHeader(c); err != nil {
+		return c.JSON(http.StatusNotAcceptable, echo.Map{"error": err.Error()})
+	}
+	if err := validateMCPContentTypeHeader(c); err != nil {
+		return c.JSON(http.StatusUnsupportedMediaType, echo.Map{"error": err.Error()})
 	}
 	return c.NoContent(http.StatusMethodNotAllowed)
 }
@@ -172,6 +186,65 @@ func validateMCPProtocolHeader(c echo.Context) error {
 	default:
 		return fmt.Errorf("unsupported MCP protocol version: %s", protocolVersion)
 	}
+}
+
+func validateMCPContentTypeHeader(c echo.Context) error {
+	contentType := strings.TrimSpace(c.Request().Header.Get(echo.HeaderContentType))
+	if contentType == "" {
+		return errors.New("content-type application/json is required")
+	}
+	return validateMCPContentTypeValue(contentType)
+}
+
+func validateMCPContentTypeValue(contentType string) error {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || !strings.EqualFold(mediaType, echo.MIMEApplicationJSON) {
+		return fmt.Errorf("unsupported content type: %s", contentType)
+	}
+	return nil
+}
+
+func validateMCPAcceptHeader(c echo.Context) error {
+	accept := strings.TrimSpace(c.Request().Header.Get(echo.HeaderAccept))
+	if accept == "" {
+		return errors.New("accept application/json is required")
+	}
+	if !mcpAcceptsJSON(accept) {
+		return fmt.Errorf("unsupported accept header: %s", accept)
+	}
+	return nil
+}
+
+func mcpAcceptsJSON(accept string) bool {
+	for _, part := range strings.Split(accept, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		mediaType, params, err := mime.ParseMediaType(part)
+		if err != nil {
+			continue
+		}
+		if q, ok := params["q"]; ok {
+			value, err := strconv.ParseFloat(q, 64)
+			if err == nil && value <= 0 {
+				continue
+			}
+		}
+
+		mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+		switch {
+		case mediaType == echo.MIMEApplicationJSON || mediaType == "*/*":
+			return true
+		case strings.HasSuffix(mediaType, "/*"):
+			prefix := strings.TrimSuffix(mediaType, "/*")
+			if prefix == "application" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (h *MCPHandler) initializeResult() map[string]interface{} {

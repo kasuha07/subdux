@@ -101,7 +101,7 @@ Subdux 虽然是 monorepo，但最终以单应用方式部署：
 - `/api/*` —— REST API
 - `/uploads/*` —— 上传资源
 - `/api/calendar/feed` —— 带 token 的只读日历订阅地址
-- `/mcp` —— MCP Streamable HTTP 端点，供 agent 通过 `X-API-Key` 接入
+- `/mcp` —— 无状态的 MCP HTTP JSON-RPC 端点，供 agent 接入
 
 MCP 客户端可以使用用户创建的 API 密钥连接：
 
@@ -111,11 +111,22 @@ MCP 客户端可以使用用户创建的 API 密钥连接：
     "subdux": {
       "type": "http",
       "url": "http://127.0.0.1:8080/mcp",
-      "headers": { "X-API-Key": "sdx_xxx..." }
+      "headers": {
+        "X-API-Key": "sdx_xxx...",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      }
     }
   }
 }
 ```
+
+协议边界：
+
+- Subdux 不维护 MCP 传输 session。每个 `POST /mcp` 请求都会独立校验 `X-API-Key`。
+- MCP 请求必须使用 `Content-Type: application/json` 和 `Accept: application/json`。
+- 端点会为 `initialize`、`ping`、`tools/list`、`tools/call` 返回 JSON-RPC 响应；`notifications/initialized` 等 JSON-RPC notification 返回 `202 Accepted` 且没有响应 body。
+- 端点不提供 SSE 或服务端主动流式推送。
 
 服务启动后会自动运行以下后台任务：
 

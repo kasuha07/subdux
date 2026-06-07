@@ -110,7 +110,11 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
           subdux: {
             type: "http",
             url: `${origin}/mcp`,
-            headers: { "X-API-Key": key },
+            headers: {
+              "X-API-Key": key,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
           },
         },
       },

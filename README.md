@@ -101,7 +101,7 @@ Runtime routing:
 - `/api/*` — REST API
 - `/uploads/*` — uploaded assets
 - `/api/calendar/feed` — tokenized read-only calendar feed
-- `/mcp` — MCP Streamable HTTP endpoint for agent access with the `X-API-Key` header
+- `/mcp` — stateless MCP JSON-RPC over HTTP endpoint for agent access
 
 MCP clients can connect with a user-created API key:
 
@@ -111,11 +111,22 @@ MCP clients can connect with a user-created API key:
     "subdux": {
       "type": "http",
       "url": "http://127.0.0.1:8080/mcp",
-      "headers": { "X-API-Key": "sdx_xxx..." }
+      "headers": {
+        "X-API-Key": "sdx_xxx...",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      }
     }
   }
 }
 ```
+
+Protocol boundary:
+
+- Subdux does not maintain MCP transport sessions. Each `POST /mcp` request is authenticated independently with `X-API-Key`.
+- MCP requests must use `Content-Type: application/json` and `Accept: application/json`.
+- The endpoint returns JSON-RPC responses for `initialize`, `ping`, `tools/list`, and `tools/call`; JSON-RPC notifications such as `notifications/initialized` return `202 Accepted` with no response body.
+- The endpoint does not provide SSE or server-initiated streaming.
 
 Background jobs started by the server include:
 

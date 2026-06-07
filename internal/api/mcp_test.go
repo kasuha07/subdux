@@ -106,6 +106,7 @@ func performMCPRequest(t *testing.T, handler *MCPHandler, apiKey string, body ma
 	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(payload))
 	req.Host = "localhost:8080"
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	if apiKey != "" {
 		req.Header.Set("X-API-Key", apiKey)
 	}
@@ -140,6 +141,92 @@ func TestMCPRequiresAPIKey(t *testing.T) {
 	}
 }
 
+func TestMCPRejectsMissingContentType(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)))
+	req.Host = "localhost:8080"
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+
+	if err := handler.HandlePost(c); err != nil {
+		t.Fatalf("HandlePost() error = %v", err)
+	}
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusUnsupportedMediaType, rec.Body.String())
+	}
+}
+
+func TestMCPRejectsUnsupportedContentType(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)))
+	req.Host = "localhost:8080"
+	req.Header.Set(echo.HeaderContentType, echo.MIMETextPlain)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+
+	if err := handler.HandlePost(c); err != nil {
+		t.Fatalf("HandlePost() error = %v", err)
+	}
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusUnsupportedMediaType, rec.Body.String())
+	}
+}
+
+func TestMCPRejectsMissingAccept(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)))
+	req.Host = "localhost:8080"
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+
+	if err := handler.HandlePost(c); err != nil {
+		t.Fatalf("HandlePost() error = %v", err)
+	}
+	if rec.Code != http.StatusNotAcceptable {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNotAcceptable, rec.Body.String())
+	}
+}
+
+func TestMCPRejectsUnsupportedAccept(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)))
+	req.Host = "localhost:8080"
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, "text/event-stream")
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+
+	if err := handler.HandlePost(c); err != nil {
+		t.Fatalf("HandlePost() error = %v", err)
+	}
+	if rec.Code != http.StatusNotAcceptable {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNotAcceptable, rec.Body.String())
+	}
+}
+
 func TestMCPInitializeAndListTools(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
@@ -161,6 +248,20 @@ func TestMCPInitializeAndListTools(t *testing.T) {
 	result := resp["result"].(map[string]interface{})
 	if result["protocolVersion"] != mcpProtocolVersion {
 		t.Fatalf("protocolVersion = %v, want %s", result["protocolVersion"], mcpProtocolVersion)
+	}
+	serverInfo, ok := result["serverInfo"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("initialize result missing serverInfo: %#v", result)
+	}
+	if serverInfo["name"] != "subdux" {
+		t.Fatalf("server name = %v, want subdux", serverInfo["name"])
+	}
+	capabilities, ok := result["capabilities"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("initialize result missing capabilities: %#v", result)
+	}
+	if _, ok := capabilities["tools"].(map[string]interface{}); !ok {
+		t.Fatalf("initialize capabilities missing tools: %#v", capabilities)
 	}
 
 	rec, resp = performMCPRequest(t, handler, apiKey, map[string]interface{}{
@@ -188,6 +289,52 @@ func TestMCPInitializeAndListTools(t *testing.T) {
 	}
 	if !foundSearch {
 		t.Fatalf("tools/list missing search_subscriptions: %#v", tools)
+	}
+}
+
+func TestMCPInitializedNotificationReturnsAccepted(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "notifications/initialized",
+	})
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusAccepted, rec.Body.String())
+	}
+	if rec.Body.Len() != 0 {
+		t.Fatalf("body = %q, want empty", rec.Body.String())
+	}
+	if resp != nil {
+		t.Fatalf("decoded response = %#v, want nil", resp)
+	}
+}
+
+func TestMCPUnknownMethodReturnsJSONRPCError(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "unknown/method",
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	errPayload := resp["error"].(map[string]interface{})
+	if int(errPayload["code"].(float64)) != -32601 {
+		t.Fatalf("error code = %v, want -32601", errPayload["code"])
+	}
+	if errPayload["message"] != "Method not found" {
+		t.Fatalf("error message = %v, want Method not found", errPayload["message"])
 	}
 }
 
@@ -260,6 +407,7 @@ func TestSetupRoutesRegistersMCPAtRoot(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	req.Header.Set("X-API-Key", apiKey)
 	rec := httptest.NewRecorder()
 
@@ -277,6 +425,55 @@ func TestSetupRoutesRegistersMCPAtRoot(t *testing.T) {
 	}
 }
 
+func TestSetupRoutesMCPMethodNotAllowedStillValidatesHeaders(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	enableMCP(t, db)
+	if err := pkg.InitJWTSecret(db); err != nil {
+		t.Fatalf("failed to initialize jwt secret: %v", err)
+	}
+
+	e := echo.New()
+	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+
+	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotAcceptable {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNotAcceptable, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	req.Header.Set("X-API-Key", apiKey)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusUnsupportedMediaType, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	req.Header.Set("X-API-Key", apiKey)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusMethodNotAllowed, rec.Body.String())
+	}
+	if rec.Body.Len() != 0 {
+		t.Fatalf("body = %q, want empty", rec.Body.String())
+	}
+}
+
 func TestSetupRoutesMCPDisabledByDefault(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
@@ -290,6 +487,7 @@ func TestSetupRoutesMCPDisabledByDefault(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	req.Header.Set("X-API-Key", apiKey)
 	rec := httptest.NewRecorder()
 
@@ -728,6 +926,10 @@ func TestMCPReadOnlyAPIKeyCannotWrite(t *testing.T) {
 	if result["isError"] != true {
 		t.Fatalf("isError = %v, want true; response = %#v", result["isError"], result)
 	}
+	structured := result["structuredContent"].(map[string]interface{})
+	if structured["error"] != "api key does not have required scope" {
+		t.Fatalf("tool error = %v, want api key does not have required scope", structured["error"])
+	}
 }
 
 func TestMCPRejectsInvalidToolArgumentType(t *testing.T) {
@@ -990,6 +1192,7 @@ func TestMCPRejectsCrossOriginRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(payload))
 	req.Host = "localhost:8080"
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	req.Header.Set("X-API-Key", apiKey)
 	req.Header.Set(echo.HeaderOrigin, "https://evil.example.com")
 	rec := httptest.NewRecorder()
