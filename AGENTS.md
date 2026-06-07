@@ -18,7 +18,7 @@ subdux/
 ├── internal/                # Go backend (4-layer: api → service → model + pkg)
 │   ├── api/                 # HTTP handlers (12 files) → see internal/api/AGENTS.md
 │   ├── service/             # Business logic (23 files) → see internal/service/AGENTS.md
-│   ├── model/               # GORM structs
+│   ├── model/               # GORM structs split by domain
 │   └── pkg/                 # Shared infra (DB, JWT)
 ├── web/                     # React frontend
 │   └── src/

@@ -12,8 +12,7 @@ internal/
 │   ├── router.go          # SetupRoutes() — route groups, JWT middleware, service wiring
 │   ├── auth.go            # AuthHandler — Register, Login (public)
 │   └── subscription.go    # SubscriptionHandler — CRUD + Dashboard (protected)
-├── model/
-│   └── model.go           # User, Subscription GORM structs
+├── model/                 # GORM structs split by domain
 ├── pkg/
 │   ├── database.go        # InitDB() — SQLite connection, auto-migrate
 │   └── jwt.go             # JWTClaims, GenerateToken(), GetJWTSecret()
@@ -27,7 +26,7 @@ internal/
 | Task | Start here | Then |
 |------|-----------|------|
 | Add new endpoint | `api/router.go` (add route) | Create handler method → service method |
-| Add model field | `model/model.go` | Add GORM tag + json tag, restart to auto-migrate |
+| Add model field | `model/*_models.go` | Add GORM tag + json tag, restart to auto-migrate |
 | Change auth rules | `pkg/jwt.go` (token config) | `service/auth.go` (validation logic) |
 | Change DB config | `pkg/database.go` | Env var: `DATA_PATH` |
 
