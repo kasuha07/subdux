@@ -18,14 +18,15 @@ func NewExportService(db *gorm.DB) *ExportService {
 }
 
 type UserExportData struct {
-	ExportedAt     time.Time              `json:"exported_at"`
-	User           UserExportInfo         `json:"user"`
-	Subscriptions  []model.Subscription   `json:"subscriptions"`
-	Categories     []model.Category       `json:"categories"`
-	PaymentMethods []model.PaymentMethod  `json:"payment_methods"`
-	Currencies     []model.UserCurrency   `json:"currencies"`
-	Preference     *model.UserPreference  `json:"preference"`
-	Notifications  UserNotificationExport `json:"notifications"`
+	ExportedAt      time.Time              `json:"exported_at"`
+	SecretsIncluded bool                   `json:"secrets_included"`
+	User            UserExportInfo         `json:"user"`
+	Subscriptions   []model.Subscription   `json:"subscriptions"`
+	Categories      []model.Category       `json:"categories"`
+	PaymentMethods  []model.PaymentMethod  `json:"payment_methods"`
+	Currencies      []model.UserCurrency   `json:"currencies"`
+	Preference      *model.UserPreference  `json:"preference"`
+	Notifications   UserNotificationExport `json:"notifications"`
 }
 
 type UserExportInfo struct {
@@ -41,7 +42,7 @@ type UserNotificationExport struct {
 	Templates []model.NotificationTemplate `json:"templates"`
 }
 
-func (s *ExportService) ExportUserData(userID uint) (*UserExportData, error) {
+func (s *ExportService) ExportUserData(userID uint, includeSecrets bool) (*UserExportData, error) {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -105,6 +106,10 @@ func (s *ExportService) ExportUserData(userID uint) (*UserExportData, error) {
 				return nil, err
 			}
 			channels[i].Config = decrypted
+			if !includeSecrets {
+				sanitizedConfig, _, _ := sanitizeNotificationConfig(channels[i].Type, channels[i].Config)
+				channels[i].Config = sanitizedConfig
+			}
 		}
 	}
 
@@ -135,7 +140,8 @@ func (s *ExportService) ExportUserData(userID uint) (*UserExportData, error) {
 	}
 
 	return &UserExportData{
-		ExportedAt: pkg.NowUTC(),
+		ExportedAt:      pkg.NowUTC(),
+		SecretsIncluded: includeSecrets,
 		User: UserExportInfo{
 			ID:        user.ID,
 			Username:  user.Username,

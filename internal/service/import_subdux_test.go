@@ -354,6 +354,88 @@ func TestImportFromSubduxChannelCanonicalIdempotent(t *testing.T) {
 	}
 }
 
+func TestImportFromSubduxSkipsRedactedNotificationChannels(t *testing.T) {
+	db := newImportTestDB(t)
+	user := createTestUser(t, db)
+	svc := NewImportService(db)
+
+	data := sampleSubduxImportData()
+	secretsIncluded := false
+	data.SecretsIncluded = &secretsIncluded
+	data.Notifications.Channels = []model.NotificationChannel{
+		{
+			Type:    "resend",
+			Enabled: true,
+			Config:  `{"api_key":"","from_email":"from@example.com","to_email":"to@example.com"}`,
+		},
+	}
+
+	preview, err := svc.ImportFromSubdux(user.ID, data, false)
+	if err != nil {
+		t.Fatalf("preview import failed: %v", err)
+	}
+	if preview.Preview == nil {
+		t.Fatal("preview response should contain preview payload")
+	}
+	if len(preview.Preview.Channels) != 0 {
+		t.Fatalf("preview channels length = %d, want 0", len(preview.Preview.Channels))
+	}
+
+	confirmed, err := svc.ImportFromSubdux(user.ID, data, true)
+	if err != nil {
+		t.Fatalf("confirm import failed: %v", err)
+	}
+	if confirmed.Result == nil {
+		t.Fatal("confirm response should contain result payload")
+	}
+	if confirmed.Result.Skipped == 0 {
+		t.Fatal("confirmed import skipped count should be greater than zero")
+	}
+
+	var channelCount int64
+	if err := db.Model(&model.NotificationChannel{}).Where("user_id = ?", user.ID).Count(&channelCount).Error; err != nil {
+		t.Fatalf("failed to count channels: %v", err)
+	}
+	if channelCount != 0 {
+		t.Fatalf("channel count = %d, want 0", channelCount)
+	}
+}
+
+func TestImportFromSubduxLegacyExportWithoutSecretsMarkerStillValidatesChannels(t *testing.T) {
+	db := newImportTestDB(t)
+	user := createTestUser(t, db)
+	svc := NewImportService(db)
+
+	data := sampleSubduxImportData()
+	data.SecretsIncluded = nil
+	data.Notifications.Channels = []model.NotificationChannel{
+		{
+			Type:    "resend",
+			Enabled: true,
+			Config:  `{"api_key":"","from_email":"from@example.com","to_email":"to@example.com"}`,
+		},
+	}
+
+	confirmed, err := svc.ImportFromSubdux(user.ID, data, true)
+	if err != nil {
+		t.Fatalf("confirm import failed: %v", err)
+	}
+	if confirmed.Result == nil {
+		t.Fatal("confirm response should contain result payload")
+	}
+	if len(confirmed.Result.Errors) == 0 {
+		t.Fatal("legacy import should report invalid redacted-looking channel instead of silently skipping it")
+	}
+
+	var channelCount int64
+	if err := db.Model(&model.NotificationChannel{}).Where("user_id = ?", user.ID).Count(&channelCount).Error; err != nil {
+		t.Fatalf("failed to count channels: %v", err)
+	}
+	if channelCount != 0 {
+		t.Fatalf("channel count = %d, want 0", channelCount)
+	}
+}
+
 func TestImportFromWallosTooLarge(t *testing.T) {
 	db := newImportTestDB(t)
 	user := createTestUser(t, db)

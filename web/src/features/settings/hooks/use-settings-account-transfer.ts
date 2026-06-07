@@ -10,9 +10,10 @@ import type {
 
 interface UseSettingsAccountTransferResult {
   exportLoading: boolean
+  exportSecretsConfirmOpen: boolean
   handleConfirmImport: () => Promise<void>
   handleConfirmSubduxImport: () => Promise<void>
-  handleExport: () => Promise<void>
+  handleExport: (includeSecrets?: boolean) => Promise<void>
   handleImportSubdux: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   handleImportWallos: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   importFileRef: RefObject<HTMLInputElement | null>
@@ -21,6 +22,7 @@ interface UseSettingsAccountTransferResult {
   importPreviewOpen: boolean
   resetImportPreview: () => void
   resetSubduxImportPreview: () => void
+  setExportSecretsConfirmOpen: (open: boolean) => void
   setImportPreviewOpen: (open: boolean) => void
   setSubduxImportPreviewOpen: (open: boolean) => void
   subduxImportFileRef: RefObject<HTMLInputElement | null>
@@ -42,6 +44,7 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
   const [subduxImportPreviewOpen, setSubduxImportPreviewOpen] = useState(false)
   const [subduxImportPreview, setSubduxImportPreview] = useState<SubduxImportPreview | null>(null)
   const [subduxImportRawData, setSubduxImportRawData] = useState<Record<string, unknown> | null>(null)
+  const [exportSecretsConfirmOpen, setExportSecretsConfirmOpen] = useState(false)
 
   function resetImportPreview() {
     setImportPreviewOpen(false)
@@ -55,26 +58,34 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
     setSubduxImportRawData(null)
   }
 
-  async function handleExport() {
+  async function downloadExport(path: string) {
+    const res = await api.fetch(path)
+    if (!res.ok) throw new Error("Export failed")
+    const blob = await res.blob()
+    const disposition = res.headers.get("Content-Disposition")
+    let filename = "subdux-export.json"
+    if (disposition) {
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      if (match) filename = match[1]
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    URL.revokeObjectURL(url)
+    a.remove()
+  }
+
+  async function handleExport(includeSecrets = false) {
     setExportLoading(true)
     try {
-      const res = await api.fetch("/export")
-      if (!res.ok) throw new Error("Export failed")
-      const blob = await res.blob()
-      const disposition = res.headers.get("Content-Disposition")
-      let filename = "subdux-export.json"
-      if (disposition) {
-        const match = disposition.match(/filename="?([^"]+)"?/)
-        if (match) filename = match[1]
+      const path = includeSecrets ? "/export?include_secrets=1&confirm=include_secrets" : "/export"
+      await downloadExport(path)
+      if (includeSecrets) {
+        setExportSecretsConfirmOpen(false)
       }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      URL.revokeObjectURL(url)
-      a.remove()
     } catch {
       // error toast is handled by the fetch failure
     } finally {
@@ -224,6 +235,7 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
 
   return {
     exportLoading,
+    exportSecretsConfirmOpen,
     handleConfirmImport,
     handleConfirmSubduxImport,
     handleExport,
@@ -235,6 +247,7 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
     importPreviewOpen,
     resetImportPreview,
     resetSubduxImportPreview,
+    setExportSecretsConfirmOpen,
     setImportPreviewOpen,
     setSubduxImportPreviewOpen,
     subduxImportFileRef,

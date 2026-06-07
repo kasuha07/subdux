@@ -22,12 +22,13 @@ type SubduxImportRequest struct {
 }
 
 type SubduxImportData struct {
-	Currencies     []model.UserCurrency         `json:"currencies"`
-	Categories     []model.Category             `json:"categories"`
-	PaymentMethods []model.PaymentMethod        `json:"payment_methods"`
-	Subscriptions  []model.Subscription         `json:"subscriptions"`
-	Preference     *model.UserPreference        `json:"preference"`
-	Notifications  SubduxNotificationImportData `json:"notifications"`
+	SecretsIncluded *bool                        `json:"secrets_included"`
+	Currencies      []model.UserCurrency         `json:"currencies"`
+	Categories      []model.Category             `json:"categories"`
+	PaymentMethods  []model.PaymentMethod        `json:"payment_methods"`
+	Subscriptions   []model.Subscription         `json:"subscriptions"`
+	Preference      *model.UserPreference        `json:"preference"`
+	Notifications   SubduxNotificationImportData `json:"notifications"`
 }
 
 type SubduxNotificationImportData struct {
@@ -118,6 +119,50 @@ func canonicalChannelConfig(config string) string {
 		return trimmed
 	}
 	return string(encoded)
+}
+
+func isRedactedNotificationChannelConfig(channelType, config string) bool {
+	parsed, err := parseNotificationConfigMap(config)
+	if err != nil {
+		return false
+	}
+
+	for field := range getNotificationChannelSecretFields(channelType) {
+		raw, ok := parsed[field]
+		if !ok {
+			continue
+		}
+		value, ok := raw.(string)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(value) == "" {
+			return true
+		}
+	}
+
+	if strings.EqualFold(strings.TrimSpace(channelType), "webhook") {
+		rawHeaders, ok := parsed["headers"]
+		if !ok {
+			return false
+		}
+		headers, ok := rawHeaders.(map[string]interface{})
+		if !ok {
+			return false
+		}
+		for _, raw := range headers {
+			value, ok := raw.(string)
+			if ok && strings.TrimSpace(value) == "" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func subduxImportSecretsRedacted(data SubduxImportData) bool {
+	return data.SecretsIncluded != nil && !*data.SecretsIncluded
 }
 
 func ptrIntSignature(value *int) string {
@@ -449,6 +494,13 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			if !isValidChannelType(channelType) {
 				if confirm {
 					result.Errors = append(result.Errors, fmt.Sprintf("unsupported notification channel type %q", channelType))
+					result.Skipped++
+				}
+				continue
+			}
+
+			if subduxImportSecretsRedacted(data) && isRedactedNotificationChannelConfig(channelType, canonicalConfig) {
+				if confirm {
 					result.Skipped++
 				}
 				continue

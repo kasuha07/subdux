@@ -143,9 +143,11 @@ export default function SettingsAccountTab({
 
         <SettingsAccountTransferSection
           exportLoading={transfer.exportLoading}
+          exportSecretsConfirmOpen={transfer.exportSecretsConfirmOpen}
           importFileRef={transfer.importFileRef}
           importLoading={transfer.importLoading}
           onExport={transfer.handleExport}
+          onExportSecretsConfirmOpenChange={transfer.setExportSecretsConfirmOpen}
           onImportSubdux={transfer.handleImportSubdux}
           onImportWallos={transfer.handleImportWallos}
           subduxImportFileRef={transfer.subduxImportFileRef}

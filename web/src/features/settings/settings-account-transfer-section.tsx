@@ -1,5 +1,6 @@
 import { type ChangeEvent, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
+import { AlertTriangle, Download } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,9 +18,11 @@ import type {
 
 interface SettingsAccountTransferSectionProps {
   exportLoading: boolean
+  exportSecretsConfirmOpen: boolean
   importFileRef: RefObject<HTMLInputElement | null>
   importLoading: boolean
-  onExport: () => void | Promise<void>
+  onExport: (includeSecrets?: boolean) => void | Promise<void>
+  onExportSecretsConfirmOpenChange: (open: boolean) => void
   onImportSubdux: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>
   onImportWallos: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>
   subduxImportFileRef: RefObject<HTMLInputElement | null>
@@ -46,9 +49,11 @@ interface SubduxImportPreviewDialogProps {
 
 export function SettingsAccountTransferSection({
   exportLoading,
+  exportSecretsConfirmOpen,
   importFileRef,
   importLoading,
   onExport,
+  onExportSecretsConfirmOpenChange,
   onImportSubdux,
   onImportWallos,
   subduxImportFileRef,
@@ -63,17 +68,59 @@ export function SettingsAccountTransferSection({
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.account.exportDescription")}
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2"
-          disabled={exportLoading}
-          onClick={() => void onExport()}
-        >
-          {exportLoading
-            ? t("settings.account.exporting")
-            : t("settings.account.exportButton")}
-        </Button>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exportLoading}
+            onClick={() => void onExport(false)}
+          >
+            <Download className="size-4" />
+            {exportLoading
+              ? t("settings.account.exporting")
+              : t("settings.account.exportButton")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exportLoading}
+            onClick={() => onExportSecretsConfirmOpenChange(true)}
+          >
+            <Download className="size-4" />
+            {t("settings.account.exportWithSecretsButton")}
+          </Button>
+        </div>
+        {exportSecretsConfirmOpen && (
+          <div className="mt-3 rounded-md border border-destructive bg-destructive/10 p-3 text-sm">
+            <div className="flex items-start gap-2 font-medium text-destructive">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>{t("settings.account.exportWithSecretsConfirmTitle")}</span>
+            </div>
+            <p className="mt-2 text-muted-foreground">
+              {t("settings.account.exportWithSecretsConfirmDescription")}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={exportLoading}
+                onClick={() => void onExport(true)}
+              >
+                {exportLoading
+                  ? t("settings.account.exporting")
+                  : t("settings.account.exportWithSecretsConfirmButton")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={exportLoading}
+                onClick={() => onExportSecretsConfirmOpenChange(false)}
+              >
+                {t("settings.account.exportWithSecretsCancelButton")}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-3">

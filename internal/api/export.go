@@ -20,8 +20,12 @@ func NewExportHandler(s *service.ExportService) *ExportHandler {
 
 func (h *ExportHandler) Export(c echo.Context) error {
 	userID := getUserID(c)
+	includeSecrets := c.QueryParam("include_secrets") == "1"
+	if includeSecrets && c.QueryParam("confirm") != "include_secrets" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "exporting notification secrets requires confirmation"})
+	}
 
-	data, err := h.Service.ExportUserData(userID)
+	data, err := h.Service.ExportUserData(userID, includeSecrets)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}

@@ -1,16 +1,21 @@
 package api
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/glebarez/sqlite"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
+	"gorm.io/gorm"
 )
 
 func newSecurityMiddlewareTestContext(method string, target string, contentType string, body string) echo.Context {
@@ -204,6 +209,317 @@ func TestIsAPIKeyRouteAllowed(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHumanSessionOnlyMiddlewareBlocksAPIKeyPrincipal(t *testing.T) {
+	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/api-keys", "", "")
+	c.SetPath("/api/api-keys")
+	c.Set("user", &jwt.Token{
+		Claims: &pkg.JWTClaims{
+			AuthType: pkg.AuthTypeAPIKey,
+			Scopes:   []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		},
+	})
+
+	calledNext := false
+	middleware := HumanSessionOnlyMiddleware(func(c echo.Context) error {
+		calledNext = true
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	if err := middleware(c); err != nil {
+		t.Fatalf("HumanSessionOnlyMiddleware() error = %v, want nil", err)
+	}
+
+	if calledNext {
+		t.Fatal("HumanSessionOnlyMiddleware() called next handler for api key principal, want blocked")
+	}
+
+	if got := c.Response().Status; got != http.StatusForbidden {
+		t.Fatalf("HumanSessionOnlyMiddleware() status = %d, want %d", got, http.StatusForbidden)
+	}
+}
+
+func TestHumanSessionOnlyMiddlewareAllowsHumanSession(t *testing.T) {
+	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/api-keys", "", "")
+	c.SetPath("/api/api-keys")
+	c.Set("user", &jwt.Token{
+		Claims: &pkg.JWTClaims{
+			AuthType: pkg.AuthTypeUser,
+		},
+	})
+
+	calledNext := false
+	middleware := HumanSessionOnlyMiddleware(func(c echo.Context) error {
+		calledNext = true
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	if err := middleware(c); err != nil {
+		t.Fatalf("HumanSessionOnlyMiddleware() error = %v, want nil", err)
+	}
+
+	if !calledNext {
+		t.Fatal("HumanSessionOnlyMiddleware() blocked human session, want allowed")
+	}
+
+	if got := c.Response().Status; got != http.StatusNoContent {
+		t.Fatalf("HumanSessionOnlyMiddleware() status = %d, want %d", got, http.StatusNoContent)
+	}
+}
+
+func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createHumanOnlyRouteTestUser(t, db)
+	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+		Name:   "Agent",
+		Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+	})
+	if err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+
+	e := newHumanOnlyRouteTestServer(t, db)
+	tests := []struct {
+		name   string
+		method string
+		target string
+	}{
+		{
+			name:   "change password",
+			method: http.MethodPut,
+			target: "/api/auth/password",
+		},
+		{
+			name:   "send email change code",
+			method: http.MethodPost,
+			target: "/api/auth/email/change/send-code",
+		},
+		{
+			name:   "confirm email change",
+			method: http.MethodPost,
+			target: "/api/auth/email/change/confirm",
+		},
+		{
+			name:   "setup totp",
+			method: http.MethodGet,
+			target: "/api/auth/totp/setup",
+		},
+		{
+			name:   "confirm totp",
+			method: http.MethodPost,
+			target: "/api/auth/totp/confirm",
+		},
+		{
+			name:   "disable totp",
+			method: http.MethodPost,
+			target: "/api/auth/totp/disable",
+		},
+		{
+			name:   "list passkeys",
+			method: http.MethodGet,
+			target: "/api/auth/passkeys",
+		},
+		{
+			name:   "begin passkey registration",
+			method: http.MethodPost,
+			target: "/api/auth/passkeys/register/start",
+		},
+		{
+			name:   "finish passkey registration",
+			method: http.MethodPost,
+			target: "/api/auth/passkeys/register/finish",
+		},
+		{
+			name:   "delete passkey",
+			method: http.MethodDelete,
+			target: "/api/auth/passkeys/1",
+		},
+		{
+			name:   "list oidc connections",
+			method: http.MethodGet,
+			target: "/api/auth/oidc/connections",
+		},
+		{
+			name:   "begin oidc connect",
+			method: http.MethodPost,
+			target: "/api/auth/oidc/connect/start",
+		},
+		{
+			name:   "delete oidc connection",
+			method: http.MethodDelete,
+			target: "/api/auth/oidc/connections/1",
+		},
+		{
+			name:   "list api keys",
+			method: http.MethodGet,
+			target: "/api/api-keys",
+		},
+		{
+			name:   "create api key",
+			method: http.MethodPost,
+			target: "/api/api-keys",
+		},
+		{
+			name:   "delete api key",
+			method: http.MethodDelete,
+			target: "/api/api-keys/1",
+		},
+		{
+			name:   "list calendar tokens",
+			method: http.MethodGet,
+			target: "/api/calendar/tokens",
+		},
+		{
+			name:   "create calendar token",
+			method: http.MethodPost,
+			target: "/api/calendar/tokens",
+		},
+		{
+			name:   "delete calendar token",
+			method: http.MethodDelete,
+			target: "/api/calendar/tokens/1",
+		},
+		{
+			name:   "export",
+			method: http.MethodGet,
+			target: "/api/export",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.target, nil)
+			req.Header.Set("X-API-Key", apiKeyResp.Key)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), "human session required") {
+				t.Fatalf("body = %s, want human session required error", rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestHumanOnlyRoutesAllowHumanSession(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createHumanOnlyRouteTestUser(t, db)
+	token, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
+	if err != nil {
+		t.Fatalf("failed to generate access token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/api-keys", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	newHumanOnlyRouteTestServer(t, db).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+}
+
+func TestAPIKeyAllowedRoutesStillAcceptAPIKeyPrincipal(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createHumanOnlyRouteTestUser(t, db)
+	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+		Name:   "Reader",
+		Scopes: []string{service.APIKeyScopeRead},
+	})
+	if err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+
+	e := newHumanOnlyRouteTestServer(t, db)
+	tests := []struct {
+		name   string
+		target string
+	}{
+		{name: "auth me", target: "/api/auth/me"},
+		{name: "subscriptions", target: "/api/subscriptions"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.target, nil)
+			req.Header.Set("X-API-Key", apiKeyResp.Key)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+		})
+	}
+}
+
+func newHumanOnlyRouteTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	t.Setenv("JWT_SECRET", "human-only-route-test-jwt-secret-0123456789")
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "human-only-route-test-settings-key")
+
+	dbPath := filepath.Join(t.TempDir(), "subdux-human-only-route-test.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open test database: %v", err)
+	}
+
+	if err := db.AutoMigrate(
+		&model.User{},
+		&model.SystemSetting{},
+		&model.APIKey{},
+		&model.RefreshToken{},
+		&model.UserPreference{},
+		&model.UserCurrency{},
+		&model.Category{},
+		&model.PaymentMethod{},
+		&model.Subscription{},
+		&model.SubscriptionEvent{},
+		&model.SubscriptionActionSnooze{},
+		&model.NotificationChannel{},
+		&model.NotificationPolicy{},
+		&model.NotificationLog{},
+		&model.NotificationTemplate{},
+		&model.CalendarToken{},
+		&model.PasskeyCredential{},
+		&model.OIDCConnection{},
+		&model.EmailVerificationCode{},
+		&model.UserBackupCode{},
+	); err != nil {
+		t.Fatalf("failed to migrate test database: %v", err)
+	}
+	if err := pkg.InitJWTSecret(db); err != nil {
+		t.Fatalf("failed to initialize jwt secret: %v", err)
+	}
+
+	return db
+}
+
+func createHumanOnlyRouteTestUser(t *testing.T, db *gorm.DB) model.User {
+	t.Helper()
+
+	user := model.User{
+		Username: "human-route-user",
+		Email:    "human-route@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	return user
+}
+
+func newHumanOnlyRouteTestServer(t *testing.T, db *gorm.DB) *echo.Echo {
+	t.Helper()
+
+	e := echo.New()
+	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	return e
 }
 
 func TestAPIKeyScopeMiddlewareBlocksAuthNamespaceRoot(t *testing.T) {

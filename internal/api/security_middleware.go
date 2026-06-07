@@ -284,6 +284,15 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+func HumanSessionOnlyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if getAuthType(c) == pkg.AuthTypeAPIKey {
+			return c.JSON(http.StatusForbidden, echo.Map{"error": "human session required"})
+		}
+		return next(c)
+	}
+}
+
 func isAPIKeyRouteAllowed(path string) bool {
 	if path == "/api/auth" {
 		return false
