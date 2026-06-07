@@ -10,50 +10,7 @@ import (
 )
 
 func (s *AdminService) GetSettings() (*SystemSettings, error) {
-	settings := &SystemSettings{
-		RegistrationEnabled:                  true,
-		RegistrationEmailVerificationEnabled: false,
-		EmailDomainWhitelist:                 "",
-		SiteName:                             "Subdux",
-		SiteURL:                              "",
-		CurrencyAPIKeySet:                    false,
-		ExchangeRateSource:                   "auto",
-		AllowImageUpload:                     true,
-		MaxIconFileSize:                      65536,
-		IconProxyEnabled:                     true,
-		IconProxyDomainWhitelist:             defaultIconProxyDomainWhitelist,
-		MCPEnabled:                           false,
-		SystemProxyEnabled:                   false,
-		SystemProxyType:                      systemProxyTypeHTTP,
-		SystemProxyURLSet:                    false,
-		SMTPEnabled:                          false,
-		SMTPHost:                             "",
-		SMTPPort:                             587,
-		SMTPUsername:                         "",
-		SMTPPasswordSet:                      false,
-		SMTPFromEmail:                        "",
-		SMTPFromName:                         "",
-		SMTPEncryption:                       "starttls",
-		SMTPAuthMethod:                       "auto",
-		SMTPHeloName:                         "",
-		SMTPTimeoutSeconds:                   10,
-		SMTPRateLimitSeconds:                 0,
-		SMTPSkipTLSVerify:                    false,
-		OIDCEnabled:                          false,
-		OIDCProviderName:                     "OIDC",
-		OIDCIssuerURL:                        "",
-		OIDCClientID:                         "",
-		OIDCClientSecretSet:                  false,
-		OIDCRedirectURL:                      "",
-		OIDCScopes:                           "openid profile email",
-		OIDCAutoCreateUser:                   false,
-		OIDCAuthorizeURL:                     "",
-		OIDCTokenURL:                         "",
-		OIDCUserinfoURL:                      "",
-		OIDCAudience:                         "",
-		OIDCResource:                         "",
-		OIDCExtraAuthParams:                  "",
-	}
+	settings := defaultAdminSystemSettings()
 
 	var items []model.SystemSetting
 	s.DB.Find(&items)
@@ -623,14 +580,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 }
 
 func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, error) {
-	var setting model.SystemSetting
-	if err := tx.Where("key = ?", key).First(&setting).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return defaultValue, nil
-		}
-		return defaultValue, err
-	}
-	return setting.Value == "true", nil
+	return getBoolSystemSettingValue(tx, key, defaultValue)
 }
 
 func validateIncomingSystemProxySettings(tx *gorm.DB, input UpdateSettingsInput) error {

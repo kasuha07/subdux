@@ -10,7 +10,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
 	"github.com/shiroha/subdux/internal/version"
@@ -115,6 +114,7 @@ func SetupRoutes(
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)
+	systemSettingsService := service.NewSystemSettingsService(db)
 	iconProxyService := service.NewIconProxyService(db)
 	erService := service.NewExchangeRateService(db)
 	currencyService := service.NewCurrencyService(db)
@@ -128,11 +128,14 @@ func SetupRoutes(
 	calendarService := service.NewCalendarService(db)
 	exportService := service.NewExportService(db)
 	importService := service.NewImportService(db)
-	seedDefaultSettings(db)
+	if err := systemSettingsService.SeedDefaults(); err != nil {
+		e.Logger.Errorf("failed to seed default system settings: %v", err)
+	}
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
 	adminHandler := NewAdminHandler(adminService, taskMonitor)
+	siteInfoHandler := NewSiteInfoHandler(systemSettingsService)
 	iconProxyHandler := NewIconProxyHandler(iconProxyService)
 	erHandler := NewExchangeRateHandler(erService)
 	currencyHandler := NewCurrencyHandler(currencyService, erService)
@@ -146,7 +149,7 @@ func SetupRoutes(
 	importHandler := NewImportHandler(importService)
 	mcpHandler := NewMCPHandler(apiKeyService, subService, erService, currencyService, categoryService, paymentMethodService)
 
-	requireMCPEnabled := mcpEnabledMiddleware(db)
+	requireMCPEnabled := mcpEnabledMiddleware(systemSettingsService)
 	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, requestBodyLimitMiddleware(1<<20, nil))
 	e.GET("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
 	e.PUT("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
@@ -334,90 +337,22 @@ func SetupRoutes(
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 
-	api.GET("/site-info", func(c echo.Context) error {
-		var setting model.SystemSetting
-		siteName := "Subdux"
-		if err := db.Where("key = ?", "site_name").First(&setting).Error; err == nil && setting.Value != "" {
-			siteName = setting.Value
-		}
-		return c.JSON(http.StatusOK, echo.Map{
-			"site_name":   siteName,
-			"mcp_enabled": isMCPEnabled(db),
-		})
-	})
+	api.GET("/site-info", siteInfoHandler.Get)
 
 	return erService, notificationService
 }
 
-func mcpEnabledMiddleware(db *gorm.DB) echo.MiddlewareFunc {
+func mcpEnabledMiddleware(settingsService *service.SystemSettingsService) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if !isMCPEnabled(db) {
+			enabled, err := settingsService.IsMCPEnabled()
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to read mcp settings"})
+			}
+			if !enabled {
 				return c.JSON(http.StatusNotFound, echo.Map{"error": "mcp is not enabled"})
 			}
 			return next(c)
-		}
-	}
-}
-
-func isMCPEnabled(db *gorm.DB) bool {
-	var setting model.SystemSetting
-	if err := db.Where("key = ?", "mcp_enabled").First(&setting).Error; err != nil {
-		return false
-	}
-	return setting.Value == "true"
-}
-
-func seedDefaultSettings(db *gorm.DB) {
-	defaults := []model.SystemSetting{
-		{Key: "registration_enabled", Value: "true"},
-		{Key: "registration_email_verification_enabled", Value: "false"},
-		{Key: "email_domain_whitelist", Value: ""},
-		{Key: "site_name", Value: "Subdux"},
-		{Key: "site_url", Value: ""},
-		{Key: "currencyapi_key", Value: ""},
-		{Key: "exchange_rate_source", Value: "auto"},
-		{Key: "allow_image_upload", Value: "true"},
-		{Key: "max_icon_file_size", Value: "65536"},
-		{Key: "icon_proxy_enabled", Value: "true"},
-		{Key: "icon_proxy_domain_whitelist", Value: "google.com\nicon.horse"},
-		{Key: "mcp_enabled", Value: "false"},
-		{Key: "system_proxy_enabled", Value: "false"},
-		{Key: "system_proxy_type", Value: "http"},
-		{Key: "system_proxy_url", Value: ""},
-		{Key: "smtp_enabled", Value: "false"},
-		{Key: "smtp_host", Value: ""},
-		{Key: "smtp_port", Value: "587"},
-		{Key: "smtp_username", Value: ""},
-		{Key: "smtp_password", Value: ""},
-		{Key: "smtp_from_email", Value: ""},
-		{Key: "smtp_from_name", Value: ""},
-		{Key: "smtp_encryption", Value: "starttls"},
-		{Key: "smtp_auth_method", Value: "auto"},
-		{Key: "smtp_helo_name", Value: ""},
-		{Key: "smtp_timeout_seconds", Value: "10"},
-		{Key: "smtp_rate_limit_seconds", Value: "0"},
-		{Key: "smtp_skip_tls_verify", Value: "false"},
-		{Key: "oidc_enabled", Value: "false"},
-		{Key: "oidc_provider_name", Value: "OIDC"},
-		{Key: "oidc_issuer_url", Value: ""},
-		{Key: "oidc_client_id", Value: ""},
-		{Key: "oidc_client_secret", Value: ""},
-		{Key: "oidc_redirect_url", Value: ""},
-		{Key: "oidc_scopes", Value: "openid profile email"},
-		{Key: "oidc_auto_create_user", Value: "false"},
-		{Key: "oidc_authorization_endpoint", Value: ""},
-		{Key: "oidc_token_endpoint", Value: ""},
-		{Key: "oidc_userinfo_endpoint", Value: ""},
-		{Key: "oidc_audience", Value: ""},
-		{Key: "oidc_resource", Value: ""},
-		{Key: "oidc_extra_auth_params", Value: ""},
-	}
-
-	for _, setting := range defaults {
-		var existing model.SystemSetting
-		if err := db.Where("key = ?", setting.Key).First(&existing).Error; err != nil {
-			db.Create(&setting)
 		}
 	}
 }
