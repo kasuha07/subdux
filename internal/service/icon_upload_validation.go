@@ -25,6 +25,11 @@ var (
 	ErrIconUploadInvalidICO      = errors.New(iconUploadInvalidICOError)
 )
 
+// SanitizeIconFile validates an icon file and returns a re-encoded safe image.
+func SanitizeIconFile(file io.Reader, filename string, maxSize int64) ([]byte, string, error) {
+	return sanitizeUploadedIcon(file, filename, maxSize)
+}
+
 type iconUploadFormat string
 
 const (

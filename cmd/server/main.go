@@ -5,10 +5,12 @@ import (
 	"errors"
 	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -71,7 +73,7 @@ func main() {
 	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
 	startNotificationChecker(appCtx, notificationService, taskMonitor, &backgroundTasks)
 
-	e.Static("/uploads", filepath.Join(pkg.GetDataPath(), "assets"))
+	setupUploads(e, filepath.Join(pkg.GetDataPath(), "assets"))
 
 	distFS, err := fs.Sub(subdux.StaticFS, "web/dist")
 	if err != nil {
@@ -298,6 +300,125 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 		WriteTimeout:      httpWriteTimeout,
 		IdleTimeout:       httpIdleTimeout,
 	}
+}
+
+func setupUploads(e *echo.Echo, assetsRoot string) {
+	e.GET("/uploads/*", func(c echo.Context) error {
+		return serveUploadedAsset(c, assetsRoot)
+	})
+}
+
+func serveUploadedAsset(c echo.Context, assetsRoot string) error {
+	relativePath, ok := cleanUploadedAssetPath(c.Param("*"))
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	filePath := filepath.Join(assetsRoot, filepath.FromSlash(relativePath))
+	if !isPathWithinRoot(assetsRoot, filePath) {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	linkInfo, err := os.Lstat(filePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return err
+	}
+	if !linkInfo.Mode().IsRegular() {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	filename := path.Base(relativePath)
+	header := c.Response().Header()
+	header.Set(echo.HeaderContentType, uploadedAssetContentType(relativePath))
+	header.Set(echo.HeaderXContentTypeOptions, "nosniff")
+	header.Set(echo.HeaderContentSecurityPolicy, "default-src 'none'; base-uri 'none'; form-action 'none'; sandbox")
+	header.Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": filename}))
+	header.Set(echo.HeaderCacheControl, "public, max-age=86400")
+
+	http.ServeContent(c.Response().Writer, c.Request(), filename, info.ModTime(), file)
+	return nil
+}
+
+func cleanUploadedAssetPath(rawPath string) (string, bool) {
+	unescaped, err := url.PathUnescape(strings.TrimPrefix(rawPath, "/"))
+	if err != nil {
+		return "", false
+	}
+	cleanPath := path.Clean(strings.TrimPrefix(unescaped, "/"))
+	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
+		return "", false
+	}
+	if !isServableUploadedAssetPath(cleanPath) {
+		return "", false
+	}
+	return cleanPath, true
+}
+
+func isServableUploadedAssetPath(relativePath string) bool {
+	parts := strings.Split(relativePath, "/")
+	if len(parts) != 2 || parts[0] != "icons" {
+		return false
+	}
+	filename := parts[1]
+	if filename == "" || path.Base(filename) != filename {
+		return false
+	}
+
+	switch strings.ToLower(path.Ext(filename)) {
+	case ".png", ".jpg", ".jpeg", ".ico":
+		return true
+	default:
+		return false
+	}
+}
+
+func uploadedAssetContentType(relativePath string) string {
+	switch strings.ToLower(path.Ext(relativePath)) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".ico":
+		return "image/x-icon"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+func isPathWithinRoot(root string, target string) bool {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absRoot, absTarget)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func startNotificationChecker(

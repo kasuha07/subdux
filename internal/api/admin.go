@@ -56,6 +56,22 @@ var defaultBackupRestoreLimits = backupRestoreLimits{
 	maxAssetEntries:          maxBackupAssetEntries,
 }
 
+func isRestorableAssetPath(relativePath string) bool {
+	if relativePath == "" {
+		return false
+	}
+	parts := strings.Split(relativePath, "/")
+	if len(parts) != 2 || parts[0] != "icons" {
+		return false
+	}
+	filename := parts[1]
+	if filename == "" || path.Base(filename) != filename {
+		return false
+	}
+	ext := strings.ToLower(path.Ext(filename))
+	return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".ico"
+}
+
 func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTaskMonitor) *AdminHandler {
 	return &AdminHandler{Service: s, TaskMonitor: taskMonitor}
 }
@@ -496,7 +512,13 @@ func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool
 			continue
 		}
 		if entry.FileInfo().IsDir() {
-			continue
+			if relativePath == "icons" {
+				continue
+			}
+			return false, "", invalidBackupError("zip backup contains unsupported assets entry")
+		}
+		if !isRestorableAssetPath(relativePath) {
+			return false, "", invalidBackupError("zip backup contains unsupported assets entry")
 		}
 
 		mode := entry.Mode()
@@ -517,6 +539,10 @@ func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool
 			return false, "", err
 		}
 
+		sanitized, sourceSize, err := sanitizeRestoreAsset(entry, path.Base(relativePath), remainingSize)
+		if err != nil {
+			return false, "", err
+		}
 		targetPath := filepath.Join(tempAssetsDir, filepath.FromSlash(relativePath))
 		if !isSubPath(tempAssetsDir, targetPath) {
 			return false, "", invalidBackupError("zip backup contains invalid assets path")
@@ -524,15 +550,40 @@ func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return false, "", err
 		}
-		written, err := extractZipFileEntryLimited(entry, targetPath, remainingSize)
-		if err != nil {
+		if err := os.WriteFile(targetPath, sanitized, 0o644); err != nil {
 			return false, "", invalidBackupError("failed to extract assets from zip backup")
 		}
-		extractedSize += written
+		extractedSize += sourceSize
 	}
 
 	shouldCleanup = false
 	return true, tempAssetsDir, nil
+}
+
+func sanitizeRestoreAsset(entry *zip.File, filename string, maxBytes int64) ([]byte, int64, error) {
+	source, err := entry.Open()
+	if err != nil {
+		return nil, 0, invalidBackupError("failed to extract assets from zip backup")
+	}
+	defer source.Close()
+
+	countingSource := &countingReader{reader: source}
+	sanitized, _, err := service.SanitizeIconFile(countingSource, filename, maxBytes)
+	if err != nil {
+		return nil, 0, invalidBackupError("zip backup contains invalid asset image")
+	}
+	return sanitized, countingSource.bytesRead, nil
+}
+
+type countingReader struct {
+	reader    io.Reader
+	bytesRead int64
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.bytesRead += int64(n)
+	return n, err
 }
 
 func validateZipFileEntrySize(entry *zip.File, maxBytes int64, message string) error {

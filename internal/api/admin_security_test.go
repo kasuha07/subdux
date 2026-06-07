@@ -4,6 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -85,20 +88,40 @@ func TestPrepareRestorePayloadFromZipRejectsOversizedDatabaseEntry(t *testing.T)
 
 func TestPrepareRestorePayloadFromZipRejectsOversizedAssetsTotal(t *testing.T) {
 	t.Setenv("DATA_PATH", t.TempDir())
+	pngData := mustEncodeRestorePNG(t)
 	zipPath := writeRestoreZip(t, map[string][]byte{
-		"subdux.db":           sqliteFileHeader,
-		"assets/icons/a.png":  bytes.Repeat([]byte("a"), 10),
-		"assets/icons/b.png":  bytes.Repeat([]byte("b"), 10),
-		"assets/icons/c.png":  bytes.Repeat([]byte("c"), 10),
-		"assets/icons/d.png":  bytes.Repeat([]byte("d"), 10),
-		"assets/icons/e.png":  bytes.Repeat([]byte("e"), 10),
-		"assets/icons/ok.png": []byte("ok"),
+		"subdux.db":          sqliteFileHeader,
+		"assets/icons/a.png": pngData,
 	})
 
 	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
-		maxAssetsExtractedSize:   32,
+		maxAssetsExtractedSize:   int64(len(pngData) - 1),
 		maxAssetEntries:          8,
+	})
+	if !errors.Is(err, errInvalidBackup) {
+		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want invalid backup", err)
+	}
+	if !strings.Contains(err.Error(), "assets exceed extracted size limit") {
+		t.Fatalf("error = %q, want assets size limit", err.Error())
+	}
+	assertNoRestoreAssetsTempDirs(t)
+}
+
+func TestPrepareRestorePayloadFromZipCountsOriginalAssetSize(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	pngData := mustEncodeRestorePNG(t)
+	pngWithPayload := append(bytes.Clone(pngData), bytes.Repeat([]byte("x"), 64)...)
+	zipPath := writeRestoreZip(t, map[string][]byte{
+		"subdux.db":          sqliteFileHeader,
+		"assets/icons/a.png": pngWithPayload,
+		"assets/icons/b.png": pngWithPayload,
+	})
+
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+		maxDatabaseExtractedSize: 128,
+		maxAssetsExtractedSize:   int64(len(pngWithPayload) + len(pngData)),
+		maxAssetEntries:          4,
 	})
 	if !errors.Is(err, errInvalidBackup) {
 		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want invalid backup", err)
@@ -111,16 +134,17 @@ func TestPrepareRestorePayloadFromZipRejectsOversizedAssetsTotal(t *testing.T) {
 
 func TestPrepareRestorePayloadFromZipRejectsTooManyAssetEntries(t *testing.T) {
 	t.Setenv("DATA_PATH", t.TempDir())
+	pngData := mustEncodeRestorePNG(t)
 	zipPath := writeRestoreZip(t, map[string][]byte{
 		"subdux.db":          sqliteFileHeader,
-		"assets/icons/1.png": []byte("1"),
-		"assets/icons/2.png": []byte("2"),
-		"assets/icons/3.png": []byte("3"),
+		"assets/icons/1.png": pngData,
+		"assets/icons/2.png": pngData,
+		"assets/icons/3.png": pngData,
 	})
 
 	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
-		maxAssetsExtractedSize:   128,
+		maxAssetsExtractedSize:   4096,
 		maxAssetEntries:          2,
 	})
 	if !errors.Is(err, errInvalidBackup) {
@@ -134,9 +158,10 @@ func TestPrepareRestorePayloadFromZipRejectsTooManyAssetEntries(t *testing.T) {
 
 func TestPrepareRestorePayloadFromZipAcceptsBackupWithinExtractedLimits(t *testing.T) {
 	t.Setenv("DATA_PATH", t.TempDir())
+	pngData := append(mustEncodeRestorePNG(t), []byte("<script>evil()</script>")...)
 	zipPath := writeRestoreZip(t, map[string][]byte{
 		"subdux.db":          sqliteFileHeader,
-		"assets/icons/a.png": []byte("icon"),
+		"assets/icons/a.png": pngData,
 	})
 
 	payload, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
@@ -171,9 +196,55 @@ func TestPrepareRestorePayloadFromZipAcceptsBackupWithinExtractedLimits(t *testi
 	if err != nil {
 		t.Fatalf("restored asset read error = %v, want nil", err)
 	}
-	if string(contents) != "icon" {
-		t.Fatalf("restored asset = %q, want icon", string(contents))
+	if bytes.Contains(contents, []byte("<script>")) {
+		t.Fatal("restored asset should be sanitized and strip appended script payload")
 	}
+	if _, err := png.Decode(bytes.NewReader(contents)); err != nil {
+		t.Fatalf("restored asset should decode as png: %v", err)
+	}
+}
+
+func TestPrepareRestorePayloadFromZipRejectsNonImageAsset(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	zipPath := writeRestoreZip(t, map[string][]byte{
+		"subdux.db":            sqliteFileHeader,
+		"assets/icons/pwn.png": []byte("<script>evil()</script>"),
+	})
+
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+		maxDatabaseExtractedSize: 128,
+		maxAssetsExtractedSize:   128,
+		maxAssetEntries:          2,
+	})
+	if !errors.Is(err, errInvalidBackup) {
+		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want invalid backup", err)
+	}
+	if !strings.Contains(err.Error(), "invalid asset image") {
+		t.Fatalf("error = %q, want invalid asset image", err.Error())
+	}
+	assertNoRestoreAssetsTempDirs(t)
+}
+
+func TestPrepareRestorePayloadFromZipRejectsExecutableAssetPath(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	zipPath := writeRestoreZip(t, map[string][]byte{
+		"subdux.db":         sqliteFileHeader,
+		"assets/pwn.html":   []byte("<script>evil()</script>"),
+		"assets/icons/a.js": []byte("alert(1)"),
+	})
+
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+		maxDatabaseExtractedSize: 128,
+		maxAssetsExtractedSize:   128,
+		maxAssetEntries:          2,
+	})
+	if !errors.Is(err, errInvalidBackup) {
+		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want invalid backup", err)
+	}
+	if !strings.Contains(err.Error(), "unsupported assets entry") {
+		t.Fatalf("error = %q, want unsupported assets entry", err.Error())
+	}
+	assertNoRestoreAssetsTempDirs(t)
 }
 
 func writeRestoreZip(t *testing.T, files map[string][]byte) string {
@@ -216,4 +287,20 @@ func assertNoRestoreAssetsTempDirs(t *testing.T) {
 	if len(matches) != 0 {
 		t.Fatalf("restore asset temp dirs were not cleaned up: %v", matches)
 	}
+}
+
+func mustEncodeRestorePNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	for y := 0; y < 4; y++ {
+		for x := 0; x < 4; x++ {
+			img.Set(x, y, color.NRGBA{R: 42, G: 120, B: 220, A: 255})
+		}
+	}
+
+	var out bytes.Buffer
+	if err := png.Encode(&out, img); err != nil {
+		t.Fatalf("failed to encode png: %v", err)
+	}
+	return out.Bytes()
 }
