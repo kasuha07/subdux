@@ -26,6 +26,12 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  formatSubscriptionEventAmountChange,
+  subscriptionDetailEventChangeRows,
+  subscriptionEventFieldLabel,
+  subscriptionEventTypeLabel,
+} from "@/lib/subscription-event-formatters"
 import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type {
   Subscription,
@@ -569,7 +575,7 @@ function TimelineItem({
   language: string
 }) {
   const { t } = useTranslation()
-  const changeRows = eventChangeRows(item, formatAmount, language, t)
+  const changeRows = subscriptionDetailEventChangeRows(item, formatAmount, language, t)
 
   return (
     <div
@@ -579,7 +585,7 @@ function TimelineItem({
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Badge variant="outline" className={eventBadgeStyles[item.type] || ""}>
-            {eventTypeLabel(item.type, t)}
+            {subscriptionEventTypeLabel(item.type, t)}
           </Badge>
           <p className="truncate text-sm text-muted-foreground">
             {formatDate(item.changed_at, language)}
@@ -587,12 +593,12 @@ function TimelineItem({
         </div>
         {item.changed_fields.length > 0 ? (
           <p className="mt-1 text-xs text-muted-foreground">
-            {item.changed_fields.map((field) => eventFieldLabel(field, t)).join(", ")}
+            {item.changed_fields.map((field) => subscriptionEventFieldLabel(field, t)).join(", ")}
           </p>
         ) : null}
       </div>
       <p className="text-left text-sm tabular-nums sm:text-right">
-        {formatEventAmountChange(item, formatAmount)}
+        {formatSubscriptionEventAmountChange(item, formatAmount)}
       </p>
       {changeRows.length > 0 ? (
         <div className="grid gap-1.5 rounded-md bg-muted/30 p-2 sm:col-span-2">
@@ -649,7 +655,7 @@ function PriceHistoryPanel({
                 ? t("subscription.detail.prices.from", {
                     amount: formatAmount(amounts.previousAmount, amounts.previousCurrency),
                   })
-                : eventTypeLabel(item.type, t)}
+                : subscriptionEventTypeLabel(item.type, t)}
             </p>
           </div>
         )
@@ -758,34 +764,6 @@ function EmptyPanel({ title, description }: { title: string, description: string
   )
 }
 
-function eventTypeLabel(type: string, t: (key: string) => string): string {
-  return t(`reports.recentChanges.types.${type}`)
-}
-
-function eventFieldLabel(field: string, t: (key: string) => string): string {
-  const translated = t(`reports.recentChanges.fields.${field}`)
-  if (translated === `reports.recentChanges.fields.${field}`) {
-    return field
-  }
-  return translated
-}
-
-function formatEventAmountChange(
-  item: Pick<SubscriptionDetailEvent, "previous_amount" | "new_amount" | "previous_currency" | "new_currency">,
-  formatAmount: (amount: number, currency?: string) => string
-): string {
-  if (item.previous_amount !== null && item.new_amount !== null) {
-    return `${formatAmount(item.previous_amount, item.previous_currency)} -> ${formatAmount(item.new_amount, item.new_currency)}`
-  }
-  if (item.new_amount !== null) {
-    return formatAmount(item.new_amount, item.new_currency)
-  }
-  if (item.previous_amount !== null) {
-    return formatAmount(item.previous_amount, item.previous_currency)
-  }
-  return ""
-}
-
 function formatRecurrenceRule(sub: Subscription, t: TFunction): string {
   const empty = t("subscription.detail.empty.none")
 
@@ -819,152 +797,6 @@ function formatNotificationSetting(sub: Subscription, t: TFunction): string {
     })
   }
   return t("subscription.detail.info.notificationEnabled")
-}
-
-function eventChangeRows(
-  item: SubscriptionDetailEvent,
-  formatAmount: (amount: number, currency?: string) => string,
-  language: string,
-  t: TFunction
-): Array<{ label: string, previous: string, next: string }> {
-  const fields = item.changed_fields.length > 0 ? item.changed_fields : ["amount"]
-  if (item.type === "created") {
-    return ["amount", "monthly_amount", "next_billing_date", "status", "renewal_mode", "category", "payment_method"]
-      .map((field) => eventChangeRow(field, item, formatAmount, language, t, "created"))
-      .filter((row): row is { label: string, previous: string, next: string } => row !== null)
-  }
-  if (item.type === "deleted") {
-    return ["amount", "monthly_amount", "next_billing_date", "status", "renewal_mode", "category", "payment_method"]
-      .map((field) => eventChangeRow(field, item, formatAmount, language, t, "deleted"))
-      .filter((row): row is { label: string, previous: string, next: string } => row !== null)
-  }
-  return fields
-    .map((field) => eventChangeRow(field, item, formatAmount, language, t))
-    .filter((row): row is { label: string, previous: string, next: string } => row !== null)
-}
-
-function eventChangeRow(
-  field: string,
-  item: SubscriptionDetailEvent,
-  formatAmount: (amount: number, currency?: string) => string,
-  language: string,
-  t: TFunction,
-  mode?: "created" | "deleted"
-): { label: string, previous: string, next: string } | null {
-  const empty = t("subscription.detail.empty.none")
-  const label = eventFieldLabel(field, t)
-
-  function valueForText(previous: string, next: string): { previous: string, next: string } | null {
-    if (!previous && !next) {
-      return null
-    }
-    if (mode === "created") {
-      return { previous: empty, next: next || empty }
-    }
-    if (mode === "deleted") {
-      return { previous: previous || empty, next: empty }
-    }
-    return { previous: previous || empty, next: next || empty }
-  }
-
-  if (field === "amount") {
-    const values = valueForAmount(
-      item.previous_amount,
-      item.previous_currency || item.new_currency,
-      item.new_amount,
-      item.new_currency || item.previous_currency,
-      formatAmount,
-      mode,
-      empty
-    )
-    return values ? { label, ...values } : null
-  }
-  if (field === "monthly_amount") {
-    const values = valueForAmount(
-      item.previous_monthly_amount,
-      item.previous_currency || item.new_currency,
-      item.new_monthly_amount,
-      item.new_currency || item.previous_currency,
-      formatAmount,
-      mode,
-      empty
-    )
-    return values ? { label, ...values } : null
-  }
-  if (field === "currency") {
-    const values = valueForText(item.previous_currency, item.new_currency)
-    return values ? { label, ...values } : null
-  }
-  if (field === "next_billing_date") {
-    const previous = item.previous_next_billing_date
-      ? formatDate(item.previous_next_billing_date, language)
-      : ""
-    const next = item.new_next_billing_date
-      ? formatDate(item.new_next_billing_date, language)
-      : ""
-    const values = valueForText(previous, next)
-    return values ? { label, ...values } : null
-  }
-  if (field === "status") {
-    const values = valueForText(
-      lifecycleStatusLabel(item.previous_status, t),
-      lifecycleStatusLabel(item.new_status, t)
-    )
-    return values ? { label, ...values } : null
-  }
-  if (field === "renewal_mode") {
-    const values = valueForText(
-      renewalModeLabel(item.previous_renewal_mode, t),
-      renewalModeLabel(item.new_renewal_mode, t)
-    )
-    return values ? { label, ...values } : null
-  }
-  if (field === "category") {
-    const values = valueForText(item.previous_category_name, item.new_category_name)
-    return values ? { label, ...values } : null
-  }
-  if (field === "payment_method") {
-    const values = valueForText(item.previous_payment_method_name, item.new_payment_method_name)
-    return values ? { label, ...values } : null
-  }
-  return null
-}
-
-function valueForAmount(
-  previousAmount: number | null,
-  previousCurrency: string,
-  newAmount: number | null,
-  newCurrency: string,
-  formatAmount: (amount: number, currency?: string) => string,
-  mode: "created" | "deleted" | undefined,
-  empty: string
-): { previous: string, next: string } | null {
-  if (previousAmount === null && newAmount === null) {
-    return null
-  }
-  const previous = previousAmount !== null ? formatAmount(previousAmount, previousCurrency) : ""
-  const next = newAmount !== null ? formatAmount(newAmount, newCurrency) : ""
-  if (mode === "created") {
-    return { previous: empty, next: next || empty }
-  }
-  if (mode === "deleted") {
-    return { previous: previous || empty, next: empty }
-  }
-  return { previous: previous || empty, next: next || empty }
-}
-
-function lifecycleStatusLabel(value: string, t: TFunction): string {
-  if (!value) {
-    return ""
-  }
-  return t(`subscription.card.status.${value}`, { defaultValue: value })
-}
-
-function renewalModeLabel(value: string, t: TFunction): string {
-  if (!value) {
-    return ""
-  }
-  return t(`subscription.card.renewalMode.${value}`, { defaultValue: value })
 }
 
 function priceHistoryDisplayAmounts(item: SubscriptionDetailPriceHistoryItem): {
