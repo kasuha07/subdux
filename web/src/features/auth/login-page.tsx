@@ -20,8 +20,6 @@ import type {
 
 type LoginStep = "credentials" | "totp"
 
-const DEV_ACCOUNT_PASSWORD = "12345678"
-
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -32,14 +30,12 @@ export default function LoginPage() {
   const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [oidcLoading, setOidcLoading] = useState(false)
   const [oidcSubmitting, setOidcSubmitting] = useState(false)
-  const [createDevAccountLoading, setCreateDevAccountLoading] = useState(false)
   const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
 
   const [step, setStep] = useState<LoginStep>("credentials")
   const [totpToken, setTotpToken] = useState("")
   const [totpCode, setTotpCode] = useState("")
   const passkeySupported = isPasskeySupported()
-  const isDevMode = import.meta.env.DEV
 
   useEffect(() => {
     api.get<OIDCConfig>("/auth/oidc/config")
@@ -173,25 +169,6 @@ export default function LoginPage() {
     }
   }
 
-  async function handleCreateDevAccount() {
-    setError("")
-    setCreateDevAccountLoading(true)
-    try {
-      await api.post<AuthResponse>("/auth/register", {
-        username: "admin",
-        email: "admin@dev.local",
-        password: DEV_ACCOUNT_PASSWORD,
-      })
-      setIdentifier("admin")
-      setPassword(DEV_ACCOUNT_PASSWORD)
-      toast.success(t("auth.login.devAccountSuccess"))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("auth.login.devAccountError"))
-    } finally {
-      setCreateDevAccountLoading(false)
-    }
-  }
-
   if (step === "totp") {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -322,17 +299,6 @@ export default function LoginPage() {
               <p className="text-xs text-muted-foreground">
                 {t("auth.login.passkeyUnsupported")}
               </p>
-            )}
-            {isDevMode && (
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                disabled={loading || passkeyLoading || oidcLoading || oidcSubmitting || createDevAccountLoading}
-                onClick={() => void handleCreateDevAccount()}
-              >
-                {createDevAccountLoading ? t("auth.login.devAccountSubmitting") : t("auth.login.devAccountCreate")}
-              </Button>
             )}
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">

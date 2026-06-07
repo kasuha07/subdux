@@ -20,6 +20,9 @@ func newTestDB(t *testing.T) *gorm.DB {
 
 	if err := db.AutoMigrate(
 		&model.User{},
+		&model.SystemSetting{},
+		&model.EmailVerificationCode{},
+		&model.RefreshToken{},
 		&model.UserPreference{},
 		&model.UserCurrency{},
 		&model.Category{},

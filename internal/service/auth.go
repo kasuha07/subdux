@@ -61,6 +61,19 @@ type AuthResponse struct {
 	User         model.User `json:"user"`
 }
 
+type InitialAdminInput struct {
+	Username string
+	Email    string
+	Password string
+}
+
+type InitialAdminResult struct {
+	Created  bool
+	Username string
+	Email    string
+	Password string
+}
+
 type LoginResponse struct {
 	RequiresTotp bool        `json:"requires_totp"`
 	TotpToken    string      `json:"totp_token,omitempty"`
@@ -74,12 +87,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 	input.Email = normalizeEmail(input.Email)
 	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
 
-	var userCount int64
-	if err := s.DB.Model(&model.User{}).Count(&userCount).Error; err != nil {
-		return nil, err
-	}
-
-	if !s.isRegistrationEnabled(userCount) {
+	if !s.isRegistrationEnabled() {
 		return nil, ErrRegistrationDisabled
 	}
 
@@ -119,16 +127,11 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	role := "user"
-	if userCount == 0 {
-		role = "admin"
-	}
-
 	user := model.User{
 		Username: input.Username,
 		Email:    input.Email,
 		Password: string(hash),
-		Role:     role,
+		Role:     "user",
 		Status:   "active",
 	}
 

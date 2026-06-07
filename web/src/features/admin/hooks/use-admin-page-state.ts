@@ -140,7 +140,7 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     oidcUserinfoEndpoint: settings?.oidc_userinfo_endpoint || "",
     registrationEmailVerificationEnabled:
       settings?.registration_email_verification_enabled ?? false,
-    registrationEnabled: settings?.registration_enabled ?? true,
+    registrationEnabled: settings?.registration_enabled ?? false,
     siteName: settings?.site_name || "Subdux",
     siteUrl: settings?.site_url || "",
     smtpAuthMethod: settings?.smtp_auth_method || "auto",

@@ -53,13 +53,8 @@ func normalizeEmail(email string) string {
 }
 
 func (s *AuthService) GetRegistrationConfig() (*RegistrationConfig, error) {
-	var userCount int64
-	if err := s.DB.Model(&model.User{}).Count(&userCount).Error; err != nil {
-		return nil, err
-	}
-
 	return &RegistrationConfig{
-		RegistrationEnabled:      s.isRegistrationEnabled(userCount),
+		RegistrationEnabled:      s.isRegistrationEnabled(),
 		EmailVerificationEnabled: s.isRegistrationEmailVerificationEnabled(),
 	}, nil
 }
@@ -70,11 +65,7 @@ func (s *AuthService) SendRegistrationVerificationCode(email string) error {
 		return err
 	}
 
-	var userCount int64
-	if err := s.DB.Model(&model.User{}).Count(&userCount).Error; err != nil {
-		return err
-	}
-	if !s.isRegistrationEnabled(userCount) {
+	if !s.isRegistrationEnabled() {
 		return ErrRegistrationDisabled
 	}
 	if !s.isRegistrationEmailVerificationEnabled() {
@@ -246,11 +237,8 @@ func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificat
 	return s.issueAuthResponse(user)
 }
 
-func (s *AuthService) isRegistrationEnabled(userCount int64) bool {
-	if userCount == 0 {
-		return true
-	}
-	return s.getBoolSystemSetting("registration_enabled", true)
+func (s *AuthService) isRegistrationEnabled() bool {
+	return s.getBoolSystemSetting("registration_enabled", false)
 }
 
 func (s *AuthService) isRegistrationEmailVerificationEnabled() bool {

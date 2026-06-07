@@ -51,6 +51,7 @@ func main() {
 	if err := pkg.InitJWTSecret(db); err != nil {
 		log.Fatalf("Failed to initialize JWT secret: %v", err)
 	}
+	bootstrapInitialAdmin(db)
 
 	e := echo.New()
 	e.HideBanner = true
@@ -135,6 +136,38 @@ func main() {
 	}
 
 	log.Printf("Subdux stopped")
+}
+
+func bootstrapInitialAdmin(db *gorm.DB) {
+	input := service.InitialAdminInput{
+		Username: envOrDefault("SUBDUX_INITIAL_ADMIN_USERNAME", "admin"),
+		Email:    envOrDefault("SUBDUX_INITIAL_ADMIN_EMAIL", "admin@subdux.local"),
+		Password: strings.TrimSpace(os.Getenv("SUBDUX_INITIAL_ADMIN_PASSWORD")),
+	}
+
+	result, err := service.NewAuthService(db).EnsureInitialAdmin(input)
+	if err != nil {
+		log.Fatalf("Failed to initialize admin user: %v", err)
+	}
+	if result == nil || !result.Created {
+		return
+	}
+
+	log.Printf("Initial admin user created: username=%s email=%s", result.Username, result.Email)
+	if input.Password == "" {
+		log.Printf("Initial admin password: %s", result.Password)
+		log.Printf("Store this password now; it is only printed during first-time initialization.")
+		return
+	}
+	log.Printf("Initial admin password was loaded from SUBDUX_INITIAL_ADMIN_PASSWORD and was not printed.")
+}
+
+func envOrDefault(key, defaultValue string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
 
 var sensitiveQueryParams = map[string]struct{}{

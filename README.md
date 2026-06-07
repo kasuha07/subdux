@@ -42,7 +42,7 @@ Replace `<version>` with a release tag such as `0.8.1`.
 ```bash
 docker run -d \
   --name subdux \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -e DATA_PATH=/data \
   -e JWT_SECRET=replace-with-a-long-random-string \
   -v subdux-data:/data \
@@ -51,7 +51,18 @@ docker run -d \
 
 Then open <http://localhost:8080>.
 
-> On a fresh instance, **the first registered user becomes the admin user**.
+On a fresh instance, Subdux creates the initial admin user during startup and prints the generated password once:
+
+```bash
+docker logs subdux
+```
+
+Default initial admin:
+
+- Username: `admin`
+- Email: `admin@subdux.local`
+
+Set `SUBDUX_INITIAL_ADMIN_USERNAME`, `SUBDUX_INITIAL_ADMIN_EMAIL`, and `SUBDUX_INITIAL_ADMIN_PASSWORD` before the first startup if you want to choose the initial credentials yourself. Public registration is disabled by default and can be enabled later from the admin settings page.
 
 ### Option 2: Use the bundled Docker Compose file
 
@@ -61,7 +72,7 @@ The repository includes a `docker-compose.yml` that builds the image locally.
 docker compose up --build -d
 ```
 
-This starts Subdux on port `8080` and stores persistent data in the `subdux-data` volume.
+This starts Subdux on `127.0.0.1:8080` and stores persistent data in the `subdux-data` volume. Use `docker compose logs subdux` to read the one-time initial admin password.
 
 ## Configuration
 
@@ -77,6 +88,9 @@ This starts Subdux on port `8080` and stores persistent data in the `subdux-data
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh token lifetime |
 | `CORS_ALLOW_ORIGINS` | unset | Comma-separated list of allowed origins |
 | `TZ` | system timezone | IANA timezone such as `UTC` or `Asia/Shanghai` |
+| `SUBDUX_INITIAL_ADMIN_USERNAME` | `admin` | Username for the first admin account, used only when the user table is empty |
+| `SUBDUX_INITIAL_ADMIN_EMAIL` | `admin@subdux.local` | Email for the first admin account, used only when the user table is empty |
+| `SUBDUX_INITIAL_ADMIN_PASSWORD` | random, printed once | Password for the first admin account; when unset, a random password is generated and printed during first startup |
 
 ### Production notes
 

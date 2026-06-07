@@ -20,10 +20,6 @@ const auth = {
     "oidcSubmitting": "リダイレクト中...",
     "oidcProcessing": "OIDCサインインを処理中...",
     "oidcError": "OIDCログインに失敗しました",
-    "devAccountCreate": "開発用アカウントを作成（admin/12345678）",
-    "devAccountSubmitting": "開発用アカウントを作成中...",
-    "devAccountSuccess": "開発用アカウントを作成し、ログイン情報を入力しました",
-    "devAccountError": "開発用アカウントの作成に失敗しました",
     "twoFactor": {
       "title": "二段階認証",
       "description": "認証アプリの6桁コードを入力してください",

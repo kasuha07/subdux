@@ -42,7 +42,7 @@
 ```bash
 docker run -d \
   --name subdux \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -e DATA_PATH=/data \
   -e JWT_SECRET=replace-with-a-long-random-string \
   -v subdux-data:/data \
@@ -51,7 +51,18 @@ docker run -d \
 
 启动后访问 <http://localhost:8080>。
 
-> 全新实例中，**第一个注册用户会自动成为管理员**。
+全新实例会在启动时自动创建初始管理员，并且只在首次初始化时打印随机密码：
+
+```bash
+docker logs subdux
+```
+
+默认初始管理员：
+
+- 用户名：`admin`
+- 邮箱：`admin@subdux.local`
+
+如果想自行指定初始凭据，请在首次启动前设置 `SUBDUX_INITIAL_ADMIN_USERNAME`、`SUBDUX_INITIAL_ADMIN_EMAIL` 和 `SUBDUX_INITIAL_ADMIN_PASSWORD`。公开注册默认关闭，登录管理员后可在管理设置中开启。
 
 ### 方式二：使用仓库自带 Docker Compose
 
@@ -61,7 +72,7 @@ docker run -d \
 docker compose up --build -d
 ```
 
-默认会监听 `8080` 端口，并将持久化数据保存到 `subdux-data` 卷中。
+默认会监听 `127.0.0.1:8080`，并将持久化数据保存到 `subdux-data` 卷中。使用 `docker compose logs subdux` 查看一次性的初始管理员密码。
 
 ## 配置
 
@@ -77,6 +88,9 @@ docker compose up --build -d
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh Token 有效期 |
 | `CORS_ALLOW_ORIGINS` | 未设置 | 逗号分隔的允许来源列表 |
 | `TZ` | 系统时区 | IANA 时区名称，例如 `UTC`、`Asia/Shanghai` |
+| `SUBDUX_INITIAL_ADMIN_USERNAME` | `admin` | 初始管理员用户名，仅在用户表为空时使用 |
+| `SUBDUX_INITIAL_ADMIN_EMAIL` | `admin@subdux.local` | 初始管理员邮箱，仅在用户表为空时使用 |
+| `SUBDUX_INITIAL_ADMIN_PASSWORD` | 随机生成并打印一次 | 初始管理员密码；未设置时会生成随机密码并在首次启动时打印 |
 
 ### 生产环境建议
 

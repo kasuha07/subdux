@@ -18,7 +18,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [verificationCode, setVerificationCode] = useState("")
-  const [registrationEnabled, setRegistrationEnabled] = useState(true)
+  const [registrationEnabled, setRegistrationEnabled] = useState(false)
   const [emailVerificationEnabled, setEmailVerificationEnabled] = useState(false)
   const [configLoading, setConfigLoading] = useState(true)
   const [codeSending, setCodeSending] = useState(false)
@@ -33,7 +33,7 @@ export default function RegisterPage() {
         setEmailVerificationEnabled(config.email_verification_enabled)
       })
       .catch(() => {
-        setRegistrationEnabled(true)
+        setRegistrationEnabled(false)
         setEmailVerificationEnabled(false)
       })
       .finally(() => setConfigLoading(false))

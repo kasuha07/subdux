@@ -3,13 +3,16 @@ services:
     build: .
     container_name: subdux
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - subdux-data:/data
     environment:
       - DATA_PATH=/data
       - JWT_SECRET=${JWT_SECRET:-}
       - PORT=8080
+      - SUBDUX_INITIAL_ADMIN_USERNAME=${SUBDUX_INITIAL_ADMIN_USERNAME:-admin}
+      - SUBDUX_INITIAL_ADMIN_EMAIL=${SUBDUX_INITIAL_ADMIN_EMAIL:-admin@subdux.local}
+      - SUBDUX_INITIAL_ADMIN_PASSWORD=${SUBDUX_INITIAL_ADMIN_PASSWORD:-}
     restart: unless-stopped
 
 volumes:

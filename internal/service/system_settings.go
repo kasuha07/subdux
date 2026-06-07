@@ -22,7 +22,7 @@ type SiteInfo struct {
 
 func defaultAdminSystemSettings() *SystemSettings {
 	return &SystemSettings{
-		RegistrationEnabled:                  true,
+		RegistrationEnabled:                  false,
 		RegistrationEmailVerificationEnabled: false,
 		EmailDomainWhitelist:                 "",
 		SiteName:                             "Subdux",
@@ -105,7 +105,7 @@ func (s *SystemSettingsService) IsMCPEnabled() (bool, error) {
 }
 
 var defaultSystemSettings = []model.SystemSetting{
-	{Key: "registration_enabled", Value: "true"},
+	{Key: "registration_enabled", Value: "false"},
 	{Key: "registration_email_verification_enabled", Value: "false"},
 	{Key: "email_domain_whitelist", Value: ""},
 	{Key: "site_name", Value: "Subdux"},

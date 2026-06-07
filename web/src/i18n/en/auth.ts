@@ -20,10 +20,6 @@ const auth = {
     "oidcSubmitting": "Redirecting...",
     "oidcProcessing": "Completing OIDC sign-in...",
     "oidcError": "OIDC login failed",
-    "devAccountCreate": "Create Dev Account (admin/12345678)",
-    "devAccountSubmitting": "Creating Dev Account...",
-    "devAccountSuccess": "Dev account created. Credentials filled in.",
-    "devAccountError": "Failed to create dev account",
     "twoFactor": {
       "title": "Two-Factor Authentication",
       "description": "Enter the 6-digit code from your authenticator app",

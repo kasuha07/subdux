@@ -20,10 +20,6 @@ const auth = {
     "oidcSubmitting": "跳转中...",
     "oidcProcessing": "正在完成 OIDC 登录...",
     "oidcError": "OIDC 登录失败",
-    "devAccountCreate": "创建开发账户（admin/12345678）",
-    "devAccountSubmitting": "正在创建开发账户...",
-    "devAccountSuccess": "开发账户已创建，已填入登录信息",
-    "devAccountError": "创建开发账户失败",
     "twoFactor": {
       "title": "两步验证",
       "description": "请输入身份验证器应用中的6位验证码",
