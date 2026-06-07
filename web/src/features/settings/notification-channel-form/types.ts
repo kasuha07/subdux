@@ -1,23 +1,7 @@
-import type { NotificationChannel } from "@/types"
+import type { NotificationChannel, NotificationChannelType, WebhookMethod as ApiWebhookMethod } from "@/types"
 
-export type ChannelType =
-  | "smtp"
-  | "resend"
-  | "telegram"
-  | "webhook"
-  | "gotify"
-  | "ntfy"
-  | "bark"
-  | "serverchan"
-  | "feishu"
-  | "wecom"
-  | "dingtalk"
-  | "pushdeer"
-  | "pushplus"
-  | "pushover"
-  | "napcat"
-
-export type WebhookMethod = "GET" | "POST" | "PUT"
+export type ChannelType = NotificationChannelType
+export type WebhookMethod = ApiWebhookMethod
 
 export interface NotificationChannelFormProps {
   channel: NotificationChannel | null

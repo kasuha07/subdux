@@ -26,8 +26,10 @@ web/
 │   │   │   ├── specs/           # core.ts, services.ts, entertainment.ts, banks.ts
 │   │   │   └── custom/          # One-file-per-custom icon
 │   │   └── utils.ts             # cn(), formatCurrency(), formatDate(), daysUntil()
-│   └── types/
-│       └── index.ts             # All interfaces (mirrors Go models)
+│   └── types/                   # Shared API DTOs split by domain
+│       ├── index.ts             # Thin compatibility re-export only
+│       ├── auth.ts, subscription.ts, settings.ts
+│       └── admin.ts, notification.ts, reports.ts, ...
 ├── components.json              # Shadcn config: new-york style, zinc base
 ├── vite.config.ts               # React + Tailwind plugins, /api proxy → :8080
 ├── package.json                 # Bun runtime, React 19, Vite 7
@@ -42,7 +44,7 @@ web/
 | New feature component | `src/features/{domain}/` | Compose Shadcn UI primitives |
 | New Shadcn component | Run `bunx shadcn@latest add {name}` from `web/` | Auto-creates in `src/components/ui/` |
 | API integration | `src/lib/api.ts` | `api.get<T>()`, `api.post<T>()`, `api.put<T>()`, `api.delete<T>()` |
-| Add TypeScript type | `src/types/index.ts` | Must match Go model's json tags exactly |
+| Add shared API type | `src/types/{domain}.ts` + re-export from `src/types/index.ts` | Must match Go model's json tags exactly |
 | Manage brand icons | `src/lib/brand-icons.ts` + `src/lib/brand-icons/*` | Keep API stable, keep specs split by domain |
 | Theme/colors | `src/index.css` | oklch CSS variables (light + dark mode defined) |
 
@@ -65,6 +67,11 @@ web/
 - Pages: `function XPage()` with local useState for all state
 - subscription-form.tsx: Dialog-based form, receives `onSubmit` callback + optional `subscription` for edit mode
 - subscription-card.tsx: Inline display with edit/delete actions
+
+### Shared API types (`src/types/*`)
+- Keep `src/types/index.ts` as a thin `export type *` compatibility barrel only.
+- Store backend/API DTOs in the closest domain file (`auth.ts`, `subscription.ts`, `settings.ts`, `notification.ts`, `admin.ts`, `reports.ts`, etc.).
+- Prefer feature-local `types.ts` files for component props, form state, and view-only types that do not mirror backend JSON contracts.
 
 ### Styling
 - Tailwind v4 via `@tailwindcss/vite` plugin (no tailwind.config)
