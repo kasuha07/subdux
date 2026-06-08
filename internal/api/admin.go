@@ -323,7 +323,9 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to access database"})
 	}
-	sqlDB.Close()
+	if err := sqlDB.Close(); err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to close database before restore"})
+	}
 
 	if err := replaceDatabaseFile(restorePayload.dbFilePath, dbPath); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to restore database"})
@@ -394,7 +396,9 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, limits backupRestore
 		return nil, err
 	}
 	tempDBPath := tempDBFile.Name()
-	tempDBFile.Close()
+	if err = tempDBFile.Close(); err != nil {
+		return nil, err
+	}
 	defer func() {
 		if err != nil {
 			_ = os.Remove(tempDBPath)
@@ -480,7 +484,7 @@ func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool
 	}
 
 	dataDir := pkg.GetDataPath()
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		return false, "", err
 	}
 
@@ -547,10 +551,10 @@ func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool
 		if !isSubPath(tempAssetsDir, targetPath) {
 			return false, "", invalidBackupError("zip backup contains invalid assets path")
 		}
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
 			return false, "", err
 		}
-		if err := os.WriteFile(targetPath, sanitized, 0o644); err != nil {
+		if err := os.WriteFile(targetPath, sanitized, 0o600); err != nil {
 			return false, "", invalidBackupError("failed to extract assets from zip backup")
 		}
 		extractedSize += sourceSize
@@ -604,12 +608,7 @@ func extractZipFileEntryLimited(entry *zip.File, targetPath string, maxBytes int
 	}
 	defer source.Close()
 
-	mode := entry.Mode().Perm()
-	if mode == 0 {
-		mode = 0o644
-	}
-
-	target, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+	target, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304 -- targetPath is an internal temporary restore path.
 	if err != nil {
 		return 0, err
 	}
@@ -629,7 +628,7 @@ func extractZipFileEntryLimited(entry *zip.File, targetPath string, maxBytes int
 
 func replaceDatabaseFile(sourcePath string, dbPath string) error {
 	dbDir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dbDir, 0o755); err != nil {
+	if err := os.MkdirAll(dbDir, 0o750); err != nil {
 		return err
 	}
 
@@ -642,15 +641,15 @@ func replaceDatabaseFile(sourcePath string, dbPath string) error {
 		_ = os.Remove(tempPath)
 	}()
 
-	source, err := os.Open(sourcePath)
+	source, err := os.Open(sourcePath) // #nosec G304 -- sourcePath is an internally-created and validated temporary restore DB path.
 	if err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return err
 	}
 	defer source.Close()
 
 	if _, err := io.Copy(tempFile, source); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return err
 	}
 	if err := tempFile.Close(); err != nil {
@@ -662,7 +661,7 @@ func replaceDatabaseFile(sourcePath string, dbPath string) error {
 
 func replaceAssetsDirectory(sourceAssetsDir string) error {
 	dataDir := pkg.GetDataPath()
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		return err
 	}
 
@@ -711,7 +710,7 @@ func normalizeZipEntryPath(entryName string) (string, bool) {
 }
 
 func isSQLiteBackupFile(filePath string) bool {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- filePath is an internally-created upload/extraction temp file, not a client-chosen path.
 	if err != nil {
 		return false
 	}

@@ -11,7 +11,7 @@ import (
 
 const (
 	refreshTokenCookieName = "refresh_token"
-	refreshTokenCookiePath = "/api/auth/refresh"
+	authRefreshPath        = "/api/auth/refresh"
 
 	oidcSessionCookieName = "oidc_session"
 	oidcSessionCookiePath = "/api/auth/oidc/session"
@@ -25,10 +25,11 @@ func setRefreshTokenCookie(c echo.Context, token string) {
 	}
 
 	ttl := pkg.GetRefreshTokenTTL()
+	// #nosec G124 -- Secure is set for HTTPS/TLS and intentionally remains false on local HTTP development.
 	c.SetCookie(&http.Cookie{
 		Name:     refreshTokenCookieName,
 		Value:    token,
-		Path:     refreshTokenCookiePath,
+		Path:     authRefreshPath,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   shouldUseSecureCookies(c),
@@ -38,7 +39,7 @@ func setRefreshTokenCookie(c echo.Context, token string) {
 }
 
 func clearRefreshTokenCookie(c echo.Context) {
-	clearCookie(c, refreshTokenCookieName, refreshTokenCookiePath)
+	clearCookie(c, refreshTokenCookieName, authRefreshPath)
 }
 
 func setOIDCSessionCookie(c echo.Context, sessionID string) {
@@ -47,6 +48,7 @@ func setOIDCSessionCookie(c echo.Context, sessionID string) {
 		return
 	}
 
+	// #nosec G124 -- Secure is set for HTTPS/TLS and intentionally remains false on local HTTP development.
 	c.SetCookie(&http.Cookie{
 		Name:     oidcSessionCookieName,
 		Value:    sessionID,
@@ -72,6 +74,7 @@ func getCookieValue(c echo.Context, name string) string {
 }
 
 func clearCookie(c echo.Context, name string, path string) {
+	// #nosec G124 -- Expiry cookie mirrors the original cookie security attributes for reliable deletion.
 	c.SetCookie(&http.Cookie{
 		Name:     name,
 		Value:    "",

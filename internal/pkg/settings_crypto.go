@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -132,21 +131,28 @@ func getSystemSettingsKey() ([]byte, error) {
 }
 
 func loadOrCreateLocalSettingsKey() (string, error) {
-	keyPath := filepath.Join(GetDataPath(), settingsKeyFileName)
+	dataPath := GetDataPath()
+	if err := os.MkdirAll(dataPath, 0o750); err != nil {
+		return "", fmt.Errorf("failed to create settings key directory: %w", err)
+	}
 
-	if existing, err := os.ReadFile(keyPath); err == nil {
+	root, err := os.OpenRoot(dataPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open settings key directory: %w", err)
+	}
+	defer func() {
+		_ = root.Close()
+	}()
+
+	if existing, err := root.ReadFile(settingsKeyFileName); err == nil {
 		if value := strings.TrimSpace(string(existing)); value != "" {
 			return value, nil
 		}
 		// Self-healing: existing file is empty or whitespace-only (e.g. from a
 		// previous crash during write). Treat as non-existent and regenerate.
-		log.Printf("WARNING: local settings key file %q is empty, regenerating", keyPath)
+		log.Printf("WARNING: local settings key file %q is empty, regenerating", settingsKeyFileName)
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("failed to read local settings key: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(keyPath), 0o755); err != nil {
-		return "", fmt.Errorf("failed to create settings key directory: %w", err)
 	}
 
 	randomBytes := make([]byte, 32)
@@ -157,32 +163,33 @@ func loadOrCreateLocalSettingsKey() (string, error) {
 
 	// Atomic write: write to a temporary file, sync to disk, then rename.
 	// This ensures the key file is never left in a partially-written state.
-	tmpPath := keyPath + ".tmp"
-	tmpFile, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	tmpName := settingsKeyFileName + ".tmp"
+	tmpFile, err := root.OpenFile(tmpName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary settings key file: %w", err)
 	}
 
 	if _, err := tmpFile.WriteString(newKey); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpPath)
+		cleanupLocalSettingsKeyTemp(root, tmpFile, tmpName)
 		return "", fmt.Errorf("failed to write temporary settings key file: %w", err)
 	}
 	if err := tmpFile.Sync(); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpPath)
+		cleanupLocalSettingsKeyTemp(root, tmpFile, tmpName)
 		return "", fmt.Errorf("failed to sync temporary settings key file: %w", err)
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		_ = root.Remove(tmpName)
+		return "", fmt.Errorf("failed to close temporary settings key file: %w", err)
+	}
 
-	if err := os.Rename(tmpPath, keyPath); err != nil {
-		os.Remove(tmpPath)
+	if err := root.Rename(tmpName, settingsKeyFileName); err != nil {
+		_ = root.Remove(tmpName)
 		return "", fmt.Errorf("failed to finalize settings key file: %w", err)
 	}
 
 	// After rename, verify the final file as a safety check against race
 	// conditions with concurrent process starts.
-	verifyContent, err := os.ReadFile(keyPath)
+	verifyContent, err := root.ReadFile(settingsKeyFileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to verify settings key file after write: %w", err)
 	}
@@ -192,4 +199,9 @@ func loadOrCreateLocalSettingsKey() (string, error) {
 	}
 
 	return verified, nil
+}
+
+func cleanupLocalSettingsKeyTemp(root *os.Root, tmpFile *os.File, tmpName string) {
+	_ = tmpFile.Close()
+	_ = root.Remove(tmpName)
 }

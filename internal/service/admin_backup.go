@@ -36,7 +36,7 @@ func (s *AdminService) BackupDB(includeAssets bool) (string, error) {
 }
 
 func createBackupZip(archivePath string, dbPath string) error {
-	file, err := os.Create(archivePath)
+	file, err := os.Create(archivePath) // #nosec G304 -- archivePath is generated under os.TempDir by BackupDB.
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func createBackupZip(archivePath string, dbPath string) error {
 }
 
 func addFileToBackupZip(zipWriter *zip.Writer, sourcePath string, archivePath string) error {
-	sourceFile, err := os.Open(sourcePath)
+	sourceFile, err := os.Open(sourcePath) // #nosec G304 -- sourcePath is generated from the DB backup temp file or a walked assets directory.
 	if err != nil {
 		return err
 	}

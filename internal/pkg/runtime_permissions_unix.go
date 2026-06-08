@@ -18,15 +18,32 @@ func prepareDataPathRuntimeOwnership(dataPath string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(dataPath, 0o755); err != nil {
+	if err := os.MkdirAll(dataPath, 0o750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
+
+	root, err := os.OpenRoot(dataPath)
+	if err != nil {
+		return fmt.Errorf("failed to open directory root: %w", err)
+	}
+	defer func() {
+		_ = root.Close()
+	}()
 
 	if err := filepath.WalkDir(dataPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if err := os.Lchown(path, defaultRuntimeUID, defaultRuntimeGID); err != nil {
+		relativePath, err := filepath.Rel(dataPath, path)
+		if err != nil {
+			return err
+		}
+		if relativePath == "." {
+			relativePath = "."
+		} else {
+			relativePath = filepath.ToSlash(relativePath)
+		}
+		if err := root.Lchown(relativePath, defaultRuntimeUID, defaultRuntimeGID); err != nil {
 			return fmt.Errorf("failed to chown %q: %w", path, err)
 		}
 		return nil

@@ -119,7 +119,7 @@ func ensureDataPathWritable(dataPath string) error {
 			return fmt.Errorf("path exists but is not a directory")
 		}
 	case os.IsNotExist(err):
-		if err := os.MkdirAll(dataPath, 0o755); err != nil {
+		if err := os.MkdirAll(dataPath, 0o750); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 	default:

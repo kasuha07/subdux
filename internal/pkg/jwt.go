@@ -146,7 +146,7 @@ func getAccessTokenTTL() time.Duration {
 
 	minutes, err := strconv.Atoi(raw)
 	if err != nil || minutes <= 0 {
-		log.Printf("invalid ACCESS_TOKEN_TTL_MINUTES value %q, using default", raw)
+		log.Printf("invalid ACCESS_TOKEN_TTL_MINUTES value, using default")
 		return defaultAccessTokenTTL
 	}
 
@@ -165,7 +165,7 @@ func getRefreshTokenTTL() time.Duration {
 
 	hours, err := strconv.Atoi(raw)
 	if err != nil || hours <= 0 {
-		log.Printf("invalid REFRESH_TOKEN_TTL_HOURS value %q, using default", raw)
+		log.Printf("invalid REFRESH_TOKEN_TTL_HOURS value, using default")
 		return defaultRefreshTokenTTL
 	}
 

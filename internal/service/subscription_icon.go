@@ -47,14 +47,14 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 	}
 
 	iconDir := filepath.Join(pkg.GetDataPath(), "assets", "icons")
-	if err := os.MkdirAll(iconDir, 0755); err != nil {
+	if err := os.MkdirAll(iconDir, 0o750); err != nil {
 		return "", errors.New("failed to create icon directory")
 	}
 
 	newFilename := fmt.Sprintf("%d_%d_%d%s", userID, subID, pkg.Now().UnixNano(), ext)
 	destPath := filepath.Join(iconDir, newFilename)
 
-	if err := os.WriteFile(destPath, sanitized, 0644); err != nil {
+	if err := os.WriteFile(destPath, sanitized, 0o600); err != nil {
 		return "", errors.New("failed to save icon file")
 	}
 
@@ -62,7 +62,7 @@ func (s *SubscriptionService) UploadSubscriptionIcon(userID, subID uint, file io
 
 	iconValue := "file:" + newFilename
 	if err := s.DB.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", subID, userID).Update("icon", iconValue).Error; err != nil {
-		os.Remove(destPath)
+		_ = os.Remove(destPath)
 		return "", err
 	}
 

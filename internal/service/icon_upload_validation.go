@@ -7,6 +7,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 	"path/filepath"
 	"strings"
 )
@@ -195,18 +196,13 @@ func sanitizeICO(buf []byte) ([]byte, error) {
 
 		width := img.Bounds().Dx()
 		height := img.Bounds().Dy()
-		widthByte := uint8(width)
-		if width >= 256 {
-			widthByte = 0
-		}
-		heightByte := uint8(height)
-		if height >= 256 {
-			heightByte = 0
+		if width <= 0 || height <= 0 {
+			continue
 		}
 
 		validEntries = append(validEntries, icoEntry{
-			width:  widthByte,
-			height: heightByte,
+			width:  icoDimensionByte(width),
+			height: icoDimensionByte(height),
 			data:   bytes.Clone(cleaned.Bytes()),
 		})
 	}
@@ -214,11 +210,14 @@ func sanitizeICO(buf []byte) ([]byte, error) {
 	if len(validEntries) == 0 {
 		return nil, ErrIconUploadInvalidICO
 	}
+	if len(validEntries) > math.MaxUint16 {
+		return nil, ErrIconUploadInvalidICO
+	}
 
 	var out bytes.Buffer
 	header := make([]byte, 6)
 	binary.LittleEndian.PutUint16(header[2:4], 1)
-	binary.LittleEndian.PutUint16(header[4:6], uint16(len(validEntries)))
+	binary.LittleEndian.PutUint16(header[4:6], uint16(len(validEntries))) // #nosec G115 -- bounded by math.MaxUint16 above.
 	out.Write(header)
 
 	dataOffset := 6 + len(validEntries)*16
@@ -231,8 +230,16 @@ func sanitizeICO(buf []byte) ([]byte, error) {
 		entry[1] = icoEntry.height
 		binary.LittleEndian.PutUint16(entry[4:6], 1)
 		binary.LittleEndian.PutUint16(entry[6:8], 32)
-		binary.LittleEndian.PutUint32(entry[8:12], uint32(len(icoEntry.data)))
-		binary.LittleEndian.PutUint32(entry[12:16], uint32(dataOffset))
+		dataSize, ok := uint32FromBoundedInt(len(icoEntry.data))
+		if !ok {
+			return nil, ErrIconUploadInvalidICO
+		}
+		entryOffset, ok := uint32FromBoundedInt(dataOffset)
+		if !ok {
+			return nil, ErrIconUploadInvalidICO
+		}
+		binary.LittleEndian.PutUint32(entry[8:12], dataSize)
+		binary.LittleEndian.PutUint32(entry[12:16], entryOffset)
 		out.Write(entry)
 		dataOffset += len(icoEntry.data)
 	}
@@ -242,4 +249,18 @@ func sanitizeICO(buf []byte) ([]byte, error) {
 	}
 
 	return out.Bytes(), nil
+}
+
+func icoDimensionByte(size int) uint8 {
+	if size >= 256 {
+		return 0
+	}
+	return uint8(size) // #nosec G115 -- caller rejects non-positive sizes and this branch is <= 255.
+}
+
+func uint32FromBoundedInt(value int) (uint32, bool) {
+	if value < 0 || int64(value) > int64(math.MaxUint32) {
+		return 0, false
+	}
+	return uint32(value), true // #nosec G115 -- value is explicitly bounded to uint32 range above.
 }

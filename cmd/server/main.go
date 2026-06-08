@@ -91,7 +91,7 @@ func main() {
 	serverErrors := make(chan error, 1)
 
 	go func() {
-		log.Printf("Subdux starting on %s", server.Addr)
+		log.Printf("Subdux starting")
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err
 		}
@@ -349,12 +349,18 @@ func serveUploadedAsset(c echo.Context, assetsRoot string) error {
 		return echo.NewHTTPError(http.StatusNotFound)
 	}
 
-	filePath := filepath.Join(assetsRoot, filepath.FromSlash(relativePath))
-	if !isPathWithinRoot(assetsRoot, filePath) {
-		return echo.NewHTTPError(http.StatusNotFound)
+	root, err := os.OpenRoot(assetsRoot)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return err
 	}
+	defer func() {
+		_ = root.Close()
+	}()
 
-	linkInfo, err := os.Lstat(filePath)
+	linkInfo, err := root.Lstat(relativePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return echo.NewHTTPError(http.StatusNotFound)
@@ -365,7 +371,7 @@ func serveUploadedAsset(c echo.Context, assetsRoot string) error {
 		return echo.NewHTTPError(http.StatusNotFound)
 	}
 
-	file, err := os.Open(filePath)
+	file, err := root.Open(relativePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return echo.NewHTTPError(http.StatusNotFound)
@@ -438,22 +444,6 @@ func uploadedAssetContentType(relativePath string) string {
 	default:
 		return "application/octet-stream"
 	}
-}
-
-func isPathWithinRoot(root string, target string) bool {
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return false
-	}
-	absTarget, err := filepath.Abs(target)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(absRoot, absTarget)
-	if err != nil {
-		return false
-	}
-	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func startNotificationChecker(
