@@ -155,6 +155,8 @@ func bootstrapInitialAdmin(db *gorm.DB) {
 
 	log.Printf("Initial admin user created: username=%s email=%s", result.Username, result.Email)
 	if input.Password == "" {
+		// Intentional first-boot bootstrap behavior: print the generated password once
+		// when no SUBDUX_INITIAL_ADMIN_PASSWORD is provided.
 		log.Printf("Initial admin password: %s", result.Password)
 		log.Printf("Store this password now; it is only printed during first-time initialization.")
 		return
