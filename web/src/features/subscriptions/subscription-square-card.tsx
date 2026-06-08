@@ -12,6 +12,7 @@ import {
   isSubscriptionEnded,
 } from "@/features/subscriptions/subscription-lifecycle"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
+import { safeHref } from "@/lib/safe-href"
 import { daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
@@ -99,6 +100,7 @@ export default function SubscriptionSquareCard({
   const renewalMode = getSubscriptionRenewalMode(subscription)
   const endsAt = getSubscriptionEndsAt(subscription)
   const ended = isSubscriptionEnded(subscription)
+  const subscriptionHref = safeHref(subscription.url)
   const categoryLabel = categoryName?.trim() || subscription.category
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days < 7
@@ -172,9 +174,9 @@ export default function SubscriptionSquareCard({
               )}
             </div>
           </div>
-          {subscription.url && (
+          {subscriptionHref && (
             <a
-              href={subscription.url}
+              href={subscriptionHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"

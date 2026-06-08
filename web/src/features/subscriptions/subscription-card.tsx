@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { safeHref } from "@/lib/safe-href"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
@@ -169,6 +170,7 @@ export default function SubscriptionCard({
   const renewalMode = getSubscriptionRenewalMode(subscription)
   const endsAt = getSubscriptionEndsAt(subscription)
   const ended = isSubscriptionEnded(subscription)
+  const subscriptionHref = safeHref(subscription.url)
   const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
   const isUpcoming = days !== null && days >= 0 && days < 7
   const categoryLabel = categoryName?.trim() || subscription.category
@@ -271,9 +273,9 @@ export default function SubscriptionCard({
             >
               <PanelRightOpen className="size-3.5" />
             </Button>
-            {subscription.url && (
+            {subscriptionHref && (
               <a
-                href={subscription.url}
+                href={subscriptionHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground"

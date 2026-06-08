@@ -787,6 +787,12 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to normalize lifecycle for subscription %q: %v", incoming.Name, err))
 				continue
 			}
+			subscriptionURL, err := normalizeSubscriptionURL(incoming.URL)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("skipped subscription %q with invalid url: %v", incoming.Name, err))
+				result.Skipped++
+				continue
+			}
 
 			created := model.Subscription{
 				UserID:           userID,
@@ -810,7 +816,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				NotifyEnabled:    incoming.NotifyEnabled,
 				NotifyDaysBefore: incoming.NotifyDaysBefore,
 				Icon:             incoming.Icon,
-				URL:              incoming.URL,
+				URL:              subscriptionURL,
 				Notes:            incoming.Notes,
 			}
 			syncLegacyEnabledForLifecycle(&created)

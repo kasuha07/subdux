@@ -429,6 +429,12 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			}
 
 			// --- Actual import (confirm=true only) ---
+			subscriptionURL, urlErr := normalizeSubscriptionURL(item.URL)
+			if urlErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("skipped subscription %q with invalid url: %v", name, urlErr))
+				result.Skipped++
+				continue
+			}
 
 			// Resolve category
 			var categoryID *uint
@@ -511,7 +517,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 				Category:        categoryName,
 				CategoryID:      categoryID,
 				PaymentMethodID: paymentMethodID,
-				URL:             item.URL,
+				URL:             subscriptionURL,
 				Notes:           item.Notes,
 				NotifyEnabled:   &notifyEnabled,
 			}

@@ -348,6 +348,7 @@ func isSubscriptionBadRequestError(message string) bool {
 	return strings.Contains(message, "required") ||
 		strings.Contains(message, "must be") ||
 		strings.Contains(message, "invalid date format") ||
+		strings.Contains(message, "invalid subscription url") ||
 		strings.Contains(message, "no longer supported") ||
 		strings.Contains(message, "read-only") ||
 		strings.Contains(message, "only ")

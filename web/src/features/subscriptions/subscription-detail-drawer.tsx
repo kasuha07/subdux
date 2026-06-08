@@ -32,6 +32,7 @@ import {
   subscriptionEventFieldLabel,
   subscriptionEventTypeLabel,
 } from "@/lib/subscription-event-formatters"
+import { safeHref } from "@/lib/safe-href"
 import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type {
   Subscription,
@@ -401,6 +402,7 @@ function DetailInfoPanel({
   const resolvedCategory = categoryName?.trim() || sub.category?.trim() || empty
   const resolvedPaymentMethod = paymentMethodName?.trim() || empty
   const formattedUrl = sub.url?.trim()
+  const subscriptionHref = safeHref(formattedUrl)
   const notes = sub.notes?.trim()
   const renewalMode = getSubscriptionRenewalMode(sub)
   const periodEndDate = getSubscriptionEndsAt(sub)
@@ -474,7 +476,7 @@ function DetailInfoPanel({
         <DetailInfoItem
           label={t("subscription.detail.info.url")}
           value={formattedUrl || empty}
-          href={formattedUrl}
+          href={subscriptionHref}
           wide
         />
         <DetailInfoItem

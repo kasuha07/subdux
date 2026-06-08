@@ -51,6 +51,10 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 	if currency == "" {
 		currency = "USD"
 	}
+	subscriptionURL, err := normalizeSubscriptionURL(input.URL)
+	if err != nil {
+		return nil, err
+	}
 
 	nextBillingDate, err := parseOptionalDateString(input.NextBillingDate)
 	if err != nil {
@@ -128,7 +132,7 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 		NotifyEnabled:    input.NotifyEnabled,
 		NotifyDaysBefore: input.NotifyDaysBefore,
 		Icon:             input.Icon,
-		URL:              input.URL,
+		URL:              subscriptionURL,
 		Notes:            input.Notes,
 	}
 	syncLegacyEnabledForLifecycle(&sub)
@@ -189,7 +193,11 @@ func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionIn
 		updates["icon"] = *input.Icon
 	}
 	if input.URL != nil {
-		updates["url"] = *input.URL
+		subscriptionURL, err := normalizeSubscriptionURL(*input.URL)
+		if err != nil {
+			return nil, err
+		}
+		updates["url"] = subscriptionURL
 	}
 	if input.Notes != nil {
 		updates["notes"] = *input.Notes
