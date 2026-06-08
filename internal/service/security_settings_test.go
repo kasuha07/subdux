@@ -133,6 +133,55 @@ func TestLoadSMTPRuntimeConfigSupportsLegacyPlaintextPassword(t *testing.T) {
 	}
 }
 
+func TestSMTPSkipTLSVerifyDefaultsDisabled(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	adminSvc := NewAdminService(db)
+	settings, err := adminSvc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() failed: %v", err)
+	}
+	if settings.SMTPSkipTLSVerify {
+		t.Fatal("GetSettings() should default SMTPSkipTLSVerify to false")
+	}
+
+	systemSettingsSvc := NewSystemSettingsService(db)
+	if err := systemSettingsSvc.SeedDefaults(); err != nil {
+		t.Fatalf("SeedDefaults() failed: %v", err)
+	}
+	var stored model.SystemSetting
+	if err := db.Where("key = ?", "smtp_skip_tls_verify").First(&stored).Error; err != nil {
+		t.Fatalf("failed to read seeded smtp_skip_tls_verify: %v", err)
+	}
+	if stored.Value != "false" {
+		t.Fatalf("seeded smtp_skip_tls_verify = %q, want %q", stored.Value, "false")
+	}
+
+	entries := []model.SystemSetting{
+		{Key: "smtp_enabled", Value: "true"},
+		{Key: "smtp_host", Value: "smtp.example.com"},
+		{Key: "smtp_port", Value: "587"},
+		{Key: "smtp_username", Value: "mailer"},
+		{Key: "smtp_password", Value: "smtp-password"},
+		{Key: "smtp_from_email", Value: "noreply@example.com"},
+	}
+	for _, entry := range entries {
+		if err := db.Where("key = ?", entry.Key).Assign(model.SystemSetting{Value: entry.Value}).FirstOrCreate(&model.SystemSetting{Key: entry.Key}).Error; err != nil {
+			t.Fatalf("failed to seed setting %q: %v", entry.Key, err)
+		}
+	}
+	cfg, err := loadSMTPRuntimeConfig(db)
+	if err != nil {
+		t.Fatalf("loadSMTPRuntimeConfig() failed: %v", err)
+	}
+	if cfg.SkipTLSVerify {
+		t.Fatal("loadSMTPRuntimeConfig() should default SkipTLSVerify to false")
+	}
+}
+
 func TestUpdateSettingsPersistsSMTPRateLimit(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {

@@ -279,7 +279,7 @@ func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) er
 		}
 		conn := tls.Client(rawConn, &tls.Config{
 			ServerName:         cfg.Host,
-			InsecureSkipVerify: cfg.SkipTLSVerify,
+			InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402 -- Not a security issue: default false; admin-only compatibility switch for trusted self-signed SMTP servers.
 		})
 		if err := conn.HandshakeContext(ctx); err != nil {
 			_ = conn.Close()
@@ -315,7 +315,7 @@ func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) er
 		}
 		if err := client.StartTLS(&tls.Config{
 			ServerName:         cfg.Host,
-			InsecureSkipVerify: cfg.SkipTLSVerify,
+			InsecureSkipVerify: cfg.SkipTLSVerify, // #nosec G402 -- Not a security issue: default false; admin-only compatibility switch for trusted self-signed SMTP servers.
 		}); err != nil {
 			return fmt.Errorf("failed to start TLS: %w", err)
 		}
