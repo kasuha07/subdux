@@ -234,7 +234,7 @@ func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error
 func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
+	ctx = oidc.ClientContext(ctx, NewSafeOutboundHTTPClient(s.DB, 10*time.Second))
 
 	provider, err := oidc.NewProvider(ctx, settings.IssuerURL)
 	if err != nil {
@@ -298,7 +298,7 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
+	ctx = oidc.ClientContext(ctx, NewSafeOutboundHTTPClient(s.DB, 10*time.Second))
 
 	provider, err := oidc.NewProvider(ctx, settings.IssuerURL)
 	if err != nil {
@@ -368,7 +368,7 @@ func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, co
 		strings.TrimSpace(claims.PreferredUsername) == "" ||
 		strings.TrimSpace(claims.Name) == ""
 	if needsUserInfo {
-		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, NewOutboundHTTPClient(s.DB, 10*time.Second))
+		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, NewSafeOutboundHTTPClient(s.DB, 10*time.Second))
 		if userInfoErr == nil && userInfoClaims != nil {
 			if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
 				return nil, errors.New("oidc subject mismatch")

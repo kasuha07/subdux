@@ -201,6 +201,9 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.Host == "" {
 			return errors.New("smtp channel requires host")
 		}
+		if err := validateOutboundHost(cfg.Host, "smtp host"); err != nil {
+			return err
+		}
 		if cfg.FromEmail == "" {
 			return errors.New("smtp channel requires from_email")
 		}

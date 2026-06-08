@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"net/http"
-	"strings"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/shiroha/subdux/internal/model"
+	"gorm.io/gorm"
 )
 
 func TestSendNtfyUsesSubscriptionURLAsClickHeader(t *testing.T) {
@@ -31,22 +31,14 @@ func TestSendNtfyUsesSubscriptionURLAsClickHeader(t *testing.T) {
 	var gotClick string
 	var gotXClick string
 
-	originalTransport := http.DefaultTransport
-	http.DefaultTransport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	db, proxyServer := newNtfyProxyTestDB(t, func(r *http.Request) {
 		gotClick = r.Header.Get("Click")
 		gotXClick = r.Header.Get("X-Click")
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader("ok")),
-			Header:     make(http.Header),
-		}, nil
 	})
-	defer func() {
-		http.DefaultTransport = originalTransport
-	}()
+	defer proxyServer.Close()
 
 	config, err := json.Marshal(map[string]string{
-		"url":   "https://ntfy.example.com",
+		"url":   "http://ntfy.example.com",
 		"topic": "subdux-test",
 		"click": configClickURL,
 	})
@@ -54,7 +46,7 @@ func TestSendNtfyUsesSubscriptionURLAsClickHeader(t *testing.T) {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	svc := &NotificationService{}
+	svc := &NotificationService{DB: db}
 	channel := model.NotificationChannel{
 		Type:   "ntfy",
 		Config: string(config),
@@ -89,22 +81,14 @@ func TestSendNtfyFallsBackToConfigClickHeaderWhenSubscriptionURLMissing(t *testi
 	var gotClick string
 	var gotXClick string
 
-	originalTransport := http.DefaultTransport
-	http.DefaultTransport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	db, proxyServer := newNtfyProxyTestDB(t, func(r *http.Request) {
 		gotClick = r.Header.Get("Click")
 		gotXClick = r.Header.Get("X-Click")
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader("ok")),
-			Header:     make(http.Header),
-		}, nil
 	})
-	defer func() {
-		http.DefaultTransport = originalTransport
-	}()
+	defer proxyServer.Close()
 
 	config, err := json.Marshal(map[string]string{
-		"url":   "https://ntfy.example.com",
+		"url":   "http://ntfy.example.com",
 		"topic": "subdux-test",
 		"click": configClickURL,
 	})
@@ -112,7 +96,7 @@ func TestSendNtfyFallsBackToConfigClickHeaderWhenSubscriptionURLMissing(t *testi
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	svc := &NotificationService{}
+	svc := &NotificationService{DB: db}
 	channel := model.NotificationChannel{
 		Type:   "ntfy",
 		Config: string(config),
@@ -130,8 +114,23 @@ func TestSendNtfyFallsBackToConfigClickHeaderWhenSubscriptionURLMissing(t *testi
 	}
 }
 
-type roundTripperFunc func(*http.Request) (*http.Response, error)
+func newNtfyProxyTestDB(t *testing.T, inspect func(*http.Request)) (*gorm.DB, *httptest.Server) {
+	t.Helper()
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "ntfy-proxy-test-key")
 
-func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return f(r)
+	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if inspect != nil {
+			inspect(r)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		proxyServer.Close()
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+	seedProxySettings(t, db, "true", "http", proxyServer.URL)
+	return db, proxyServer
 }

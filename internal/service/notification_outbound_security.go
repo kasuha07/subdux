@@ -78,33 +78,49 @@ func isLocalOrPrivateIP(ip net.IP) bool {
 }
 
 func validateResolvedOutboundHost(hostname string) error {
-	if err := validateOutboundHost(hostname, "outbound request url"); err != nil {
-		return err
-	}
-
-	normalized := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(hostname)), ".")
-	if net.ParseIP(normalized) != nil {
-		return nil
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	ips, err := lookupOutboundHostIPs(ctx, "ip", normalized)
+	_, err := resolveSafeOutboundHostIPs(ctx, "ip", hostname, "outbound request url")
+	return err
+}
+
+func resolveSafeOutboundHostIPs(ctx context.Context, network string, hostname string, fieldLabel string) ([]net.IP, error) {
+	if err := validateOutboundHost(hostname, fieldLabel); err != nil {
+		return nil, err
+	}
+
+	normalized := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(hostname)), ".")
+	if ip := net.ParseIP(normalized); ip != nil {
+		return []net.IP{ip}, nil
+	}
+
+	ips, err := lookupOutboundHostIPs(ctx, lookupIPNetwork(network), normalized)
 	if err != nil {
-		return fmt.Errorf("failed to resolve outbound request host: %w", err)
+		return nil, fmt.Errorf("failed to resolve %s host: %w", fieldLabel, err)
 	}
 	if len(ips) == 0 {
-		return errors.New("outbound request url host resolves to no addresses")
+		return nil, fmt.Errorf("%s host resolves to no addresses", fieldLabel)
 	}
 
 	for _, resolvedIP := range ips {
 		if isLocalOrPrivateIP(resolvedIP) {
-			return errors.New("outbound request url resolves to localhost or private network addresses")
+			return nil, fmt.Errorf("%s resolves to localhost or private network addresses", fieldLabel)
 		}
 	}
 
-	return nil
+	return ips, nil
+}
+
+func lookupIPNetwork(network string) string {
+	switch strings.ToLower(strings.TrimSpace(network)) {
+	case "tcp4", "ip4":
+		return "ip4"
+	case "tcp6", "ip6":
+		return "ip6"
+	default:
+		return "ip"
+	}
 }
 
 func doNotificationRequest(client *http.Client, req *http.Request) (*http.Response, error) {
@@ -112,12 +128,13 @@ func doNotificationRequest(client *http.Client, req *http.Request) (*http.Respon
 		return nil, errors.New("invalid outbound request")
 	}
 
-	if err := validateResolvedOutboundHost(req.URL.Hostname()); err != nil {
-		return nil, err
+	if client == nil {
+		client = NewSafeOutboundHTTPClient(nil, 15*time.Second)
 	}
 
-	if client == nil {
-		client = http.DefaultClient
+	proxyMediated := clientUsesOutboundProxy(client)
+	if err := validateOutboundRequestHost(req.URL.Hostname(), proxyMediated); err != nil {
+		return nil, err
 	}
 
 	checkedClient := *client
@@ -126,7 +143,7 @@ func doNotificationRequest(client *http.Client, req *http.Request) (*http.Respon
 		if redirectReq == nil || redirectReq.URL == nil {
 			return errors.New("invalid outbound request")
 		}
-		if err := validateResolvedOutboundHost(redirectReq.URL.Hostname()); err != nil {
+		if err := validateOutboundRequestHost(redirectReq.URL.Hostname(), proxyMediated); err != nil {
 			return err
 		}
 		if originalCheckRedirect != nil {
@@ -141,9 +158,16 @@ func doNotificationRequest(client *http.Client, req *http.Request) (*http.Respon
 	return checkedClient.Do(req)
 }
 
+func validateOutboundRequestHost(hostname string, proxyMediated bool) error {
+	if proxyMediated {
+		return validateOutboundHost(hostname, "outbound request url")
+	}
+	return validateResolvedOutboundHost(hostname)
+}
+
 func (s *NotificationService) newNotificationHTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
-	return NewOutboundHTTPClient(s.DB, timeout)
+	return NewSafeOutboundHTTPClient(s.DB, timeout)
 }

@@ -178,7 +178,7 @@ func SetupRoutes(
 	})
 
 	api.GET("/version/latest", func(c echo.Context) error {
-		client := service.NewOutboundHTTPClient(db, 10*time.Second)
+		client := service.NewSafeOutboundHTTPClient(db, 10*time.Second)
 		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
 			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
 		if err != nil {

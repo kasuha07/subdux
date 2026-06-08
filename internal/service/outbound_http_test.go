@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -197,6 +199,247 @@ func TestOutboundDialContextUsesHTTPProxyConnect(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for proxy CONNECT request")
+	}
+}
+
+func TestSafeOutboundHTTPClientPreservesHTTPProxyForPrivateDNSResults(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	requestCh := make(chan string, 1)
+	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requestCh <- req.Host
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer proxyServer.Close()
+
+	seedProxySettings(t, db, "true", "http", proxyServer.URL)
+
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+		t.Fatalf("lookup should not run for proxied request, got host %q", host)
+		return nil, errors.New("unexpected lookup")
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	client := NewSafeOutboundHTTPClient(db, 5*time.Second)
+	req, err := http.NewRequest(http.MethodGet, "http://internal.example.com/status", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest() error = %v", err)
+	}
+
+	resp, err := doNotificationRequest(client, req)
+	if err != nil {
+		t.Fatalf("doNotificationRequest() error = %v, want nil through proxy", err)
+	}
+	defer resp.Body.Close()
+
+	select {
+	case host := <-requestCh:
+		if host != "internal.example.com" {
+			t.Fatalf("proxy request host = %q, want internal.example.com", host)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for proxied request")
+	}
+}
+
+func TestSafeOutboundDialContextPreservesHTTPProxyConnect(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen() failed: %v", err)
+	}
+	defer listener.Close()
+
+	requestCh := make(chan string, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		reader := bufio.NewReader(conn)
+		req, err := http.ReadRequest(reader)
+		if err != nil {
+			requestCh <- "read error: " + err.Error()
+			return
+		}
+		requestCh <- fmt.Sprintf("%s %s", req.Method, req.Host)
+		_, _ = conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+	}()
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+	seedProxySettings(t, db, "true", "http", "http://"+listener.Addr().String())
+
+	dialContext := NewSafeOutboundDialContext(db, 5*time.Second)
+	conn, err := dialContext(context.Background(), "tcp", "smtp.internal.example.com:465")
+	if err != nil {
+		t.Fatalf("DialContext() failed: %v", err)
+	}
+	_ = conn.Close()
+
+	select {
+	case request := <-requestCh:
+		if request != "CONNECT smtp.internal.example.com:465" {
+			t.Fatalf("proxy request = %q, want CONNECT smtp.internal.example.com:465", request)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for proxy CONNECT request")
+	}
+}
+
+func TestSafeOutboundHTTPClientDialsValidatedResolvedIP(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+		if host != "example.com" {
+			t.Fatalf("lookup host = %q, want example.com", host)
+		}
+		return []net.IP{net.ParseIP("127.0.0.1")}, nil
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	client := NewSafeOutboundHTTPClient(nil, 5*time.Second)
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest() error = %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("client.Do() error = nil, want private address validation error")
+	}
+	if !strings.Contains(err.Error(), "resolves to localhost or private network addresses") {
+		t.Fatalf("client.Do() error = %q, want private address validation error", err.Error())
+	}
+}
+
+func TestSafeOutboundHTTPClientPinsValidatedIPAgainstDNSRebinding(t *testing.T) {
+	requestCh := make(chan string, 1)
+	dialAddressCh := make(chan string, 1)
+
+	originalLookup := lookupOutboundHostIPs
+	lookupCount := 0
+	lookupOutboundHostIPs = func(_ context.Context, _ string, lookupHost string) ([]net.IP, error) {
+		if lookupHost != "example.com" {
+			t.Fatalf("lookup host = %q, want example.com", lookupHost)
+		}
+		lookupCount++
+		if lookupCount > 1 {
+			return []net.IP{net.ParseIP("127.0.0.1")}, nil
+		}
+		return []net.IP{net.ParseIP("93.184.216.34")}, nil
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	safeDialer := newSafeOutboundDialer(5 * time.Second)
+	safeDialer.dialContext = func(_ context.Context, network string, address string) (net.Conn, error) {
+		if network != "tcp" {
+			return nil, fmt.Errorf("network = %q, want tcp", network)
+		}
+		dialAddressCh <- address
+
+		clientConn, serverConn := net.Pipe()
+		go func() {
+			defer serverConn.Close()
+			reader := bufio.NewReader(serverConn)
+			req, err := http.ReadRequest(reader)
+			if err != nil {
+				requestCh <- "read error: " + err.Error()
+				return
+			}
+			requestCh <- req.Host
+			_, _ = io.WriteString(serverConn, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+		}()
+		return clientConn, nil
+	}
+
+	client := newOutboundHTTPClient(outboundHTTPClientOptions{
+		Timeout:      5 * time.Second,
+		SecureEgress: true,
+		SecureDialer: safeDialer,
+	})
+	req, err := http.NewRequest(http.MethodGet, "http://example.com:8080/path", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest() error = %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("client.Do() error = %v, want nil", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	select {
+	case dialAddress := <-dialAddressCh:
+		if dialAddress != "93.184.216.34:8080" {
+			t.Fatalf("dial address = %q, want 93.184.216.34:8080", dialAddress)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for pinned dial address")
+	}
+
+	select {
+	case hostHeader := <-requestCh:
+		if hostHeader != "example.com:8080" {
+			t.Fatalf("Host header = %q, want example.com:8080", hostHeader)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for pinned outbound request")
+	}
+	if lookupCount != 1 {
+		t.Fatalf("lookup count = %d, want 1", lookupCount)
+	}
+}
+
+func TestDoNotificationRequestNilClientUsesSafeOutboundClient(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+		if host != "example.com" {
+			t.Fatalf("lookup host = %q, want example.com", host)
+		}
+		return []net.IP{net.ParseIP("127.0.0.1")}, nil
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest() error = %v", err)
+	}
+
+	resp, err := doNotificationRequest(nil, req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("doNotificationRequest() error = nil, want private address validation error")
+	}
+	if !strings.Contains(err.Error(), "resolves to localhost or private network addresses") {
+		t.Fatalf("doNotificationRequest() error = %q, want private address validation error", err.Error())
 	}
 }
 

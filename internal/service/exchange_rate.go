@@ -27,7 +27,7 @@ type ExchangeRateService struct {
 func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 	s := &ExchangeRateService{
 		DB:         db,
-		httpClient: NewOutboundHTTPClient(db, 30*time.Second),
+		httpClient: NewSafeOutboundHTTPClient(db, 30*time.Second),
 		cache:      make(map[string]float64),
 	}
 	s.loadCacheFromDB()

@@ -41,7 +41,7 @@ type IconProxyResolution struct {
 func NewIconProxyService(db *gorm.DB) *IconProxyService {
 	return &IconProxyService{
 		DB:         db,
-		httpClient: NewOutboundHTTPClient(db, 10*time.Second),
+		httpClient: NewSafeOutboundHTTPClient(db, 10*time.Second),
 	}
 }
 
@@ -85,7 +85,8 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 		return nil, errors.New("invalid icon proxy request")
 	}
 
-	if err := validateResolvedOutboundHost(parsed.Hostname()); err != nil {
+	proxyMediated := clientUsesOutboundProxy(s.httpClient)
+	if err := validateOutboundRequestHost(parsed.Hostname(), proxyMediated); err != nil {
 		return nil, err
 	}
 	if !isIconProxyDomainAllowed(parsed.Hostname(), resolution.AllowedHosts) {
@@ -104,7 +105,7 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 		if redirectReq == nil || redirectReq.URL == nil {
 			return errors.New("invalid outbound request")
 		}
-		if err := validateResolvedOutboundHost(redirectReq.URL.Hostname()); err != nil {
+		if err := validateOutboundRequestHost(redirectReq.URL.Hostname(), proxyMediated); err != nil {
 			return err
 		}
 		if !isIconProxyDomainAllowed(redirectReq.URL.Hostname(), resolution.AllowedHosts) {

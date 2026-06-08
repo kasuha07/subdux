@@ -56,6 +56,7 @@ func (s *NotificationService) sendSMTP(channel model.NotificationChannel, toEmai
 		AuthMethod:     "auto",
 		TimeoutSeconds: 10,
 		SkipTLSVerify:  cfg.SkipTLSVerify,
+		DialContext:    NewSafeOutboundDialContext(s.DB, 10*time.Second),
 	}
 
 	subject := "Subscription Reminder"

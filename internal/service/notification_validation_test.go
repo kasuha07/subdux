@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/shiroha/subdux/internal/model"
 )
 
 type notificationTestRoundTripper func(req *http.Request) (*http.Response, error)
@@ -262,6 +264,12 @@ func TestValidateChannelConfigRejectsUnknownFields(t *testing.T) {
 			config:      `{"host":"smtp.example.com","port":587,"username":"user","password":"pass","from_email":"from@example.com","from_name":"Subdux","to_email":"to@example.com","encryption":"starttls","skip_tls_verify":false}`,
 		},
 		{
+			name:        "reject smtp localhost host",
+			channelType: "smtp",
+			config:      `{"host":"127.0.0.1","from_email":"from@example.com","to_email":"to@example.com"}`,
+			wantErr:     "smtp host must not target localhost or private network addresses",
+		},
+		{
 			name:        "reject unknown smtp field",
 			channelType: "smtp",
 			config:      `{"host":"smtp.example.com","from_email":"from@example.com","to_email":"to@example.com","extra":"value"}`,
@@ -396,7 +404,7 @@ func TestValidateResolvedOutboundHostRejectsDNSLookupFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("validateResolvedOutboundHost() error = nil, want DNS resolution error")
 	}
-	if !strings.Contains(err.Error(), "failed to resolve outbound request host") {
+	if !strings.Contains(err.Error(), "failed to resolve outbound request url host") {
 		t.Fatalf("validateResolvedOutboundHost() error = %q, want DNS resolution failure", err.Error())
 	}
 }
@@ -416,5 +424,37 @@ func TestValidateResolvedOutboundHostRejectsEmptyDNSResults(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "resolves to no addresses") {
 		t.Fatalf("validateResolvedOutboundHost() error = %q, want empty DNS result failure", err.Error())
+	}
+}
+
+func TestSendSMTPRejectsRuntimePrivateHost(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+		if host != "smtp.example.com" {
+			t.Fatalf("lookup host = %q, want smtp.example.com", host)
+		}
+		return []net.IP{net.ParseIP("10.0.0.5")}, nil
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	svc := &NotificationService{}
+	channel := model.NotificationChannel{
+		Type: "smtp",
+		Config: `{
+			"host":"smtp.example.com",
+			"port":587,
+			"from_email":"from@example.com",
+			"to_email":"to@example.com"
+		}`,
+	}
+
+	err := svc.sendSMTP(channel, "to@example.com", "test message")
+	if err == nil {
+		t.Fatal("sendSMTP() error = nil, want private address validation error")
+	}
+	if !strings.Contains(err.Error(), "resolves to localhost or private network addresses") {
+		t.Fatalf("sendSMTP() error = %q, want private address validation error", err.Error())
 	}
 }
