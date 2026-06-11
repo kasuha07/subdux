@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"mime"
@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/shiroha/subdux/internal/service"
-	"github.com/shiroha/subdux/internal/version"
 )
 
 const (
@@ -26,7 +26,8 @@ type MCPHandler struct {
 	currencies     *service.CurrencyService
 	categories     *service.CategoryService
 	paymentMethods *service.PaymentMethodService
-	tools          []mcpTool
+	server         *mcp.Server
+	httpHandler    http.Handler
 }
 
 func NewMCPHandler(
@@ -45,22 +46,16 @@ func NewMCPHandler(
 		categories:     categories,
 		paymentMethods: paymentMethods,
 	}
-	handler.tools = handler.buildTools()
+	handler.server = handler.buildServer()
+	handler.httpHandler = mcp.NewStreamableHTTPHandler(
+		func(*http.Request) *mcp.Server { return handler.server },
+		&mcp.StreamableHTTPOptions{
+			Stateless:                  true,
+			JSONResponse:               true,
+			DisableLocalhostProtection: true,
+		},
+	)
 	return handler
-}
-
-type mcpRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type mcpResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id"`
-	Result  interface{}     `json:"result,omitempty"`
-	Error   *mcpError       `json:"error,omitempty"`
 }
 
 type mcpError struct {
@@ -73,6 +68,8 @@ type mcpPrincipal struct {
 	UserID uint
 	Scopes []string
 }
+
+type mcpPrincipalContextKey struct{}
 
 func (h *MCPHandler) HandlePost(c echo.Context) error {
 	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
@@ -94,36 +91,10 @@ func (h *MCPHandler) HandlePost(c echo.Context) error {
 		return c.JSON(http.StatusNotAcceptable, echo.Map{"error": err.Error()})
 	}
 
-	decoder := json.NewDecoder(c.Request().Body)
-	decoder.DisallowUnknownFields()
-
-	var request mcpRequest
-	if err := decoder.Decode(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, mcpErrorResponse(nil, -32700, "parse error", nil))
-	}
-	if len(request.ID) == 0 {
-		return c.NoContent(http.StatusAccepted)
-	}
-	if request.JSONRPC != "2.0" || request.Method == "" {
-		return c.JSON(http.StatusOK, mcpErrorResponse(request.ID, -32600, "invalid request", nil))
-	}
-
-	switch request.Method {
-	case "initialize":
-		return c.JSON(http.StatusOK, mcpSuccessResponse(request.ID, h.initializeResult()))
-	case "ping":
-		return c.JSON(http.StatusOK, mcpSuccessResponse(request.ID, map[string]interface{}{}))
-	case "tools/list":
-		return c.JSON(http.StatusOK, mcpSuccessResponse(request.ID, map[string]interface{}{"tools": h.tools}))
-	case "tools/call":
-		result, rpcErr := h.handleToolCall(principal, request.Params)
-		if rpcErr != nil {
-			return c.JSON(http.StatusOK, mcpErrorResponse(request.ID, rpcErr.Code, rpcErr.Message, rpcErr.Data))
-		}
-		return c.JSON(http.StatusOK, mcpSuccessResponse(request.ID, result))
-	default:
-		return c.JSON(http.StatusOK, mcpErrorResponse(request.ID, -32601, "Method not found", nil))
-	}
+	req := c.Request().Clone(context.WithValue(c.Request().Context(), mcpPrincipalContextKey{}, principal))
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON+", text/event-stream")
+	h.httpHandler.ServeHTTP(c.Response(), req)
+	return nil
 }
 
 func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
@@ -181,7 +152,7 @@ func validateMCPOrigin(c echo.Context) error {
 func validateMCPProtocolHeader(c echo.Context) error {
 	protocolVersion := strings.TrimSpace(c.Request().Header.Get("MCP-Protocol-Version"))
 	switch protocolVersion {
-	case "", "2025-03-26", mcpProtocolVersion:
+	case "", "2024-11-05", "2025-03-26", mcpProtocolVersion, "2025-11-25":
 		return nil
 	default:
 		return fmt.Errorf("unsupported MCP protocol version: %s", protocolVersion)
@@ -245,22 +216,4 @@ func mcpAcceptsJSON(accept string) bool {
 		}
 	}
 	return false
-}
-
-func (h *MCPHandler) initializeResult() map[string]interface{} {
-	info := version.Get()
-	return map[string]interface{}{
-		"protocolVersion": mcpProtocolVersion,
-		"capabilities": map[string]interface{}{
-			"tools": map[string]interface{}{
-				"listChanged": false,
-			},
-		},
-		"serverInfo": map[string]interface{}{
-			"name":    "subdux",
-			"title":   "Subdux",
-			"version": info.Version,
-		},
-		"instructions": "Use X-API-Key authentication. Read tools require the read scope; write tools require the write scope.",
-	}
 }

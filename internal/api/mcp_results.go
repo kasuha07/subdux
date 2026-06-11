@@ -1,6 +1,10 @@
 package api
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
 
 type mcpToolResult struct {
 	Content           []mcpTextContent `json:"content"`
@@ -19,22 +23,6 @@ func invalidMCPParams(err error) *mcpError {
 
 func internalMCPError(err error) *mcpError {
 	return &mcpError{Code: -32603, Message: "internal server error", Data: err.Error()}
-}
-
-func mcpSuccessResponse(id json.RawMessage, result interface{}) mcpResponse {
-	return mcpResponse{JSONRPC: "2.0", ID: id, Result: result}
-}
-
-func mcpErrorResponse(id json.RawMessage, code int, message string, data interface{}) mcpResponse {
-	return mcpResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &mcpError{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-	}
 }
 
 func mcpStructuredResult(data interface{}) *mcpToolResult {
@@ -59,5 +47,29 @@ func mcpToolExecutionError(message string) *mcpToolResult {
 		}},
 		StructuredContent: map[string]interface{}{"error": message},
 		IsError:           true,
+	}
+}
+
+func (r *mcpToolResult) sdkResult() *mcp.CallToolResult {
+	if r == nil {
+		result := &mcp.CallToolResult{}
+		result.SetError(errMissingMCPResult)
+		return result
+	}
+
+	content := make([]mcp.Content, 0, len(r.Content))
+	for _, item := range r.Content {
+		if item.Type == "text" {
+			content = append(content, &mcp.TextContent{Text: item.Text})
+		}
+	}
+	if len(content) == 0 {
+		content = []mcp.Content{&mcp.TextContent{}}
+	}
+
+	return &mcp.CallToolResult{
+		Content:           content,
+		StructuredContent: r.StructuredContent,
+		IsError:           r.IsError,
 	}
 }

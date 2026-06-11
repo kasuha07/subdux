@@ -1,12 +1,15 @@
 package api
 
-type mcpTool struct {
-	Name        string                 `json:"name"`
-	Title       string                 `json:"title,omitempty"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
-	Annotations map[string]interface{} `json:"annotations,omitempty"`
-}
+import (
+	"context"
+	"encoding/json"
+	"errors"
+
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/shiroha/subdux/internal/service"
+	"github.com/shiroha/subdux/internal/version"
+)
 
 type mcpToolHandler func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError)
 
@@ -159,12 +162,12 @@ func mcpToolDefinitions() []mcpToolDefinition {
 	}
 }
 
-func (d mcpToolDefinition) tool() mcpTool {
-	annotations := readOnlyToolAnnotation()
+func (d mcpToolDefinition) sdkTool() *mcp.Tool {
+	annotations := readOnlySDKToolAnnotation()
 	if d.Write {
-		annotations = destructiveToolAnnotation()
+		annotations = destructiveSDKToolAnnotation()
 	}
-	return mcpTool{
+	return &mcp.Tool{
 		Name:        d.Name,
 		Title:       d.Title,
 		Description: d.Description,
@@ -182,13 +185,73 @@ func mcpToolDefinitionByName(name string) (mcpToolDefinition, bool) {
 	return mcpToolDefinition{}, false
 }
 
-func (h *MCPHandler) buildTools() []mcpTool {
-	definitions := mcpToolDefinitions()
-	tools := make([]mcpTool, 0, len(definitions))
-	for _, definition := range definitions {
-		tools = append(tools, definition.tool())
+func (h *MCPHandler) buildServer() *mcp.Server {
+	info := version.Get()
+	server := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    "subdux",
+			Title:   "Subdux",
+			Version: info.Version,
+		},
+		&mcp.ServerOptions{
+			Instructions: "Use X-API-Key authentication. Read tools require the read scope; write tools require the write scope.",
+			Capabilities: &mcp.ServerCapabilities{
+				Tools: &mcp.ToolCapabilities{},
+			},
+			GetSessionID: func() string { return "" },
+		},
+	)
+
+	for _, definition := range mcpToolDefinitions() {
+		definition := definition
+		server.AddTool(definition.sdkTool(), func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			principal, ok := ctx.Value(mcpPrincipalContextKey{}).(*mcpPrincipal)
+			if !ok || principal == nil {
+				return nil, newMCPJSONRPCError(jsonrpc.CodeInvalidRequest, "missing mcp principal").sdkError()
+			}
+
+			args := map[string]interface{}{}
+			if req != nil && req.Params != nil && len(req.Params.Arguments) > 0 {
+				if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+					return nil, newMCPJSONRPCError(jsonrpc.CodeInvalidParams, "invalid tool call params").sdkError()
+				}
+			}
+
+			requiredScope := service.APIKeyScopeRead
+			if definition.Write {
+				requiredScope = service.APIKeyScopeWrite
+			}
+			if !mcpPrincipalHasScope(principal, requiredScope) {
+				return mcpToolExecutionError("api key does not have required scope").sdkResult(), nil
+			}
+
+			result, rpcErr := definition.Handler(h, principal.UserID, args)
+			if rpcErr != nil {
+				return nil, rpcErr.sdkError()
+			}
+			return result.sdkResult(), nil
+		})
 	}
-	return tools
+
+	return server
+}
+
+func newMCPJSONRPCError(code int64, message string) *mcpError {
+	return &mcpError{Code: int(code), Message: message}
+}
+
+func mcpPrincipalHasScope(principal *mcpPrincipal, scope string) bool {
+	for _, candidate := range principal.Scopes {
+		if candidate == scope {
+			return true
+		}
+	}
+	return false
+}
+
+func isMCPWriteTool(name string) bool {
+	definition, ok := mcpToolDefinitionByName(name)
+	return ok && definition.Write
 }
 
 func subscriptionWriteInputSchema(required []string) map[string]interface{} {
@@ -278,16 +341,41 @@ func enumSchema(description string, values []string) map[string]interface{} {
 	return map[string]interface{}{"type": "string", "description": description, "enum": values}
 }
 
-func readOnlyToolAnnotation() map[string]interface{} {
-	return map[string]interface{}{
-		"readOnlyHint":    true,
-		"destructiveHint": false,
+func (e *mcpError) sdkError() error {
+	if e == nil {
+		return nil
+	}
+
+	wireErr := &jsonrpc.Error{
+		Code:    int64(e.Code),
+		Message: e.Message,
+	}
+	if e.Data != nil {
+		if data, err := json.Marshal(e.Data); err == nil {
+			wireErr.Data = data
+		}
+	}
+	return wireErr
+}
+
+func sdkBoolPointer(value bool) *bool {
+	return &value
+}
+
+func readOnlySDKToolAnnotation() *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		ReadOnlyHint:    true,
+		DestructiveHint: sdkBoolPointer(false),
+		OpenWorldHint:   sdkBoolPointer(false),
 	}
 }
 
-func destructiveToolAnnotation() map[string]interface{} {
-	return map[string]interface{}{
-		"readOnlyHint":    false,
-		"destructiveHint": true,
+func destructiveSDKToolAnnotation() *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		ReadOnlyHint:    false,
+		DestructiveHint: sdkBoolPointer(true),
+		OpenWorldHint:   sdkBoolPointer(false),
 	}
 }
+
+var errMissingMCPResult = errors.New("missing mcp tool result")

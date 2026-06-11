@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -84,6 +85,17 @@ func createMCPAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string
 	return resp.Key
 }
 
+func mcpInitializeParams() map[string]interface{} {
+	return map[string]interface{}{
+		"protocolVersion": mcpProtocolVersion,
+		"capabilities":    map[string]interface{}{},
+		"clientInfo": map[string]interface{}{
+			"name":    "subdux-test",
+			"version": "test",
+		},
+	}
+}
+
 func enableMCP(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
@@ -134,6 +146,7 @@ func TestMCPRequiresAPIKey(t *testing.T) {
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "initialize",
+		"params":  mcpInitializeParams(),
 	})
 
 	if rec.Code != http.StatusUnauthorized {
@@ -237,6 +250,7 @@ func TestMCPInitializeAndListTools(t *testing.T) {
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "initialize",
+		"params":  mcpInitializeParams(),
 	})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -314,27 +328,29 @@ func TestMCPInitializedNotificationReturnsAccepted(t *testing.T) {
 	}
 }
 
-func TestMCPUnknownMethodReturnsJSONRPCError(t *testing.T) {
+func TestMCPUnknownMethodReturnsSDKBadRequest(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
 	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
 
-	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "unknown/method",
-	})
+	payload := []byte(`{"jsonrpc":"2.0","id":1,"method":"unknown/method"}`)
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(payload))
+	req.Host = "localhost:8080"
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	req.Header.Set("X-API-Key", apiKey)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	if err := handler.HandlePost(c); err != nil {
+		t.Fatalf("HandlePost() error = %v", err)
 	}
-	errPayload := resp["error"].(map[string]interface{})
-	if int(errPayload["code"].(float64)) != -32601 {
-		t.Fatalf("error code = %v, want -32601", errPayload["code"])
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
-	if errPayload["message"] != "Method not found" {
-		t.Fatalf("error message = %v, want Method not found", errPayload["message"])
+	if !strings.Contains(rec.Body.String(), `unknown/method`) {
+		t.Fatalf("body = %q, want unknown method detail", rec.Body.String())
 	}
 }
 
@@ -345,12 +361,6 @@ func TestMCPToolDefinitionsBuildDispatchableTools(t *testing.T) {
 	}
 
 	seen := make(map[string]bool, len(definitions))
-	handler := &MCPHandler{}
-	tools := handler.buildTools()
-	if len(tools) != len(definitions) {
-		t.Fatalf("tool count = %d, want %d", len(tools), len(definitions))
-	}
-
 	for i, definition := range definitions {
 		if definition.Name == "" {
 			t.Fatalf("definition %d has empty name", i)
@@ -377,17 +387,17 @@ func TestMCPToolDefinitionsBuildDispatchableTools(t *testing.T) {
 			t.Fatalf("%s write scope = %v, want %v", definition.Name, isMCPWriteTool(definition.Name), definition.Write)
 		}
 
-		tool := tools[i]
+		tool := definition.sdkTool()
 		if tool.Name != definition.Name {
 			t.Fatalf("tool %d name = %q, want %q", i, tool.Name, definition.Name)
 		}
 		if tool.InputSchema == nil {
 			t.Fatalf("%s built tool has nil input schema", tool.Name)
 		}
-		if got := tool.Annotations["destructiveHint"]; got != definition.Write {
+		if got := tool.Annotations.DestructiveHint; got == nil || *got != definition.Write {
 			t.Fatalf("%s destructiveHint = %v, want %v", tool.Name, got, definition.Write)
 		}
-		if got := tool.Annotations["readOnlyHint"]; got != !definition.Write {
+		if got := tool.Annotations.ReadOnlyHint; got != !definition.Write {
 			t.Fatalf("%s readOnlyHint = %v, want %v", tool.Name, got, !definition.Write)
 		}
 	}
