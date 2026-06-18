@@ -566,10 +566,23 @@ function ActionGroupItem({
   const amount = formatCurrencyWithSymbol(primary.amount, primary.currency, currencySymbol, language)
   const markRenewedAction = findAllowedAction(group.actions, "mark_renewed")
   const keepSubscriptionAction = findActionByType(group.actions, "ending_soon")
+  const priceIncreaseAction = findActionByType(group.actions, "price_increase")
   const cancelAtPeriodEndAction = primary.renewal_mode === "cancel_at_period_end"
     ? null
-    : findAllowedAction(group.actions, "cancel_at_period_end")
+    : priceIncreaseAction?.allowed_actions.includes("cancel_at_period_end")
+      ? priceIncreaseAction
+      : findAllowedAction(group.actions, "cancel_at_period_end")
+  const prioritizeCancelAtPeriodEnd = Boolean(priceIncreaseAction && cancelAtPeriodEndAction)
+  const cancelAtPeriodEndCommand = cancelAtPeriodEndAction
+    ? {
+        key: "cancel-at-period-end",
+        label: t("actions.command.cancelAtPeriodEnd"),
+        icon: Clock3,
+        run: () => onCancelAtPeriodEnd(cancelAtPeriodEndAction),
+      }
+    : null
   const commands: ActionCommand[] = [
+    prioritizeCancelAtPeriodEnd ? cancelAtPeriodEndCommand : null,
     markRenewedAction
       ? {
           key: "mark-renewed",
@@ -586,14 +599,7 @@ function ActionGroupItem({
           run: () => onKeepSubscription(keepSubscriptionAction),
         }
       : null,
-    cancelAtPeriodEndAction
-      ? {
-          key: "cancel-at-period-end",
-          label: t("actions.command.cancelAtPeriodEnd"),
-          icon: Clock3,
-          run: () => onCancelAtPeriodEnd(cancelAtPeriodEndAction),
-        }
-      : null,
+    prioritizeCancelAtPeriodEnd ? null : cancelAtPeriodEndCommand,
     {
       key: "edit",
       label: t("subscription.detail.edit"),
