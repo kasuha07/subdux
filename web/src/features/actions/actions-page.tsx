@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
+import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import { cn, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import {
   invalidateSubscriptionDetail,
@@ -153,6 +154,16 @@ export default function ActionsPage() {
     [userCurrencies]
   )
 
+  const categoryMap = useMemo(
+    () => new Map(categories.map((item) => [item.id, item] as const)),
+    [categories]
+  )
+
+  const paymentMethodLabelMap = useMemo(
+    () => new Map(paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)),
+    [paymentMethods, t]
+  )
+
   const subscriptionMap = useMemo(
     () => new Map(subscriptions.map((item) => [item.id, item] as const)),
     [subscriptions]
@@ -192,6 +203,16 @@ export default function ActionsPage() {
 
   function subscriptionForAction(action: SubscriptionAction): Subscription | null {
     return subscriptionMap.get(action.subscription_id) ?? null
+  }
+
+  function getSubscriptionCategoryName(sub: Subscription): string {
+    if (sub.category_id != null) {
+      const category = categoryMap.get(sub.category_id)
+      if (category) {
+        return getCategoryLabel(category, t)
+      }
+    }
+    return sub.category.trim()
   }
 
   function openEdit(action: SubscriptionAction) {
@@ -429,7 +450,13 @@ export default function ActionsPage() {
           <SubscriptionDetailDrawer
             open={!!detailSub}
             subscription={detailSub}
+            categoryName={getSubscriptionCategoryName(detailSub)}
             currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+            paymentMethodName={
+              detailSub.payment_method_id
+                ? paymentMethodLabelMap.get(detailSub.payment_method_id)
+                : undefined
+            }
             onOpenChange={(open) => {
               if (!open) setDetailSub(null)
             }}
