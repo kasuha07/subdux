@@ -638,21 +638,25 @@ function ActionGroupItem({
               {renderActionIcon(primary.subscription_icon, primary.subscription_name)}
             </div>
             <div className="min-w-0">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
                 {group.actions.map((action) => (
                   <ActionTypeBadge key={action.key} action={action} />
                 ))}
+                <h2 className="min-w-0 truncate text-sm font-semibold">
+                  {primary.subscription_name}
+                </h2>
               </div>
-              <h2 className="mt-2 truncate text-sm font-semibold">{primary.subscription_name}</h2>
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>{amount}</span>
-                {group.actions.length > 1 ? <span>{t("actions.group.itemCount", { count: group.actions.length })}</span> : null}
-              </div>
+              {group.actions.length > 1 ? (
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>{t("actions.group.itemCount", { count: group.actions.length })}</span>
+                </div>
+              ) : null}
               <div className="mt-3 space-y-2">
                 {group.actions.map((action) => (
                   <ActionSummaryLine
                     key={action.key}
                     action={action}
+                    amount={amount}
                     currencySymbol={currencySymbol}
                     language={language}
                   />
@@ -719,10 +723,12 @@ function ActionTypeBadge({ action }: { action: SubscriptionAction }) {
 
 function ActionSummaryLine({
   action,
+  amount,
   currencySymbol,
   language,
 }: {
   action: SubscriptionAction
+  amount: string
   currencySymbol?: string
   language: string
 }) {
@@ -738,6 +744,7 @@ function ActionSummaryLine({
         {t(`actions.message.${action.type}`)}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span>{amount}</span>
         <span>{dueText}</span>
         {action.notification_channel ? <span>{action.notification_channel}</span> : null}
         {priceDelta ? <span>{t("actions.priceDelta", { amount: priceDelta })}</span> : null}
