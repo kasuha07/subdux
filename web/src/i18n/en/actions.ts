@@ -60,7 +60,8 @@ const actions = {
     "markRenewed": "Manual renew",
     "keepSubscription": "Keep subscription",
     "cancelAtPeriodEnd": "Cancel later",
-    "snooze": "Snooze"
+    "snooze": "Snooze",
+    "more": "More"
   },
   "date": {
     "today": "Today",

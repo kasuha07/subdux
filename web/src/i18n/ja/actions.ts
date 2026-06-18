@@ -60,7 +60,8 @@ const actions = {
     "markRenewed": "手動更新",
     "keepSubscription": "継続する",
     "cancelAtPeriodEnd": "キャンセル予定",
-    "snooze": "スヌーズ"
+    "snooze": "スヌーズ",
+    "more": "その他"
   },
   "date": {
     "today": "今日",

@@ -60,7 +60,8 @@ const actions = {
     "markRenewed": "手动续费",
     "keepSubscription": "继续保留",
     "cancelAtPeriodEnd": "到期终止",
-    "snooze": "暂时忽略"
+    "snooze": "暂时忽略",
+    "more": "更多"
   },
   "date": {
     "today": "今天",

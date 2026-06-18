@@ -13,6 +13,7 @@ import {
   CreditCard,
   Eye,
   History,
+  MoreHorizontal,
   Pencil,
   RefreshCw,
   TrendingUp,
@@ -23,6 +24,12 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { getBrandIconFromValue } from "@/lib/brand-icons"
@@ -69,6 +76,14 @@ interface SubscriptionActionGroup {
   key: string
   primary: SubscriptionAction
   actions: SubscriptionAction[]
+}
+
+interface ActionCommand {
+  key: string
+  label: string
+  icon: LucideIcon
+  variant?: "default" | "outline"
+  run: () => void | Promise<void>
 }
 
 function ActionsSkeleton() {
@@ -554,6 +569,55 @@ function ActionGroupItem({
   const cancelAtPeriodEndAction = primary.renewal_mode === "cancel_at_period_end"
     ? null
     : findAllowedAction(group.actions, "cancel_at_period_end")
+  const commands: ActionCommand[] = [
+    markRenewedAction
+      ? {
+          key: "mark-renewed",
+          label: t("actions.command.markRenewed"),
+          icon: CheckCircle2,
+          run: () => onMarkRenewed(markRenewedAction),
+        }
+      : null,
+    keepSubscriptionAction
+      ? {
+          key: "keep-subscription",
+          label: t("actions.command.keepSubscription"),
+          icon: RefreshCw,
+          run: () => onKeepSubscription(keepSubscriptionAction),
+        }
+      : null,
+    cancelAtPeriodEndAction
+      ? {
+          key: "cancel-at-period-end",
+          label: t("actions.command.cancelAtPeriodEnd"),
+          icon: Clock3,
+          run: () => onCancelAtPeriodEnd(cancelAtPeriodEndAction),
+        }
+      : null,
+    {
+      key: "edit",
+      label: t("subscription.detail.edit"),
+      icon: Pencil,
+      variant: "outline",
+      run: () => onEdit(primary),
+    },
+    {
+      key: "open",
+      label: t("subscription.detail.open"),
+      icon: Eye,
+      variant: "outline",
+      run: () => onOpenDetail(primary),
+    },
+    {
+      key: "snooze",
+      label: t("actions.command.snooze"),
+      icon: Clock3,
+      variant: "outline",
+      run: () => onSnooze(group),
+    },
+  ].filter((command): command is ActionCommand => command !== null)
+  const visibleCommands = commands.slice(0, 2)
+  const overflowCommands = commands.slice(2)
 
   return (
     <Card className="overflow-hidden py-0">
@@ -592,36 +656,42 @@ function ActionGroupItem({
           </button>
 
           <div className="flex flex-wrap items-center gap-2 border-t p-3 sm:w-48 sm:flex-col sm:items-stretch sm:border-t-0 sm:border-l">
-            {markRenewedAction ? (
-              <Button size="sm" onClick={() => void onMarkRenewed(markRenewedAction)} disabled={busy}>
-                <CheckCircle2 className="size-4" />
-                {t("actions.command.markRenewed")}
-              </Button>
-            ) : null}
-            {keepSubscriptionAction ? (
-              <Button size="sm" onClick={() => void onKeepSubscription(keepSubscriptionAction)} disabled={busy}>
-                <RefreshCw className="size-4" />
-                {t("actions.command.keepSubscription")}
-              </Button>
-            ) : null}
-            {cancelAtPeriodEndAction ? (
-              <Button size="sm" onClick={() => void onCancelAtPeriodEnd(cancelAtPeriodEndAction)} disabled={busy}>
-                <Clock3 className="size-4" />
-                {t("actions.command.cancelAtPeriodEnd")}
-              </Button>
-            ) : null}
-            <Button size="sm" variant="outline" onClick={() => onEdit(primary)} disabled={busy}>
-              <Pencil className="size-4" />
-              {t("subscription.detail.edit")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onOpenDetail(primary)} disabled={busy}>
-              <Eye className="size-4" />
-              {t("subscription.detail.open")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => void onSnooze(group)} disabled={busy}>
-              <Clock3 className="size-4" />
-              {t("actions.command.snooze")}
-            </Button>
+            {visibleCommands.map((command) => {
+              const Icon = command.icon
+
+              return (
+                <Button
+                  key={command.key}
+                  size="sm"
+                  variant={command.variant}
+                  onClick={() => void command.run()}
+                  disabled={busy}
+                >
+                  <Icon className="size-4" />
+                  {command.label}
+                </Button>
+              )
+            })}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={busy}>
+                  <MoreHorizontal className="size-4" />
+                  {t("actions.command.more")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {overflowCommands.map((command) => {
+                  const Icon = command.icon
+
+                  return (
+                    <DropdownMenuItem key={command.key} onClick={() => void command.run()} disabled={busy}>
+                      <Icon className="size-4" />
+                      {command.label}
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardContent>
