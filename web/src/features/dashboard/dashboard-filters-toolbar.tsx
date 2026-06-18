@@ -107,7 +107,7 @@ export default function DashboardFiltersToolbar({
   return (
     <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full max-w-md">
+        <div className="relative w-full max-w-md lg:max-w-sm">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchTerm}
