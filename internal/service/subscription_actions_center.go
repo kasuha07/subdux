@@ -406,6 +406,9 @@ func (s *SubscriptionService) notificationFailureActions(userID uint, today time
 			return nil, err
 		}
 		normalizeSubscriptionForResponse(&sub)
+		if normalizeStatus(sub.Status) != subscriptionStatusActive {
+			continue
+		}
 
 		eventDate := logEntry.SentAt.UTC().Format(time.RFC3339)
 		notifyDate := normalizeDateUTC(logEntry.NotifyDate).Format("2006-01-02")
@@ -489,6 +492,9 @@ func (s *SubscriptionService) priceIncreaseActions(userID uint, today time.Time)
 			return nil, err
 		}
 		normalizeSubscriptionForResponse(&sub)
+		if normalizeStatus(sub.Status) != subscriptionStatusActive {
+			continue
+		}
 
 		eventDate := event.CreatedAt.UTC().Format(time.RFC3339)
 		previous := *event.PreviousMonthlyAmount

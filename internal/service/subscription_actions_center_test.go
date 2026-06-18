@@ -291,3 +291,98 @@ func TestActionCenterSuppressesOlderPriceIncreasesAfterReduction(t *testing.T) {
 		}
 	}
 }
+
+func TestActionCenterSuppressesEndedSubscriptionNotificationFailures(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ended Video",
+		Amount:          12,
+		Currency:        "USD",
+		Status:          subscriptionStatusEnded,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-02-20",
+	})
+	if err != nil {
+		t.Fatalf("create ended subscription failed: %v", err)
+	}
+
+	if err := db.Create(&model.NotificationLog{
+		UserID:         user.ID,
+		SubscriptionID: sub.ID,
+		ChannelType:    "webhook",
+		NotifyDate:     mustDate(t, "2026-02-18"),
+		Status:         notificationLogStatusFailed,
+		Error:          "timeout",
+		SentAt:         time.Date(2026, 2, 20, 8, 0, 0, 0, time.UTC),
+	}).Error; err != nil {
+		t.Fatalf("create failed notification log failed: %v", err)
+	}
+
+	center, err := service.GetActionCenter(user.ID)
+	if err != nil {
+		t.Fatalf("GetActionCenter() error = %v", err)
+	}
+
+	for _, item := range center.Items {
+		if item.SubscriptionID == sub.ID {
+			t.Fatalf("action center item = %+v, want ended subscription suppressed", item)
+		}
+	}
+}
+
+func TestActionCenterSuppressesEndedSubscriptionPriceIncreases(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	monthly := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ended Video",
+		Amount:          12,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &monthly,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-04-15",
+	})
+	if err != nil {
+		t.Fatalf("create subscription failed: %v", err)
+	}
+
+	increasedAmount := 18.0
+	if _, err := service.Update(user.ID, sub.ID, UpdateSubscriptionInput{Amount: &increasedAmount}); err != nil {
+		t.Fatalf("increase subscription amount failed: %v", err)
+	}
+	endedStatus := subscriptionStatusEnded
+	if _, err := service.Update(user.ID, sub.ID, UpdateSubscriptionInput{Status: &endedStatus}); err != nil {
+		t.Fatalf("end subscription failed: %v", err)
+	}
+
+	center, err := service.GetActionCenter(user.ID)
+	if err != nil {
+		t.Fatalf("GetActionCenter() error = %v", err)
+	}
+
+	for _, item := range center.Items {
+		if item.SubscriptionID == sub.ID {
+			t.Fatalf("action center item = %+v, want ended subscription suppressed", item)
+		}
+	}
+}
