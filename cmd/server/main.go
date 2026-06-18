@@ -518,8 +518,7 @@ func setupSPA(e *echo.Echo, fsys fs.FS) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
 
 		if path == "" || path == "index.html" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write(indexHTML)
+			serveSPAIndex(w, indexHTML)
 			return
 		}
 
@@ -531,7 +530,14 @@ func setupSPA(e *echo.Echo, fsys fs.FS) {
 		}
 
 		// SPA fallback: serve index.html for client-side routing
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(indexHTML)
+		serveSPAIndex(w, indexHTML)
 	})))
+}
+
+func serveSPAIndex(w http.ResponseWriter, indexHTML []byte) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	_, _ = w.Write(indexHTML)
 }

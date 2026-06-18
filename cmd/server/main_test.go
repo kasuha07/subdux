@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/labstack/echo/v4"
 )
@@ -115,5 +116,72 @@ func TestServeUploadedAssetRejectsExecutableFiles(t *testing.T) {
 	httpErr, ok := err.(*echo.HTTPError)
 	if !ok || httpErr.Code != http.StatusNotFound {
 		t.Fatalf("serveUploadedAsset() error = %v, want 404", err)
+	}
+}
+
+func TestSetupSPANoStoresIndexAndFallback(t *testing.T) {
+	dist := fstest.MapFS{
+		"index.html":          &fstest.MapFile{Data: []byte("<!doctype html><script src=\"/assets/index-new.js\"></script>")},
+		"assets/index-new.js": &fstest.MapFile{Data: []byte("console.log('ok')")},
+	}
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "root", path: "/"},
+		{name: "index", path: "/index.html"},
+		{name: "fallback", path: "/settings/account"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			setupSPA(e, dist)
+
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+			if got, want := rec.Header().Get("Content-Type"), "text/html; charset=utf-8"; got != want {
+				t.Fatalf("Content-Type = %q, want %q", got, want)
+			}
+			if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "no-store") || !strings.Contains(got, "must-revalidate") {
+				t.Fatalf("Cache-Control = %q, want no-store and must-revalidate", got)
+			}
+			if got, want := rec.Header().Get("Pragma"), "no-cache"; got != want {
+				t.Fatalf("Pragma = %q, want %q", got, want)
+			}
+			if got, want := rec.Header().Get("Expires"), "0"; got != want {
+				t.Fatalf("Expires = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestSetupSPAServesStaticAsset(t *testing.T) {
+	dist := fstest.MapFS{
+		"index.html":          &fstest.MapFile{Data: []byte("<!doctype html>")},
+		"assets/index-new.js": &fstest.MapFile{Data: []byte("console.log('ok')")},
+	}
+
+	e := echo.New()
+	setupSPA(e, dist)
+
+	req := httptest.NewRequest(http.MethodGet, "/assets/index-new.js", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if strings.Contains(rec.Body.String(), "<!doctype html>") {
+		t.Fatal("asset response returned index.html")
+	}
+	if got := rec.Body.String(); got != "console.log('ok')" {
+		t.Fatalf("body = %q, want asset content", got)
 	}
 }
