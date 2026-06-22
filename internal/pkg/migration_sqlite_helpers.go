@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -66,11 +67,29 @@ func rebuildSQLiteTable(db *gorm.DB, value interface{}) error {
 		return err
 	}
 
+	legacyColumns, err := sqliteTableColumns(db, legacyTableName)
+	if err != nil {
+		return err
+	}
+
 	if err := db.Migrator().CreateTable(value); err != nil {
 		return fmt.Errorf("create rebuilt table %s: %w", tableName, err)
 	}
 
-	quotedColumns := sqliteJoinColumns(columnNames)
+	copyColumns := make([]string, 0, len(columnNames))
+	for _, columnName := range columnNames {
+		if _, ok := legacyColumns[columnName]; ok {
+			copyColumns = append(copyColumns, columnName)
+		}
+	}
+	if len(copyColumns) == 0 {
+		if err := db.Migrator().DropTable(legacyTableName); err != nil {
+			return fmt.Errorf("drop legacy table %s: %w", legacyTableName, err)
+		}
+		return nil
+	}
+
+	quotedColumns := sqliteJoinColumns(copyColumns)
 	copySQL := fmt.Sprintf(
 		"INSERT INTO %s (%s) SELECT %s FROM %s",
 		sqliteQuoteIdent(tableName),
@@ -103,6 +122,34 @@ func sqliteModelMetadata(db *gorm.DB, value interface{}) (string, []string, erro
 		columnNames = append(columnNames, name)
 	}
 	return stmt.Schema.Table, columnNames, nil
+}
+
+func sqliteTableColumns(db *gorm.DB, tableName string) (map[string]struct{}, error) {
+	rows, err := db.Raw(fmt.Sprintf("PRAGMA table_info(%s)", sqliteQuoteIdent(tableName))).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("list sqlite columns for %s: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	columns := make(map[string]struct{})
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var primaryKey int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return nil, fmt.Errorf("scan sqlite column metadata for %s: %w", tableName, err)
+		}
+		if name != "" {
+			columns[name] = struct{}{}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate sqlite columns for %s: %w", tableName, err)
+	}
+	return columns, nil
 }
 
 func dropSQLiteIndexesForTable(db *gorm.DB, tableName string) error {

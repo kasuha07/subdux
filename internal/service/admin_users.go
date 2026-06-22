@@ -137,6 +137,7 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 func deleteUserOwnedRecords(tx *gorm.DB, userID uint) error {
 	for _, value := range []interface{}{
 		&model.NotificationLog{},
+		&model.NotificationOutbox{},
 		&model.SubscriptionActionSnooze{},
 		&model.SubscriptionEvent{},
 		&model.Subscription{},
@@ -155,6 +156,9 @@ func deleteUserOwnedRecords(tx *gorm.DB, userID uint) error {
 		&model.OIDCConnection{},
 		&model.EmailVerificationCode{},
 	} {
+		if !tx.Migrator().HasTable(value) {
+			continue
+		}
 		if err := tx.Where("user_id = ?", userID).Delete(value).Error; err != nil {
 			return err
 		}

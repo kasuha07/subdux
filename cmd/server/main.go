@@ -72,7 +72,7 @@ func main() {
 
 	var backgroundTasks sync.WaitGroup
 	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
-	startNotificationChecker(appCtx, notificationService, taskMonitor, &backgroundTasks)
+	startNotificationWorkers(appCtx, notificationService, taskMonitor, &backgroundTasks)
 
 	setupUploads(e, filepath.Join(pkg.GetDataPath(), "assets"))
 
@@ -446,14 +446,18 @@ func uploadedAssetContentType(relativePath string) string {
 	}
 }
 
-func startNotificationChecker(
+func startNotificationWorkers(
 	ctx context.Context,
 	ns *service.NotificationService,
 	monitor *service.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
-	const taskKey = "notification_check"
-	const checkInterval = 3 * time.Hour
+	const (
+		scanTaskKey      = "notification_scan"
+		dispatchTaskKey  = "notification_dispatch"
+		scanInterval     = 3 * time.Hour
+		dispatchInterval = time.Minute
+	)
 
 	if ctx == nil {
 		ctx = context.Background()
@@ -461,28 +465,50 @@ func startNotificationChecker(
 
 	if monitor != nil {
 		monitor.Register(
-			taskKey,
-			"Notification check",
-			"Checks due subscriptions and dispatches reminder notifications through enabled channels.",
-			checkInterval,
+			scanTaskKey,
+			"Notification scan",
+			"Checks due subscriptions and enqueues reminder notification jobs.",
+			scanInterval,
+		)
+		monitor.Register(
+			dispatchTaskKey,
+			"Notification dispatch",
+			"Claims queued reminder notification jobs and delivers them through enabled channels.",
+			dispatchInterval,
 		)
 	}
 
-	runCheck := func() {
-		run := ns.ProcessPendingNotifications
+	runScan := func() {
+		run := ns.EnqueuePendingNotifications
 		if monitor != nil {
-			if err := monitor.Run(taskKey, run); err != nil {
-				log.Printf("notification check error: %v", err)
+			if err := monitor.Run(scanTaskKey, run); err != nil {
+				log.Printf("notification scan error: %v", err)
 			}
 			return
 		}
 		if err := run(); err != nil {
-			log.Printf("notification check error: %v", err)
+			log.Printf("notification scan error: %v", err)
+		}
+	}
+
+	runDispatch := func() {
+		run := func() error {
+			_, err := ns.DispatchDueNotificationOutbox(ctx)
+			return err
+		}
+		if monitor != nil {
+			if err := monitor.Run(dispatchTaskKey, run); err != nil {
+				log.Printf("notification dispatch error: %v", err)
+			}
+			return
+		}
+		if err := run(); err != nil {
+			log.Printf("notification dispatch error: %v", err)
 		}
 	}
 
 	if wg != nil {
-		wg.Add(1)
+		wg.Add(2)
 	}
 
 	go func() {
@@ -494,15 +520,41 @@ func startNotificationChecker(
 			return
 		}
 
-		ticker := time.NewTicker(checkInterval)
+		ticker := time.NewTicker(scanInterval)
 		defer ticker.Stop()
 
-		runCheck()
+		runScan()
+		runDispatch()
 
 		for {
 			select {
 			case <-ticker.C:
-				runCheck()
+				runScan()
+				runDispatch()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+
+		ticker := time.NewTicker(dispatchInterval)
+		defer ticker.Stop()
+
+		runDispatch()
+
+		for {
+			select {
+			case <-ticker.C:
+				runDispatch()
 			case <-ctx.Done():
 				return
 			}

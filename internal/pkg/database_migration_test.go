@@ -112,8 +112,15 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		t.Fatalf("create legacy notification policy error = %v", err)
 	}
 
-	logEntry := model.NotificationLog{UserID: primaryUser.ID, SubscriptionID: subscription.ID, ChannelType: "email", NotifyDate: now, Status: "sent", SentAt: now}
-	if err := db.Create(&logEntry).Error; err != nil {
+	logEntry := map[string]interface{}{
+		"user_id":         primaryUser.ID,
+		"subscription_id": subscription.ID,
+		"channel_type":    "email",
+		"notify_date":     now,
+		"status":          "sent",
+		"sent_at":         now,
+	}
+	if err := db.Table("notification_logs").Create(logEntry).Error; err != nil {
 		t.Fatalf("create legacy notification log error = %v", err)
 	}
 
@@ -170,6 +177,33 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		t.Fatalf("validate foreign keys after subscription event error = %v", err)
 	}
 
+	lease := model.BackgroundTaskLease{
+		TaskKey:     "notification_scan",
+		OwnerID:     "migration-test",
+		LeaseUntil:  now.Add(time.Minute),
+		HeartbeatAt: now,
+	}
+	if err := db.Create(&lease).Error; err != nil {
+		t.Fatalf("create background task lease after migrations error = %v", err)
+	}
+
+	outbox := model.NotificationOutbox{
+		DedupeKey:      "migration-test-dedupe",
+		UserID:         primaryUser.ID,
+		SubscriptionID: migratedSub.ID,
+		ChannelType:    "webhook",
+		TriggerType:    "due_day",
+		NotifyDate:     now,
+		ScheduledFor:   now,
+		Status:         "pending",
+		MaxAttempts:    5,
+		NextAttemptAt:  now,
+		Message:        "migration test",
+	}
+	if err := db.Create(&outbox).Error; err != nil {
+		t.Fatalf("create notification outbox after migrations error = %v", err)
+	}
+
 	invalidPolicy := model.NotificationPolicy{UserID: otherUser.ID, DaysBefore: 99, NotifyOnDueDay: true}
 	if err := db.Create(&invalidPolicy).Error; err == nil {
 		t.Fatal("expected notification policy check constraint error, got nil")
@@ -187,6 +221,7 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		{name: "subscription_events", model: &model.SubscriptionEvent{}},
 		{name: "notification_policies", model: &model.NotificationPolicy{}},
 		{name: "notification_logs", model: &model.NotificationLog{}},
+		{name: "notification_outboxes", model: &model.NotificationOutbox{}},
 	} {
 		var count int64
 		if err := db.Model(tc.model).Where("user_id = ?", primaryUser.ID).Count(&count).Error; err != nil {

@@ -70,9 +70,9 @@ func TestNotificationDispatchWorkerCount(t *testing.T) {
 	}{
 		{name: "zero jobs", jobCount: 0, want: 0},
 		{name: "one job", jobCount: 1, want: 1},
-		{name: "below max", jobCount: maxParallelNotificationDispatchesPerUser - 1, want: maxParallelNotificationDispatchesPerUser - 1},
-		{name: "at max", jobCount: maxParallelNotificationDispatchesPerUser, want: maxParallelNotificationDispatchesPerUser},
-		{name: "above max", jobCount: maxParallelNotificationDispatchesPerUser + 10, want: maxParallelNotificationDispatchesPerUser},
+		{name: "below max", jobCount: maxParallelNotificationDispatches - 1, want: maxParallelNotificationDispatches - 1},
+		{name: "at max", jobCount: maxParallelNotificationDispatches, want: maxParallelNotificationDispatches},
+		{name: "above max", jobCount: maxParallelNotificationDispatches + 10, want: maxParallelNotificationDispatches},
 	}
 
 	for _, tt := range tests {
@@ -85,19 +85,23 @@ func TestNotificationDispatchWorkerCount(t *testing.T) {
 	}
 }
 
-func TestShouldScheduleNotificationDispatch(t *testing.T) {
+func TestShouldScheduleNotificationOutbox(t *testing.T) {
 	scheduled := make(map[string]struct{})
 	notifyDate := time.Date(2026, 2, 24, 0, 0, 0, 0, time.UTC)
 
-	if ok := shouldScheduleNotificationDispatch(scheduled, 7, "webhook", notifyDate); !ok {
-		t.Fatal("first dispatch scheduling returned false, want true")
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDueDay, notifyDate); !ok {
+		t.Fatal("first outbox scheduling returned false, want true")
 	}
 
-	if ok := shouldScheduleNotificationDispatch(scheduled, 7, "webhook", notifyDate); ok {
-		t.Fatal("duplicate dispatch scheduling returned true, want false")
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDueDay, notifyDate); ok {
+		t.Fatal("duplicate outbox scheduling returned true, want false")
 	}
 
-	if ok := shouldScheduleNotificationDispatch(scheduled, 7, "smtp", notifyDate); !ok {
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "smtp", notificationTriggerDueDay, notifyDate); !ok {
 		t.Fatal("different channel scheduling returned false, want true")
+	}
+
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDaysBefore, notifyDate); !ok {
+		t.Fatal("different trigger scheduling returned false, want true")
 	}
 }

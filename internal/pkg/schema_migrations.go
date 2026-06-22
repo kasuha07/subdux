@@ -58,6 +58,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260512_04_auto_migrate_latest_schema", Run: autoMigrateLatestSchema},
 	{Name: "20260525_01_subscription_events", Run: migrateSubscriptionEventsSchema},
 	{Name: "20260527_01_subscription_action_snoozes", Run: migrateSubscriptionEventsSchema},
+	{Name: "20260622_01_notification_outbox_leases", Run: migrateNotificationOutboxLeases},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
@@ -66,6 +67,14 @@ func autoMigrateLatestSchema(db *gorm.DB) error {
 
 func migrateSubscriptionEventsSchema(db *gorm.DB) error {
 	return db.AutoMigrate(postIntegrityApplicationModels...)
+}
+
+func migrateNotificationOutboxLeases(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&model.BackgroundTaskLease{},
+		&model.NotificationOutbox{},
+		&model.NotificationLog{},
+	)
 }
 
 func runSchemaMigrations(db *gorm.DB) error {

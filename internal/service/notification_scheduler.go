@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -9,7 +10,22 @@ import (
 	"github.com/shiroha/subdux/internal/pkg"
 )
 
+const notificationScanTaskKey = "notification_scan"
+const notificationScanLeaseTTL = 30 * time.Minute
+
 func (s *NotificationService) ProcessPendingNotifications() error {
+	if err := s.EnqueuePendingNotifications(); err != nil {
+		return err
+	}
+	_, err := s.DispatchDueNotificationOutbox(context.Background())
+	return err
+}
+
+func (s *NotificationService) EnqueuePendingNotifications() error {
+	return s.withBackgroundTaskLease(notificationScanTaskKey, notificationScanLeaseTTL, s.enqueuePendingNotifications)
+}
+
+func (s *NotificationService) enqueuePendingNotifications() error {
 	var channelUserIDs []uint
 	if err := s.DB.Model(&model.NotificationChannel{}).
 		Where("enabled = ?", true).
@@ -80,28 +96,10 @@ func notificationDispatchWorkerCount(jobCount int) int {
 	if jobCount <= 0 {
 		return 0
 	}
-	if jobCount < maxParallelNotificationDispatchesPerUser {
+	if jobCount < maxParallelNotificationDispatches {
 		return jobCount
 	}
-	return maxParallelNotificationDispatchesPerUser
-}
-
-func notificationDispatchKey(subscriptionID uint, channelType string, notifyDate time.Time) string {
-	return fmt.Sprintf("%d|%s|%s", subscriptionID, channelType, notifyDate.UTC().Format(time.RFC3339Nano))
-}
-
-func shouldScheduleNotificationDispatch(
-	scheduled map[string]struct{},
-	subscriptionID uint,
-	channelType string,
-	notifyDate time.Time,
-) bool {
-	key := notificationDispatchKey(subscriptionID, channelType, notifyDate)
-	if _, exists := scheduled[key]; exists {
-		return false
-	}
-	scheduled[key] = struct{}{}
-	return true
+	return maxParallelNotificationDispatches
 }
 
 func (s *NotificationService) processUserNotifications(userID uint) error {
@@ -136,7 +134,6 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 	}
 
 	systemLoc := pkg.GetSystemTimezone()
-	dispatchJobs := make([]notificationDispatchJob, 0)
 	scheduledDispatches := make(map[string]struct{})
 
 	for _, sub := range subs {
@@ -160,51 +157,40 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 
 		billingDate := pkg.NormalizeDateInTimezone(*sub.NextBillingDate, systemLoc)
 
-		shouldNotify := false
 		daysUntilBilling := pkg.DaysUntil(*sub.NextBillingDate, systemLoc)
-
-		if daysUntilBilling == daysBefore && daysBefore > 0 {
-			shouldNotify = true
-		}
-		if daysUntilBilling == 0 && notifyOnDueDay {
-			shouldNotify = true
-		}
-
-		if !shouldNotify {
+		triggerTypes := notificationTriggerTypes(daysUntilBilling, daysBefore, notifyOnDueDay)
+		if len(triggerTypes) == 0 {
 			continue
 		}
 
 		for _, channel := range enabledChannels {
-			if !shouldScheduleNotificationDispatch(scheduledDispatches, sub.ID, channel.Type, billingDate) {
-				continue
-			}
+			for _, triggerType := range triggerTypes {
+				if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, triggerType, billingDate) {
+					continue
+				}
 
-			var count int64
-			s.DB.Model(&model.NotificationLog{}).
-				Where("subscription_id = ? AND channel_type = ? AND notify_date = ? AND status = ?",
-					sub.ID, channel.Type, billingDate, "sent").
-				Count(&count)
-			if count > 0 {
-				continue
+				eventType := notificationEventTypeForSubscription(sub)
+				templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling, eventType)
+				message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
+				if renderErr != nil {
+					fmt.Printf("failed to render template for user %d channel %s: %v\n", userID, channel.Type, renderErr)
+					continue
+				}
+				if err := s.enqueueNotificationOutbox(notificationOutboxJob{
+					userID:          userID,
+					subscriptionID:  sub.ID,
+					channel:         channel,
+					triggerType:     triggerType,
+					notifyDate:      billingDate,
+					message:         message,
+					targetEmail:     user.Email,
+					subscriptionURL: sub.URL,
+				}); err != nil {
+					return err
+				}
 			}
-
-			eventType := notificationEventTypeForSubscription(sub)
-			templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling, eventType)
-			message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
-			if renderErr != nil {
-				fmt.Printf("failed to render template for user %d channel %s: %v\n", userID, channel.Type, renderErr)
-				continue
-			}
-			dispatchJobs = append(dispatchJobs, notificationDispatchJob{
-				subscriptionID:  sub.ID,
-				channel:         channel,
-				notifyDate:      billingDate,
-				message:         message,
-				targetEmail:     user.Email,
-				subscriptionURL: sub.URL,
-			})
 		}
 	}
 
-	return s.dispatchNotificationJobs(userID, dispatchJobs)
+	return nil
 }

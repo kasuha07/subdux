@@ -7,6 +7,15 @@ type SystemSetting struct {
 	Value string `gorm:"size:500" json:"value"`
 }
 
+type BackgroundTaskLease struct {
+	TaskKey     string    `gorm:"primaryKey;size:100" json:"task_key"`
+	OwnerID     string    `gorm:"not null;size:120;index" json:"owner_id"`
+	LeaseUntil  time.Time `gorm:"not null;index" json:"lease_until"`
+	HeartbeatAt time.Time `gorm:"not null" json:"heartbeat_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type ExchangeRate struct {
 	ID             uint      `gorm:"primaryKey" json:"id"`
 	BaseCurrency   string    `gorm:"not null;size:10;uniqueIndex:idx_base_target" json:"base_currency"`
