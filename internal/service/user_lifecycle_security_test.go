@@ -72,7 +72,10 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 
-	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, CreateAPIKeyInput{Name: "CLI"})
+	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, CreateAPIKeyInput{
+		Name:    "CLI",
+		KeyKind: APIKeyKindAPIIntegration,
+	})
 	if err != nil {
 		t.Fatalf("Create() api key error = %v", err)
 	}
@@ -218,7 +221,10 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 
-	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, CreateAPIKeyInput{Name: "CLI"})
+	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, CreateAPIKeyInput{
+		Name:    "CLI",
+		KeyKind: APIKeyKindAPIIntegration,
+	})
 	if err != nil {
 		t.Fatalf("Create() api key error = %v", err)
 	}

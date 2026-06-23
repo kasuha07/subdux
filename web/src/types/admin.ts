@@ -37,6 +37,7 @@ export interface SystemSettings {
   icon_proxy_enabled: boolean
   icon_proxy_domain_whitelist: string
   mcp_enabled: boolean
+  audit_enabled: boolean
   system_proxy_enabled: boolean
   system_proxy_type: string
   system_proxy_url_configured: boolean
@@ -82,6 +83,7 @@ export interface UpdateSettingsInput {
   icon_proxy_enabled?: boolean
   icon_proxy_domain_whitelist?: string
   mcp_enabled?: boolean
+  audit_enabled?: boolean
   system_proxy_enabled?: boolean
   system_proxy_type?: string
   system_proxy_url?: string

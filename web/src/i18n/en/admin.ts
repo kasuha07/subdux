@@ -8,6 +8,7 @@ const admin = {
     "authentication": "Authentication",
     "statistics": "Statistics",
     "backgroundTasks": "Background Tasks",
+    "audit": "Audit",
     "backup": "Backup"
   },
   "users": {
@@ -50,6 +51,8 @@ const admin = {
     "registrationEmailVerificationSmtpWarning": "Configure valid SMTP settings first, then enable registration email verification",
     "mcpEnabled": "Enable MCP endpoint",
     "mcpEnabledDescription": "Allow users to connect MCP-compatible agents with their API keys. Disabled by default.",
+    "auditEnabled": "Enable MCP write audit",
+    "auditEnabledDescription": "Record compact metadata for MCP write tools. Enabled by default.",
     "save": "Save settings",
     "saved": "Settings saved",
     "saveSuccess": "Settings saved successfully",
@@ -138,6 +141,18 @@ const admin = {
     "oidcExtraAuthParamsDescription": "Use URL query format, for example: prompt=consent&access_type=offline",
     "oidcAutoCreateUser": "Auto-create users",
     "oidcAutoCreateUserDescription": "Automatically create a local user if OIDC user does not exist"
+  },
+  "audit": {
+    "title": "Audit Events",
+    "description": "Recent MCP write events across all users",
+    "refresh": "Refresh",
+    "empty": "No audit events yet",
+    "user": "User",
+    "key": "Key",
+    "action": "Action",
+    "resource": "Resource",
+    "client": "Client",
+    "details": "Details"
   },
   "stats": {
     "totalUsers": "Total Users",

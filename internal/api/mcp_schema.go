@@ -11,7 +11,7 @@ import (
 	"github.com/shiroha/subdux/internal/version"
 )
 
-type mcpToolHandler func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError)
+type mcpToolHandler func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError)
 
 type mcpToolDefinition struct {
 	Name        string
@@ -31,8 +31,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{}, nil)
 			},
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callListSubscriptions(userID)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callListSubscriptions(principal.UserID)
 			},
 		},
 		{
@@ -55,8 +55,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 					"limit":             integerRangeSchema("Maximum number of subscriptions to return. Defaults to 20.", 1, 100),
 				}, nil)
 			},
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callSearchSubscriptions(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callSearchSubscriptions(principal.UserID, args)
 			},
 		},
 		{
@@ -68,8 +68,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 					"id": idSchema("Subscription ID."),
 				}, []string{"id"})
 			},
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callGetSubscription(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callGetSubscription(principal.UserID, args)
 			},
 		},
 		{
@@ -80,8 +80,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				return subscriptionWriteInputSchema([]string{"name", "amount", "next_billing_date"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callCreateSubscription(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callCreateSubscription(principal, args)
 			},
 		},
 		{
@@ -92,8 +92,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				return subscriptionWriteInputSchema([]string{"id"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callUpdateSubscription(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callUpdateSubscription(principal, args)
 			},
 		},
 		{
@@ -106,8 +106,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				}, []string{"id"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callDeleteSubscription(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callDeleteSubscription(principal, args)
 			},
 		},
 		{
@@ -120,8 +120,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				}, []string{"id"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callMarkSubscriptionRenewed(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callMarkSubscriptionRenewed(principal, args)
 			},
 		},
 		{
@@ -133,8 +133,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 					"currency": stringSchema("Optional target currency code, such as USD or CNY."),
 				}, nil)
 			},
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callDashboardSummary(userID, args)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callDashboardSummary(principal.UserID, args)
 			},
 		},
 		{
@@ -144,8 +144,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{}, nil)
 			},
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callListCategories(userID)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callListCategories(principal.UserID)
 			},
 		},
 		{
@@ -155,8 +155,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{}, nil)
 			},
-			Handler: func(h *MCPHandler, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callListPaymentMethods(userID)
+			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callListPaymentMethods(principal.UserID)
 			},
 		},
 	}
@@ -165,7 +165,7 @@ func mcpToolDefinitions() []mcpToolDefinition {
 func (d mcpToolDefinition) sdkTool() *mcp.Tool {
 	annotations := readOnlySDKToolAnnotation()
 	if d.Write {
-		annotations = destructiveSDKToolAnnotation()
+		annotations = writeSDKToolAnnotation(d.Name == "delete_subscription")
 	}
 	return &mcp.Tool{
 		Name:        d.Name,
@@ -225,7 +225,7 @@ func (h *MCPHandler) buildServer() *mcp.Server {
 				return mcpToolExecutionError("api key does not have required scope").sdkResult(), nil
 			}
 
-			result, rpcErr := definition.Handler(h, principal.UserID, args)
+			result, rpcErr := definition.Handler(h, principal, args)
 			if rpcErr != nil {
 				return nil, rpcErr.sdkError()
 			}
@@ -370,10 +370,10 @@ func readOnlySDKToolAnnotation() *mcp.ToolAnnotations {
 	}
 }
 
-func destructiveSDKToolAnnotation() *mcp.ToolAnnotations {
+func writeSDKToolAnnotation(destructive bool) *mcp.ToolAnnotations {
 	return &mcp.ToolAnnotations{
 		ReadOnlyHint:    false,
-		DestructiveHint: sdkBoolPointer(true),
+		DestructiveHint: sdkBoolPointer(destructive),
 		OpenWorldHint:   sdkBoolPointer(false),
 	}
 }

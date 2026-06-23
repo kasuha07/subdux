@@ -59,6 +59,12 @@ func hasAPIKeyScope(c echo.Context, scope string) bool {
 	return false
 }
 
+func getAPIKeyKind(c echo.Context) string {
+	token := c.Get("user").(*jwt.Token)
+	claims := token.Claims.(*pkg.JWTClaims)
+	return service.NormalizePersistedAPIKeyKind(claims.KeyKind)
+}
+
 func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if getUserRole(c) != "admin" {
@@ -93,6 +99,8 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIK
 			claims := &pkg.JWTClaims{
 				UserID:   principal.UserID,
 				AuthType: pkg.AuthTypeAPIKey,
+				KeyID:    principal.KeyID,
+				KeyKind:  principal.KeyKind,
 				Scopes:   principal.Scopes,
 			}
 			token := &jwt.Token{Claims: claims}
@@ -125,6 +133,7 @@ func SetupRoutes(
 	templateService := service.NewNotificationTemplateService(db, validator)
 	notificationService := service.NewNotificationService(db, templateService, renderer)
 	apiKeyService := service.NewAPIKeyService(db)
+	auditService := service.NewAuditService(db)
 	calendarService := service.NewCalendarService(db)
 	exportService := service.NewExportService(db)
 	importService := service.NewImportService(db)
@@ -144,10 +153,11 @@ func SetupRoutes(
 	notificationHandler := NewNotificationHandler(notificationService)
 	templateHandler := NewNotificationTemplateHandler(templateService)
 	apiKeyHandler := NewAPIKeyHandler(apiKeyService)
+	auditHandler := NewAuditHandler(auditService)
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService)
 	importHandler := NewImportHandler(importService)
-	mcpHandler := NewMCPHandler(apiKeyService, subService, erService, currencyService, categoryService, paymentMethodService)
+	mcpHandler := NewMCPHandler(apiKeyService, auditService, subService, erService, currencyService, categoryService, paymentMethodService)
 
 	requireMCPEnabled := mcpEnabledMiddleware(systemSettingsService)
 	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, requestBodyLimitMiddleware(1<<20, nil))
@@ -281,6 +291,7 @@ func SetupRoutes(
 	admin.DELETE("/users/:id", adminHandler.DeleteUser)
 	admin.GET("/stats", adminHandler.GetStats)
 	admin.GET("/background-tasks", adminHandler.ListBackgroundTasks)
+	admin.GET("/audit-events", auditHandler.ListAdminEvents)
 	admin.GET("/settings", adminHandler.GetSettings)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.POST("/settings/smtp/test", adminHandler.TestSMTP)
@@ -331,6 +342,7 @@ func SetupRoutes(
 	humanProtected.GET("/api-keys", apiKeyHandler.List)
 	humanProtected.POST("/api-keys", apiKeyHandler.Create)
 	humanProtected.DELETE("/api-keys/:id", apiKeyHandler.Delete)
+	humanProtected.GET("/audit-events", auditHandler.ListUserEvents)
 
 	humanProtected.GET("/calendar/tokens", calendarHandler.ListTokens)
 	humanProtected.POST("/calendar/tokens", calendarHandler.CreateToken)

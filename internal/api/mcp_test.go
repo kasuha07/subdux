@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,6 +40,7 @@ func newMCPTestDB(t *testing.T) *gorm.DB {
 		&model.UserCurrency{},
 		&model.UserPreference{},
 		&model.ExchangeRate{},
+		&model.AuditEvent{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
@@ -64,6 +66,7 @@ func createMCPTestUser(t *testing.T, db *gorm.DB) model.User {
 func newMCPTestHandler(db *gorm.DB) *MCPHandler {
 	return NewMCPHandler(
 		service.NewAPIKeyService(db),
+		service.NewAuditService(db),
 		service.NewSubscriptionService(db),
 		service.NewExchangeRateService(db),
 		service.NewCurrencyService(db),
@@ -74,15 +77,51 @@ func newMCPTestHandler(db *gorm.DB) *MCPHandler {
 
 func createMCPAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string) string {
 	t.Helper()
+	if scopes == nil {
+		scopes = []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}
+	}
 
 	resp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
-		Name:   "Agent",
-		Scopes: scopes,
+		Name:    "Agent",
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  scopes,
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
 	}
 	return resp.Key
+}
+
+func createRESTAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string) string {
+	t.Helper()
+
+	resp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+		Name:    "Integration",
+		KeyKind: service.APIKeyKindAPIIntegration,
+		Scopes:  scopes,
+	})
+	if err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+	return resp.Key
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
+func writeMCPTestManagedIcon(t *testing.T, dataPath, filename string) string {
+	t.Helper()
+
+	iconDir := filepath.Join(dataPath, "assets", "icons")
+	if err := os.MkdirAll(iconDir, 0o750); err != nil {
+		t.Fatalf("failed to create icon dir: %v", err)
+	}
+	iconPath := filepath.Join(iconDir, filename)
+	if err := os.WriteFile(iconPath, []byte("icon"), 0o600); err != nil {
+		t.Fatalf("failed to write icon: %v", err)
+	}
+	return iconPath
 }
 
 func mcpInitializeParams() map[string]interface{} {
@@ -151,6 +190,23 @@ func TestMCPRequiresAPIKey(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestMCPRejectsAPIIntegrationKey(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createRESTAPIKey(t, db, user, []string{service.APIKeyScopeRead, service.APIKeyScopeWrite})
+	handler := newMCPTestHandler(db)
+
+	rec, _ := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "initialize",
+		"params":  mcpInitializeParams(),
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
 	}
 }
 
@@ -356,12 +412,27 @@ func TestMCPUnknownMethodReturnsSDKBadRequest(t *testing.T) {
 
 func TestMCPToolDefinitionsBuildDispatchableTools(t *testing.T) {
 	definitions := mcpToolDefinitions()
-	if len(definitions) == 0 {
-		t.Fatal("mcpToolDefinitions() returned no tools")
+	expectedNames := []string{
+		"list_subscriptions",
+		"search_subscriptions",
+		"get_subscription",
+		"create_subscription",
+		"update_subscription",
+		"delete_subscription",
+		"mark_subscription_renewed",
+		"get_dashboard_summary",
+		"list_categories",
+		"list_payment_methods",
+	}
+	if len(definitions) != len(expectedNames) {
+		t.Fatalf("tool count = %d, want %d", len(definitions), len(expectedNames))
 	}
 
 	seen := make(map[string]bool, len(definitions))
 	for i, definition := range definitions {
+		if definition.Name != expectedNames[i] {
+			t.Fatalf("definition %d name = %q, want %q", i, definition.Name, expectedNames[i])
+		}
 		if definition.Name == "" {
 			t.Fatalf("definition %d has empty name", i)
 		}
@@ -394,12 +465,231 @@ func TestMCPToolDefinitionsBuildDispatchableTools(t *testing.T) {
 		if tool.InputSchema == nil {
 			t.Fatalf("%s built tool has nil input schema", tool.Name)
 		}
-		if got := tool.Annotations.DestructiveHint; got == nil || *got != definition.Write {
-			t.Fatalf("%s destructiveHint = %v, want %v", tool.Name, got, definition.Write)
+		wantDestructive := definition.Name == "delete_subscription"
+		if got := tool.Annotations.DestructiveHint; got == nil || *got != wantDestructive {
+			t.Fatalf("%s destructiveHint = %v, want %v", tool.Name, got, wantDestructive)
 		}
 		if got := tool.Annotations.ReadOnlyHint; got != !definition.Write {
 			t.Fatalf("%s readOnlyHint = %v, want %v", tool.Name, got, !definition.Write)
 		}
+	}
+}
+
+func TestMCPWriteCreatesLightweightAuditEvent(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{
+		UserID:  user.ID,
+		KeyID:   7,
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		Request: mcpRequestMetadata{ClientName: "test-client", ClientVersion: "1.0", RequestID: "req-1"},
+	}
+
+	result, rpcErr := handler.callCreateSubscription(principal, map[string]interface{}{
+		"name":              "Claude Pro",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	})
+	if rpcErr != nil {
+		t.Fatalf("callCreateSubscription() rpcErr = %v", rpcErr)
+	}
+	if result == nil || result.IsError {
+		t.Fatalf("result = %#v, want success", result)
+	}
+
+	var events []model.AuditEvent
+	if err := db.Find(&events).Error; err != nil {
+		t.Fatalf("failed to load audit events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("audit event count = %d, want 1", len(events))
+	}
+	event := events[0]
+	if event.ToolName != "create_subscription" || event.Action != "create" || event.Status != service.AuditStatusSuccess {
+		t.Fatalf("unexpected audit event: %#v", event)
+	}
+	if !strings.Contains(event.AfterSnapshot, `"name":"Claude Pro"`) {
+		t.Fatalf("after snapshot = %s, want compact subscription name", event.AfterSnapshot)
+	}
+	if len(event.AfterSnapshot) > 8<<10 {
+		t.Fatalf("after snapshot length = %d, want <= 8192", len(event.AfterSnapshot))
+	}
+}
+
+func TestMCPUpdateAuditRecordsChangedFields(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Old",
+		Amount:          10,
+		RecurrenceType:  "interval",
+		IntervalCount:   intPtr(1),
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-06-15",
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+
+	result, rpcErr := handler.callUpdateSubscription(principal, map[string]interface{}{
+		"id":     float64(sub.ID),
+		"name":   "New",
+		"amount": float64(12),
+	})
+	if rpcErr != nil {
+		t.Fatalf("callUpdateSubscription() rpcErr = %v", rpcErr)
+	}
+	if result == nil || result.IsError {
+		t.Fatalf("result = %#v, want success", result)
+	}
+
+	var event model.AuditEvent
+	if err := db.Where("tool_name = ?", "update_subscription").First(&event).Error; err != nil {
+		t.Fatalf("failed to load update audit event: %v", err)
+	}
+	if !strings.Contains(event.AfterSnapshot, `"changed_fields":["name","amount"]`) {
+		t.Fatalf("after snapshot = %s, want changed_fields for name and amount", event.AfterSnapshot)
+	}
+}
+
+func TestMCPDeleteAuditFailureKeepsManagedIconFile(t *testing.T) {
+	dataPath := t.TempDir()
+	t.Setenv("DATA_PATH", dataPath)
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	iconPath := writeMCPTestManagedIcon(t, dataPath, "1_2_3.png")
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Rollback Delete",
+		Amount:          20,
+		RecurrenceType:  "interval",
+		IntervalCount:   intPtr(1),
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-06-15",
+		Icon:            "file:1_2_3.png",
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+
+	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
+		t.Fatalf("failed to drop audit table: %v", err)
+	}
+	_, rpcErr := handler.callDeleteSubscription(principal, map[string]interface{}{"id": float64(sub.ID)})
+	if rpcErr == nil {
+		t.Fatal("callDeleteSubscription() rpcErr = nil, want audit failure")
+	}
+
+	var count int64
+	if err := db.Model(&model.Subscription{}).Where("id = ?", sub.ID).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count subscription: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("subscription count = %d, want rollback", count)
+	}
+	if _, err := os.Stat(iconPath); err != nil {
+		t.Fatalf("icon file should remain after rolled back delete: %v", err)
+	}
+}
+
+func TestMCPDeleteCleansManagedIconFileAfterAuditCommit(t *testing.T) {
+	dataPath := t.TempDir()
+	t.Setenv("DATA_PATH", dataPath)
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	iconPath := writeMCPTestManagedIcon(t, dataPath, "1_2_4.png")
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Committed Delete",
+		Amount:          20,
+		RecurrenceType:  "interval",
+		IntervalCount:   intPtr(1),
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-06-15",
+		Icon:            "file:1_2_4.png",
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+
+	result, rpcErr := handler.callDeleteSubscription(principal, map[string]interface{}{"id": float64(sub.ID)})
+	if rpcErr != nil {
+		t.Fatalf("callDeleteSubscription() rpcErr = %v", rpcErr)
+	}
+	if result == nil || result.IsError {
+		t.Fatalf("result = %#v, want success", result)
+	}
+
+	var count int64
+	if err := db.Model(&model.Subscription{}).Where("id = ?", sub.ID).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count subscription: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("subscription count = %d, want deleted", count)
+	}
+	if _, err := os.Stat(iconPath); !os.IsNotExist(err) {
+		t.Fatalf("icon file should be removed after committed delete, stat err = %v", err)
+	}
+}
+
+func TestMCPWriteSkipsAuditWhenDisabled(t *testing.T) {
+	db := newMCPTestDB(t)
+	if err := db.Where("key = ?", "audit_enabled").
+		Assign(model.SystemSetting{Value: "false"}).
+		FirstOrCreate(&model.SystemSetting{Key: "audit_enabled"}).Error; err != nil {
+		t.Fatalf("failed to disable audit: %v", err)
+	}
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+
+	_, rpcErr := handler.callCreateSubscription(principal, map[string]interface{}{
+		"name":              "No Audit",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	})
+	if rpcErr != nil {
+		t.Fatalf("callCreateSubscription() rpcErr = %v", rpcErr)
+	}
+	var count int64
+	if err := db.Model(&model.AuditEvent{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count audit events: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("audit event count = %d, want 0", count)
+	}
+}
+
+func TestMCPAuditFailureRollsBackWrite(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+
+	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
+		t.Fatalf("failed to drop audit table: %v", err)
+	}
+	_, rpcErr := handler.callCreateSubscription(principal, map[string]interface{}{
+		"name":              "Rollback",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	})
+	if rpcErr == nil {
+		t.Fatal("callCreateSubscription() rpcErr = nil, want audit failure")
+	}
+
+	var count int64
+	if err := db.Model(&model.Subscription{}).Where("name = ?", "Rollback").Count(&count).Error; err != nil {
+		t.Fatalf("failed to count subscriptions: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("subscription count = %d, want rollback", count)
 	}
 }
 

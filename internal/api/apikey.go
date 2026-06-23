@@ -23,6 +23,7 @@ type apiKeyResponse struct {
 	ID         uint       `json:"id"`
 	Name       string     `json:"name"`
 	Prefix     string     `json:"prefix"`
+	KeyKind    string     `json:"key_kind"`
 	Scopes     []string   `json:"scopes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	ExpiresAt  *time.Time `json:"expires_at"`
@@ -39,6 +40,7 @@ func mapAPIKeyResponse(key model.APIKey) apiKeyResponse {
 		ID:         key.ID,
 		Name:       key.Name,
 		Prefix:     key.Prefix,
+		KeyKind:    service.NormalizePersistedAPIKeyKind(key.KeyKind),
 		Scopes:     service.ParseAPIKeyScopes(key.Scopes),
 		LastUsedAt: key.LastUsedAt,
 		ExpiresAt:  key.ExpiresAt,
@@ -62,7 +64,7 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 	resp, err := h.Service.Create(userID, role, input)
 	if err != nil {
 		switch err {
-		case service.ErrAPIKeyNameRequired, service.ErrAPIKeyNameTooLong, service.ErrAPIKeyScopeInvalid:
+		case service.ErrAPIKeyNameRequired, service.ErrAPIKeyNameTooLong, service.ErrAPIKeyScopeInvalid, service.ErrAPIKeyKindRequired, service.ErrAPIKeyKindInvalid:
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		case service.ErrAPIKeyLimitReached:
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})

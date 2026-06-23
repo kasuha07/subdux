@@ -96,8 +96,9 @@ func TestExportBlocksAPIKeyPrincipal(t *testing.T) {
 	user := createExportAPITestUser(t, db)
 	seedExportAPITestChannel(t, db, user.ID)
 	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
-		Name:   "Read only",
-		Scopes: []string{service.APIKeyScopeRead},
+		Name:    "Read only",
+		KeyKind: service.APIKeyKindAPIIntegration,
+		Scopes:  []string{service.APIKeyScopeRead},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)

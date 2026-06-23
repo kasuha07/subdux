@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, Bell, CircleUserRound, CreditCard, Info, KeyRound, Settings } from "lucide-react"
+import { ArrowLeft, Bell, CircleUserRound, CreditCard, FileClock, Info, KeyRound, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -33,15 +33,16 @@ import {
 
 const SettingsAboutTab = lazy(() => import("./settings-about-tab"))
 const SettingsAccountTab = lazy(() => import("./settings-account-tab"))
+const SettingsAuditTab = lazy(() => import("./settings-audit-tab"))
 const SettingsAPIKeyTab = lazy(() => import("./settings-apikey-tab"))
 const SettingsGeneralTab = lazy(() => import("./settings-general-tab"))
 const SettingsNotificationTab = lazy(() => import("./settings-notification-tab"))
 const SettingsPaymentTab = lazy(() => import("./settings-payment-tab"))
 
-type SettingsTab = "general" | "payment" | "notification" | "account" | "apikey" | "about"
+type SettingsTab = "general" | "payment" | "notification" | "account" | "apikey" | "audit" | "about"
 
 function isSettingsTab(value: string): value is SettingsTab {
-  return value === "general" || value === "payment" || value === "notification" || value === "account" || value === "apikey" || value === "about"
+  return value === "general" || value === "payment" || value === "notification" || value === "account" || value === "apikey" || value === "audit" || value === "about"
 }
 
 function SettingsTabLoading({ value }: { value: SettingsTab }) {
@@ -181,6 +182,10 @@ export default function SettingsPage() {
                 <KeyRound className="size-4" />
                 {t("settings.apiKeys.title")}
               </TabsTrigger>
+              <TabsTrigger value="audit" className="flex-none gap-2">
+                <FileClock className="size-4" />
+                {t("settings.audit.title")}
+              </TabsTrigger>
               <TabsTrigger value="about" className="flex-none gap-2">
                 <Info className="size-4" />
                 {t("settings.about.title")}
@@ -290,6 +295,12 @@ export default function SettingsPage() {
           {visitedTabs.includes("apikey") && (
             <Suspense fallback={<SettingsTabLoading value="apikey" />}>
               <SettingsAPIKeyTab active={activeTab === "apikey"} />
+            </Suspense>
+          )}
+
+          {visitedTabs.includes("audit") && (
+            <Suspense fallback={<SettingsTabLoading value="audit" />}>
+              <SettingsAuditTab active={activeTab === "audit"} />
             </Suspense>
           )}
 

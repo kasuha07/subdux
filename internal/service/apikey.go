@@ -23,6 +23,8 @@ var (
 	ErrAPIKeyInvalid      = errors.New("invalid api key")
 	ErrAPIKeyLimitReached = errors.New("maximum number of api keys reached")
 	ErrAPIKeyScopeInvalid = errors.New("invalid api key scopes")
+	ErrAPIKeyKindRequired = errors.New("api key kind is required")
+	ErrAPIKeyKindInvalid  = errors.New("invalid api key kind")
 )
 
 const maxAPIKeysPerUser = 5
@@ -32,11 +34,20 @@ const (
 	APIKeyScopeWrite = "write"
 )
 
+const (
+	APIKeyKindMCPClient      = "mcp_client"
+	APIKeyKindAPIIntegration = "api_integration"
+)
+
 var (
-	defaultAPIKeyScopes = []string{APIKeyScopeRead, APIKeyScopeWrite}
+	defaultAPIKeyScopes = []string{APIKeyScopeRead}
 	validAPIKeyScopes   = map[string]struct{}{
 		APIKeyScopeRead:  {},
 		APIKeyScopeWrite: {},
+	}
+	validAPIKeyKinds = map[string]struct{}{
+		APIKeyKindMCPClient:      {},
+		APIKeyKindAPIIntegration: {},
 	}
 )
 
@@ -50,6 +61,7 @@ func NewAPIKeyService(db *gorm.DB) *APIKeyService {
 
 type CreateAPIKeyInput struct {
 	Name      string     `json:"name"`
+	KeyKind   string     `json:"key_kind"`
 	ExpiresAt *time.Time `json:"expires_at"`
 	Scopes    []string   `json:"scopes"`
 }
@@ -60,9 +72,10 @@ type CreateAPIKeyResponse struct {
 }
 
 type APIKeyPrincipal struct {
-	UserID uint
-	KeyID  uint
-	Scopes []string
+	UserID  uint
+	KeyID   uint
+	KeyKind string
+	Scopes  []string
 }
 
 func generateAPIKey() (string, error) {
@@ -135,9 +148,31 @@ func normalizeAPIKeyScopes(input []string) ([]string, error) {
 	if len(scopes) == 0 {
 		return nil, ErrAPIKeyScopeInvalid
 	}
+	if len(scopes) == 1 && scopes[0] == APIKeyScopeWrite {
+		return nil, ErrAPIKeyScopeInvalid
+	}
 
 	sort.Strings(scopes)
 	return scopes, nil
+}
+
+func NormalizeAPIKeyKind(value string) (string, error) {
+	kind := strings.ToLower(strings.TrimSpace(value))
+	if kind == "" {
+		return "", ErrAPIKeyKindRequired
+	}
+	if _, ok := validAPIKeyKinds[kind]; !ok {
+		return "", ErrAPIKeyKindInvalid
+	}
+	return kind, nil
+}
+
+func NormalizePersistedAPIKeyKind(value string) string {
+	kind := strings.ToLower(strings.TrimSpace(value))
+	if _, ok := validAPIKeyKinds[kind]; ok {
+		return kind
+	}
+	return APIKeyKindAPIIntegration
 }
 
 func (s *APIKeyService) Create(userID uint, role string, input CreateAPIKeyInput) (*CreateAPIKeyResponse, error) {
@@ -146,6 +181,10 @@ func (s *APIKeyService) Create(userID uint, role string, input CreateAPIKeyInput
 	}
 	if len(input.Name) > 100 {
 		return nil, ErrAPIKeyNameTooLong
+	}
+	keyKind, err := NormalizeAPIKeyKind(input.KeyKind)
+	if err != nil {
+		return nil, err
 	}
 
 	if role != "admin" {
@@ -173,6 +212,7 @@ func (s *APIKeyService) Create(userID uint, role string, input CreateAPIKeyInput
 		Name:      input.Name,
 		KeyHash:   hashAPIKey(rawKey),
 		Prefix:    prefix,
+		KeyKind:   keyKind,
 		Scopes:    strings.Join(scopes, ","),
 		ExpiresAt: input.ExpiresAt,
 	}
@@ -231,8 +271,9 @@ func (s *APIKeyService) ValidateKey(rawKey string) (*APIKeyPrincipal, error) {
 	s.db.Model(&apiKey).Update("last_used_at", now)
 
 	return &APIKeyPrincipal{
-		UserID: apiKey.UserID,
-		KeyID:  apiKey.ID,
-		Scopes: ParseAPIKeyScopes(apiKey.Scopes),
+		UserID:  apiKey.UserID,
+		KeyID:   apiKey.ID,
+		KeyKind: NormalizePersistedAPIKeyKind(apiKey.KeyKind),
+		Scopes:  ParseAPIKeyScopes(apiKey.Scopes),
 	}, nil
 }

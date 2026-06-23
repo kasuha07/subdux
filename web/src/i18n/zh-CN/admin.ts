@@ -8,6 +8,7 @@ const admin = {
     "authentication": "认证",
     "statistics": "统计",
     "backgroundTasks": "后台任务",
+    "audit": "审计",
     "backup": "备份"
   },
   "users": {
@@ -50,6 +51,8 @@ const admin = {
     "registrationEmailVerificationSmtpWarning": "请先完成有效的 SMTP 配置，再启用注册邮箱验证码",
     "mcpEnabled": "启用 MCP 端点",
     "mcpEnabledDescription": "允许用户使用自己的 API 密钥连接兼容 MCP 的 agent。默认关闭。",
+    "auditEnabled": "启用 MCP 写入审计",
+    "auditEnabledDescription": "记录 MCP 写入工具的紧凑元数据。默认开启。",
     "save": "保存设置",
     "saved": "设置已保存",
     "saveSuccess": "设置保存成功",
@@ -138,6 +141,18 @@ const admin = {
     "oidcExtraAuthParamsDescription": "使用 URL 查询串格式，例如：prompt=consent&access_type=offline",
     "oidcAutoCreateUser": "自动创建用户",
     "oidcAutoCreateUserDescription": "当 OIDC 用户不存在时，自动创建本地账户"
+  },
+  "audit": {
+    "title": "审计事件",
+    "description": "所有用户最近的 MCP 写入事件",
+    "refresh": "刷新",
+    "empty": "暂无审计事件",
+    "user": "用户",
+    "key": "密钥",
+    "action": "操作",
+    "resource": "资源",
+    "client": "客户端",
+    "details": "详情"
   },
   "stats": {
     "totalUsers": "用户总数",

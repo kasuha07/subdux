@@ -265,6 +265,10 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
+		if getAPIKeyKind(c) != service.APIKeyKindAPIIntegration {
+			return c.JSON(http.StatusForbidden, echo.Map{"error": "api key kind cannot access this endpoint"})
+		}
+
 		path := c.Path()
 		if path == "" {
 			path = c.Request().URL.Path

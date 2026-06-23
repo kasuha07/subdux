@@ -364,9 +364,22 @@ func (s *SubscriptionService) validatePaymentMethod(userID, paymentMethodID uint
 }
 
 func (s *SubscriptionService) Delete(userID, id uint) error {
-	sub, err := s.GetByID(userID, id)
+	deleted, err := s.DeleteRecord(userID, id)
 	if err != nil {
 		return err
+	}
+
+	s.CleanupDeletedSubscriptionResources(*deleted)
+
+	return nil
+}
+
+// DeleteRecord removes the subscription database record and returns the deleted
+// snapshot without touching filesystem resources.
+func (s *SubscriptionService) DeleteRecord(userID, id uint) (*model.Subscription, error) {
+	sub, err := s.GetByID(userID, id)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
@@ -375,12 +388,16 @@ func (s *SubscriptionService) Delete(userID, id uint) error {
 		}
 		return tx.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
-	s.removeManagedIconFile(sub.Icon)
+	return sub, nil
+}
 
-	return nil
+// CleanupDeletedSubscriptionResources removes filesystem resources that should
+// only be cleaned after the deleting database transaction has committed.
+func (s *SubscriptionService) CleanupDeletedSubscriptionResources(sub model.Subscription) {
+	s.removeManagedIconFile(sub.Icon)
 }
 
 func copyIntPointer(value *int) *int {

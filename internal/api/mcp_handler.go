@@ -21,6 +21,7 @@ const (
 
 type MCPHandler struct {
 	apiKeys        *service.APIKeyService
+	audit          *service.AuditService
 	subscriptions  *service.SubscriptionService
 	exchangeRates  *service.ExchangeRateService
 	currencies     *service.CurrencyService
@@ -32,6 +33,7 @@ type MCPHandler struct {
 
 func NewMCPHandler(
 	apiKeys *service.APIKeyService,
+	audit *service.AuditService,
 	subscriptions *service.SubscriptionService,
 	exchangeRates *service.ExchangeRateService,
 	currencies *service.CurrencyService,
@@ -40,6 +42,7 @@ func NewMCPHandler(
 ) *MCPHandler {
 	handler := &MCPHandler{
 		apiKeys:        apiKeys,
+		audit:          audit,
 		subscriptions:  subscriptions,
 		exchangeRates:  exchangeRates,
 		currencies:     currencies,
@@ -65,18 +68,27 @@ type mcpError struct {
 }
 
 type mcpPrincipal struct {
-	UserID uint
-	Scopes []string
+	UserID  uint
+	KeyID   uint
+	KeyKind string
+	Scopes  []string
+	Request mcpRequestMetadata
 }
 
 type mcpPrincipalContextKey struct{}
 
+type mcpRequestMetadata struct {
+	ClientName    string
+	ClientVersion string
+	RequestID     string
+}
+
 func (h *MCPHandler) HandlePost(c echo.Context) error {
 	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
 
-	principal, err := h.authenticate(c)
+	principal, status, err := h.authenticate(c)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+		return c.JSON(status, echo.Map{"error": err.Error()})
 	}
 	if err := validateMCPOrigin(c); err != nil {
 		return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
@@ -91,17 +103,26 @@ func (h *MCPHandler) HandlePost(c echo.Context) error {
 		return c.JSON(http.StatusNotAcceptable, echo.Map{"error": err.Error()})
 	}
 
+	principal.Request = readMCPRequestMetadata(c)
 	req := c.Request().Clone(context.WithValue(c.Request().Context(), mcpPrincipalContextKey{}, principal))
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON+", text/event-stream")
 	h.httpHandler.ServeHTTP(c.Response(), req)
 	return nil
 }
 
+func readMCPRequestMetadata(c echo.Context) mcpRequestMetadata {
+	return mcpRequestMetadata{
+		ClientName:    strings.TrimSpace(c.Request().Header.Get("MCP-Client-Name")),
+		ClientVersion: strings.TrimSpace(c.Request().Header.Get("MCP-Client-Version")),
+		RequestID:     strings.TrimSpace(c.Request().Header.Get("X-Request-ID")),
+	}
+}
+
 func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
 	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
 
-	if _, err := h.authenticate(c); err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+	if _, status, err := h.authenticate(c); err != nil {
+		return c.JSON(status, echo.Map{"error": err.Error()})
 	}
 	if err := validateMCPOrigin(c); err != nil {
 		return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
@@ -115,21 +136,26 @@ func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
 	return c.NoContent(http.StatusMethodNotAllowed)
 }
 
-func (h *MCPHandler) authenticate(c echo.Context) (*mcpPrincipal, error) {
+func (h *MCPHandler) authenticate(c echo.Context) (*mcpPrincipal, int, error) {
 	key := strings.TrimSpace(c.Request().Header.Get("X-API-Key"))
 	if key == "" {
-		return nil, errors.New("api key is required")
+		return nil, http.StatusUnauthorized, errors.New("api key is required")
 	}
 
 	principal, err := h.apiKeys.ValidateKey(key)
 	if err != nil {
-		return nil, err
+		return nil, http.StatusUnauthorized, err
+	}
+	if principal.KeyKind != service.APIKeyKindMCPClient {
+		return nil, http.StatusForbidden, errors.New("api key kind cannot access mcp")
 	}
 
 	return &mcpPrincipal{
-		UserID: principal.UserID,
-		Scopes: principal.Scopes,
-	}, nil
+		UserID:  principal.UserID,
+		KeyID:   principal.KeyID,
+		KeyKind: principal.KeyKind,
+		Scopes:  principal.Scopes,
+	}, http.StatusOK, nil
 }
 
 func validateMCPOrigin(c echo.Context) error {

@@ -272,8 +272,9 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	user := createHumanOnlyRouteTestUser(t, db)
 	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
-		Name:   "Agent",
-		Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		Name:    "Agent",
+		KeyKind: service.APIKeyKindAPIIntegration,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
@@ -366,6 +367,11 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 			target: "/api/api-keys/1",
 		},
 		{
+			name:   "list audit events",
+			method: http.MethodGet,
+			target: "/api/audit-events",
+		},
+		{
 			name:   "list calendar tokens",
 			method: http.MethodGet,
 			target: "/api/calendar/tokens",
@@ -404,6 +410,92 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 	}
 }
 
+func TestMCPClientAPIKeyCannotAccessRESTBusinessRoutes(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createHumanOnlyRouteTestUser(t, db)
+	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+		Name:    "MCP",
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+	})
+	if err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/subscriptions", nil)
+	req.Header.Set("X-API-Key", apiKeyResp.Key)
+	rec := httptest.NewRecorder()
+	newHumanOnlyRouteTestServer(t, db).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+}
+
+func TestAuditEventsUserEndpointOnlyReturnsOwnEvents(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createHumanOnlyRouteTestUser(t, db)
+	other := model.User{
+		Username: "other-audit-user",
+		Email:    "other-audit@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("failed to create other user: %v", err)
+	}
+	if err := db.Create(&model.AuditEvent{
+		EventID:      "own",
+		UserID:       user.ID,
+		KeyID:        1,
+		KeyKind:      service.APIKeyKindMCPClient,
+		ScopeUsed:    service.APIKeyScopeWrite,
+		Transport:    service.AuditTransportMCP,
+		ToolName:     "create_subscription",
+		ResourceType: service.AuditResourceSubscription,
+		Action:       "create",
+		Status:       service.AuditStatusSuccess,
+		OccurredAt:   pkg.NowUTC(),
+	}).Error; err != nil {
+		t.Fatalf("failed to create own audit event: %v", err)
+	}
+	if err := db.Create(&model.AuditEvent{
+		EventID:      "other",
+		UserID:       other.ID,
+		KeyID:        2,
+		KeyKind:      service.APIKeyKindMCPClient,
+		ScopeUsed:    service.APIKeyScopeWrite,
+		Transport:    service.AuditTransportMCP,
+		ToolName:     "delete_subscription",
+		ResourceType: service.AuditResourceSubscription,
+		Action:       "delete",
+		Status:       service.AuditStatusSuccess,
+		OccurredAt:   pkg.NowUTC(),
+	}).Error; err != nil {
+		t.Fatalf("failed to create other audit event: %v", err)
+	}
+
+	token, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/audit-events", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	newHumanOnlyRouteTestServer(t, db).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"event_id":"own"`) {
+		t.Fatalf("body = %s, want own event", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"event_id":"other"`) {
+		t.Fatalf("body = %s, want no other-user event", rec.Body.String())
+	}
+}
+
 func TestHumanOnlyRoutesAllowHumanSession(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	user := createHumanOnlyRouteTestUser(t, db)
@@ -426,8 +518,9 @@ func TestAPIKeyAllowedRoutesStillAcceptAPIKeyPrincipal(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	user := createHumanOnlyRouteTestUser(t, db)
 	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
-		Name:   "Reader",
-		Scopes: []string{service.APIKeyScopeRead},
+		Name:    "Reader",
+		KeyKind: service.APIKeyKindAPIIntegration,
+		Scopes:  []string{service.APIKeyScopeRead},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
@@ -488,6 +581,7 @@ func newHumanOnlyRouteTestDB(t *testing.T) *gorm.DB {
 		&model.OIDCConnection{},
 		&model.EmailVerificationCode{},
 		&model.UserBackupCode{},
+		&model.AuditEvent{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}

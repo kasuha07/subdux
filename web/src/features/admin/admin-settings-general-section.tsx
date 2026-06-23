@@ -15,12 +15,14 @@ export default function AdminSettingsGeneralSection({
   iconProxyEnabled,
   maxIconFileSize,
   mcpEnabled,
+  auditEnabled,
   onAllowImageUploadChange,
   onEmailDomainWhitelistChange,
   onIconProxyDomainWhitelistChange,
   onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
   onMCPEnabledChange,
+  onAuditEnabledChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
   onSiteNameChange,
@@ -118,6 +120,20 @@ export default function AdminSettingsGeneralSection({
           id="mcp-enabled"
           checked={mcpEnabled}
           onCheckedChange={onMCPEnabledChange}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <Label htmlFor="audit-enabled">{t("admin.settings.auditEnabled")}</Label>
+          <p className="text-sm text-muted-foreground">{t("admin.settings.auditEnabledDescription")}</p>
+        </div>
+        <Switch
+          id="audit-enabled"
+          checked={auditEnabled}
+          onCheckedChange={onAuditEnabledChange}
         />
       </div>
 

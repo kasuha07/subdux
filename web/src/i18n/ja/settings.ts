@@ -313,7 +313,23 @@ const settings = {
     "mcpUsage": "MCP設定",
     "mcpUsageDescription": "管理者がMCPを有効化しています。このserver設定をMCP互換のagentに追加してください。",
     "mcpDisabled": "MCPは現在無効です。このAPIキーをagentで使う前に、管理者にMCPの有効化を依頼してください。",
+    "kind": "用途",
+    "kindMCP": "MCPクライアント",
+    "kindAPI": "API連携",
+    "permission": "権限",
+    "scopeReadOnly": "読み取り専用",
+    "scopeReadWrite": "読み書き",
     "limitReached": "APIキーは最大5個までです"
+  },
+  "audit": {
+    "title": "監査",
+    "description": "あなたのアカウントの最近のMCP書き込みイベント",
+    "refresh": "更新",
+    "empty": "監査イベントはありません",
+    "action": "操作",
+    "resource": "リソース",
+    "client": "クライアント",
+    "details": "詳細"
   },
   "notifications": {
     "title": "通知",

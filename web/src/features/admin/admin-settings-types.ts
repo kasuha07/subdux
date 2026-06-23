@@ -4,11 +4,13 @@ export interface AdminSettingsTabProps {
   iconProxyDomainWhitelist: string
   maxIconFileSize: number
   mcpEnabled: boolean
+  auditEnabled: boolean
   onAllowImageUploadChange: (enabled: boolean) => void
   onIconProxyEnabledChange: (enabled: boolean) => void
   onIconProxyDomainWhitelistChange: (value: string) => void
   onMaxIconFileSizeChange: (value: number) => void
   onMCPEnabledChange: (enabled: boolean) => void
+  onAuditEnabledChange: (enabled: boolean) => void
   onOIDCAutoCreateUserChange: (enabled: boolean) => void
   onOIDCAudienceChange: (value: string) => void
   onOIDCAuthorizationEndpointChange: (value: string) => void
@@ -97,12 +99,14 @@ export type AdminSettingsBasicSectionProps = Pick<
   | "iconProxyEnabled"
   | "maxIconFileSize"
   | "mcpEnabled"
+  | "auditEnabled"
   | "onEmailDomainWhitelistChange"
   | "onAllowImageUploadChange"
   | "onIconProxyDomainWhitelistChange"
   | "onIconProxyEnabledChange"
   | "onMaxIconFileSizeChange"
   | "onMCPEnabledChange"
+  | "onAuditEnabledChange"
   | "onRegistrationEnabledChange"
   | "onRegistrationEmailVerificationEnabledChange"
   | "onSiteNameChange"

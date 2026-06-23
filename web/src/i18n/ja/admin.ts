@@ -8,6 +8,7 @@ const admin = {
     "authentication": "認証",
     "statistics": "統計",
     "backgroundTasks": "バックグラウンドタスク",
+    "audit": "監査",
     "backup": "バックアップ"
   },
   "users": {
@@ -50,6 +51,8 @@ const admin = {
     "registrationEmailVerificationSmtpWarning": "有効な SMTP 設定を先に完了してから登録メール認証を有効にしてください",
     "mcpEnabled": "MCPエンドポイントを有効化",
     "mcpEnabledDescription": "ユーザーが自分のAPIキーでMCP互換エージェントに接続できるようにします。既定では無効です。",
+    "auditEnabled": "MCP書き込み監査を有効化",
+    "auditEnabledDescription": "MCP書き込みツールのコンパクトなメタデータを記録します。既定で有効です。",
     "save": "設定を保存",
     "saved": "設定を保存しました",
     "saveSuccess": "設定を保存しました",
@@ -138,6 +141,18 @@ const admin = {
     "oidcExtraAuthParamsDescription": "URL クエリ形式で指定します（例: prompt=consent&access_type=offline）",
     "oidcAutoCreateUser": "ユーザー自動作成",
     "oidcAutoCreateUserDescription": "OIDCユーザーが存在しない場合にローカルユーザーを自動作成します"
+  },
+  "audit": {
+    "title": "監査イベント",
+    "description": "全ユーザーの最近のMCP書き込みイベント",
+    "refresh": "更新",
+    "empty": "監査イベントはありません",
+    "user": "ユーザー",
+    "key": "キー",
+    "action": "操作",
+    "resource": "リソース",
+    "client": "クライアント",
+    "details": "詳細"
   },
   "stats": {
     "totalUsers": "ユーザー数",

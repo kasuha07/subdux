@@ -23,6 +23,8 @@ type JWTClaims struct {
 	Email    string   `json:"email"`
 	Role     string   `json:"role"`
 	AuthType string   `json:"auth_type,omitempty"`
+	KeyID    uint     `json:"key_id,omitempty"`
+	KeyKind  string   `json:"key_kind,omitempty"`
 	Scopes   []string `json:"scopes,omitempty"`
 	jwt.RegisteredClaims
 }

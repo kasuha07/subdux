@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 import { api } from "@/lib/api"
@@ -29,8 +36,11 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   const [loading, setLoading] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState("")
+  const [keyKind, setKeyKind] = useState<"mcp_client" | "api_integration">("mcp_client")
+  const [scopeMode, setScopeMode] = useState<"read" | "read_write">("read")
   const [creating, setCreating] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
+  const [newKeyKind, setNewKeyKind] = useState<"mcp_client" | "api_integration">("mcp_client")
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [mcpEnabled, setMCPEnabled] = useState(false)
 
@@ -59,8 +69,11 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     try {
       const resp = await api.post<CreateAPIKeyResponse>("/api-keys", {
         name: name.trim(),
+        key_kind: keyKind,
+        scopes: scopeMode === "read_write" ? ["read", "write"] : ["read"],
       })
       setNewKey(resp.key)
+      setNewKeyKind(resp.api_key.key_kind)
       setKeys((prev) => [resp.api_key, ...prev])
       setName("")
     } catch {
@@ -94,6 +107,9 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     if (!open) {
       setNewKey(null)
       setName("")
+      setKeyKind("mcp_client")
+      setScopeMode("read")
+      setNewKeyKind("mcp_client")
     }
   }
 
@@ -121,6 +137,18 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
       null,
       2
     )
+  }
+
+  function formatKind(kind: APIKey["key_kind"]) {
+    return kind === "mcp_client"
+      ? t("settings.apiKeys.kindMCP")
+      : t("settings.apiKeys.kindAPI")
+  }
+
+  function formatScopes(scopes: string[]) {
+    return scopes.includes("write")
+      ? t("settings.apiKeys.scopeReadWrite")
+      : t("settings.apiKeys.scopeReadOnly")
   }
 
   return (
@@ -172,16 +200,18 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                       </Button>
                     </div>
                   </div>
-                  <div className="min-w-0 max-w-full space-y-2">
-                    <Label>{t("settings.apiKeys.usage")}</Label>
-                    <p className="min-w-0 max-w-full text-sm break-words text-muted-foreground">
-                      {t("settings.apiKeys.usageDescription")}
-                    </p>
-                    <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 text-xs break-all">
-                      X-API-Key: {newKey}
-                    </code>
-                  </div>
-                  {mcpEnabled ? (
+                  {newKeyKind === "api_integration" && (
+                    <div className="min-w-0 max-w-full space-y-2">
+                      <Label>{t("settings.apiKeys.usage")}</Label>
+                      <p className="min-w-0 max-w-full text-sm break-words text-muted-foreground">
+                        {t("settings.apiKeys.usageDescription")}
+                      </p>
+                      <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 text-xs break-all">
+                        X-API-Key: {newKey}
+                      </code>
+                    </div>
+                  )}
+                  {newKeyKind === "mcp_client" && mcpEnabled ? (
                     <div className="min-w-0 max-w-full space-y-2">
                       <Label>{t("settings.apiKeys.mcpUsage")}</Label>
                       <p className="min-w-0 max-w-full text-sm break-words text-muted-foreground">
@@ -201,11 +231,11 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                         </Button>
                       </div>
                     </div>
-                  ) : (
+                  ) : newKeyKind === "mcp_client" ? (
                     <div className="min-w-0 max-w-full rounded-md border border-dashed px-3 py-2 text-sm break-words text-muted-foreground">
                       {t("settings.apiKeys.mcpDisabled")}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 <form
@@ -225,6 +255,38 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                       maxLength={100}
                       required
                     />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="api-key-kind">{t("settings.apiKeys.kind")}</Label>
+                      <Select
+                        value={keyKind}
+                        onValueChange={(value) => setKeyKind(value as "mcp_client" | "api_integration")}
+                      >
+                        <SelectTrigger id="api-key-kind">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mcp_client">{t("settings.apiKeys.kindMCP")}</SelectItem>
+                          <SelectItem value="api_integration">{t("settings.apiKeys.kindAPI")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="api-key-scope">{t("settings.apiKeys.permission")}</Label>
+                      <Select
+                        value={scopeMode}
+                        onValueChange={(value) => setScopeMode(value as "read" | "read_write")}
+                      >
+                        <SelectTrigger id="api-key-scope">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="read">{t("settings.apiKeys.scopeReadOnly")}</SelectItem>
+                          <SelectItem value="read_write">{t("settings.apiKeys.scopeReadWrite")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <Button size="sm" type="submit" disabled={creating || !name.trim()}>
                     {creating ? t("settings.apiKeys.creating") : t("settings.apiKeys.create")}
@@ -261,6 +323,12 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                   <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                     <span>
                       {t("settings.apiKeys.prefix")}: <code>{key.prefix}...</code>
+                    </span>
+                    <span>
+                      {t("settings.apiKeys.kind")}: {formatKind(key.key_kind)}
+                    </span>
+                    <span>
+                      {t("settings.apiKeys.permission")}: {formatScopes(key.scopes)}
                     </span>
                     <span>
                       {t("settings.apiKeys.createdAt")}: {formatDate(key.created_at)}

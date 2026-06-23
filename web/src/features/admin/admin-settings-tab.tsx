@@ -14,12 +14,14 @@ export default function AdminSettingsTab({
   iconProxyEnabled,
   maxIconFileSize,
   mcpEnabled,
+  auditEnabled,
   onAllowImageUploadChange,
   onEmailDomainWhitelistChange,
   onIconProxyDomainWhitelistChange,
   onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
   onMCPEnabledChange,
+  onAuditEnabledChange,
   onRegistrationEmailVerificationEnabledChange,
   onRegistrationEnabledChange,
   onSave,
@@ -41,12 +43,14 @@ export default function AdminSettingsTab({
         iconProxyEnabled={iconProxyEnabled}
         maxIconFileSize={maxIconFileSize}
         mcpEnabled={mcpEnabled}
+        auditEnabled={auditEnabled}
         onAllowImageUploadChange={onAllowImageUploadChange}
         onEmailDomainWhitelistChange={onEmailDomainWhitelistChange}
         onIconProxyDomainWhitelistChange={onIconProxyDomainWhitelistChange}
         onIconProxyEnabledChange={onIconProxyEnabledChange}
         onMaxIconFileSizeChange={onMaxIconFileSizeChange}
         onMCPEnabledChange={onMCPEnabledChange}
+        onAuditEnabledChange={onAuditEnabledChange}
         onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
         onRegistrationEnabledChange={onRegistrationEnabledChange}
         onSiteNameChange={onSiteNameChange}

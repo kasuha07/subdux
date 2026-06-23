@@ -66,7 +66,8 @@ type APIKey struct {
 	Name       string     `gorm:"not null;size:100" json:"name"`
 	KeyHash    string     `gorm:"not null;uniqueIndex:idx_api_key_hash" json:"-"`
 	Prefix     string     `gorm:"not null;size:12" json:"prefix"`
-	Scopes     string     `gorm:"type:text;not null;default:'read,write'" json:"-"`
+	KeyKind    string     `gorm:"not null;size:30;default:'api_integration';index" json:"key_kind"`
+	Scopes     string     `gorm:"type:text;not null;default:'read'" json:"-"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	ExpiresAt  *time.Time `json:"expires_at"`
 	CreatedAt  time.Time  `json:"created_at"`

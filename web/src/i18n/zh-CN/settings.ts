@@ -313,7 +313,23 @@ const settings = {
     "mcpUsage": "MCP 配置",
     "mcpUsageDescription": "管理员已启用 MCP。将此 server 配置添加到兼容 MCP 的 agent 中。",
     "mcpDisabled": "MCP 当前未启用。请联系管理员启用 MCP 后，再使用此 API 密钥连接 agent。",
+    "kind": "用途",
+    "kindMCP": "MCP 客户端",
+    "kindAPI": "API 集成",
+    "permission": "权限",
+    "scopeReadOnly": "只读",
+    "scopeReadWrite": "读写",
     "limitReached": "最多只能创建 5 个 API 密钥"
+  },
+  "audit": {
+    "title": "审计",
+    "description": "你账户最近的 MCP 写入事件",
+    "refresh": "刷新",
+    "empty": "暂无审计事件",
+    "action": "操作",
+    "resource": "资源",
+    "client": "客户端",
+    "details": "详情"
   },
   "notifications": {
     "title": "通知",

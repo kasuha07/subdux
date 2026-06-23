@@ -49,6 +49,8 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.IconProxyDomainWhitelist = settingValue
 		case "mcp_enabled":
 			settings.MCPEnabled = settingValue == "true"
+		case "audit_enabled":
+			settings.AuditEnabled = settingValue == "true"
 		case "system_proxy_enabled":
 			settings.SystemProxyEnabled = settingValue == "true"
 		case "system_proxy_type":
@@ -250,6 +252,18 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "mcp_enabled").
 				Assign(model.SystemSetting{Value: value}).
 				FirstOrCreate(&model.SystemSetting{Key: "mcp_enabled"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if input.AuditEnabled != nil {
+			value := "false"
+			if *input.AuditEnabled {
+				value = "true"
+			}
+			if err := tx.Where("key = ?", "audit_enabled").
+				Assign(model.SystemSetting{Value: value}).
+				FirstOrCreate(&model.SystemSetting{Key: "audit_enabled"}).Error; err != nil {
 				return err
 			}
 		}

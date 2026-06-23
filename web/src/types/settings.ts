@@ -99,6 +99,7 @@ export interface APIKey {
   id: number
   name: string
   prefix: string
+  key_kind: "mcp_client" | "api_integration"
   scopes: string[]
   last_used_at: string | null
   expires_at: string | null
@@ -107,8 +108,32 @@ export interface APIKey {
 
 export interface CreateAPIKeyInput {
   name: string
+  key_kind: "mcp_client" | "api_integration"
   expires_at?: string | null
   scopes?: string[]
+}
+
+export interface AuditEvent {
+  event_id: string
+  occurred_at: string
+  user_id: number
+  key_id: number
+  key_kind: string
+  scope_used: string
+  transport: string
+  tool_name: string
+  resource_type: string
+  resource_id: string
+  action: string
+  status: string
+  error: string
+  latency_ms: number
+  client_name: string
+  client_version: string
+  request_id: string
+  request_args_redacted?: unknown
+  before_snapshot?: unknown
+  after_snapshot?: unknown
 }
 
 export interface CreateAPIKeyResponse {

@@ -313,7 +313,23 @@ const settings = {
     "mcpUsage": "MCP configuration",
     "mcpUsageDescription": "MCP is enabled by an administrator. Add this server entry to an MCP-compatible agent.",
     "mcpDisabled": "MCP is currently disabled. Ask an administrator to enable MCP before using this API key with an agent.",
+    "kind": "Use",
+    "kindMCP": "MCP client",
+    "kindAPI": "API integration",
+    "permission": "Permission",
+    "scopeReadOnly": "Read only",
+    "scopeReadWrite": "Read + write",
     "limitReached": "Maximum of 5 API keys reached"
+  },
+  "audit": {
+    "title": "Audit",
+    "description": "Recent MCP write events for your account",
+    "refresh": "Refresh",
+    "empty": "No audit events yet",
+    "action": "Action",
+    "resource": "Resource",
+    "client": "Client",
+    "details": "Details"
   },
   "notifications": {
     "title": "Notifications",

@@ -44,6 +44,7 @@ var applicationModels = []interface{}{
 	&model.APIKey{},
 	&model.RefreshToken{},
 	&model.CalendarToken{},
+	&model.AuditEvent{},
 }
 
 var postIntegrityApplicationModels = []interface{}{
@@ -59,6 +60,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260525_01_subscription_events", Run: migrateSubscriptionEventsSchema},
 	{Name: "20260527_01_subscription_action_snoozes", Run: migrateSubscriptionEventsSchema},
 	{Name: "20260622_01_notification_outbox_leases", Run: migrateNotificationOutboxLeases},
+	{Name: "20260623_01_api_key_kind_and_audit", Run: migrateAPIKeyKindAndAudit},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
@@ -75,6 +77,15 @@ func migrateNotificationOutboxLeases(db *gorm.DB) error {
 		&model.NotificationOutbox{},
 		&model.NotificationLog{},
 	)
+}
+
+func migrateAPIKeyKindAndAudit(db *gorm.DB) error {
+	if err := db.AutoMigrate(&model.APIKey{}, &model.AuditEvent{}); err != nil {
+		return err
+	}
+	return db.Model(&model.APIKey{}).
+		Where("key_kind IS NULL OR TRIM(key_kind) = ''").
+		Update("key_kind", "api_integration").Error
 }
 
 func runSchemaMigrations(db *gorm.DB) error {

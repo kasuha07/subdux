@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   BarChart3,
   Database,
+  FileClock,
   Mail,
   Network,
   RefreshCw,
@@ -21,6 +22,7 @@ import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
 import AdminLoadingSkeleton from "./admin-loading-skeleton"
 
 const AdminBackupTab = lazy(() => import("./admin-backup-tab"))
+const AdminAuditTab = lazy(() => import("./admin-audit-tab"))
 const AdminBackgroundTasksTab = lazy(() => import("./admin-background-tasks-tab"))
 const AdminExchangeRatesTab = lazy(() => import("./admin-exchange-rates-tab"))
 const AdminSettingsOIDCTab = lazy(() => import("./admin-settings-oidc-tab"))
@@ -30,7 +32,7 @@ const AdminSettingsTab = lazy(() => import("./admin-settings-tab"))
 const AdminStatsTab = lazy(() => import("./admin-stats-tab"))
 const AdminUsersTab = lazy(() => import("./admin-users-tab"))
 
-type AdminTab = "users" | "settings" | "smtp" | "proxy" | "auth" | "exchange-rates" | "stats" | "background-tasks" | "backup"
+type AdminTab = "users" | "settings" | "smtp" | "proxy" | "auth" | "exchange-rates" | "stats" | "background-tasks" | "audit" | "backup"
 
 function isAdminTab(value: string): value is AdminTab {
   return value === "users" ||
@@ -41,6 +43,7 @@ function isAdminTab(value: string): value is AdminTab {
     value === "exchange-rates" ||
     value === "stats" ||
     value === "background-tasks" ||
+    value === "audit" ||
     value === "backup"
 }
 
@@ -124,6 +127,10 @@ export default function AdminPage() {
                   <ServerCog className="size-4" />
                   {t("admin.tabs.backgroundTasks")}
                 </TabsTrigger>
+                <TabsTrigger value="audit" className="flex-none gap-2">
+                  <FileClock className="size-4" />
+                  {t("admin.tabs.audit")}
+                </TabsTrigger>
                 <TabsTrigger value="backup" className="flex-none gap-2">
                   <Database className="size-4" />
                   {t("admin.tabs.backup")}
@@ -177,6 +184,7 @@ export default function AdminPage() {
                   }
                   maxIconFileSize={settingsForm.maxIconFileSize}
                   mcpEnabled={settingsForm.mcpEnabled}
+                  auditEnabled={settingsForm.auditEnabled}
                   onAllowImageUploadChange={(enabled) =>
                     admin.setSettingsField("allowImageUpload", enabled)
                   }
@@ -188,6 +196,7 @@ export default function AdminPage() {
                   }
                   onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
                   onMCPEnabledChange={(enabled) => admin.setSettingsField("mcpEnabled", enabled)}
+                  onAuditEnabledChange={(enabled) => admin.setSettingsField("auditEnabled", enabled)}
                   onSave={admin.handleSaveSettings}
                 />
               </Suspense>
@@ -331,6 +340,12 @@ export default function AdminPage() {
                   refreshing={admin.backgroundTasksRefreshing}
                   onRefresh={admin.handleRefreshBackgroundTasks}
                 />
+              </Suspense>
+            )}
+
+            {visitedTabs.includes("audit") && (
+              <Suspense fallback={<AdminTabLoading value="audit" />}>
+                <AdminAuditTab />
               </Suspense>
             )}
 
