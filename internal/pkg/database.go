@@ -3,6 +3,7 @@ package pkg
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,13 +43,21 @@ func InitDB() *gorm.DB {
 }
 
 func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	dsn, err := sqliteDatabaseDSN(dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("connect to database: %w", err)
 	}
 
+	if err := configureSQLiteConnectionPool(db); err != nil {
+		return nil, err
+	}
 	if err := configureSQLiteDatabase(db); err != nil {
 		return nil, err
 	}
@@ -57,6 +66,36 @@ func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+func sqliteDatabaseDSN(dbPath string) (string, error) {
+	absolutePath, err := filepath.Abs(dbPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve sqlite database path: %w", err)
+	}
+
+	dsn := url.URL{Scheme: "file", Path: filepath.ToSlash(absolutePath)}
+	query := dsn.Query()
+	query.Add("_pragma", "foreign_keys(1)")
+	query.Add("_pragma", fmt.Sprintf("busy_timeout(%d)", sqliteBusyTimeoutMilliseconds))
+	query.Add("_pragma", "journal_mode(WAL)")
+	dsn.RawQuery = query.Encode()
+
+	return dsn.String(), nil
+}
+
+func configureSQLiteConnectionPool(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("access sqlite connection pool: %w", err)
+	}
+
+	// SQLite serializes writes at the database-file level. Keep contention in
+	// database/sql's queue instead of letting many connections race for locks.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+
+	return nil
 }
 
 func configureSQLiteDatabase(db *gorm.DB) error {

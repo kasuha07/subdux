@@ -1,11 +1,17 @@
 package pkg
 
 import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/glebarez/sqlite"
 )
 
 func TestEnsureDataPathWritableCreatesMissingDirectory(t *testing.T) {
@@ -63,4 +69,82 @@ func TestEnsureDataPathWritableRejectsReadOnlyDirectory(t *testing.T) {
 	if !strings.Contains(err.Error(), "not writable") {
 		t.Fatalf("ensureDataPathWritable() error = %v, want writable detail", err)
 	}
+}
+
+func TestSQLiteDatabaseDSNAppliesPragmasToNewConnections(t *testing.T) {
+	dsn, err := sqliteDatabaseDSN(filepath.Join(t.TempDir(), "subdux.db"))
+	if err != nil {
+		t.Fatalf("sqliteDatabaseDSN() error = %v", err)
+	}
+
+	db, err := sql.Open(sqlite.DriverName, dsn)
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+
+	assertSQLiteConnectionPragmas(t, db)
+
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("db.Conn() error = %v", err)
+	}
+	if err := conn.Raw(func(any) error { return driver.ErrBadConn }); err != nil && !errors.Is(err, driver.ErrBadConn) {
+		t.Fatalf("mark connection bad error = %v", err)
+	}
+	if err := conn.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) {
+		t.Fatalf("conn.Close() error = %v", err)
+	}
+
+	assertSQLiteConnectionPragmas(t, db)
+}
+
+func TestOpenSQLiteDatabaseLimitsConnectionPool(t *testing.T) {
+	db, err := openSQLiteDatabase(filepath.Join(t.TempDir(), "subdux.db"))
+	if err != nil {
+		t.Fatalf("openSQLiteDatabase() error = %v", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB() error = %v", err)
+	}
+	defer sqlDB.Close()
+
+	if got, want := sqlDB.Stats().MaxOpenConnections, 1; got != want {
+		t.Fatalf("MaxOpenConnections = %d, want %d", got, want)
+	}
+}
+
+func assertSQLiteConnectionPragmas(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	foreignKeys := querySQLiteIntPragma(t, db, "PRAGMA foreign_keys")
+	if foreignKeys != 1 {
+		t.Fatalf("foreign_keys = %d, want 1", foreignKeys)
+	}
+
+	busyTimeout := querySQLiteIntPragma(t, db, "PRAGMA busy_timeout")
+	if busyTimeout < sqliteBusyTimeoutMilliseconds {
+		t.Fatalf("busy_timeout = %d, want at least %d", busyTimeout, sqliteBusyTimeoutMilliseconds)
+	}
+
+	var journalMode string
+	if err := db.QueryRow("PRAGMA journal_mode").Scan(&journalMode); err != nil {
+		t.Fatalf("read journal_mode pragma error = %v", err)
+	}
+	if strings.ToLower(journalMode) != "wal" {
+		t.Fatalf("journal_mode = %q, want wal", journalMode)
+	}
+}
+
+func querySQLiteIntPragma(t *testing.T, db *sql.DB, query string) int {
+	t.Helper()
+
+	var value int
+	if err := db.QueryRow(query).Scan(&value); err != nil {
+		t.Fatalf("%s error = %v", query, err)
+	}
+	return value
 }
