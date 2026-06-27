@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -292,6 +294,18 @@ func (s *NotificationService) claimDueNotificationOutbox(ctx context.Context, ba
 	return jobs, nil
 }
 
+// logOutboxPersistError records a failure to persist a notification outbox
+// state transition. These errors are non-fatal: the job is left in place for a
+// later retry. They are emitted at error level (with the job id and the
+// attempted action) so operators can spot stuck jobs.
+func logOutboxPersistError(job model.NotificationOutbox, action string, err error) {
+	logging.Error("failed to persist notification outbox state",
+		slog.Uint64("job_id", uint64(job.ID)),
+		slog.String("action", action),
+		slog.Any("error", err),
+	)
+}
+
 func (s *NotificationService) dispatchNotificationOutboxJob(job model.NotificationOutbox) string {
 	if status := s.cancelOutboxIfNoLongerDeliverable(job); status != "" {
 		return status
@@ -305,7 +319,7 @@ func (s *NotificationService) dispatchNotificationOutboxJob(job model.Notificati
 	sendErr := s.dispatchNotificationChannel(*channel, job.TargetEmail, job.Message, job.SubscriptionURL)
 	if sendErr != nil {
 		if err := s.markNotificationOutboxFailed(job, sendErr); err != nil {
-			fmt.Printf("failed to update notification outbox %d after send failure: %v\n", job.ID, err)
+			logOutboxPersistError(job, "mark_failed", err)
 		}
 		if job.AttemptCount >= effectiveNotificationOutboxMaxAttempts(job) {
 			return notificationOutboxStatusFailed
@@ -314,7 +328,7 @@ func (s *NotificationService) dispatchNotificationOutboxJob(job model.Notificati
 	}
 
 	if err := s.markNotificationOutboxSent(job); err != nil {
-		fmt.Printf("failed to update notification outbox %d after send success: %v\n", job.ID, err)
+		logOutboxPersistError(job, "mark_sent", err)
 		return notificationOutboxStatusProcessing
 	}
 	return notificationOutboxStatusSent
@@ -324,7 +338,7 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 	now := pkg.NowUTC()
 	if job.ExpiresAt != nil && !job.ExpiresAt.After(now) {
 		if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusExpired, ""); err != nil {
-			fmt.Printf("failed to expire notification outbox %d: %v\n", job.ID, err)
+			logOutboxPersistError(job, "expire", err)
 		}
 		return notificationOutboxStatusExpired
 	}
@@ -335,13 +349,13 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 		First(&sub).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if updateErr := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "subscription not found"); updateErr != nil {
-			fmt.Printf("failed to cancel notification outbox %d: %v\n", job.ID, updateErr)
+			logOutboxPersistError(job, "cancel_subscription_missing", updateErr)
 		}
 		return notificationOutboxStatusCancelled
 	}
 	if err != nil {
 		if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
-			fmt.Printf("failed to release notification outbox %d after validation error: %v\n", job.ID, updateErr)
+			logOutboxPersistError(job, "release_subscription_lookup", updateErr)
 		}
 		return notificationOutboxStatusPending
 	}
@@ -356,7 +370,7 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 		!notifyEnabled ||
 		!subscriptionHasFutureCharge(sub) {
 		if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "notification no longer deliverable"); err != nil {
-			fmt.Printf("failed to cancel notification outbox %d: %v\n", job.ID, err)
+			logOutboxPersistError(job, "cancel_not_deliverable", err)
 		}
 		return notificationOutboxStatusCancelled
 	}
@@ -364,13 +378,13 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 	matches, reason, err := s.outboxMatchesCurrentReminder(job, sub)
 	if err != nil {
 		if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
-			fmt.Printf("failed to release notification outbox %d after reminder validation error: %v\n", job.ID, updateErr)
+			logOutboxPersistError(job, "release_reminder_validation", updateErr)
 		}
 		return notificationOutboxStatusPending
 	}
 	if !matches {
 		if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, reason); err != nil {
-			fmt.Printf("failed to cancel stale notification outbox %d: %v\n", job.ID, err)
+			logOutboxPersistError(job, "cancel_stale_reminder", err)
 		}
 		return notificationOutboxStatusCancelled
 	}
@@ -409,7 +423,7 @@ func (s *NotificationService) outboxMatchesCurrentReminder(job model.Notificatio
 func (s *NotificationService) loadOutboxChannel(job model.NotificationOutbox) (*model.NotificationChannel, string) {
 	if job.ChannelID == nil {
 		if updateErr := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "notification channel not found or disabled"); updateErr != nil {
-			fmt.Printf("failed to cancel notification outbox %d: %v\n", job.ID, updateErr)
+			logOutboxPersistError(job, "cancel_channel_unset", updateErr)
 		}
 		return nil, notificationOutboxStatusCancelled
 	}
@@ -419,13 +433,13 @@ func (s *NotificationService) loadOutboxChannel(job model.NotificationOutbox) (*
 		First(&channel).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if updateErr := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "notification channel not found or disabled"); updateErr != nil {
-			fmt.Printf("failed to cancel notification outbox %d: %v\n", job.ID, updateErr)
+			logOutboxPersistError(job, "cancel_channel_missing", updateErr)
 		}
 		return nil, notificationOutboxStatusCancelled
 	}
 	if err != nil {
 		if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
-			fmt.Printf("failed to release notification outbox %d after channel lookup error: %v\n", job.ID, updateErr)
+			logOutboxPersistError(job, "release_channel_lookup", updateErr)
 		}
 		return nil, notificationOutboxStatusPending
 	}

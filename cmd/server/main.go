@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
-	"log"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -24,6 +25,7 @@ import (
 	"github.com/shiroha/subdux/internal/api"
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 	"github.com/shiroha/subdux/internal/service"
 	"gorm.io/gorm"
 )
@@ -37,6 +39,8 @@ const (
 )
 
 func main() {
+	logging.Init()
+
 	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
 
@@ -46,19 +50,27 @@ func main() {
 	db := pkg.InitDB()
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("Failed to access database handle: %v", err)
+		logging.Fatal("failed to access database handle", slog.Any("error", err))
 	}
 	if err := pkg.InitJWTSecret(db); err != nil {
-		log.Fatalf("Failed to initialize JWT secret: %v", err)
+		logging.Fatal("failed to initialize JWT secret", slog.Any("error", err))
 	}
 	bootstrapInitialAdmin(db)
 
 	e := echo.New()
 	e.HideBanner = true
 
-	e.Use(requestLoggerMiddleware())
+	e.Use(logging.RequestLogger())
 	e.Use(api.SecurityHeadersMiddleware)
-	e.Use(middleware.Recover())
+	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			logging.FromContext(c.Request().Context()).Error("recovered from panic",
+				slog.Any("error", err),
+				slog.String("stack", string(stack)),
+			)
+			return err
+		},
+	}))
 
 	allowedOrigins := loadCORSOrigins(db)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -78,7 +90,7 @@ func main() {
 
 	distFS, err := fs.Sub(subdux.StaticFS, "web/dist")
 	if err != nil {
-		log.Fatal("Failed to access embedded frontend:", err)
+		logging.Fatal("failed to access embedded frontend", slog.Any("error", err))
 	}
 	setupSPA(e, distFS)
 
@@ -91,7 +103,7 @@ func main() {
 	serverErrors := make(chan error, 1)
 
 	go func() {
-		log.Printf("Subdux starting")
+		logging.Info("subdux starting", slog.String("port", port))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err
 		}
@@ -102,10 +114,10 @@ func main() {
 	select {
 	case serveErr = <-serverErrors:
 		if serveErr != nil {
-			log.Printf("HTTP server stopped unexpectedly: %v", serveErr)
+			logging.Error("HTTP server stopped unexpectedly", slog.Any("error", serveErr))
 		}
 	case <-signalCtx.Done():
-		log.Printf("Received shutdown signal, starting graceful shutdown")
+		logging.Info("received shutdown signal, starting graceful shutdown")
 	}
 
 	cancelBackground()
@@ -115,27 +127,27 @@ func main() {
 		defer cancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
+			logging.Error("HTTP server shutdown error", slog.Any("error", err))
 			serveErr = err
 		}
 	} else if err := server.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Printf("HTTP server close error: %v", err)
+		logging.Error("HTTP server close error", slog.Any("error", err))
 	}
 
 	backgroundTasks.Wait()
 
 	if err := sqlDB.Close(); err != nil {
-		log.Printf("Database close error: %v", err)
+		logging.Error("database close error", slog.Any("error", err))
 		if serveErr == nil {
 			serveErr = err
 		}
 	}
 
 	if serveErr != nil {
-		log.Fatalf("Subdux stopped with error: %v", serveErr)
+		logging.Fatal("subdux stopped with error", slog.Any("error", serveErr))
 	}
 
-	log.Printf("Subdux stopped")
+	logging.Info("subdux stopped")
 }
 
 func bootstrapInitialAdmin(db *gorm.DB) {
@@ -147,21 +159,38 @@ func bootstrapInitialAdmin(db *gorm.DB) {
 
 	result, err := service.NewAuthService(db).EnsureInitialAdmin(input)
 	if err != nil {
-		log.Fatalf("Failed to initialize admin user: %v", err)
+		logging.Fatal("failed to initialize admin user", slog.Any("error", err))
 	}
 	if result == nil || !result.Created {
 		return
 	}
 
-	log.Printf("Initial admin user created: username=%s email=%s", result.Username, result.Email)
+	logging.Info("initial admin user created",
+		slog.String("username", result.Username),
+		slog.String("email", result.Email),
+	)
 	if input.Password == "" {
 		// Intentional first-boot bootstrap behavior: print the generated password once
 		// when no SUBDUX_INITIAL_ADMIN_PASSWORD is provided.
-		log.Printf("Initial admin password: %s", result.Password)
-		log.Printf("Store this password now; it is only printed during first-time initialization.")
+		//
+		// The password is written directly to standard output (not through the
+		// structured logger) so it is always visible regardless of LOG_LEVEL and
+		// is never captured by the secret-redacting log handler.
+		writeInitialAdminPassword(result.Password)
 		return
 	}
-	log.Printf("Initial admin password was loaded from SUBDUX_INITIAL_ADMIN_PASSWORD and was not printed.")
+	logging.Info("initial admin password loaded from SUBDUX_INITIAL_ADMIN_PASSWORD and was not printed")
+}
+
+// writeInitialAdminPassword prints the one-time generated admin password to
+// standard output. It deliberately bypasses the structured logger: the value
+// must be shown exactly once during first-time initialization and must not be
+// redacted or filtered by log level.
+func writeInitialAdminPassword(password string) {
+	fmt.Println("================================================================")
+	fmt.Println("Subdux initial admin password (shown only once, store it now):")
+	fmt.Printf("  %s\n", password)
+	fmt.Println("================================================================")
 }
 
 func envOrDefault(key, defaultValue string) string {
@@ -170,104 +199,6 @@ func envOrDefault(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
-}
-
-var sensitiveQueryParams = map[string]struct{}{
-	"access_token":  {},
-	"api_key":       {},
-	"apikey":        {},
-	"code":          {},
-	"id_token":      {},
-	"key":           {},
-	"otp":           {},
-	"password":      {},
-	"refresh_token": {},
-	"secret":        {},
-	"token":         {},
-	"totp_token":    {},
-}
-
-func requestLoggerMiddleware() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			req := c.Request()
-			start := pkg.Now()
-
-			err := next(c)
-			if err != nil {
-				c.Error(err)
-			}
-
-			status := c.Response().Status
-			if status == 0 {
-				status = http.StatusOK
-			}
-
-			log.Printf("%s %s status=%d ip=%s latency=%s",
-				req.Method,
-				sanitizedRequestURI(req),
-				status,
-				c.RealIP(),
-				time.Since(start).Round(time.Millisecond),
-			)
-
-			return nil
-		}
-	}
-}
-
-func sanitizedRequestURI(req *http.Request) string {
-	if req == nil || req.URL == nil {
-		return ""
-	}
-
-	path := req.URL.Path
-	if path == "" {
-		path = "/"
-	}
-
-	rawQuery := sanitizeRawQuery(req.URL.Query())
-	if rawQuery == "" {
-		return path
-	}
-
-	return path + "?" + rawQuery
-}
-
-func sanitizeRawQuery(query url.Values) string {
-	if len(query) == 0 {
-		return ""
-	}
-
-	sanitized := make(url.Values, len(query))
-	for key, values := range query {
-		if isSensitiveQueryParam(key) {
-			sanitized[key] = []string{"[REDACTED]"}
-			continue
-		}
-
-		sanitizedValues := make([]string, len(values))
-		copy(sanitizedValues, values)
-		sanitized[key] = sanitizedValues
-	}
-
-	return sanitized.Encode()
-}
-
-func isSensitiveQueryParam(key string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(key))
-	if normalized == "" {
-		return false
-	}
-
-	if _, ok := sensitiveQueryParams[normalized]; ok {
-		return true
-	}
-
-	return strings.HasSuffix(normalized, "_token") ||
-		strings.HasSuffix(normalized, "_secret") ||
-		strings.HasSuffix(normalized, "_password") ||
-		strings.HasSuffix(normalized, "_key")
 }
 
 func loadCORSOrigins(db *gorm.DB) []string {
@@ -282,7 +213,7 @@ func loadCORSOrigins(db *gorm.DB) []string {
 		}
 	}
 
-	log.Printf("warning: no CORS_ALLOW_ORIGINS or site_url configured; falling back to localhost development origins")
+	logging.Warn("no CORS_ALLOW_ORIGINS or site_url configured; falling back to localhost development origins")
 
 	return []string{
 		"http://localhost:5173",
@@ -482,12 +413,12 @@ func startNotificationWorkers(
 		run := ns.EnqueuePendingNotifications
 		if monitor != nil {
 			if err := monitor.Run(scanTaskKey, run); err != nil {
-				log.Printf("notification scan error: %v", err)
+				logging.Error("notification scan failed", slog.Any("error", err))
 			}
 			return
 		}
 		if err := run(); err != nil {
-			log.Printf("notification scan error: %v", err)
+			logging.Error("notification scan failed", slog.Any("error", err))
 		}
 	}
 
@@ -498,12 +429,12 @@ func startNotificationWorkers(
 		}
 		if monitor != nil {
 			if err := monitor.Run(dispatchTaskKey, run); err != nil {
-				log.Printf("notification dispatch error: %v", err)
+				logging.Error("notification dispatch failed", slog.Any("error", err))
 			}
 			return
 		}
 		if err := run(); err != nil {
-			log.Printf("notification dispatch error: %v", err)
+			logging.Error("notification dispatch failed", slog.Any("error", err))
 		}
 	}
 

@@ -2,13 +2,14 @@ package pkg
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/glebarez/sqlite"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -28,16 +29,18 @@ func GetDataPath() string {
 func InitDB() *gorm.DB {
 	dataPath := GetDataPath()
 	if err := prepareDataPathRuntimeOwnership(dataPath); err != nil {
-		log.Fatalf("Failed to prepare runtime ownership for data directory %q: %v", dataPath, err)
+		logging.Fatal("failed to prepare runtime ownership for data directory",
+			slog.String("data_path", dataPath), slog.Any("error", err))
 	}
 	if err := ensureDataPathWritable(dataPath); err != nil {
-		log.Fatalf("Failed to prepare data directory %q: %v", dataPath, err)
+		logging.Fatal("failed to prepare data directory",
+			slog.String("data_path", dataPath), slog.Any("error", err))
 	}
 
 	dbPath := filepath.Join(dataPath, "subdux.db")
 	db, err := openSQLiteDatabase(dbPath)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		logging.Fatal("failed to initialize database", slog.Any("error", err))
 	}
 	return db
 }

@@ -88,6 +88,8 @@ This starts Subdux on `127.0.0.1:8080` and stores persistent data in the `subdux
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh token lifetime |
 | `CORS_ALLOW_ORIGINS` | unset | Comma-separated list of allowed origins |
 | `TZ` | system timezone | IANA timezone such as `UTC` or `Asia/Shanghai` |
+| `LOG_LEVEL` | `info` | Minimum log level: `debug`, `info`, `warn`, or `error` |
+| `LOG_FORMAT` | `auto` | Log encoding: `json`, `text`, or `auto` (human-readable text on a TTY, JSON otherwise) |
 | `SUBDUX_INITIAL_ADMIN_USERNAME` | `admin` | Username for the first admin account, used only when the user table is empty |
 | `SUBDUX_INITIAL_ADMIN_EMAIL` | `admin@subdux.local` | Email for the first admin account, used only when the user table is empty |
 | `SUBDUX_INITIAL_ADMIN_PASSWORD` | random, printed once | Password for the first admin account; when unset, a random password is generated and printed during first startup |

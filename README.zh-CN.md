@@ -88,6 +88,8 @@ docker compose up --build -d
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh Token 有效期 |
 | `CORS_ALLOW_ORIGINS` | 未设置 | 逗号分隔的允许来源列表 |
 | `TZ` | 系统时区 | IANA 时区名称，例如 `UTC`、`Asia/Shanghai` |
+| `LOG_LEVEL` | `info` | 最低日志级别：`debug`、`info`、`warn` 或 `error` |
+| `LOG_FORMAT` | `auto` | 日志输出格式：`json`、`text` 或 `auto`（连接终端时输出可读文本，否则输出 JSON） |
 | `SUBDUX_INITIAL_ADMIN_USERNAME` | `admin` | 初始管理员用户名，仅在用户表为空时使用 |
 | `SUBDUX_INITIAL_ADMIN_EMAIL` | `admin@subdux.local` | 初始管理员邮箱，仅在用户表为空时使用 |
 | `SUBDUX_INITIAL_ADMIN_PASSWORD` | 随机生成并打印一次 | 初始管理员密码；未设置时会生成随机密码并在首次启动时打印 |

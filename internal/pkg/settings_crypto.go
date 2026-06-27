@@ -9,9 +9,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/shiroha/subdux/internal/pkg/logging"
 )
 
 const settingsEncryptedPrefix = "enc:v1:"
@@ -150,7 +152,8 @@ func loadOrCreateLocalSettingsKey() (string, error) {
 		}
 		// Self-healing: existing file is empty or whitespace-only (e.g. from a
 		// previous crash during write). Treat as non-existent and regenerate.
-		log.Printf("WARNING: local settings key file %q is empty, regenerating", settingsKeyFileName)
+		logging.Warn("local settings key file is empty, regenerating",
+			slog.String("file", settingsKeyFileName))
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("failed to read local settings key: %w", err)
 	}
