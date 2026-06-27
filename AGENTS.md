@@ -1,136 +1,164 @@
 # Subdux — Subscription Tracker
 
-**Generated:** 2026-02-22 13:12 UTC
-**Commit:** fdfaf8c
+**Generated:** 2026-06-27 11:32 UTC
+**Commit:** 0967e52
 **Branch:** main
 
 ## PROJECT OVERVIEW
 
-Go 1.25 + React 19 monorepo. Single-binary deployment (embedded frontend). Subscription tracking with notifications (email/webhook/push), multi-currency, TOTP/passkey/OIDC auth.
+Go 1.26.4 + React 19 monorepo. Subdux builds as a single binary with the Vite frontend embedded into the Go server. It tracks recurring subscriptions, renewal actions, reports, calendar feeds, multi-currency costs, notification delivery, imports/exports, API keys, MCP access, and human-account authentication through password, TOTP, passkey, and OIDC flows.
 
-**Stack:** Echo v4 (REST API) + GORM (SQLite) + React 19 (Vite) + Shadcn/UI + Tailwind v4
+**Stack:** Echo v4 + GORM on SQLite, `modelcontextprotocol/go-sdk`, React 19 + React Router 7, Vite 8, Tailwind v4, Shadcn-style local UI primitives, i18next, Bun.
 
 ## STRUCTURE
 
 ```
 subdux/
-├── cmd/server/main.go       # Entry point (embeds web/dist/)
-├── internal/                # Go backend (4-layer: api → service → model + pkg)
-│   ├── api/                 # HTTP handlers (12 files) → see internal/api/AGENTS.md
-│   ├── service/             # Business logic (23 files) → see internal/service/AGENTS.md
-│   ├── model/               # GORM structs split by domain
-│   └── pkg/                 # Shared infra (DB, JWT)
-├── web/                     # React frontend
+├── cmd/server/main.go       # Entry point; serves API plus embedded web/dist
+├── frontend.go              # //go:embed all:web/dist
+├── internal/                # Go backend; see internal/AGENTS.md
+│   ├── api/                 # Echo handlers, route wiring, middleware, MCP endpoint
+│   ├── service/             # Business logic, notification pipeline, imports, audit, MCP helpers
+│   ├── model/               # GORM models split by domain
+│   └── pkg/                 # DB, JWT, migrations, logging, crypto, timezone helpers
+├── web/                     # React frontend; see web/AGENTS.md
 │   └── src/
-│       ├── features/
-│       │   ├── settings/    # 29 files → see web/src/features/settings/AGENTS.md
-│       │   ├── admin/       # 16 files → see web/src/features/admin/AGENTS.md
-│       │   ├── subscriptions/, dashboard/, auth/
-│       ├── components/ui/   # Shadcn (DO NOT EDIT)
-│       └── lib/             # Shared utilities (api.ts, utils.ts)
-├── Makefile                 # Build: frontend → embed → Go binary
-└── frontend.go              # //go:embed all:web/dist
+│       ├── features/        # auth, dashboard, actions, reports, calendar, settings, admin
+│       ├── components/ui/   # Shadcn-style primitives; do not edit generated primitives casually
+│       └── lib/             # API client, brand icons, formatting, safety helpers, tests
+├── skill/                   # Auxiliary Subdux helper skill/scripts
+├── Makefile                 # Frontend-first build, lint/test/check targets
+└── Dockerfile               # Multi-stage frontend + Go build, distroless runtime
 ```
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Add backend endpoint | `internal/api/router.go` → handler → service | See internal/api/AGENTS.md |
-| Add business logic | `internal/service/` | See internal/service/AGENTS.md |
-| Add frontend page | `web/src/features/{domain}/` + route in `App.tsx` | Feature-folder structure |
-| Add settings UI | `web/src/features/settings/` | See web/src/features/settings/AGENTS.md |
-| Add admin UI | `web/src/features/admin/` | See web/src/features/admin/AGENTS.md |
-| Modify auth | `internal/service/auth.go` + `internal/api/auth.go` | JWT + bcrypt |
-| Add notification channel | `internal/service/notification*.go` | 8 files for delivery |
+| Add backend endpoint | `internal/api/router.go` -> handler -> service | Keep route wiring in `SetupRoutes`; see `internal/api/AGENTS.md` |
+| Add business logic | `internal/service/` | Services own behavior and persistence decisions; see `internal/service/AGENTS.md` |
+| Add or change models | `internal/model/` + migrations in `internal/pkg/` when needed | GORM models are domain-split; avoid raw SQL in app logic |
+| Modify auth/session behavior | `internal/service/auth*.go`, `internal/api/auth*.go`, `internal/pkg/jwt.go` | Distinguish human sessions from API-key principals |
+| Modify API keys or MCP | `internal/service/apikey.go`, `internal/api/apikey.go`, `internal/api/mcp*.go` | MCP is served at `/mcp` and requires MCP-capable API keys |
+| Add frontend page | `web/src/features/{domain}/` + lazy route in `web/src/App.tsx` | Current routes: dashboard, actions, reports, calendar, settings, admin |
+| Add settings UI | `web/src/features/settings/` | See `web/src/features/settings/AGENTS.md` |
+| Add admin UI | `web/src/features/admin/` | See `web/src/features/admin/AGENTS.md` |
+| Add notification channel | `internal/service/notification*.go` + settings UI form pieces | Cover validation, delivery, templates/logs, and frontend config |
+| Import/export changes | `internal/service/import_*.go`, `internal/service/export.go`, `internal/api/import.go`, `internal/api/export.go` | Keep payload limits and human/API-key boundaries explicit |
 
 ## BUILD & DEPLOYMENT
 
-**Build Sequence:** Frontend-first (Vite) → Go embed → binary
+**Build sequence:** frontend first (`web/dist`) -> Go embed -> single `subdux` binary.
 
 ```bash
-make build      # Builds web/dist/ → embeds → compiles Go binary
-make dev        # Runs go run ./cmd/server (expects web/dist/ exists)
-make frontend   # Bun install + build (web/ only)
-make docker     # Multi-stage: Bun → Go → distroless
+make build          # bun install + web build, then go build with version ldflags
+make dev            # tmux session: Go server plus Vite dev server
+make frontend       # bun install + bun run build
+make frontend-lint  # bun install + bun run lint
+make test           # frontend build, then go test ./...
+make vet            # frontend build, then go vet ./...
+make check          # gofmt check, frontend lint/build, go vet, go test
+make docker         # multi-stage Docker image
 ```
 
-**Version Injection:** Makefile uses ldflags to inject `VERSION`, `COMMIT`, `BUILD_DATE` into `internal/version/`
+**Version injection:** `Makefile` injects `VERSION`, `COMMIT`, and `BUILD_DATE` into `internal/version/` with `-ldflags`.
 
-**Single Binary:** `subdux` contains both API and SPA. Frontend served at `/`, API at `/api/*`, uploads at `/uploads/*`.
+**Single binary:** API is under `/api/*`, MCP is `/mcp`, calendar feed is `/api/calendar/feed`, uploaded assets are under `/uploads/*`, and the SPA is served from `/`.
 
 ## COMMANDS
 
 **Backend:**
 ```bash
-go run ./cmd/server          # Dev mode
-go test ./...                # Run all tests
+go run ./cmd/server
+go test ./...
+go vet ./...
 go build -o subdux ./cmd/server
 ```
 
 **Frontend:**
 ```bash
 cd web
-bun dev                      # Vite dev server (proxies /api to :8080)
-bun run build                # tsc + Vite production build
-bun run lint                 # ESLint
+bun run dev
+bun run build
+bun run lint
+bun run test
 ```
 
 ## COMMIT MESSAGE REQUIREMENTS
 
-- For any non-trivial change, commit messages MUST include a detailed body (not only a short title).
-- The body should use scoped bullets (`Backend`, `API`, `Frontend`, `i18n`, etc.) and describe concrete behavior/logic changes.
-- Include key implementation details such as parsing rules, data mapping, dedup rules, endpoint paths, UX feedback, and translation coverage when applicable.
+- For any non-trivial change, commit messages MUST include a detailed body, not only a short title.
+- Use scoped bullets such as `Backend`, `API`, `Frontend`, `MCP`, `Security`, `i18n`, `Tests`, or `Docs`.
+- Describe concrete behavior and implementation details: parsing rules, route paths, auth boundary changes, data mapping, dedup rules, validation, UX feedback, translation coverage, and test coverage when relevant.
 
 Example:
 ```text
 - Backend: import service parses Wallos JSON export, maps payment cycles
-      (including "Every N Units" format), extracts currency from symbols and
-      codes, deduplicates by name+amount+currency+billing_type+next_billing_date
-- API: POST /api/import/wallos endpoint
-- Frontend: file picker button in account settings with toast feedback
-- i18n: translations for en, zh-CN, ja
+      including "Every N Units", extracts currencies from symbols/codes, and
+      deduplicates by name+amount+currency+billing_type+next_billing_date
+- API: add POST /api/import/wallos with explicit request-size limits
+- Frontend: add account settings file picker with toast feedback
+- i18n: cover en, zh-CN, and ja strings
+- Tests: add service and handler coverage for duplicate import rows
 ```
 
 ## CONVENTIONS
 
 **Backend:**
-- Layered: `api/` (handlers) → `service/` (logic) → `model/` (GORM) + `pkg/` (infra)
-- No raw SQL (GORM only), no service-to-service calls, no middleware beyond router.go
-- Input validation in handlers, business logic in services
-- JWT auth via Echo middleware, bcrypt for passwords
+- Keep the layered flow: `api/` handlers -> `service/` logic -> `model/` + `pkg/` infrastructure.
+- Validate and map HTTP input in handlers; keep business behavior in services.
+- Use GORM APIs for persistence. Do not add raw SQL unless there is a narrowly justified migration/helper need.
+- Keep middleware setup centralized in `internal/api/router.go`.
+- Treat API keys as machine principals. Human-only account, credential, export, audit, calendar-token, and API-key management routes should stay behind `HumanSessionOnlyMiddleware`.
+- Keep MCP deliberately narrower than the full REST API. MCP tools should use the `/mcp` entrypoint, API-key auth, bounded request sizes, audit where appropriate, and explicit input schemas/results.
+- For outbound HTTP (OIDC discovery, webhooks, icon proxy, release checks), use the existing safe outbound/client settings rather than ad hoc clients.
+- Respect system timezone behavior through OS/TZ configuration; there is no per-user timezone model.
 
 **Frontend:**
-- Feature-folder structure: `features/{domain}/{name}-page.tsx`
-- Pure `useState` (no context, no state libraries)
-- Shadcn/UI primitives (new-york, zinc), Tailwind v4, oklch colors
-- API calls via `lib/api.ts` (auto JWT, 401 redirect)
-- i18n via i18next (en, ja, zh-CN)
+- Keep feature-folder structure under `web/src/features/{domain}/`.
+- Use local component state and feature hooks. Do not introduce global state libraries or React context without a strong local precedent.
+- Use existing `web/src/components/ui/*` primitives and app components; do not import Radix primitives directly in feature code.
+- Route API calls through `web/src/lib/api.ts` so JWT/session handling, API-key behavior, and 401 redirects stay consistent.
+- Keep i18n coverage in en, zh-CN, and ja for user-facing text.
+- For icons/buttons, prefer existing icon libraries and local brand-icon helpers over new bespoke assets.
 
 ## ANTI-PATTERNS
 
 **Backend:**
-- No raw SQL queries
-- No service-to-service calls
-- No middleware beyond router.go
+- Raw SQL in request/business code.
+- Service-to-service calls that bypass handler composition or shared helpers.
+- New middleware scattered outside `router.go`.
+- Granting admin/human privileges to API-key principals.
+- Expanding MCP to sensitive human-account/admin/export surfaces without an explicit trust-boundary review.
 
 **Frontend:**
-- NEVER edit `src/components/ui/*` (Shadcn auto-generated)
-- NEVER import Radix primitives directly
-- No `useContext` or state libraries
+- Editing `web/src/components/ui/*` for one-off feature behavior.
+- Importing Radix primitives directly.
+- Adding context/state libraries for ordinary page state.
+- Duplicating auth/session or fetch behavior outside `lib/api.ts`.
+- Adding visible feature explanations where a direct, usable control would be clearer.
 
 ## TESTING
 
-**Backend:** 8 test files (1,042 lines), table-driven, in-memory SQLite
-**Frontend:** No tests configured (no Vitest/Jest)
+- Current test surface: backend Go tests across `internal/api`, `internal/service`, and `internal/pkg`; frontend Vitest tests under `web/src/lib`.
+- Prefer focused tests for changed behavior first, then broader regression commands.
+- Useful validation batch for meaningful changes:
+
+```bash
+git diff --check
+make check
+cd web && bun run test
+```
+
+- For backend-only low-risk changes, at least run `go test ./...`; for frontend-only changes, run `cd web && bun run lint && bun run build && bun run test`.
+- For security/auth/MCP changes, include targeted negative tests for rejected principals, missing scopes, bad origins/content types, malformed payloads, and privilege boundaries.
 
 ## NOTES
 
-- **Monorepo but not workspace:** No package.json workspaces, no go.work. Just folder convention.
-- **Data directory:** `data/` at root (SQLite DB + uploaded assets). Override via `DATA_PATH` env var.
-- **Embedded assets:** `frontend.go` embeds `web/dist/` at build time. Frontend must build before Go.
-
- **Timezone support:** System timezone only, via `TZ` env var (Docker) or OS default. No per-user timezone.
+- **Monorepo but not workspace:** no `go.work` and no package.json workspaces; Go and web tooling are coordinated by repo convention and `Makefile`.
+- **Data directory:** default `data/` at repo/runtime root; override with `DATA_PATH`. SQLite DB and uploaded assets live below that data path.
+- **Embedded assets:** `frontend.go` embeds `web/dist/`; build the frontend before compiling the production Go binary.
+- **Runtime bind:** server defaults to `:8080` unless `PORT` is set.
+- **Timezone support:** system timezone only via `TZ` or OS default. No per-user timezone support.
 ---
 
 # oh-my-codex Agent Orchestration

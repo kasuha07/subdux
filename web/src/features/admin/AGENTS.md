@@ -1,69 +1,102 @@
 # Admin Feature
 
-**Generated:** 2026-02-22 13:12 UTC  
-**Commit:** fdfaf8c  
+**Generated:** 2026-06-27 11:32 UTC
+**Commit:** 0967e52
 **Branch:** main
 
 ## OVERVIEW
 
-16 files implementing admin panel: user management, stats, system settings (SMTP, OIDC), exchange rates, backup/restore. Tab-based UI with role guard.
+Admin console for user management, system settings, SMTP, proxy, OIDC/authentication, exchange rates, statistics, background tasks, audit events, and backup/restore. The route is guarded by `AdminRoute` in `App.tsx`; feature state is centralized in `hooks/use-admin-page-state.ts`.
 
 ## STRUCTURE
 
 ```
 admin/
-├── admin-page.tsx                       # Tab container (5 tabs) + AdminRoute guard
-├── admin-users-tab.tsx                  # User list, role management, delete
-├── admin-stats-tab.tsx                  # Dashboard stats, metrics
-├── admin-settings-tab.tsx               # System settings container
-├── admin-settings-general-section.tsx   # Site name, currency, timezone
-├── admin-settings-smtp-tab.tsx          # Email server config
+├── admin-page.tsx                         # Lazy tab container and tab navigation
+├── hooks/use-admin-page-state.ts          # Fetching, mutations, form state, backup/restore
+├── admin-users-tab.tsx                    # User list, create, role/status changes, delete
+├── admin-settings-tab.tsx                 # General site/security/image/MCP/audit settings
+├── admin-settings-general-section.tsx     # Site, registration, upload, MCP, audit fields
+├── admin-settings-smtp-tab.tsx            # SMTP config and test delivery
 ├── admin-settings-smtp-advanced-fields.tsx
-├── admin-settings-oidc-tab.tsx          # OAuth provider config
+├── admin-settings-proxy-tab.tsx           # System proxy config
+├── admin-settings-proxy-section.tsx
+├── admin-settings-oidc-tab.tsx            # OIDC/authentication config
 ├── admin-settings-oidc-section.tsx
 ├── admin-settings-oidc-advanced-fields.tsx
-├── admin-exchange-rates-tab.tsx         # Currency conversion rates
-├── admin-backup-tab.tsx                 # Export/import data
-├── admin-loading-skeleton.tsx           # Loading state
-├── admin-settings-types.ts              # TypeScript interfaces
-└── hooks/                               # Admin-specific hooks
+├── admin-exchange-rates-tab.tsx           # Exchange source/API key/status/refresh
+├── admin-stats-tab.tsx                    # Admin stats
+├── admin-background-tasks-tab.tsx         # Background task status and refresh
+├── admin-audit-tab.tsx                    # Admin audit-event view
+├── admin-backup-tab.tsx                   # Backup download and restore upload
+├── admin-loading-skeleton.tsx             # Initial loading state
+└── admin-settings-types.ts                # Admin settings UI types
 ```
 
 ## WHERE TO LOOK
 
 | Task | File | Notes |
 |------|------|-------|
-| Add admin tab | `admin-page.tsx` | Add `<TabsContent>` + update tab list |
-| User management | `admin-users-tab.tsx` | List, role change, delete |
-| System settings | `admin-settings-tab.tsx` | Nested tabs for SMTP/OIDC |
-| SMTP config | `admin-settings-smtp-tab.tsx` | Email server, auth, TLS |
-| OIDC config | `admin-settings-oidc-tab.tsx` | Provider URL, client ID/secret |
-| Exchange rates | `admin-exchange-rates-tab.tsx` | Currency conversion management |
-| Backup/restore | `admin-backup-tab.tsx` | JSON export/import |
+| Add admin tab | `admin-page.tsx` | Extend `AdminTab`, `isAdminTab`, tab trigger, lazy content |
+| Add admin state/API call | `hooks/use-admin-page-state.ts` | Keep fetch/mutation logic out of tab render components |
+| User management | `admin-users-tab.tsx` | Create user, role/status toggle, delete |
+| General/system settings | `admin-settings-tab.tsx`, `admin-settings-general-section.tsx` | Site, registration, upload, MCP, audit |
+| SMTP settings | `admin-settings-smtp-tab.tsx` | Configured-secret flags and test recipient behavior matter |
+| Proxy settings | `admin-settings-proxy-tab.tsx` | System proxy URL may be configured without exposing secret value |
+| OIDC settings | `admin-settings-oidc-tab.tsx` | Issuer/client/secret/scopes/advanced endpoints |
+| Exchange rates | `admin-exchange-rates-tab.tsx` | Source/API key/status/refresh |
+| Background tasks | `admin-background-tasks-tab.tsx` | Task monitor display and manual refresh |
+| Audit events | `admin-audit-tab.tsx` | Admin audit endpoint |
+| Backup/restore | `admin-backup-tab.tsx` | Include-assets option and restore confirmation |
 
 ## CONVENTIONS
 
-### Route Guard
-- `AdminRoute` component in `App.tsx` checks `isAdmin()`
-- Redirects non-admins to `/`
-- Admin status cached in localStorage `"user"` object
+### Route And Access
 
-### Tab Structure
-- 5 top-level tabs: Users, Stats, Settings, Exchange Rates, Backup
-- Settings tab has nested tabs (General, SMTP, OIDC)
-- Each tab fetches its own data with `useEffect`
+- `AdminRoute` in `App.tsx` checks authentication and `isAdmin()`.
+- The backend also enforces admin JWT routes; do not rely on UI hiding as authorization.
+- Admin status comes from the cached user object managed by `lib/api.ts`.
 
-### Form Patterns
-- Inline editing (no dialogs)
-- Save buttons per section
-- Advanced fields collapsed by default (accordion)
+### State
 
-### Loading States
-- `admin-loading-skeleton.tsx` for consistent loading UI
-- Used across all tabs during data fetch
+- `useAdminPageState` owns initial loading, users, stats, settings form, exchange status, background tasks, SMTP test state, and backup/restore state.
+- Keep tab components mostly presentational: props in, callbacks out.
+- When adding a settings field, update `AdminSettingsFormState`, `createSettingsForm`, save payload mapping, relevant TypeScript DTOs, and translations.
+
+### Tabs
+
+- Tabs are lazy-loaded and only mounted after first visit through `visitedTabs`.
+- Current tabs: users, settings, smtp, proxy, auth, exchange-rates, stats, background-tasks, audit, backup.
+- Keep tab labels translated through `admin.ts` locale files.
+
+### Secret Fields
+
+- Configured secrets use `*_configured` flags from the backend.
+- Empty input should usually mean "keep existing secret", not "clear it", unless the UX explicitly supports clearing.
+- Do not render secret values returned by the backend; show configured state instead.
+
+### UX
+
+- Keep controls dense and operational. Admin pages are management surfaces, not marketing pages.
+- Use existing tabs, sections, switches, inputs, selects, and icon buttons.
+- Refetch or update state deliberately after mutations; do not add optimistic behavior where backend settings may normalize or reject values.
+
+## TESTING
+
+For admin frontend changes:
+
+```bash
+cd web
+bun run lint
+bun run build
+```
+
+Also run `bun run test` when shared `lib` helpers or DTO-sensitive behavior changes. Backend admin changes need matching `go test ./internal/api ./internal/service` coverage where possible.
 
 ## ANTI-PATTERNS
 
-- **No role-based UI hiding** — entire admin feature is route-guarded
-- **No optimistic updates** — always refetch after mutations
-- **No form validation library** — plain HTML5 validation
+- Adding admin-only behavior that is only protected by UI checks.
+- Spreading settings fetch/save logic across tab components.
+- Clearing configured secrets from empty form fields.
+- Adding untranslated tab labels, field labels, or toast text.
+- Editing `components/ui` for admin-specific presentation.
