@@ -10,8 +10,11 @@
 //   - Zero third-party dependencies (slog only), matching Subdux's
 //     single-binary, minimal-footprint philosophy.
 //   - One consistent output format and one place to configure it.
-//   - Secret-safe by default: sensitive fields and query parameters are
-//     redacted before they reach a handler.
+//   - Secret-safe by default: attributes whose key is sensitive (and the
+//     corresponding query parameters) are redacted before they reach a
+//     handler. Redaction is key-based; it does not scan the contents of
+//     error or struct values, so avoid placing secrets inside an error
+//     message or a logged struct field.
 //   - Easy correlation of log lines belonging to the same HTTP request.
 //
 // This package intentionally does not import internal/pkg to avoid an import
