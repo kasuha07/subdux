@@ -142,7 +142,7 @@ func (h *MCPHandler) authenticate(c echo.Context) (*mcpPrincipal, int, error) {
 		return nil, http.StatusUnauthorized, errors.New("api key is required")
 	}
 
-	principal, err := h.apiKeys.ValidateKey(key)
+	principal, err := h.apiKeys.WithContext(c.Request().Context()).ValidateKey(key)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}

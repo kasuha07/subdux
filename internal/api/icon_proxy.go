@@ -17,7 +17,8 @@ func NewIconProxyHandler(s *service.IconProxyService) *IconProxyHandler {
 }
 
 func (h *IconProxyHandler) Get(c echo.Context) error {
-	resolution, err := h.Service.Resolve(c.Param("provider"), c.QueryParam("domain"))
+	svc := h.Service.WithContext(c.Request().Context())
+	resolution, err := svc.Resolve(c.Param("provider"), c.QueryParam("domain"))
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidIconProxyProvider), errors.Is(err, service.ErrInvalidIconProxyTargetDomain):
@@ -33,7 +34,7 @@ func (h *IconProxyHandler) Get(c echo.Context) error {
 		return c.Redirect(http.StatusTemporaryRedirect, resolution.UpstreamURL)
 	}
 
-	resp, err := h.Service.Fetch(c.Request().Context(), resolution)
+	resp, err := svc.Fetch(c.Request().Context(), resolution)
 	if err != nil {
 		if errors.Is(err, service.ErrIconProxyDomainNotAllowed) ||
 			errors.Is(err, service.ErrInvalidIconProxyTargetDomain) {

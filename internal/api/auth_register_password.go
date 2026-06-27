@@ -33,7 +33,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must not exceed 72 bytes"})
 	}
 
-	resp, err := h.Service.Register(input)
+	resp, err := h.Service.WithContext(c.Request().Context()).Register(input)
 	if err != nil {
 		return writeAuthServiceError(c, err)
 	}
@@ -42,7 +42,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 }
 
 func (h *AuthHandler) GetRegistrationConfig(c echo.Context) error {
-	config, err := h.Service.GetRegistrationConfig()
+	config, err := h.Service.WithContext(c.Request().Context()).GetRegistrationConfig()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load registration config"})
 	}
@@ -65,7 +65,7 @@ func (h *AuthHandler) SendRegisterVerificationCode(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
-	if err := h.Service.SendRegistrationVerificationCode(email); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).SendRegistrationVerificationCode(email); err != nil {
 		return writeAuthServiceError(c, err)
 	}
 
@@ -88,7 +88,7 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
-	if err := h.Service.RequestPasswordReset(email); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).RequestPasswordReset(email); err != nil {
 		return writeAuthServiceError(c, err)
 	}
 
@@ -121,7 +121,7 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
 	}
 
-	if err := h.Service.ResetPassword(input.Email, input.VerificationCode, input.NewPassword); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).ResetPassword(input.Email, input.VerificationCode, input.NewPassword); err != nil {
 		return writeAuthServiceError(c, err)
 	}
 
@@ -143,7 +143,7 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	if len([]byte(input.NewPassword)) > 72 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
 	}
-	if err := h.Service.ChangePassword(userID, input); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).ChangePassword(userID, input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "Password changed successfully"})

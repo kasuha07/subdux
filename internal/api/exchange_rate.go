@@ -28,7 +28,7 @@ func NewExchangeRateHandler(s *service.ExchangeRateService) *ExchangeRateHandler
 
 func (h *ExchangeRateHandler) ListRates(c echo.Context) error {
 	base := c.QueryParam("base")
-	rates, err := h.Service.ListRates(base)
+	rates, err := h.Service.WithContext(c.Request().Context()).ListRates(base)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -43,7 +43,7 @@ func (h *ExchangeRateHandler) GetRate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "base and target currencies are required"})
 	}
 
-	rate, ok := h.Service.GetRate(base, target)
+	rate, ok := h.Service.WithContext(c.Request().Context()).GetRate(base, target)
 	if !ok {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "exchange rate not found"})
 	}
@@ -56,7 +56,7 @@ func (h *ExchangeRateHandler) GetRate(c echo.Context) error {
 }
 
 func (h *ExchangeRateHandler) GetStatus(c echo.Context) error {
-	status, err := h.Service.GetStatus()
+	status, err := h.Service.WithContext(c.Request().Context()).GetStatus()
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -64,7 +64,7 @@ func (h *ExchangeRateHandler) GetStatus(c echo.Context) error {
 }
 
 func (h *ExchangeRateHandler) RefreshRates(c echo.Context) error {
-	if err := h.Service.RefreshRates(); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).RefreshRates(); err != nil {
 		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "rates refreshed"})
@@ -72,7 +72,7 @@ func (h *ExchangeRateHandler) RefreshRates(c echo.Context) error {
 
 func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
 	userID := getUserID(c)
-	pref, err := h.Service.GetUserPreference(userID)
+	pref, err := h.Service.WithContext(c.Request().Context()).GetUserPreference(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -90,7 +90,7 @@ func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "preferred_currency is required"})
 	}
 
-	pref, err := h.Service.UpdateUserPreference(userID, input)
+	pref, err := h.Service.WithContext(c.Request().Context()).UpdateUserPreference(userID, input)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}

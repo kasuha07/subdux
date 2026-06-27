@@ -31,7 +31,7 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON"})
 	}
 
-	result, err := h.Service.ImportFromWallos(userID, req.Data, req.Confirm)
+	result, err := h.Service.WithContext(c.Request().Context()).ImportFromWallos(userID, req.Data, req.Confirm)
 	if err != nil {
 		if errors.Is(err, service.ErrWallosImportTooLarge) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
@@ -54,7 +54,7 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON"})
 	}
 
-	result, err := h.Service.ImportFromSubdux(userID, req.Data, req.Confirm)
+	result, err := h.Service.WithContext(c.Request().Context()).ImportFromSubdux(userID, req.Data, req.Confirm)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidSubduxImportFormat) || errors.Is(err, service.ErrSubduxImportTooLarge) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})

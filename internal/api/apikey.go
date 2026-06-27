@@ -61,7 +61,7 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 	}
 
 	role := getUserRole(c)
-	resp, err := h.Service.Create(userID, role, input)
+	resp, err := h.Service.WithContext(c.Request().Context()).Create(userID, role, input)
 	if err != nil {
 		switch err {
 		case service.ErrAPIKeyNameRequired, service.ErrAPIKeyNameTooLong, service.ErrAPIKeyScopeInvalid, service.ErrAPIKeyKindRequired, service.ErrAPIKeyKindInvalid:
@@ -81,7 +81,7 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 
 func (h *APIKeyHandler) List(c echo.Context) error {
 	userID := getUserID(c)
-	keys, err := h.Service.List(userID)
+	keys, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list api keys"})
 	}
@@ -101,7 +101,7 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid api key id"})
 	}
 
-	if err := h.Service.Delete(userID, uint(keyID)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(keyID)); err != nil {
 		if err == service.ErrAPIKeyNotFound {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}

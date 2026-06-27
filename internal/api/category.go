@@ -46,7 +46,7 @@ func NewCategoryHandler(s *service.CategoryService) *CategoryHandler {
 
 func (h *CategoryHandler) List(c echo.Context) error {
 	userID := getUserID(c)
-	categories, err := h.Service.List(userID)
+	categories, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -62,7 +62,7 @@ func (h *CategoryHandler) Create(c echo.Context) error {
 	if input.Name == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "name is required"})
 	}
-	category, err := h.Service.Create(userID, input)
+	category, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
 		if err.Error() == "category name already exists" {
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
@@ -85,7 +85,7 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
-	category, err := h.Service.Update(userID, uint(id), input)
+	category, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
 		if err.Error() == "category not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -107,7 +107,7 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
-	if err := h.Service.Delete(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
 		if err.Error() == "category not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
@@ -125,7 +125,7 @@ func (h *CategoryHandler) Reorder(c echo.Context) error {
 	if err := c.Bind(&items); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
-	if err := h.Service.Reorder(userID, items); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})

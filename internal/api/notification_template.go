@@ -18,7 +18,7 @@ func NewNotificationTemplateHandler(s *service.NotificationTemplateService) *Not
 
 func (h *NotificationTemplateHandler) ListTemplates(c echo.Context) error {
 	userID := getUserID(c)
-	templates, err := h.Service.ListTemplates(userID)
+	templates, err := h.Service.WithContext(c.Request().Context()).ListTemplates(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -32,7 +32,7 @@ func (h *NotificationTemplateHandler) GetTemplate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	template, err := h.Service.GetTemplate(userID, uint(id))
+	template, err := h.Service.WithContext(c.Request().Context()).GetTemplate(userID, uint(id))
 	if err != nil {
 		if err.Error() == "template not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -49,7 +49,7 @@ func (h *NotificationTemplateHandler) CreateTemplate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	template, err := h.Service.CreateTemplate(userID, input)
+	template, err := h.Service.WithContext(c.Request().Context()).CreateTemplate(userID, input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -68,7 +68,7 @@ func (h *NotificationTemplateHandler) UpdateTemplate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	template, err := h.Service.UpdateTemplate(userID, uint(id), input)
+	template, err := h.Service.WithContext(c.Request().Context()).UpdateTemplate(userID, uint(id), input)
 	if err != nil {
 		if err.Error() == "template not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -85,7 +85,7 @@ func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	if err := h.Service.DeleteTemplate(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).DeleteTemplate(userID, uint(id)); err != nil {
 		if err.Error() == "template not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
@@ -101,7 +101,7 @@ func (h *NotificationTemplateHandler) PreviewTemplate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	preview, err := h.Service.PreviewTemplate(userID, input)
+	preview, err := h.Service.WithContext(c.Request().Context()).PreviewTemplate(userID, input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}

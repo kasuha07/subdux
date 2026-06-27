@@ -19,7 +19,7 @@ func NewCalendarHandler(s *service.CalendarService) *CalendarHandler {
 
 func (h *CalendarHandler) ListTokens(c echo.Context) error {
 	userID := getUserID(c)
-	tokens, err := h.Service.ListTokens(userID)
+	tokens, err := h.Service.WithContext(c.Request().Context()).ListTokens(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -45,7 +45,8 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name must be 100 characters or less"})
 	}
 
-	existing, err := h.Service.ListTokens(userID)
+	svc := h.Service.WithContext(c.Request().Context())
+	existing, err := svc.ListTokens(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -53,7 +54,7 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Maximum of 5 calendar links reached"})
 	}
 
-	token, err := h.Service.GenerateToken(userID, input.Name)
+	token, err := svc.GenerateToken(userID, input.Name)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -67,7 +68,7 @@ func (h *CalendarHandler) DeleteToken(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
-	if err := h.Service.DeleteToken(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).DeleteToken(userID, uint(id)); err != nil {
 		return writeInternalServerError(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -79,12 +80,13 @@ func (h *CalendarHandler) GetCalendarFeed(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "token is required"})
 	}
 
-	userID, err := h.Service.ValidateToken(tokenStr)
+	svc := h.Service.WithContext(c.Request().Context())
+	userID, err := svc.ValidateToken(tokenStr)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid or expired token"})
 	}
 
-	ics, err := h.Service.GenerateICalFeed(userID)
+	ics, err := svc.GenerateICalFeed(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}

@@ -25,7 +25,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "exporting notification secrets requires confirmation"})
 	}
 
-	data, err := h.Service.ExportUserData(userID, includeSecrets)
+	data, err := h.Service.WithContext(c.Request().Context()).ExportUserData(userID, includeSecrets)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}

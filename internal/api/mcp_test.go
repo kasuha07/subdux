@@ -487,7 +487,7 @@ func TestMCPWriteCreatesLightweightAuditEvent(t *testing.T) {
 		Request: mcpRequestMetadata{ClientName: "test-client", ClientVersion: "1.0", RequestID: "req-1"},
 	}
 
-	result, rpcErr := handler.callCreateSubscription(principal, map[string]interface{}{
+	result, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
 		"name":              "Claude Pro",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
@@ -535,7 +535,7 @@ func TestMCPUpdateAuditRecordsChangedFields(t *testing.T) {
 	handler := newMCPTestHandler(db)
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
 
-	result, rpcErr := handler.callUpdateSubscription(principal, map[string]interface{}{
+	result, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
 		"id":     float64(sub.ID),
 		"name":   "New",
 		"amount": float64(12),
@@ -580,7 +580,7 @@ func TestMCPDeleteAuditFailureKeepsManagedIconFile(t *testing.T) {
 	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
 		t.Fatalf("failed to drop audit table: %v", err)
 	}
-	_, rpcErr := handler.callDeleteSubscription(principal, map[string]interface{}{"id": float64(sub.ID)})
+	_, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"id": float64(sub.ID)})
 	if rpcErr == nil {
 		t.Fatal("callDeleteSubscription() rpcErr = nil, want audit failure")
 	}
@@ -618,7 +618,7 @@ func TestMCPDeleteCleansManagedIconFileAfterAuditCommit(t *testing.T) {
 	handler := newMCPTestHandler(db)
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
 
-	result, rpcErr := handler.callDeleteSubscription(principal, map[string]interface{}{"id": float64(sub.ID)})
+	result, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"id": float64(sub.ID)})
 	if rpcErr != nil {
 		t.Fatalf("callDeleteSubscription() rpcErr = %v", rpcErr)
 	}
@@ -649,7 +649,7 @@ func TestMCPWriteSkipsAuditWhenDisabled(t *testing.T) {
 	handler := newMCPTestHandler(db)
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
 
-	_, rpcErr := handler.callCreateSubscription(principal, map[string]interface{}{
+	_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
 		"name":              "No Audit",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
@@ -675,7 +675,7 @@ func TestMCPAuditFailureRollsBackWrite(t *testing.T) {
 	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
 		t.Fatalf("failed to drop audit table: %v", err)
 	}
-	_, rpcErr := handler.callCreateSubscription(principal, map[string]interface{}{
+	_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
 		"name":              "Rollback",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",

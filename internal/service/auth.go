@@ -16,15 +16,15 @@ import (
 type AuthService struct {
 	DB *gorm.DB
 
-	passkeyMu       sync.Mutex
+	passkeyMu       *sync.Mutex
 	passkeySessions map[string]passkeySession
 
-	oidcMu             sync.Mutex
+	oidcMu             *sync.Mutex
 	oidcStateSessions  map[string]oidcStateSession
 	oidcResultSessions map[string]oidcResultSession
 
 	sessionCleanupInterval time.Duration
-	sessionCleanupOnce     sync.Once
+	sessionCleanupOnce     *sync.Once
 }
 
 const (
@@ -35,12 +35,25 @@ const (
 func NewAuthService(db *gorm.DB) *AuthService {
 	service := &AuthService{
 		DB:                     db,
+		passkeyMu:              &sync.Mutex{},
 		passkeySessions:        make(map[string]passkeySession),
+		oidcMu:                 &sync.Mutex{},
 		oidcStateSessions:      make(map[string]oidcStateSession),
 		oidcResultSessions:     make(map[string]oidcResultSession),
 		sessionCleanupInterval: minDuration(passkeySessionCleanupInterval, oidcSessionCleanupInterval),
+		sessionCleanupOnce:     &sync.Once{},
 	}
 	return service
+}
+
+// WithContext returns a shallow copy of the service whose database handle is
+// bound to ctx, so GORM cancels in-flight queries when ctx is cancelled (client
+// disconnect or write-timeout). The in-memory session stores and their locks are
+// pointers, so the clone shares them with the parent rather than copying a mutex.
+func (s *AuthService) WithContext(ctx context.Context) *AuthService {
+	clone := *s
+	clone.DB = s.DB.WithContext(ctx)
+	return &clone
 }
 
 type RegisterInput struct {
@@ -233,7 +246,7 @@ func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
 }
 
 func (s *AuthService) StartSessionCleanupLoop(ctx context.Context) {
-	if s == nil || ctx == nil {
+	if s == nil || ctx == nil || s.sessionCleanupOnce == nil {
 		return
 	}
 

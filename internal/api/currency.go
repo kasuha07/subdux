@@ -47,7 +47,7 @@ func NewCurrencyHandler(s *service.CurrencyService, er *service.ExchangeRateServ
 
 func (h *CurrencyHandler) List(c echo.Context) error {
 	userID := getUserID(c)
-	currencies, err := h.Service.List(userID)
+	currencies, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -63,7 +63,7 @@ func (h *CurrencyHandler) Create(c echo.Context) error {
 	if input.Code == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "code is required"})
 	}
-	currency, err := h.Service.Create(userID, input)
+	currency, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
 		if err.Error() == "currency code already exists" {
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
@@ -86,7 +86,7 @@ func (h *CurrencyHandler) Update(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
-	currency, err := h.Service.Update(userID, uint(id), input)
+	currency, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
 		if err.Error() == "currency not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -102,11 +102,14 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
-	pref, err := h.ERService.GetUserPreference(userID)
+	ctx := c.Request().Context()
+	svc := h.Service.WithContext(ctx)
+	erService := h.ERService.WithContext(ctx)
+	pref, err := erService.GetUserPreference(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
-	if err := h.Service.Delete(userID, uint(id), pref.PreferredCurrency); err != nil {
+	if err := svc.Delete(userID, uint(id), pref.PreferredCurrency); err != nil {
 		if err.Error() == "currency not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
@@ -127,7 +130,7 @@ func (h *CurrencyHandler) Reorder(c echo.Context) error {
 	if err := c.Bind(&items); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
-	if err := h.Service.Reorder(userID, items); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})

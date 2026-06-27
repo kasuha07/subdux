@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -30,6 +31,19 @@ func NewNotificationService(db *gorm.DB, templateService *NotificationTemplateSe
 		templateRenderer: templateRenderer,
 		ownerID:          newNotificationOwnerID(),
 	}
+}
+
+// WithContext returns a shallow copy of the service whose database handle is
+// bound to ctx, so GORM cancels in-flight queries when ctx is cancelled. The
+// embedded template service is rebound to the same context; the renderer and
+// owner id are stateless and shared.
+func (s *NotificationService) WithContext(ctx context.Context) *NotificationService {
+	clone := *s
+	clone.DB = s.DB.WithContext(ctx)
+	if s.templateService != nil {
+		clone.templateService = s.templateService.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *NotificationService) notificationOwnerID() string {

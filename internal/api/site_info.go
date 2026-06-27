@@ -16,7 +16,7 @@ func NewSiteInfoHandler(s *service.SystemSettingsService) *SiteInfoHandler {
 }
 
 func (h *SiteInfoHandler) Get(c echo.Context) error {
-	siteInfo, err := h.Service.GetSiteInfo()
+	siteInfo, err := h.Service.WithContext(c.Request().Context()).GetSiteInfo()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to get site info"})
 	}

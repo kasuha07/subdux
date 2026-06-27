@@ -16,7 +16,7 @@ type passkeyBeginRegistrationInput struct {
 
 func (h *AuthHandler) ListPasskeys(c echo.Context) error {
 	userID := getUserID(c)
-	passkeys, err := h.Service.ListPasskeys(userID)
+	passkeys, err := h.Service.WithContext(c.Request().Context()).ListPasskeys(userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list passkeys"})
 	}
@@ -30,7 +30,7 @@ func (h *AuthHandler) BeginPasskeyRegistration(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
-	result, err := h.Service.BeginPasskeyRegistration(userID, input.Name, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
+	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyRegistration(userID, input.Name, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -58,7 +58,7 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid credential payload"})
 	}
 
-	passkey, err := h.Service.FinishPasskeyRegistration(userID, input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
+	passkey, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyRegistration(userID, input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -73,7 +73,7 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid passkey id"})
 	}
 
-	if err := h.Service.DeletePasskey(userID, uint(passkeyID)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).DeletePasskey(userID, uint(passkeyID)); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
@@ -81,7 +81,7 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 }
 
 func (h *AuthHandler) BeginPasskeyLogin(c echo.Context) error {
-	result, err := h.Service.BeginPasskeyLogin(c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
+	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyLogin(c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -108,7 +108,7 @@ func (h *AuthHandler) FinishPasskeyLogin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid credential payload"})
 	}
 
-	resp, err := h.Service.FinishPasskeyLogin(input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
+	resp, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyLogin(input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
 		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})

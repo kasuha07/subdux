@@ -45,7 +45,7 @@ type auditEventResponse struct {
 
 func (h *AuditHandler) ListUserEvents(c echo.Context) error {
 	userID := getUserID(c)
-	events, err := h.Service.List(parseAuditEventFilter(c, &userID))
+	events, err := h.Service.WithContext(c.Request().Context()).List(parseAuditEventFilter(c, &userID))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list audit events"})
 	}
@@ -53,7 +53,7 @@ func (h *AuditHandler) ListUserEvents(c echo.Context) error {
 }
 
 func (h *AuditHandler) ListAdminEvents(c echo.Context) error {
-	events, err := h.Service.List(parseAuditEventFilter(c, nil))
+	events, err := h.Service.WithContext(c.Request().Context()).List(parseAuditEventFilter(c, nil))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list audit events"})
 	}

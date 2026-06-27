@@ -119,7 +119,7 @@ func mapSubscriptionResponses(subs []model.Subscription) []subscriptionResponse 
 
 func (h *SubscriptionHandler) List(c echo.Context) error {
 	userID := getUserID(c)
-	subs, err := h.Service.List(userID)
+	subs, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -133,7 +133,7 @@ func (h *SubscriptionHandler) GetByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
-	sub, err := h.Service.GetByID(userID, uint(id))
+	sub, err := h.Service.WithContext(c.Request().Context()).GetByID(userID, uint(id))
 	if err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "Subscription not found"})
 	}
@@ -148,7 +148,7 @@ func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
-	detail, err := h.Service.GetDetail(userID, uint(id))
+	detail, err := h.Service.WithContext(c.Request().Context()).GetDetail(userID, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": "Subscription not found"})
@@ -176,7 +176,7 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
 	}
 
-	sub, err := h.Service.Create(userID, input)
+	sub, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
 		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
@@ -205,7 +205,7 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
 	}
 
-	sub, err := h.Service.Update(userID, uint(id), input)
+	sub, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
 		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
@@ -223,7 +223,7 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
-	if err := h.Service.Delete(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
 		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
@@ -240,7 +240,7 @@ func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
-	sub, err := h.Service.MarkManualRenewed(userID, uint(id))
+	sub, err := h.Service.WithContext(c.Request().Context()).MarkManualRenewed(userID, uint(id))
 	if err != nil {
 		if isSubscriptionBadRequestError(err.Error()) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
@@ -253,7 +253,7 @@ func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 
 func (h *SubscriptionHandler) ActionCenter(c echo.Context) error {
 	userID := getUserID(c)
-	center, err := h.Service.GetActionCenter(userID)
+	center, err := h.Service.WithContext(c.Request().Context()).GetActionCenter(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -267,7 +267,7 @@ func (h *SubscriptionHandler) SnoozeAction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
-	snooze, err := h.Service.SnoozeAction(userID, input)
+	snooze, err := h.Service.WithContext(c.Request().Context()).SnoozeAction(userID, input)
 	if err != nil {
 		if isSubscriptionBadRequestError(err.Error()) || strings.Contains(err.Error(), "action key") || strings.Contains(err.Error(), "snooze") {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
@@ -288,12 +288,14 @@ func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
+	svc := h.Service.WithContext(c.Request().Context())
+
 	fileHeader, err := c.FormFile("icon")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "no file provided"})
 	}
 
-	maxSize := h.Service.GetMaxIconFileSize()
+	maxSize := svc.GetMaxIconFileSize()
 
 	src, err := fileHeader.Open()
 	if err != nil {
@@ -301,7 +303,7 @@ func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 	}
 	defer src.Close()
 
-	iconPath, err := h.Service.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
+	iconPath, err := svc.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
 		if isIconUploadForbiddenError(err) {
 			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
@@ -317,11 +319,13 @@ func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 
 func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 	userID := getUserID(c)
+	ctx := c.Request().Context()
+	erService := h.ERService.WithContext(ctx)
 
-	pref, _ := h.ERService.GetUserPreference(userID)
+	pref, _ := erService.GetUserPreference(userID)
 	targetCurrency := pref.PreferredCurrency
 
-	summary, err := h.Service.GetDashboardSummary(userID, targetCurrency, h.ERService)
+	summary, err := h.Service.WithContext(ctx).GetDashboardSummary(userID, targetCurrency, erService)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -330,11 +334,13 @@ func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 
 func (h *SubscriptionHandler) AnalyticsReport(c echo.Context) error {
 	userID := getUserID(c)
+	ctx := c.Request().Context()
+	erService := h.ERService.WithContext(ctx)
 
-	pref, _ := h.ERService.GetUserPreference(userID)
+	pref, _ := erService.GetUserPreference(userID)
 	targetCurrency := pref.PreferredCurrency
 
-	report, err := h.Service.GetAnalyticsReport(userID, targetCurrency, h.ERService)
+	report, err := h.Service.WithContext(ctx).GetAnalyticsReport(userID, targetCurrency, erService)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}

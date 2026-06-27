@@ -12,7 +12,7 @@ import (
 
 func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 	userID := getUserID(c)
-	result, err := h.TOTPService.GenerateSetup(userID)
+	result, err := h.TOTPService.WithContext(c.Request().Context()).GenerateSetup(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -31,7 +31,7 @@ func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Code is required"})
 	}
 
-	backupCodes, err := h.TOTPService.ConfirmSetup(userID, input.Code)
+	backupCodes, err := h.TOTPService.WithContext(c.Request().Context()).ConfirmSetup(userID, input.Code)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -51,7 +51,7 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password and code are required"})
 	}
 
-	if err := h.TOTPService.Disable(userID, input.Password, input.Code); err != nil {
+	if err := h.TOTPService.WithContext(c.Request().Context()).Disable(userID, input.Password, input.Code); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "2FA disabled successfully"})
@@ -77,12 +77,14 @@ func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
 	}
 
-	if !h.TOTPService.VerifyLogin(userID, input.Code) && !h.TOTPService.VerifyBackupCode(userID, input.Code) {
+	ctx := c.Request().Context()
+	totpSvc := h.TOTPService.WithContext(ctx)
+	if !totpSvc.VerifyLogin(userID, input.Code) && !totpSvc.VerifyBackupCode(userID, input.Code) {
 		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid code"})
 	}
 
-	resp, err := h.Service.CreateSession(userID)
+	resp, err := h.Service.WithContext(ctx).CreateSession(userID)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			clearRefreshTokenCookie(c)

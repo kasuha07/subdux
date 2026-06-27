@@ -93,7 +93,7 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIK
 				return c.JSON(http.StatusUnauthorized, echo.Map{"error": "authorization required"})
 			}
 
-			principal, err := apiKeyService.ValidateKey(key)
+			principal, err := apiKeyService.WithContext(c.Request().Context()).ValidateKey(key)
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
 			}

@@ -17,22 +17,41 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// rateCache holds the in-memory exchange-rate cache behind a pointer so that
+// context-scoped service clones (see WithContext) share one cache and one lock
+// instead of copying the mutex by value.
+type rateCache struct {
+	mu    sync.RWMutex
+	rates map[string]float64
+}
+
+func newRateCache() *rateCache {
+	return &rateCache{rates: make(map[string]float64)}
+}
+
 type ExchangeRateService struct {
 	DB         *gorm.DB
 	httpClient *http.Client
-	mu         sync.RWMutex
-	cache      map[string]float64
-	cacheTime  time.Time
+	cache      *rateCache
 }
 
 func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 	s := &ExchangeRateService{
 		DB:         db,
 		httpClient: NewSafeOutboundHTTPClient(db, 30*time.Second),
-		cache:      make(map[string]float64),
+		cache:      newRateCache(),
 	}
 	s.loadCacheFromDB()
 	return s
+}
+
+// WithContext returns a shallow copy of the service whose database handle is
+// bound to ctx, so GORM cancels in-flight queries when ctx is cancelled (client
+// disconnect or write-timeout). The cache pointer and HTTP client are shared.
+func (s *ExchangeRateService) WithContext(ctx context.Context) *ExchangeRateService {
+	clone := *s
+	clone.DB = s.DB.WithContext(ctx)
+	return &clone
 }
 
 func cacheKey(base, target string) string {
@@ -42,13 +61,10 @@ func cacheKey(base, target string) string {
 func (s *ExchangeRateService) loadCacheFromDB() {
 	var rates []model.ExchangeRate
 	s.DB.Find(&rates)
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.cache.mu.Lock()
+	defer s.cache.mu.Unlock()
 	for _, r := range rates {
-		s.cache[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
-	}
-	if len(rates) > 0 {
-		s.cacheTime = rates[0].FetchedAt
+		s.cache.rates[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
 	}
 }
 
@@ -97,9 +113,9 @@ func (s *ExchangeRateService) Convert(amount float64, from, to string) float64 {
 		return amount
 	}
 
-	s.mu.RLock()
-	rate, ok := s.cache[cacheKey(from, to)]
-	s.mu.RUnlock()
+	s.cache.mu.RLock()
+	rate, ok := s.cache.rates[cacheKey(from, to)]
+	s.cache.mu.RUnlock()
 
 	if ok {
 		return amount * rate
@@ -108,9 +124,9 @@ func (s *ExchangeRateService) Convert(amount float64, from, to string) float64 {
 	var er model.ExchangeRate
 	if err := s.DB.Where("base_currency = ? AND target_currency = ?",
 		strings.ToLower(from), strings.ToLower(to)).First(&er).Error; err == nil {
-		s.mu.Lock()
-		s.cache[cacheKey(from, to)] = er.Rate
-		s.mu.Unlock()
+		s.cache.mu.Lock()
+		s.cache.rates[cacheKey(from, to)] = er.Rate
+		s.cache.mu.Unlock()
 		return amount * er.Rate
 	}
 
@@ -124,9 +140,9 @@ func (s *ExchangeRateService) GetRate(base, target string) (float64, bool) {
 		return 1.0, true
 	}
 
-	s.mu.RLock()
-	rate, ok := s.cache[cacheKey(base, target)]
-	s.mu.RUnlock()
+	s.cache.mu.RLock()
+	rate, ok := s.cache.rates[cacheKey(base, target)]
+	s.cache.mu.RUnlock()
 	if ok {
 		return rate, true
 	}
@@ -459,12 +475,11 @@ func (s *ExchangeRateService) saveRates(rates []model.ExchangeRate) error {
 		return err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.cache.mu.Lock()
+	defer s.cache.mu.Unlock()
 	for _, r := range rates {
-		s.cache[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
+		s.cache.rates[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
 	}
-	s.cacheTime = pkg.NowUTC()
 
 	return nil
 }

@@ -13,7 +13,7 @@ import (
 
 func (h *AuthHandler) Me(c echo.Context) error {
 	userID := getUserID(c)
-	user, err := h.Service.GetUser(userID)
+	user, err := h.Service.WithContext(c.Request().Context()).GetUser(userID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 	}
@@ -38,7 +38,7 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
-	if err := h.Service.SendEmailChangeVerificationCode(userID, input.NewEmail, input.Password); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).SendEmailChangeVerificationCode(userID, input.NewEmail, input.Password); err != nil {
 		return writeAuthServiceError(c, err)
 	}
 
@@ -64,7 +64,7 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
-	resp, err := h.Service.ConfirmEmailChange(userID, input.NewEmail, input.VerificationCode)
+	resp, err := h.Service.WithContext(c.Request().Context()).ConfirmEmailChange(userID, input.NewEmail, input.VerificationCode)
 	if err != nil {
 		return writeAuthServiceError(c, err)
 	}
@@ -82,7 +82,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Username/email and password are required"})
 	}
 
-	resp, err := h.Service.Login(input)
+	resp, err := h.Service.WithContext(c.Request().Context()).Login(input)
 	if err != nil {
 		clearRefreshTokenCookie(c)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
@@ -108,7 +108,7 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "refresh token is required"})
 	}
 
-	resp, err := h.Service.RefreshSession(input.RefreshToken)
+	resp, err := h.Service.WithContext(c.Request().Context()).RefreshSession(input.RefreshToken)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidRefreshToken) {
 			clearRefreshTokenCookie(c)
@@ -133,7 +133,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		input.RefreshToken = getCookieValue(c, refreshTokenCookieName)
 	}
 
-	if err := h.Service.Logout(input.RefreshToken); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Logout(input.RefreshToken); err != nil {
 		return writeInternalServerError(c, err)
 	}
 

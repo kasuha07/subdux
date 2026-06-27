@@ -48,7 +48,7 @@ func NewPaymentMethodHandler(s *service.PaymentMethodService) *PaymentMethodHand
 
 func (h *PaymentMethodHandler) List(c echo.Context) error {
 	userID := getUserID(c)
-	methods, err := h.Service.List(userID)
+	methods, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -69,7 +69,7 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid icon value"})
 	}
 
-	method, err := h.Service.Create(userID, input)
+	method, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
 		if err.Error() == "payment method name already exists" {
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
@@ -98,7 +98,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid icon value"})
 	}
 
-	method, err := h.Service.Update(userID, uint(id), input)
+	method, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
 		if err.Error() == "payment method not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -122,7 +122,7 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	if err := h.Service.Delete(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
 		if err.Error() == "payment method not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
@@ -141,7 +141,7 @@ func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	if err := h.Service.Reorder(userID, items); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return writeInternalServerError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
@@ -165,8 +165,9 @@ func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 	}
 	defer src.Close()
 
-	maxSize := h.Service.GetMaxIconFileSize()
-	iconPath, err := h.Service.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
+	svc := h.Service.WithContext(c.Request().Context())
+	maxSize := svc.GetMaxIconFileSize()
+	iconPath, err := svc.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
 		if isIconUploadForbiddenError(err) {
 			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})

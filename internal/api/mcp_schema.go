@@ -11,7 +11,7 @@ import (
 	"github.com/shiroha/subdux/internal/version"
 )
 
-type mcpToolHandler func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError)
+type mcpToolHandler func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError)
 
 type mcpToolDefinition struct {
 	Name        string
@@ -31,8 +31,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{}, nil)
 			},
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callListSubscriptions(principal.UserID)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callListSubscriptions(ctx, principal.UserID)
 			},
 		},
 		{
@@ -55,8 +55,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 					"limit":             integerRangeSchema("Maximum number of subscriptions to return. Defaults to 20.", 1, 100),
 				}, nil)
 			},
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callSearchSubscriptions(principal.UserID, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callSearchSubscriptions(ctx, principal.UserID, args)
 			},
 		},
 		{
@@ -68,8 +68,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 					"id": idSchema("Subscription ID."),
 				}, []string{"id"})
 			},
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callGetSubscription(principal.UserID, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callGetSubscription(ctx, principal.UserID, args)
 			},
 		},
 		{
@@ -80,8 +80,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				return subscriptionWriteInputSchema([]string{"name", "amount", "next_billing_date"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callCreateSubscription(principal, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callCreateSubscription(ctx, principal, args)
 			},
 		},
 		{
@@ -92,8 +92,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				return subscriptionWriteInputSchema([]string{"id"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callUpdateSubscription(principal, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callUpdateSubscription(ctx, principal, args)
 			},
 		},
 		{
@@ -106,8 +106,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				}, []string{"id"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callDeleteSubscription(principal, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callDeleteSubscription(ctx, principal, args)
 			},
 		},
 		{
@@ -120,8 +120,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 				}, []string{"id"})
 			},
 			Write: true,
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callMarkSubscriptionRenewed(principal, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callMarkSubscriptionRenewed(ctx, principal, args)
 			},
 		},
 		{
@@ -133,8 +133,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 					"currency": stringSchema("Optional target currency code, such as USD or CNY."),
 				}, nil)
 			},
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callDashboardSummary(principal.UserID, args)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callDashboardSummary(ctx, principal.UserID, args)
 			},
 		},
 		{
@@ -144,8 +144,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{}, nil)
 			},
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callListCategories(principal.UserID)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callListCategories(ctx, principal.UserID)
 			},
 		},
 		{
@@ -155,8 +155,8 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{}, nil)
 			},
-			Handler: func(h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
-				return h.callListPaymentMethods(principal.UserID)
+			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+				return h.callListPaymentMethods(ctx, principal.UserID)
 			},
 		},
 	}
@@ -225,7 +225,7 @@ func (h *MCPHandler) buildServer() *mcp.Server {
 				return mcpToolExecutionError("api key does not have required scope").sdkResult(), nil
 			}
 
-			result, rpcErr := definition.Handler(h, principal, args)
+			result, rpcErr := definition.Handler(ctx, h, principal, args)
 			if rpcErr != nil {
 				return nil, rpcErr.sdkError()
 			}

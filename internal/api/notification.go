@@ -31,7 +31,8 @@ func NewNotificationHandler(s *service.NotificationService) *NotificationHandler
 
 func (h *NotificationHandler) ListChannels(c echo.Context) error {
 	userID := getUserID(c)
-	channels, err := h.Service.ListChannels(userID)
+	svc := h.Service.WithContext(c.Request().Context())
+	channels, err := svc.ListChannels(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -48,7 +49,7 @@ func (h *NotificationHandler) CreateChannel(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "type is required"})
 	}
 
-	channel, err := h.Service.CreateChannel(userID, input)
+	channel, err := h.Service.WithContext(c.Request().Context()).CreateChannel(userID, input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -67,7 +68,7 @@ func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	channel, err := h.Service.UpdateChannel(userID, uint(id), input)
+	channel, err := h.Service.WithContext(c.Request().Context()).UpdateChannel(userID, uint(id), input)
 	if err != nil {
 		if err.Error() == "channel not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -84,7 +85,7 @@ func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	if err := h.Service.DeleteChannel(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).DeleteChannel(userID, uint(id)); err != nil {
 		if err.Error() == "channel not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
@@ -100,7 +101,7 @@ func (h *NotificationHandler) TestChannel(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	if err := h.Service.TestChannel(userID, uint(id)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).TestChannel(userID, uint(id)); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "test notification sent"})
@@ -108,7 +109,7 @@ func (h *NotificationHandler) TestChannel(c echo.Context) error {
 
 func (h *NotificationHandler) GetPolicy(c echo.Context) error {
 	userID := getUserID(c)
-	policy, err := h.Service.GetPolicy(userID)
+	policy, err := h.Service.WithContext(c.Request().Context()).GetPolicy(userID)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -122,7 +123,7 @@ func (h *NotificationHandler) UpdatePolicy(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	policy, err := h.Service.UpdatePolicy(userID, input)
+	policy, err := h.Service.WithContext(c.Request().Context()).UpdatePolicy(userID, input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -138,7 +139,7 @@ func (h *NotificationHandler) ListLogs(c echo.Context) error {
 		}
 	}
 
-	logs, err := h.Service.ListLogs(userID, limit)
+	logs, err := h.Service.WithContext(c.Request().Context()).ListLogs(userID, limit)
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}

@@ -42,11 +42,11 @@ func writeOIDCSessionSuccess(c echo.Context, status int, result *service.OIDCSes
 }
 
 func (h *AuthHandler) GetOIDCConfig(c echo.Context) error {
-	return c.JSON(http.StatusOK, h.Service.GetOIDCPublicConfig())
+	return c.JSON(http.StatusOK, h.Service.WithContext(c.Request().Context()).GetOIDCPublicConfig())
 }
 
 func (h *AuthHandler) BeginOIDCLogin(c echo.Context) error {
-	result, err := h.Service.BeginOIDCLogin()
+	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDCLogin()
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -56,7 +56,7 @@ func (h *AuthHandler) BeginOIDCLogin(c echo.Context) error {
 
 func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 	userID := getUserID(c)
-	result, err := h.Service.BeginOIDCConnect(userID)
+	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDCConnect(userID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -65,7 +65,7 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 }
 
 func (h *AuthHandler) OIDCCallback(c echo.Context) error {
-	callbackResult, err := h.Service.HandleOIDCCallback(
+	callbackResult, err := h.Service.WithContext(c.Request().Context()).HandleOIDCCallback(
 		c.QueryParam("state"),
 		c.QueryParam("code"),
 		c.QueryParam("error"),
@@ -97,7 +97,7 @@ func (h *AuthHandler) GetOIDCSession(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "oidc session cookie is required"})
 	}
 
-	result, err := h.Service.ConsumeOIDCSessionResult(sessionID)
+	result, err := h.Service.WithContext(c.Request().Context()).ConsumeOIDCSessionResult(sessionID)
 	clearOIDCSessionCookie(c)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
@@ -108,7 +108,7 @@ func (h *AuthHandler) GetOIDCSession(c echo.Context) error {
 
 func (h *AuthHandler) ListOIDCConnections(c echo.Context) error {
 	userID := getUserID(c)
-	connections, err := h.Service.ListOIDCConnections(userID)
+	connections, err := h.Service.WithContext(c.Request().Context()).ListOIDCConnections(userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list oidc connections"})
 	}
@@ -123,7 +123,7 @@ func (h *AuthHandler) DeleteOIDCConnection(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid oidc connection id"})
 	}
 
-	if err := h.Service.DeleteOIDCConnection(userID, uint(connectionID)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).DeleteOIDCConnection(userID, uint(connectionID)); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 

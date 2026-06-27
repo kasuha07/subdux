@@ -103,7 +103,7 @@ func mapAdminUserResponses(users []model.User) []adminUserResponse {
 }
 
 func (h *AdminHandler) ListUsers(c echo.Context) error {
-	users, err := h.Service.ListUsers()
+	users, err := h.Service.WithContext(c.Request().Context()).ListUsers()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list users"})
 	}
@@ -127,7 +127,7 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must not exceed 72 bytes"})
 	}
 
-	user, err := h.Service.CreateUser(input)
+	user, err := h.Service.WithContext(c.Request().Context()).CreateUser(input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
@@ -146,7 +146,7 @@ func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	if err := h.Service.ChangeUserRole(uint(userID), input.Role); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).ChangeUserRole(uint(userID), input.Role); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
@@ -164,7 +164,7 @@ func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	if err := h.Service.ChangeUserStatus(uint(userID), input.Status); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).ChangeUserStatus(uint(userID), input.Status); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
@@ -182,7 +182,7 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "cannot delete yourself"})
 	}
 
-	if err := h.Service.DeleteUser(uint(userID)); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).DeleteUser(uint(userID)); err != nil {
 		return writeInternalServerError(c, err)
 	}
 
@@ -190,7 +190,7 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 }
 
 func (h *AdminHandler) GetStats(c echo.Context) error {
-	stats, err := h.Service.GetStats()
+	stats, err := h.Service.WithContext(c.Request().Context()).GetStats()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to get stats"})
 	}
@@ -202,7 +202,7 @@ func (h *AdminHandler) ListBackgroundTasks(c echo.Context) error {
 }
 
 func (h *AdminHandler) GetSettings(c echo.Context) error {
-	settings, err := h.Service.GetSettings()
+	settings, err := h.Service.WithContext(c.Request().Context()).GetSettings()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to get settings"})
 	}
@@ -215,7 +215,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	if err := h.Service.UpdateSettings(input); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input); err != nil {
 		if errors.Is(err, service.ErrInvalidEmailDomainWhitelist) ||
 			errors.Is(err, service.ErrEmailDomainWhitelistTooLong) ||
 			errors.Is(err, service.ErrInvalidIconProxyDomainWhitelist) ||
@@ -241,7 +241,7 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 
 	currentUserID := getUserID(c)
 
-	if err := h.Service.SendSMTPTestEmail(currentUserID, input.RecipientEmail); err != nil {
+	if err := h.Service.WithContext(c.Request().Context()).SendSMTPTestEmail(currentUserID, input.RecipientEmail); err != nil {
 		if errors.Is(err, service.ErrSMTPRateLimited) {
 			return c.JSON(http.StatusTooManyRequests, echo.Map{"error": err.Error()})
 		}
@@ -261,7 +261,7 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 		includeAssets = parsedIncludeAssets
 	}
 
-	backupPath, err := h.Service.BackupDB(includeAssets)
+	backupPath, err := h.Service.WithContext(c.Request().Context()).BackupDB(includeAssets)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "backup failed"})
 	}

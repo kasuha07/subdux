@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,8 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func (h *MCPHandler) callListSubscriptions(userID uint) (*mcpToolResult, *mcpError) {
-	subs, err := h.subscriptions.List(userID)
+func (h *MCPHandler) callListSubscriptions(ctx context.Context, userID uint) (*mcpToolResult, *mcpError) {
+	subs, err := h.subscriptions.WithContext(ctx).List(userID)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
@@ -21,18 +22,18 @@ func (h *MCPHandler) callListSubscriptions(userID uint) (*mcpToolResult, *mcpErr
 	}), nil
 }
 
-func (h *MCPHandler) callSearchSubscriptions(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callSearchSubscriptions(ctx context.Context, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	filters, err := readMCPSubscriptionSearchFilters(args)
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
 
-	subs, err := h.subscriptions.List(userID)
+	subs, err := h.subscriptions.WithContext(ctx).List(userID)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
 
-	categoryLabels, err := h.mcpCategoryLabels(userID, filters)
+	categoryLabels, err := h.mcpCategoryLabels(ctx, userID, filters)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
@@ -57,12 +58,12 @@ func (h *MCPHandler) callSearchSubscriptions(userID uint, args map[string]interf
 	}), nil
 }
 
-func (h *MCPHandler) mcpCategoryLabels(userID uint, filters mcpSubscriptionSearchFilters) (map[uint]string, error) {
+func (h *MCPHandler) mcpCategoryLabels(ctx context.Context, userID uint, filters mcpSubscriptionSearchFilters) (map[uint]string, error) {
 	if filters.Query == "" && filters.Category == "" {
 		return nil, nil
 	}
 
-	categories, err := h.categories.List(userID)
+	categories, err := h.categories.WithContext(ctx).List(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -74,19 +75,19 @@ func (h *MCPHandler) mcpCategoryLabels(userID uint, filters mcpSubscriptionSearc
 	return labels, nil
 }
 
-func (h *MCPHandler) callGetSubscription(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callGetSubscription(ctx context.Context, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
-	sub, err := h.subscriptions.GetByID(userID, id)
+	sub, err := h.subscriptions.WithContext(ctx).GetByID(userID, id)
 	if err != nil {
 		return mcpToolExecutionError("subscription not found"), nil
 	}
 	return mcpStructuredResult(mapSubscriptionResponse(*sub)), nil
 }
 
-func (h *MCPHandler) callCreateSubscription(principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	userID := principal.UserID
 	if err := validateSubscriptionWriteArgTypes(args); err != nil {
 		return nil, invalidMCPParams(err)
@@ -103,12 +104,12 @@ func (h *MCPHandler) callCreateSubscription(principal *mcpPrincipal, args map[st
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
 	}
 
-	auditEnabled, err := h.audit.IsEnabled()
+	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
 	if !auditEnabled {
-		sub, err := h.subscriptions.Create(userID, input)
+		sub, err := h.subscriptions.WithContext(ctx).Create(userID, input)
 		if err != nil {
 			if isSubscriptionBadRequestError(err.Error()) {
 				return mcpToolExecutionError(err.Error()), nil
@@ -120,7 +121,7 @@ func (h *MCPHandler) callCreateSubscription(principal *mcpPrincipal, args map[st
 
 	start := time.Now()
 	var sub model.Subscription
-	err = h.subscriptions.DB.Transaction(func(tx *gorm.DB) error {
+	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
 		created, err := service.NewSubscriptionService(tx).Create(userID, input)
 		if err != nil {
 			return err
@@ -155,7 +156,7 @@ func (h *MCPHandler) callCreateSubscription(principal *mcpPrincipal, args map[st
 	return mcpStructuredResult(mapSubscriptionResponse(sub)), nil
 }
 
-func (h *MCPHandler) callUpdateSubscription(principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	userID := principal.UserID
 	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
@@ -172,12 +173,12 @@ func (h *MCPHandler) callUpdateSubscription(principal *mcpPrincipal, args map[st
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
 	}
 
-	auditEnabled, err := h.audit.IsEnabled()
+	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
 	if !auditEnabled {
-		sub, err := h.subscriptions.Update(userID, id, input)
+		sub, err := h.subscriptions.WithContext(ctx).Update(userID, id, input)
 		if err != nil {
 			if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
 				return mcpToolExecutionError(err.Error()), nil
@@ -190,7 +191,7 @@ func (h *MCPHandler) callUpdateSubscription(principal *mcpPrincipal, args map[st
 	start := time.Now()
 	var before model.Subscription
 	var sub model.Subscription
-	err = h.subscriptions.DB.Transaction(func(tx *gorm.DB) error {
+	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
 		txService := service.NewSubscriptionService(tx)
 		existing, err := txService.GetByID(userID, id)
 		if err != nil {
@@ -233,18 +234,18 @@ func (h *MCPHandler) callUpdateSubscription(principal *mcpPrincipal, args map[st
 	return mcpStructuredResult(mapSubscriptionResponse(sub)), nil
 }
 
-func (h *MCPHandler) callDeleteSubscription(principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	userID := principal.UserID
 	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
-	auditEnabled, err := h.audit.IsEnabled()
+	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
 	if !auditEnabled {
-		if err := h.subscriptions.Delete(userID, id); err != nil {
+		if err := h.subscriptions.WithContext(ctx).Delete(userID, id); err != nil {
 			if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
 				return mcpToolExecutionError(err.Error()), nil
 			}
@@ -256,7 +257,7 @@ func (h *MCPHandler) callDeleteSubscription(principal *mcpPrincipal, args map[st
 	start := time.Now()
 	var before model.Subscription
 	var deleted *model.Subscription
-	err = h.subscriptions.DB.Transaction(func(tx *gorm.DB) error {
+	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
 		txService := service.NewSubscriptionService(tx)
 		existing, err := txService.GetByID(userID, id)
 		if err != nil {
@@ -299,18 +300,18 @@ func (h *MCPHandler) callDeleteSubscription(principal *mcpPrincipal, args map[st
 	return mcpStructuredResult(map[string]interface{}{"deleted": true, "id": id}), nil
 }
 
-func (h *MCPHandler) callMarkSubscriptionRenewed(principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	userID := principal.UserID
 	id, err := readRequiredIDArg(args, "id")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
-	auditEnabled, err := h.audit.IsEnabled()
+	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
 	if !auditEnabled {
-		sub, err := h.subscriptions.MarkManualRenewed(userID, id)
+		sub, err := h.subscriptions.WithContext(ctx).MarkManualRenewed(userID, id)
 		if err != nil {
 			if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
 				return mcpToolExecutionError(err.Error()), nil
@@ -323,7 +324,7 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(principal *mcpPrincipal, args m
 	start := time.Now()
 	var before model.Subscription
 	var sub model.Subscription
-	err = h.subscriptions.DB.Transaction(func(tx *gorm.DB) error {
+	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
 		txService := service.NewSubscriptionService(tx)
 		existing, err := txService.GetByID(userID, id)
 		if err != nil {
@@ -427,30 +428,31 @@ func uintPtrEqualAPI(a, b *uint) bool {
 	return *a == *b
 }
 
-func (h *MCPHandler) callDashboardSummary(userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
+func (h *MCPHandler) callDashboardSummary(ctx context.Context, userID uint, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	if err := validateMCPArgTypes(args, []mcpArgSpec{{Key: "currency", Type: "string"}}); err != nil {
 		return nil, invalidMCPParams(err)
 	}
+	erService := h.exchangeRates.WithContext(ctx)
 	currency, _ := readStringArg(args, "currency")
 	currency = strings.ToUpper(strings.TrimSpace(currency))
 	if currency != "" {
-		if err := h.validateUserCurrency(userID, currency); err != nil {
+		if err := h.validateUserCurrency(ctx, userID, currency); err != nil {
 			return nil, invalidMCPParams(err)
 		}
 	} else {
-		pref, _ := h.exchangeRates.GetUserPreference(userID)
+		pref, _ := erService.GetUserPreference(userID)
 		currency = pref.PreferredCurrency
 	}
 
-	summary, err := h.subscriptions.GetDashboardSummary(userID, currency, h.exchangeRates)
+	summary, err := h.subscriptions.WithContext(ctx).GetDashboardSummary(userID, currency, erService)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
 	return mcpStructuredResult(summary), nil
 }
 
-func (h *MCPHandler) validateUserCurrency(userID uint, code string) error {
-	currencies, err := h.currencies.List(userID)
+func (h *MCPHandler) validateUserCurrency(ctx context.Context, userID uint, code string) error {
+	currencies, err := h.currencies.WithContext(ctx).List(userID)
 	if err != nil {
 		return err
 	}
@@ -462,8 +464,8 @@ func (h *MCPHandler) validateUserCurrency(userID uint, code string) error {
 	return errors.New("currency not found")
 }
 
-func (h *MCPHandler) callListCategories(userID uint) (*mcpToolResult, *mcpError) {
-	categories, err := h.categories.List(userID)
+func (h *MCPHandler) callListCategories(ctx context.Context, userID uint) (*mcpToolResult, *mcpError) {
+	categories, err := h.categories.WithContext(ctx).List(userID)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
@@ -472,8 +474,8 @@ func (h *MCPHandler) callListCategories(userID uint) (*mcpToolResult, *mcpError)
 	}), nil
 }
 
-func (h *MCPHandler) callListPaymentMethods(userID uint) (*mcpToolResult, *mcpError) {
-	methods, err := h.paymentMethods.List(userID)
+func (h *MCPHandler) callListPaymentMethods(ctx context.Context, userID uint) (*mcpToolResult, *mcpError) {
+	methods, err := h.paymentMethods.WithContext(ctx).List(userID)
 	if err != nil {
 		return nil, internalMCPError(err)
 	}
