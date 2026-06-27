@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 	"github.com/shiroha/subdux/internal/service"
 	"github.com/shiroha/subdux/internal/version"
 	"gorm.io/gorm"
@@ -138,7 +140,7 @@ func SetupRoutes(
 	exportService := service.NewExportService(db)
 	importService := service.NewImportService(db)
 	if err := systemSettingsService.SeedDefaults(); err != nil {
-		e.Logger.Errorf("failed to seed default system settings: %v", err)
+		logging.Error("failed to seed default system settings", slog.Any("error", err))
 	}
 
 	authHandler := NewAuthHandler(authService, totpService)

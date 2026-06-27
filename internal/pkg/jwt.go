@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 	"gorm.io/gorm"
 )
 
@@ -76,7 +77,7 @@ func InitJWTSecret(db *gorm.DB) error {
 	}
 
 	jwtSecretFromDB = secret
-	log.Println("Generated new JWT secret on first run")
+	logging.Info("generated new JWT secret on first run")
 	return nil
 }
 
@@ -148,7 +149,10 @@ func getAccessTokenTTL() time.Duration {
 
 	minutes, err := strconv.Atoi(raw)
 	if err != nil || minutes <= 0 {
-		log.Printf("invalid ACCESS_TOKEN_TTL_MINUTES value, using default")
+		logging.Warn("invalid ACCESS_TOKEN_TTL_MINUTES value, using default",
+			slog.String("value", raw),
+			slog.Duration("default", defaultAccessTokenTTL),
+		)
 		return defaultAccessTokenTTL
 	}
 
@@ -167,7 +171,10 @@ func getRefreshTokenTTL() time.Duration {
 
 	hours, err := strconv.Atoi(raw)
 	if err != nil || hours <= 0 {
-		log.Printf("invalid REFRESH_TOKEN_TTL_HOURS value, using default")
+		logging.Warn("invalid REFRESH_TOKEN_TTL_HOURS value, using default",
+			slog.String("value", raw),
+			slog.Duration("default", defaultRefreshTokenTTL),
+		)
 		return defaultRefreshTokenTTL
 	}
 

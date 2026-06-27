@@ -2,10 +2,12 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 )
 
 const (
@@ -18,14 +20,16 @@ type sqliteErrorCode interface {
 }
 
 func writeInternalServerError(c echo.Context, err error) error {
+	logger := logging.FromContext(c.Request().Context())
+
 	if isTransientSQLiteBusyError(err) {
-		c.Logger().Warn(err)
+		logger.Warn("transient database busy error", slog.Any("error", err))
 		c.Response().Header().Set("Retry-After", "1")
 		return c.JSON(http.StatusServiceUnavailable, echo.Map{"error": "database is busy, retry later"})
 	}
 
 	if err != nil {
-		c.Logger().Error(err)
+		logger.Error("internal server error", slog.Any("error", err))
 	}
 
 	return c.JSON(http.StatusInternalServerError, echo.Map{"error": "internal server error"})

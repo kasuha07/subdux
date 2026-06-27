@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 )
 
 const notificationScanTaskKey = "notification_scan"
@@ -49,7 +51,8 @@ func (s *NotificationService) enqueuePendingNotifications() error {
 			defer wg.Done()
 			for userID := range userJobs {
 				if err := s.processUserNotifications(userID); err != nil {
-					fmt.Printf("notification error for user %d: %v\n", userID, err)
+					logging.Error("notification processing failed for user",
+						slog.Uint64("user_id", uint64(userID)), slog.Any("error", err))
 				}
 			}
 		}()
@@ -173,7 +176,10 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 				templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling, eventType)
 				message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
 				if renderErr != nil {
-					fmt.Printf("failed to render template for user %d channel %s: %v\n", userID, channel.Type, renderErr)
+					logging.Error("failed to render notification template",
+						slog.Uint64("user_id", uint64(userID)),
+						slog.String("channel", channel.Type),
+						slog.Any("error", renderErr))
 					continue
 				}
 				if err := s.enqueueNotificationOutbox(notificationOutboxJob{

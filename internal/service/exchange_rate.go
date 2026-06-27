@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/pkg/logging"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -230,7 +231,8 @@ func (s *ExchangeRateService) RefreshRates() error {
 	default:
 		if apiKey != "" {
 			if err := s.fetchFromPremium(apiKey); err != nil {
-				log.Printf("Premium API failed, falling back to free API: %v", err)
+				logging.Warn("premium exchange-rate API failed, falling back to free API",
+					slog.Any("error", err))
 				return s.fetchFromFree()
 			}
 			return nil
@@ -249,7 +251,8 @@ func (s *ExchangeRateService) fetchFromFree() error {
 	for _, base := range bases {
 		rates, err := s.fetchFreeBase(base)
 		if err != nil {
-			log.Printf("Failed to fetch free rates for %s: %v", base, err)
+			logging.Warn("failed to fetch free exchange rates for base currency",
+				slog.String("base", base), slog.Any("error", err))
 			continue
 		}
 
@@ -521,16 +524,18 @@ func (s *ExchangeRateService) StartBackgroundRefresh(
 		)
 	}
 
-	runRefresh := func(logPrefix string) {
+	runRefresh := func(trigger string) {
 		run := s.RefreshRates
 		if monitor != nil {
 			if err := monitor.Run(taskKey, run); err != nil {
-				log.Printf("%s rate refresh failed: %v", logPrefix, err)
+				logging.Error("exchange-rate refresh failed",
+					slog.String("trigger", trigger), slog.Any("error", err))
 			}
 			return
 		}
 		if err := run(); err != nil {
-			log.Printf("%s rate refresh failed: %v", logPrefix, err)
+			logging.Error("exchange-rate refresh failed",
+				slog.String("trigger", trigger), slog.Any("error", err))
 		}
 	}
 
@@ -547,7 +552,7 @@ func (s *ExchangeRateService) StartBackgroundRefresh(
 			return
 		}
 
-		runRefresh("Initial")
+		runRefresh("initial")
 
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
@@ -555,7 +560,7 @@ func (s *ExchangeRateService) StartBackgroundRefresh(
 		for {
 			select {
 			case <-ticker.C:
-				runRefresh("Scheduled")
+				runRefresh("scheduled")
 			case <-ctx.Done():
 				return
 			}
