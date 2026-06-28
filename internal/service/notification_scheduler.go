@@ -220,33 +220,31 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 		}
 
 		for _, channel := range enabledChannels {
-			for range triggerTypes {
-				if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, notificationTriggerEndingSoon, endDate, scanDate) {
-					continue
-				}
+			if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, notificationTriggerEndingSoon, endDate, scanDate) {
+				continue
+			}
 
-				templateData := s.buildTemplateData(&sub, &user, endDate, daysUntilEnd, "ending_soon")
-				message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
-				if renderErr != nil {
-					logging.Error("failed to render notification template",
-						slog.Uint64("user_id", uint64(userID)),
-						slog.String("channel", channel.Type),
-						slog.Any("error", renderErr))
-					continue
-				}
-				if err := s.enqueueNotificationOutbox(notificationOutboxJob{
-					userID:          userID,
-					subscriptionID:  sub.ID,
-					channel:         channel,
-					triggerType:     notificationTriggerEndingSoon,
-					notifyDate:      endDate,
-					dedupeDate:      scanDate,
-					message:         message,
-					targetEmail:     user.Email,
-					subscriptionURL: sub.URL,
-				}); err != nil {
-					return err
-				}
+			templateData := s.buildTemplateData(&sub, &user, endDate, daysUntilEnd, "ending_soon")
+			message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
+			if renderErr != nil {
+				logging.Error("failed to render notification template",
+					slog.Uint64("user_id", uint64(userID)),
+					slog.String("channel", channel.Type),
+					slog.Any("error", renderErr))
+				continue
+			}
+			if err := s.enqueueNotificationOutbox(notificationOutboxJob{
+				userID:          userID,
+				subscriptionID:  sub.ID,
+				channel:         channel,
+				triggerType:     notificationTriggerEndingSoon,
+				notifyDate:      endDate,
+				dedupeDate:      scanDate,
+				message:         message,
+				targetEmail:     user.Email,
+				subscriptionURL: sub.URL,
+			}); err != nil {
+				return err
 			}
 		}
 	}

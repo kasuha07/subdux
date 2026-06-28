@@ -154,10 +154,7 @@ func reconcileSubscriptionLifecycleForUser(db *gorm.DB, userID uint, referenceDa
 				return err
 			}
 		case renewalModeCancelAtPeriodEnd:
-			boundary := sub.EndsAt
-			if boundary == nil {
-				boundary = sub.NextBillingDate
-			}
+			boundary := cancelAtPeriodEndBoundary(*sub)
 			if boundary == nil {
 				continue
 			}
