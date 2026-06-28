@@ -26,6 +26,7 @@ const (
 	notificationTriggerDaysBefore  = "days_before"
 	notificationTriggerDueDay      = "due_day"
 	notificationTriggerManualDaily = "manual_renew_daily"
+	notificationTriggerManualEnded = "manual_renew_ended"
 
 	notificationOutboxVersion      = "v1"
 	notificationOutboxLeaseTTL     = 5 * time.Minute
@@ -169,6 +170,9 @@ func (s *NotificationService) enqueueNotificationOutbox(job notificationOutboxJo
 	channelID := job.channel.ID
 	expiresAt := notifyDate.Add(notificationOutboxExpiryWindow)
 	now := pkg.NowUTC()
+	if job.triggerType == notificationTriggerManualEnded {
+		expiresAt = now.Add(notificationOutboxExpiryWindow)
+	}
 	outbox := model.NotificationOutbox{
 		DedupeKey:       notificationOutboxDedupeKeyForTrigger(job.userID, job.subscriptionID, job.channel.Type, job.triggerType, notifyDate, dedupeDate),
 		UserID:          job.userID,
@@ -195,8 +199,12 @@ func (s *NotificationService) notificationAlreadySent(subscriptionID uint, chann
 	notifyDates := notificationSentDateCandidates(notifyDate, originalNotifyDate)
 	query := s.DB.Model(&model.NotificationLog{}).
 		Where("subscription_id = ? AND channel_type = ? AND notify_date IN ? AND status = ?",
-			subscriptionID, channelType, notifyDates, notificationLogStatusSent).
-		Where("trigger_type = ? OR trigger_type = ? OR trigger_type IS NULL", triggerType, "")
+			subscriptionID, channelType, notifyDates, notificationLogStatusSent)
+	if triggerType == notificationTriggerManualEnded {
+		query = query.Where("trigger_type = ?", triggerType)
+	} else {
+		query = query.Where("trigger_type = ? OR trigger_type = ? OR trigger_type IS NULL", triggerType, "")
+	}
 	if triggerType == notificationTriggerManualDaily {
 		systemLoc := pkg.GetSystemTimezone()
 		sentDateStart := pkg.NormalizeDateInTimezone(dedupeDate, systemLoc)
@@ -403,7 +411,7 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 	}
 
 	var sub model.Subscription
-	err := s.DB.Select("id", "user_id", "status", "billing_type", "renewal_mode", "next_billing_date", "notify_enabled", "notify_days_before").
+	err := s.DB.Select("id", "user_id", "status", "billing_type", "renewal_mode", "ends_at", "next_billing_date", "notify_enabled", "notify_days_before").
 		Where("id = ? AND user_id = ?", job.SubscriptionID, job.UserID).
 		First(&sub).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -423,6 +431,21 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 	if sub.NotifyEnabled != nil {
 		notifyEnabled = *sub.NotifyEnabled
 	}
+	if job.TriggerType == notificationTriggerManualEnded {
+		if normalizeStatus(sub.Status) != subscriptionStatusEnded ||
+			normalizeRenewalMode(sub.RenewalMode) != renewalModeManualRenew ||
+			sub.BillingType != billingTypeRecurring ||
+			sub.EndsAt == nil ||
+			!notifyEnabled ||
+			!normalizeDateUTC(job.NotifyDate).Equal(normalizeDateUTC(*sub.EndsAt)) {
+			if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "manual-renew end notification no longer deliverable"); err != nil {
+				logOutboxPersistError(job, "cancel_manual_end_not_deliverable", err)
+			}
+			return notificationOutboxStatusCancelled
+		}
+		return ""
+	}
+
 	if normalizeStatus(sub.Status) != subscriptionStatusActive ||
 		sub.BillingType != billingTypeRecurring ||
 		sub.NextBillingDate == nil ||

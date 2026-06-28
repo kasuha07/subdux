@@ -288,6 +288,114 @@ func TestEnqueuePendingNotificationsSkipsManualRenewDailyWhenPreferenceDisabled(
 	}
 }
 
+func TestEnqueuePendingNotificationsCreatesManualRenewEndedOutboxJob(t *testing.T) {
+	db := newNotificationOutboxTestDB(t)
+	user := createNotificationOutboxUser(t, db)
+	createNotificationOutboxTemplate(t, db, user.ID)
+	now := time.Date(2026, 3, 15, 9, 0, 0, 0, time.UTC)
+	restoreClock := pkg.SetNowForTest(now)
+	t.Cleanup(restoreClock)
+	endedAt := normalizeDateUTC(now.AddDate(0, 0, -1))
+	sub := createNotificationOutboxSubscription(t, db, user.ID, endedAt)
+	if err := db.Model(&model.Subscription{}).
+		Where("id = ? AND user_id = ?", sub.ID, user.ID).
+		Update("renewal_mode", renewalModeManualRenew).Error; err != nil {
+		t.Fatalf("update renewal mode failed: %v", err)
+	}
+	createNotificationOutboxChannel(t, db, user.ID, "webhook", `{"url":"https://example.com/hook"}`)
+
+	if err := db.Create(&model.NotificationPolicy{
+		UserID:                 user.ID,
+		DaysBefore:             3,
+		NotifyOnDueDay:         true,
+		NotifyManualRenewDaily: false,
+	}).Error; err != nil {
+		t.Fatalf("failed to create notification policy: %v", err)
+	}
+
+	svc := NewNotificationService(db, NewNotificationTemplateService(db, NewTemplateValidator()), NewTemplateRenderer(NewTemplateValidator()))
+	if err := svc.EnqueuePendingNotifications(); err != nil {
+		t.Fatalf("EnqueuePendingNotifications() error = %v", err)
+	}
+	if err := svc.EnqueuePendingNotifications(); err != nil {
+		t.Fatalf("second EnqueuePendingNotifications() error = %v", err)
+	}
+
+	var refreshed model.Subscription
+	if err := db.First(&refreshed, sub.ID).Error; err != nil {
+		t.Fatalf("load subscription failed: %v", err)
+	}
+	if refreshed.Status != subscriptionStatusEnded || refreshed.EndsAt == nil {
+		t.Fatalf("subscription status/ends_at = %q/%v, want ended timestamp", refreshed.Status, refreshed.EndsAt)
+	}
+
+	var jobs []model.NotificationOutbox
+	if err := db.Where("subscription_id = ?", sub.ID).Find(&jobs).Error; err != nil {
+		t.Fatalf("load outbox jobs failed: %v", err)
+	}
+	if len(jobs) != 1 {
+		t.Fatalf("outbox job count = %d, want 1 after duplicate scans", len(jobs))
+	}
+	if jobs[0].TriggerType != notificationTriggerManualEnded {
+		t.Fatalf("trigger_type = %q, want %q", jobs[0].TriggerType, notificationTriggerManualEnded)
+	}
+	if got, want := jobs[0].NotifyDate.Format("2006-01-02"), endedAt.Format("2006-01-02"); got != want {
+		t.Fatalf("notify_date = %s, want ended date %s", got, want)
+	}
+	if jobs[0].Status != notificationOutboxStatusPending {
+		t.Fatalf("status = %q, want pending", jobs[0].Status)
+	}
+	if jobs[0].DedupeKey != notificationOutboxDedupeKey(user.ID, sub.ID, "webhook", notificationTriggerManualEnded, endedAt) {
+		t.Fatalf("unexpected dedupe key %q", jobs[0].DedupeKey)
+	}
+	if jobs[0].Message != "Outbox Plan|2026-03-14|manual_renew_ended" {
+		t.Fatalf("message = %q, want manual_renew_ended event", jobs[0].Message)
+	}
+}
+
+func TestEnqueuePendingNotificationsCreatesManualRenewEndedOutboxForAlreadyEndedSubscription(t *testing.T) {
+	db := newNotificationOutboxTestDB(t)
+	user := createNotificationOutboxUser(t, db)
+	createNotificationOutboxTemplate(t, db, user.ID)
+	now := time.Date(2026, 3, 15, 9, 0, 0, 0, time.UTC)
+	restoreClock := pkg.SetNowForTest(now)
+	t.Cleanup(restoreClock)
+	endedAt := normalizeDateUTC(now.AddDate(0, 0, -1))
+	sub := createNotificationOutboxSubscription(t, db, user.ID, endedAt)
+	if err := db.Model(&model.Subscription{}).
+		Where("id = ? AND user_id = ?", sub.ID, user.ID).
+		Updates(map[string]interface{}{
+			"status":       subscriptionStatusEnded,
+			"renewal_mode": renewalModeManualRenew,
+			"ends_at":      endedAt,
+			"enabled":      false,
+		}).Error; err != nil {
+		t.Fatalf("mark subscription ended failed: %v", err)
+	}
+	createNotificationOutboxChannel(t, db, user.ID, "webhook", `{"url":"https://example.com/hook"}`)
+
+	if err := db.Create(&model.NotificationPolicy{
+		UserID:         user.ID,
+		DaysBefore:     3,
+		NotifyOnDueDay: true,
+	}).Error; err != nil {
+		t.Fatalf("failed to create notification policy: %v", err)
+	}
+
+	svc := NewNotificationService(db, NewNotificationTemplateService(db, NewTemplateValidator()), NewTemplateRenderer(NewTemplateValidator()))
+	if err := svc.EnqueuePendingNotifications(); err != nil {
+		t.Fatalf("EnqueuePendingNotifications() error = %v", err)
+	}
+
+	var job model.NotificationOutbox
+	if err := db.Where("subscription_id = ?", sub.ID).First(&job).Error; err != nil {
+		t.Fatalf("load outbox job failed: %v", err)
+	}
+	if job.TriggerType != notificationTriggerManualEnded {
+		t.Fatalf("trigger_type = %q, want %q", job.TriggerType, notificationTriggerManualEnded)
+	}
+}
+
 func TestEnqueuePendingNotificationsManualRenewDailyCoversDueDayWhenDueDayDisabled(t *testing.T) {
 	db := newNotificationOutboxTestDB(t)
 	user := createNotificationOutboxUser(t, db)
@@ -995,6 +1103,110 @@ func TestDispatchNotificationOutboxCancelsStaleManualRenewDailyJob(t *testing.T)
 	case <-requestCh:
 		t.Fatal("dispatcher sent a stale manual-renew daily reminder on a later day")
 	default:
+	}
+}
+
+func TestDispatchNotificationOutboxCancelsStaleManualRenewEndedJob(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
+	tests := []struct {
+		name     string
+		updateFn func(t *testing.T, db *gorm.DB, sub model.Subscription, user model.User, endedAt time.Time)
+	}{
+		{
+			name: "subscription restored active",
+			updateFn: func(t *testing.T, db *gorm.DB, sub model.Subscription, user model.User, endedAt time.Time) {
+				t.Helper()
+				nextBilling := endedAt.AddDate(0, 1, 0)
+				if err := db.Model(&model.Subscription{}).
+					Where("id = ? AND user_id = ?", sub.ID, user.ID).
+					Updates(map[string]interface{}{
+						"status":            subscriptionStatusActive,
+						"enabled":           true,
+						"ends_at":           nil,
+						"next_billing_date": nextBilling,
+					}).Error; err != nil {
+					t.Fatalf("restore subscription failed: %v", err)
+				}
+			},
+		},
+		{
+			name: "ended date changed",
+			updateFn: func(t *testing.T, db *gorm.DB, sub model.Subscription, user model.User, endedAt time.Time) {
+				t.Helper()
+				changedEndedAt := endedAt.AddDate(0, 0, 1)
+				if err := db.Model(&model.Subscription{}).
+					Where("id = ? AND user_id = ?", sub.ID, user.ID).
+					Update("ends_at", changedEndedAt).Error; err != nil {
+					t.Fatalf("update ends_at failed: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newNotificationOutboxTestDB(t)
+			user := createNotificationOutboxUser(t, db)
+			now := time.Date(2026, 3, 15, 8, 0, 0, 0, time.UTC)
+			endedAt := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+			sub := createNotificationOutboxSubscription(t, db, user.ID, endedAt)
+			if err := db.Model(&model.Subscription{}).
+				Where("id = ? AND user_id = ?", sub.ID, user.ID).
+				Updates(map[string]interface{}{
+					"status":       subscriptionStatusEnded,
+					"renewal_mode": renewalModeManualRenew,
+					"ends_at":      endedAt,
+					"enabled":      false,
+				}).Error; err != nil {
+				t.Fatalf("mark subscription ended failed: %v", err)
+			}
+			requestCh := make(chan struct{}, 1)
+			proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				requestCh <- struct{}{}
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer proxyServer.Close()
+			seedProxySettings(t, db, "true", "http", proxyServer.URL)
+			channel := createNotificationOutboxChannel(t, db, user.ID, "webhook", `{"url":"http://notify.example.com/hook","method":"POST"}`)
+			restoreClock := pkg.SetNowForTest(now)
+			t.Cleanup(restoreClock)
+
+			job := model.NotificationOutbox{
+				DedupeKey:      notificationOutboxDedupeKey(user.ID, sub.ID, channel.Type, notificationTriggerManualEnded, endedAt),
+				UserID:         user.ID,
+				SubscriptionID: sub.ID,
+				ChannelID:      &channel.ID,
+				ChannelType:    channel.Type,
+				TriggerType:    notificationTriggerManualEnded,
+				NotifyDate:     endedAt,
+				ScheduledFor:   now,
+				Status:         notificationOutboxStatusPending,
+				MaxAttempts:    5,
+				NextAttemptAt:  now,
+				Message:        "manual renewal ended",
+				TargetEmail:    user.Email,
+			}
+			if err := db.Create(&job).Error; err != nil {
+				t.Fatalf("create outbox job failed: %v", err)
+			}
+
+			tt.updateFn(t, db, sub, user, endedAt)
+
+			svc := NewNotificationService(db, nil, nil)
+			summary, err := svc.DispatchDueNotificationOutbox(context.Background())
+			if err != nil {
+				t.Fatalf("DispatchDueNotificationOutbox() error = %v", err)
+			}
+			if summary.Claimed != 1 || summary.Cancelled != 1 || summary.Sent != 0 {
+				t.Fatalf("summary = %#v, want claimed=1 cancelled=1 sent=0", summary)
+			}
+			select {
+			case <-requestCh:
+				t.Fatal("dispatcher sent a stale manual-renew ended notification")
+			default:
+			}
+		})
 	}
 }
 
