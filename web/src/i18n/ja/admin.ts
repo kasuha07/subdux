@@ -4,7 +4,6 @@ const admin = {
     "users": "ユーザー",
     "settings": "設定",
     "email": "メール",
-    "proxy": "プロキシ",
     "authentication": "認証",
     "statistics": "統計",
     "backgroundTasks": "バックグラウンドタスク",

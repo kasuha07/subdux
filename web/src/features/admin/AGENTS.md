@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-Admin console for user management, system settings, SMTP, proxy, OIDC/authentication, exchange rates, statistics, background tasks, audit events, and backup/restore. The route is guarded by `AdminRoute` in `App.tsx`; feature state is centralized in `hooks/use-admin-page-state.ts`.
+Admin console for user management, system settings, SMTP, OIDC/authentication, exchange rates, statistics, background tasks, audit events, and backup/restore. The route is guarded by `AdminRoute` in `App.tsx`; feature state is centralized in `hooks/use-admin-page-state.ts`.
 
 ## STRUCTURE
 
@@ -15,12 +15,11 @@ admin/
 ├── admin-page.tsx                         # Lazy tab container and tab navigation
 ├── hooks/use-admin-page-state.ts          # Fetching, mutations, form state, backup/restore
 ├── admin-users-tab.tsx                    # User list, create, role/status changes, delete
-├── admin-settings-tab.tsx                 # General site/security/image/MCP/audit settings
+├── admin-settings-tab.tsx                 # General site/security/image/MCP/audit/proxy settings
 ├── admin-settings-general-section.tsx     # Site, registration, upload, MCP, audit fields
 ├── admin-settings-smtp-tab.tsx            # SMTP config and test delivery
 ├── admin-settings-smtp-advanced-fields.tsx
-├── admin-settings-proxy-tab.tsx           # System proxy config
-├── admin-settings-proxy-section.tsx
+├── admin-settings-proxy-section.tsx       # System proxy config inside Settings tab
 ├── admin-settings-oidc-tab.tsx            # OIDC/authentication config
 ├── admin-settings-oidc-section.tsx
 ├── admin-settings-oidc-advanced-fields.tsx
@@ -40,9 +39,9 @@ admin/
 | Add admin tab | `admin-page.tsx` | Extend `AdminTab`, `isAdminTab`, tab trigger, lazy content |
 | Add admin state/API call | `hooks/use-admin-page-state.ts` | Keep fetch/mutation logic out of tab render components |
 | User management | `admin-users-tab.tsx` | Create user, role/status toggle, delete |
-| General/system settings | `admin-settings-tab.tsx`, `admin-settings-general-section.tsx` | Site, registration, upload, MCP, audit |
+| General/system settings | `admin-settings-tab.tsx`, `admin-settings-general-section.tsx` | Site, registration, upload, MCP, audit, proxy |
 | SMTP settings | `admin-settings-smtp-tab.tsx` | Configured-secret flags and test recipient behavior matter |
-| Proxy settings | `admin-settings-proxy-tab.tsx` | System proxy URL may be configured without exposing secret value |
+| Proxy settings | `admin-settings-tab.tsx`, `admin-settings-proxy-section.tsx` | System proxy URL may be configured without exposing secret value |
 | OIDC settings | `admin-settings-oidc-tab.tsx` | Issuer/client/secret/scopes/advanced endpoints |
 | Exchange rates | `admin-exchange-rates-tab.tsx` | Source/API key/status/refresh |
 | Background tasks | `admin-background-tasks-tab.tsx` | Task monitor display and manual refresh |
@@ -66,7 +65,7 @@ admin/
 ### Tabs
 
 - Tabs are lazy-loaded and only mounted after first visit through `visitedTabs`.
-- Current tabs: users, settings, smtp, proxy, auth, exchange-rates, stats, background-tasks, audit, backup.
+- Current tabs: users, settings, smtp, auth, exchange-rates, stats, background-tasks, audit, backup.
 - Keep tab labels translated through `admin.ts` locale files.
 
 ### Secret Fields

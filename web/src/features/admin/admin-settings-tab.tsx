@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 
 import AdminSettingsGeneralSection from "./admin-settings-general-section"
+import AdminSettingsProxySection from "./admin-settings-proxy-section"
 import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 
 export default function AdminSettingsTab({
@@ -27,10 +28,17 @@ export default function AdminSettingsTab({
   onSave,
   onSiteNameChange,
   onSiteUrlChange,
+  onSystemProxyEnabledChange,
+  onSystemProxyTypeChange,
+  onSystemProxyUrlChange,
   registrationEmailVerificationEnabled,
   registrationEnabled,
   siteName,
   siteUrl,
+  systemProxyEnabled,
+  systemProxyType,
+  systemProxyUrl,
+  systemProxyUrlConfigured,
 }: AdminSettingsGeneralTabProps) {
   const { t } = useTranslation()
 
@@ -59,6 +67,18 @@ export default function AdminSettingsTab({
         registrationEnabled={registrationEnabled}
         siteName={siteName}
         siteUrl={siteUrl}
+      />
+
+      <Separator />
+
+      <AdminSettingsProxySection
+        onSystemProxyEnabledChange={onSystemProxyEnabledChange}
+        onSystemProxyTypeChange={onSystemProxyTypeChange}
+        onSystemProxyUrlChange={onSystemProxyUrlChange}
+        systemProxyEnabled={systemProxyEnabled}
+        systemProxyType={systemProxyType}
+        systemProxyUrl={systemProxyUrl}
+        systemProxyUrlConfigured={systemProxyUrlConfigured}
       />
 
       <Separator />

@@ -4,7 +4,6 @@ const admin = {
     "users": "Users",
     "settings": "Settings",
     "email": "Email",
-    "proxy": "Proxy",
     "authentication": "Authentication",
     "statistics": "Statistics",
     "backgroundTasks": "Background Tasks",

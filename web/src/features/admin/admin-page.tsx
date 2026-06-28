@@ -7,7 +7,6 @@ import {
   Database,
   FileClock,
   Mail,
-  Network,
   RefreshCw,
   ServerCog,
   Settings,
@@ -26,19 +25,17 @@ const AdminAuditTab = lazy(() => import("./admin-audit-tab"))
 const AdminBackgroundTasksTab = lazy(() => import("./admin-background-tasks-tab"))
 const AdminExchangeRatesTab = lazy(() => import("./admin-exchange-rates-tab"))
 const AdminSettingsOIDCTab = lazy(() => import("./admin-settings-oidc-tab"))
-const AdminSettingsProxyTab = lazy(() => import("./admin-settings-proxy-tab"))
 const AdminSettingsSMTPTab = lazy(() => import("./admin-settings-smtp-tab"))
 const AdminSettingsTab = lazy(() => import("./admin-settings-tab"))
 const AdminStatsTab = lazy(() => import("./admin-stats-tab"))
 const AdminUsersTab = lazy(() => import("./admin-users-tab"))
 
-type AdminTab = "users" | "settings" | "smtp" | "proxy" | "auth" | "exchange-rates" | "stats" | "background-tasks" | "audit" | "backup"
+type AdminTab = "users" | "settings" | "smtp" | "auth" | "exchange-rates" | "stats" | "background-tasks" | "audit" | "backup"
 
 function isAdminTab(value: string): value is AdminTab {
   return value === "users" ||
     value === "settings" ||
     value === "smtp" ||
-    value === "proxy" ||
     value === "auth" ||
     value === "exchange-rates" ||
     value === "stats" ||
@@ -106,10 +103,6 @@ export default function AdminPage() {
                 <TabsTrigger value="smtp" className="flex-none gap-2">
                   <Mail className="size-4" />
                   {t("admin.tabs.email")}
-                </TabsTrigger>
-                <TabsTrigger value="proxy" className="flex-none gap-2">
-                  <Network className="size-4" />
-                  {t("admin.tabs.proxy")}
                 </TabsTrigger>
                 <TabsTrigger value="auth" className="flex-none gap-2">
                   <ShieldCheck className="size-4" />
@@ -197,6 +190,15 @@ export default function AdminPage() {
                   onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
                   onMCPEnabledChange={(enabled) => admin.setSettingsField("mcpEnabled", enabled)}
                   onAuditEnabledChange={(enabled) => admin.setSettingsField("auditEnabled", enabled)}
+                  systemProxyEnabled={settingsForm.systemProxyEnabled}
+                  onSystemProxyEnabledChange={(enabled) =>
+                    admin.setSettingsField("systemProxyEnabled", enabled)
+                  }
+                  systemProxyType={settingsForm.systemProxyType}
+                  onSystemProxyTypeChange={(value) => admin.setSettingsField("systemProxyType", value)}
+                  systemProxyUrl={settingsForm.systemProxyUrl}
+                  systemProxyUrlConfigured={settingsForm.systemProxyUrlConfigured}
+                  onSystemProxyUrlChange={(value) => admin.setSettingsField("systemProxyUrl", value)}
                   onSave={admin.handleSaveSettings}
                 />
               </Suspense>
@@ -242,23 +244,6 @@ export default function AdminPage() {
                   }
                   smtpTesting={admin.smtpTesting}
                   onSMTPTest={admin.handleTestSMTP}
-                  onSave={admin.handleSaveSettings}
-                />
-              </Suspense>
-            )}
-
-            {visitedTabs.includes("proxy") && (
-              <Suspense fallback={<AdminTabLoading value="proxy" />}>
-                <AdminSettingsProxyTab
-                  systemProxyEnabled={settingsForm.systemProxyEnabled}
-                  onSystemProxyEnabledChange={(enabled) =>
-                    admin.setSettingsField("systemProxyEnabled", enabled)
-                  }
-                  systemProxyType={settingsForm.systemProxyType}
-                  onSystemProxyTypeChange={(value) => admin.setSettingsField("systemProxyType", value)}
-                  systemProxyUrl={settingsForm.systemProxyUrl}
-                  systemProxyUrlConfigured={settingsForm.systemProxyUrlConfigured}
-                  onSystemProxyUrlChange={(value) => admin.setSettingsField("systemProxyUrl", value)}
                   onSave={admin.handleSaveSettings}
                 />
               </Suspense>

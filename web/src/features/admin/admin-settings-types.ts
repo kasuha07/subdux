@@ -233,12 +233,10 @@ export interface AdminSettingsSaveProps {
 }
 
 export type AdminSettingsGeneralTabProps = AdminSettingsBasicSectionProps &
+  AdminSettingsProxySectionProps &
   AdminSettingsSaveProps
 
 export type AdminSettingsSMTPTabProps = AdminSettingsSMTPSectionProps &
-  AdminSettingsSaveProps
-
-export type AdminSettingsProxyTabProps = AdminSettingsProxySectionProps &
   AdminSettingsSaveProps
 
 export type AdminSettingsOIDCTabProps = AdminSettingsOIDCSectionProps &
