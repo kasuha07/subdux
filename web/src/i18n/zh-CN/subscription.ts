@@ -67,7 +67,7 @@ const subscription = {
       "category": "分类",
       "paymentMethod": "支付方式",
       "notification": "通知",
-      "notificationDefault": "使用默认策略",
+      "notificationDefault": "默认",
       "notificationEnabled": "已开启",
       "notificationEnabledWithDays": "已开启，提前 {{days}} 天",
       "notificationDisabled": "已关闭",

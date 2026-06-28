@@ -556,9 +556,9 @@ const settings = {
     },
     "subscription": {
       "title": "通知",
-      "useDefault": "使用默认策略",
-      "enabled": "为此订阅发送通知",
-      "disabled": "不发送通知",
+      "useDefault": "默认",
+      "enabled": "通知",
+      "disabled": "不通知",
       "daysBeforeOverride": "自定义提前天数"
     },
     templates: {
