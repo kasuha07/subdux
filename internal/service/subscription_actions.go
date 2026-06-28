@@ -4,10 +4,18 @@ import (
 	"errors"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
 func (s *SubscriptionService) MarkManualRenewed(userID, id uint) (*model.Subscription, error) {
+	// Persist any due lifecycle transition first so the active/renewal checks
+	// below run against the subscription's true current state rather than a row
+	// the background sweep has not yet caught up on.
+	if err := reconcileSubscriptionForWrite(s.DB, userID, id, pkg.NowInSystemTimezone()); err != nil {
+		return nil, err
+	}
+
 	sub, err := s.GetByID(userID, id)
 	if err != nil {
 		return nil, err

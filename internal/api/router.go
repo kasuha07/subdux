@@ -262,6 +262,7 @@ func SetupRoutes(
 	protected.PUT("/subscriptions/:id", subHandler.Update)
 	protected.DELETE("/subscriptions/:id", subHandler.Delete)
 	protected.POST("/subscriptions/:id/mark-renewed", subHandler.MarkRenewed)
+	protected.POST("/subscriptions/reconcile", subHandler.Reconcile)
 	protected.POST("/subscriptions/:id/icon", subHandler.UploadIcon)
 	protected.GET("/dashboard/summary", subHandler.Dashboard)
 	protected.GET("/dashboard/bootstrap", dashboardBootstrapHandler.Get)

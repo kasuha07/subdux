@@ -12,9 +12,6 @@ import (
 
 func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
 	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return nil, err
-	}
 
 	var subs []model.Subscription
 	err := s.DB.Where("user_id = ?", userID).
@@ -27,21 +24,16 @@ func (s *SubscriptionService) List(userID uint) ([]model.Subscription, error) {
 	}
 
 	for i := range subs {
-		normalizeSubscriptionForResponse(&subs[i])
+		presentSubscriptionForResponse(&subs[i], now)
 	}
 	return subs, err
 }
 
 func (s *SubscriptionService) GetByID(userID, id uint) (*model.Subscription, error) {
-	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return nil, err
-	}
-
 	var sub model.Subscription
 	err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&sub).Error
 	if err == nil {
-		normalizeSubscriptionForResponse(&sub)
+		presentSubscriptionForResponse(&sub, pkg.NowInSystemTimezone())
 	}
 	return &sub, err
 }
@@ -150,6 +142,13 @@ func (s *SubscriptionService) Create(userID uint, input CreateSubscriptionInput)
 }
 
 func (s *SubscriptionService) Update(userID, id uint, input UpdateSubscriptionInput) (*model.Subscription, error) {
+	// A mutation must act on a row whose lifecycle is current: read paths only
+	// advance state in memory, so persist any due transition for this
+	// subscription before computing the update.
+	if err := reconcileSubscriptionForWrite(s.DB, userID, id, pkg.NowInSystemTimezone()); err != nil {
+		return nil, err
+	}
+
 	sub, err := s.GetByID(userID, id)
 	if err != nil {
 		return nil, err
@@ -377,6 +376,10 @@ func (s *SubscriptionService) Delete(userID, id uint) error {
 // DeleteRecord removes the subscription database record and returns the deleted
 // snapshot without touching filesystem resources.
 func (s *SubscriptionService) DeleteRecord(userID, id uint) (*model.Subscription, error) {
+	if err := reconcileSubscriptionForWrite(s.DB, userID, id, pkg.NowInSystemTimezone()); err != nil {
+		return nil, err
+	}
+
 	sub, err := s.GetByID(userID, id)
 	if err != nil {
 		return nil, err

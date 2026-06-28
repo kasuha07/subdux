@@ -62,6 +62,17 @@ func setSubscriptionRolloverTestNow(t *testing.T) time.Time {
 	return normalizeDateUTC(now.In(pkg.GetSystemTimezone()))
 }
 
+func findSubscriptionByID(t *testing.T, subs []model.Subscription, id uint) model.Subscription {
+	t.Helper()
+	for _, sub := range subs {
+		if sub.ID == id {
+			return sub
+		}
+	}
+	t.Fatalf("subscription %d not found in list", id)
+	return model.Subscription{}
+}
+
 func TestNextRecurringBillingDateOnOrAfter(t *testing.T) {
 	referenceDate := mustDate(t, "2026-02-22")
 
@@ -158,20 +169,32 @@ func TestListAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 		t.Fatalf("Create recurring subscription error = %v", err)
 	}
 
-	if _, err := service.List(user.ID); err != nil {
+	subs, err := service.List(user.ID)
+	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 
-	var refreshedRecurring model.Subscription
-	if err := db.First(&refreshedRecurring, recurring.ID).Error; err != nil {
+	// The read presents the rolled-forward billing date in memory.
+	expectedRecurring := nextIntervalOccurrence(overdueRecurring, today, intervalCount, intervalUnitWeek)
+	presented := findSubscriptionByID(t, subs, recurring.ID)
+	if presented.NextBillingDate == nil {
+		t.Fatal("presented next billing date should not be nil")
+	}
+	if got, want := presented.NextBillingDate.Format("2006-01-02"), expectedRecurring.Format("2006-01-02"); got != want {
+		t.Fatalf("presented next billing date = %s, want %s", got, want)
+	}
+
+	// But the read must not write: the stored row stays at the overdue date
+	// until the background sweep (or a write path) persists the transition.
+	var stored model.Subscription
+	if err := db.First(&stored, recurring.ID).Error; err != nil {
 		t.Fatalf("load recurring subscription error = %v", err)
 	}
-	if refreshedRecurring.NextBillingDate == nil {
-		t.Fatal("recurring next billing date should not be nil")
+	if stored.NextBillingDate == nil {
+		t.Fatal("stored next billing date should not be nil")
 	}
-	expectedRecurring := nextIntervalOccurrence(overdueRecurring, today, intervalCount, intervalUnitWeek)
-	if got, want := refreshedRecurring.NextBillingDate.Format("2006-01-02"), expectedRecurring.Format("2006-01-02"); got != want {
-		t.Fatalf("recurring next billing date = %s, want %s", got, want)
+	if got, want := stored.NextBillingDate.Format("2006-01-02"), overdueRecurring.Format("2006-01-02"); got != want {
+		t.Fatalf("stored next billing date = %s, want %s (read must not persist)", got, want)
 	}
 }
 
@@ -300,20 +323,27 @@ func TestDashboardAutoAdvancesOverdueRecurringNextBillingDate(t *testing.T) {
 		t.Fatalf("Create recurring subscription error = %v", err)
 	}
 
-	if _, err := service.GetDashboardSummary(user.ID, "USD", nil); err != nil {
+	summary, err := service.GetDashboardSummary(user.ID, "USD", nil)
+	if err != nil {
 		t.Fatalf("GetDashboardSummary() error = %v", err)
 	}
 
-	var refreshed model.Subscription
-	if err := db.First(&refreshed, sub.ID).Error; err != nil {
+	// The auto-renew subscription is presented as active (rolled forward), so it
+	// still contributes to the dashboard.
+	if summary.ActiveCount != 1 {
+		t.Fatalf("active_count = %d, want 1 (overdue auto-renew presented as active)", summary.ActiveCount)
+	}
+
+	// The read must not persist the rollover.
+	var stored model.Subscription
+	if err := db.First(&stored, sub.ID).Error; err != nil {
 		t.Fatalf("load recurring subscription error = %v", err)
 	}
-	if refreshed.NextBillingDate == nil {
+	if stored.NextBillingDate == nil {
 		t.Fatal("recurring next billing date should not be nil")
 	}
-	expected := nextIntervalOccurrence(overdueRecurring, today, intervalCount, intervalUnitMonth)
-	if got, want := refreshed.NextBillingDate.Format("2006-01-02"), expected.Format("2006-01-02"); got != want {
-		t.Fatalf("recurring next billing date = %s, want %s", got, want)
+	if got, want := stored.NextBillingDate.Format("2006-01-02"), overdueRecurring.Format("2006-01-02"); got != want {
+		t.Fatalf("stored next billing date = %s, want %s (read must not persist)", got, want)
 	}
 }
 
@@ -340,22 +370,30 @@ func TestListEndsOverdueManualRenewSubscription(t *testing.T) {
 		t.Fatalf("Create manual renew subscription error = %v", err)
 	}
 
-	if _, err := service.List(user.ID); err != nil {
+	subs, err := service.List(user.ID)
+	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 
-	var refreshed model.Subscription
-	if err := db.First(&refreshed, sub.ID).Error; err != nil {
+	// The read presents the subscription as ended at its overdue billing date.
+	presented := findSubscriptionByID(t, subs, sub.ID)
+	if got, want := presented.Status, subscriptionStatusEnded; got != want {
+		t.Fatalf("presented status = %q, want %q", got, want)
+	}
+	if presented.EndsAt == nil {
+		t.Fatal("presented ends_at should be set for overdue manual renew subscription")
+	}
+	if got, want := presented.EndsAt.Format("2006-01-02"), overdue.Format("2006-01-02"); got != want {
+		t.Fatalf("presented ends_at = %s, want %s", got, want)
+	}
+
+	// The read must not persist the transition.
+	var stored model.Subscription
+	if err := db.First(&stored, sub.ID).Error; err != nil {
 		t.Fatalf("load manual renew subscription error = %v", err)
 	}
-	if got, want := refreshed.Status, subscriptionStatusEnded; got != want {
-		t.Fatalf("status = %q, want %q", got, want)
-	}
-	if refreshed.EndsAt == nil {
-		t.Fatal("ends_at should be set for overdue manual renew subscription")
-	}
-	if got, want := refreshed.EndsAt.Format("2006-01-02"), overdue.Format("2006-01-02"); got != want {
-		t.Fatalf("ends_at = %s, want %s", got, want)
+	if got, want := stored.Status, subscriptionStatusActive; got != want {
+		t.Fatalf("stored status = %q, want %q (read must not persist)", got, want)
 	}
 }
 
@@ -382,22 +420,30 @@ func TestListEndsCancelAtPeriodEndSubscription(t *testing.T) {
 		t.Fatalf("Create cancel_at_period_end subscription error = %v", err)
 	}
 
-	if _, err := service.List(user.ID); err != nil {
+	subs, err := service.List(user.ID)
+	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 
-	var refreshed model.Subscription
-	if err := db.First(&refreshed, sub.ID).Error; err != nil {
+	// The read presents the subscription as ended at its period boundary.
+	presented := findSubscriptionByID(t, subs, sub.ID)
+	if got, want := presented.Status, subscriptionStatusEnded; got != want {
+		t.Fatalf("presented status = %q, want %q", got, want)
+	}
+	if presented.EndsAt == nil {
+		t.Fatal("presented ends_at should be set for cancel_at_period_end subscription")
+	}
+	if got, want := presented.EndsAt.Format("2006-01-02"), periodEnd.Format("2006-01-02"); got != want {
+		t.Fatalf("presented ends_at = %s, want %s", got, want)
+	}
+
+	// The read must not persist the transition.
+	var stored model.Subscription
+	if err := db.First(&stored, sub.ID).Error; err != nil {
 		t.Fatalf("load cancel_at_period_end subscription error = %v", err)
 	}
-	if got, want := refreshed.Status, subscriptionStatusEnded; got != want {
-		t.Fatalf("status = %q, want %q", got, want)
-	}
-	if refreshed.EndsAt == nil {
-		t.Fatal("ends_at should be set for cancel_at_period_end subscription")
-	}
-	if got, want := refreshed.EndsAt.Format("2006-01-02"), periodEnd.Format("2006-01-02"); got != want {
-		t.Fatalf("ends_at = %s, want %s", got, want)
+	if got, want := stored.Status, subscriptionStatusActive; got != want {
+		t.Fatalf("stored status = %q, want %q (read must not persist)", got, want)
 	}
 }
 

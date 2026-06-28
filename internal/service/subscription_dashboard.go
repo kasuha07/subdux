@@ -9,34 +9,28 @@ import (
 
 func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
 	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return nil, err
-	}
 
 	var subs []model.Subscription
 	if err := s.DB.Where("user_id = ? AND status = ?", userID, subscriptionStatusActive).Find(&subs).Error; err != nil {
 		return nil, err
 	}
 
-	return computeDashboardSummary(subs, targetCurrency, converter, now), nil
+	return computeDashboardSummary(presentActiveSubscriptions(subs, now), targetCurrency, converter, now), nil
 }
 
 // SubscriptionsWithSummary returns a user's full subscription list (ordered as
-// the list endpoint expects) together with the dashboard summary, while
-// reconciling lifecycle once and reading the subscriptions table once. It backs
-// the dashboard bootstrap endpoint: the summary is derived from the active
-// subset in memory rather than issuing a second reconcile and SELECT, which
-// matters under SQLite's single-writer queue where those duplicate reads
-// serialize behind every other request.
+// the list endpoint expects) together with the dashboard summary, reading the
+// subscriptions table once. It backs the dashboard bootstrap endpoint. Lifecycle
+// is advanced in memory for presentation — reads never write — and the summary
+// is derived from the active subset after that advance, so an overdue
+// subscription the background sweep has not yet ended is excluded just as it
+// would be once persisted.
 func (s *SubscriptionService) SubscriptionsWithSummary(
 	userID uint,
 	targetCurrency string,
 	converter CurrencyConverter,
 ) ([]model.Subscription, *DashboardSummary, error) {
 	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return nil, nil, err
-	}
 
 	var subs []model.Subscription
 	if err := s.DB.Where("user_id = ?", userID).
@@ -47,17 +41,33 @@ func (s *SubscriptionService) SubscriptionsWithSummary(
 		return nil, nil, err
 	}
 	for i := range subs {
-		normalizeSubscriptionForResponse(&subs[i])
+		presentSubscriptionForResponse(&subs[i], now)
 	}
 
 	activeSubs := make([]model.Subscription, 0, len(subs))
 	for _, sub := range subs {
-		if normalizeStatus(sub.Status) == subscriptionStatusActive {
+		if subscriptionIsActive(sub) {
 			activeSubs = append(activeSubs, sub)
 		}
 	}
 
 	return subs, computeDashboardSummary(activeSubs, targetCurrency, converter, now), nil
+}
+
+// presentActiveSubscriptions advances each subscription's lifecycle in memory
+// and returns only those still active as of now. It lets read paths that query
+// WHERE status = active reproduce the post-reconcile active set without writing:
+// an overdue manual-renew or cancel-at-period-end subscription is dropped, and
+// an auto-renew subscription is returned with its billing date rolled forward.
+func presentActiveSubscriptions(subs []model.Subscription, now time.Time) []model.Subscription {
+	active := make([]model.Subscription, 0, len(subs))
+	for i := range subs {
+		presentSubscriptionForResponse(&subs[i], now)
+		if subscriptionIsActive(subs[i]) {
+			active = append(active, subs[i])
+		}
+	}
+	return active
 }
 
 // computeDashboardSummary aggregates spend metrics from a set of active

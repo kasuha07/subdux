@@ -92,9 +92,6 @@ type SnoozeSubscriptionActionInput struct {
 
 func (s *SubscriptionService) GetActionCenter(userID uint) (*ActionCenter, error) {
 	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return nil, err
-	}
 
 	today := normalizeDateUTC(now)
 	windowEnd := today.AddDate(0, 0, actionCenterUpcomingDays)
@@ -104,7 +101,7 @@ func (s *SubscriptionService) GetActionCenter(userID uint) (*ActionCenter, error
 		return nil, err
 	}
 	for i := range subs {
-		normalizeSubscriptionForResponse(&subs[i])
+		presentSubscriptionForResponse(&subs[i], now)
 	}
 
 	snoozes, err := s.activeActionSnoozes(userID, today)
@@ -411,7 +408,7 @@ func (s *SubscriptionService) notificationFailureActions(userID uint, today time
 		ids = append(ids, logEntry.SubscriptionID)
 	}
 
-	subsByID, err := s.loadSubscriptionsByIDs(userID, ids)
+	subsByID, err := s.loadSubscriptionsByIDs(userID, ids, today)
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +526,7 @@ func (s *SubscriptionService) priceIncreaseActions(userID uint, today time.Time)
 		ids = append(ids, subscriptionID)
 	}
 
-	subsByID, err := s.loadSubscriptionsByIDs(userID, ids)
+	subsByID, err := s.loadSubscriptionsByIDs(userID, ids, today)
 	if err != nil {
 		return nil, err
 	}

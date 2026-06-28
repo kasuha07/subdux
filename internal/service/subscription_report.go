@@ -127,9 +127,6 @@ type reportBreakdownAccumulator struct {
 
 func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency string, converter CurrencyConverter) (*AnalyticsReport, error) {
 	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return nil, err
-	}
 
 	if strings.TrimSpace(targetCurrency) == "" {
 		targetCurrency = "USD"
@@ -140,6 +137,7 @@ func (s *SubscriptionService) GetAnalyticsReport(userID uint, targetCurrency str
 	if err := s.DB.Where("user_id = ? AND status = ?", userID, subscriptionStatusActive).Find(&subs).Error; err != nil {
 		return nil, err
 	}
+	subs = presentActiveSubscriptions(subs, now)
 
 	categoryLabels, err := s.reportCategoryLabels(userID)
 	if err != nil {
@@ -406,12 +404,14 @@ func (s *SubscriptionService) reportRecentSubscriptionChanges(userID uint, targe
 }
 
 func (s *SubscriptionService) reportAnnualGrowth(userID uint, targetCurrency string, converter CurrencyConverter) ([]ReportAnnualGrowthItem, error) {
+	now := pkg.NowInSystemTimezone()
 	var subs []model.Subscription
 	if err := s.DB.Where("user_id = ? AND status = ?", userID, subscriptionStatusActive).Find(&subs).Error; err != nil {
 		return nil, err
 	}
+	subs = presentActiveSubscriptions(subs, now)
 
-	baselines, err := s.annualGrowthBaselineMonthlyAmounts(userID, targetCurrency, converter, pkg.NowInSystemTimezone())
+	baselines, err := s.annualGrowthBaselineMonthlyAmounts(userID, targetCurrency, converter, now)
 	if err != nil {
 		return nil, err
 	}

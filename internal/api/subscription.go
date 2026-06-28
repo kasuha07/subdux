@@ -251,6 +251,25 @@ func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
+// Reconcile persists any due lifecycle transitions for the caller's
+// subscriptions on demand, then returns the refreshed list. Reads advance
+// lifecycle in memory only; this endpoint is the explicit repair entry that
+// forces those transitions to disk without waiting for the background sweep.
+func (h *SubscriptionHandler) Reconcile(c echo.Context) error {
+	userID := getUserID(c)
+	svc := h.Service.WithContext(c.Request().Context())
+
+	if err := svc.ReconcileUserLifecycle(userID); err != nil {
+		return writeInternalServerError(c, err)
+	}
+
+	subs, err := svc.List(userID)
+	if err != nil {
+		return writeInternalServerError(c, err)
+	}
+	return c.JSON(http.StatusOK, mapSubscriptionResponses(subs))
+}
+
 func (h *SubscriptionHandler) ActionCenter(c echo.Context) error {
 	userID := getUserID(c)
 	center, err := h.Service.WithContext(c.Request().Context()).GetActionCenter(userID)

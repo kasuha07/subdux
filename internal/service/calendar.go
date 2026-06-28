@@ -101,9 +101,7 @@ func hashCalendarToken(token string) string {
 }
 
 func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subscription, error) {
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, pkg.NowInSystemTimezone()); err != nil {
-		return nil, err
-	}
+	now := pkg.NowInSystemTimezone()
 
 	var subs []model.Subscription
 	if err := s.DB.Where(
@@ -116,7 +114,10 @@ func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subs
 		Find(&subs).Error; err != nil {
 		return nil, err
 	}
-	return subs, nil
+	// Present lifecycle in memory (no writes): auto-renew dates roll forward and
+	// overdue manual-renew subscriptions drop out, matching what the calendar
+	// would show once the background sweep persists those transitions.
+	return presentActiveSubscriptions(subs, now), nil
 }
 
 func (s *CalendarService) GenerateICalFeed(userID uint) (string, error) {

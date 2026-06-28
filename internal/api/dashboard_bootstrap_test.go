@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +46,7 @@ func authedContext(e *echo.Echo, rec *httptest.ResponseRecorder, req *http.Reque
 	return c
 }
 
-func TestDashboardBootstrapAggregatesEverySectionAndReconcilesOnce(t *testing.T) {
+func TestDashboardBootstrapAggregatesEverySectionWithoutWriting(t *testing.T) {
 	restoreClock := pkg.SetNowForTest(time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC))
 	t.Cleanup(restoreClock)
 
@@ -100,14 +99,18 @@ func TestDashboardBootstrapAggregatesEverySectionAndReconcilesOnce(t *testing.T)
 		t.Fatalf("create currency failed: %v", err)
 	}
 
-	var reconcileSelects int
-	if err := db.Callback().Query().After("gorm:query").Register("test:count_reconcile", func(tx *gorm.DB) {
-		sql := tx.Statement.SQL.String()
-		if strings.Contains(sql, "subscriptions") && strings.Contains(sql, "billing_type") {
-			reconcileSelects++
+	// The bootstrap is a read: it must not write to the subscriptions table.
+	var subscriptionWrites int
+	countWrite := func(tx *gorm.DB) {
+		if tx.Statement != nil && tx.Statement.Table == "subscriptions" {
+			subscriptionWrites++
 		}
-	}); err != nil {
-		t.Fatalf("register reconcile counter failed: %v", err)
+	}
+	if err := db.Callback().Update().After("gorm:update").Register("test:count_sub_update", countWrite); err != nil {
+		t.Fatalf("register update counter failed: %v", err)
+	}
+	if err := db.Callback().Create().After("gorm:create").Register("test:count_sub_create", countWrite); err != nil {
+		t.Fatalf("register create counter failed: %v", err)
 	}
 
 	handler := NewDashboardBootstrapHandler(
@@ -157,7 +160,7 @@ func TestDashboardBootstrapAggregatesEverySectionAndReconcilesOnce(t *testing.T)
 		t.Fatal("preferred_currency is empty")
 	}
 
-	if reconcileSelects != 1 {
-		t.Fatalf("lifecycle reconcile ran %d times, want exactly 1", reconcileSelects)
+	if subscriptionWrites != 0 {
+		t.Fatalf("bootstrap issued %d subscription writes, want 0 (read path must be write-free)", subscriptionWrites)
 	}
 }

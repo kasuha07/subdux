@@ -1,13 +1,19 @@
 package service
 
-import "github.com/shiroha/subdux/internal/model"
+import (
+	"time"
 
-// loadSubscriptionsByIDs loads the given user's subscriptions keyed by ID and
-// normalized for response, collapsing what would otherwise be a per-row lookup
-// (an N+1 pattern) into a single IN query. IDs with no matching row — for
-// example a subscription deleted after the referencing event was recorded — are
-// simply absent from the returned map, so callers should test for presence.
-func (s *SubscriptionService) loadSubscriptionsByIDs(userID uint, ids []uint) (map[uint]model.Subscription, error) {
+	"github.com/shiroha/subdux/internal/model"
+)
+
+// loadSubscriptionsByIDs loads the given user's subscriptions keyed by ID,
+// advancing each one's lifecycle in memory as of referenceDate (a pure-read
+// presentation, no writes) and normalizing legacy fields. It collapses what
+// would otherwise be a per-row lookup (an N+1 pattern) into a single IN query.
+// IDs with no matching row — for example a subscription deleted after the
+// referencing event was recorded — are simply absent from the returned map, so
+// callers should test for presence.
+func (s *SubscriptionService) loadSubscriptionsByIDs(userID uint, ids []uint, referenceDate time.Time) (map[uint]model.Subscription, error) {
 	result := make(map[uint]model.Subscription, len(ids))
 	if len(ids) == 0 {
 		return result, nil
@@ -19,7 +25,7 @@ func (s *SubscriptionService) loadSubscriptionsByIDs(userID uint, ids []uint) (m
 	}
 
 	for i := range subs {
-		normalizeSubscriptionForResponse(&subs[i])
+		presentSubscriptionForResponse(&subs[i], referenceDate)
 		result[subs[i].ID] = subs[i]
 	}
 	return result, nil
