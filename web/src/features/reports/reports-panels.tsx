@@ -12,7 +12,8 @@ import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getBrandIconFromValue } from "@/lib/brand-icons"
+import { AsyncBrandIcon } from "@/components/async-brand-icon"
+import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import {
   formatSubscriptionEventAmountChange,
   reportRenewalModeLabel,
@@ -594,10 +595,15 @@ function ReportSubscriptionIcon({ icon, name }: { icon: string, name: string }) 
     return fallbackInitial
   }
 
-  const brand = getBrandIconFromValue(icon)
-  if (brand) {
-    const { Icon } = brand
-    return <Icon size={22} color="default" />
+  if (isAsyncBrandIconValue(icon)) {
+    return (
+      <AsyncBrandIcon
+        value={icon}
+        size={22}
+        color="default"
+        fallback={fallbackInitial}
+      />
+    )
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {

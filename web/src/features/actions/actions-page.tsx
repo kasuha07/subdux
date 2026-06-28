@@ -24,6 +24,7 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
-import { getBrandIconFromValue } from "@/lib/brand-icons"
+import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import { cn, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import {
@@ -127,10 +128,15 @@ function renderActionIcon(icon: string, name: string) {
     return fallback
   }
 
-  const brand = getBrandIconFromValue(icon)
-  if (brand) {
-    const { Icon } = brand
-    return <Icon size={22} color="default" />
+  if (isAsyncBrandIconValue(icon)) {
+    return (
+      <AsyncBrandIcon
+        value={icon}
+        size={22}
+        color="default"
+        fallback={fallback}
+      />
+    )
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {

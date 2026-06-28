@@ -17,8 +17,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { api } from "@/lib/api"
-import { getBrandIconFromValue } from "@/lib/brand-icons"
+import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { cn } from "@/lib/utils"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
@@ -53,12 +54,15 @@ function renderCalendarIcon(icon: string, name: string) {
     return fallback
   }
 
-  const brand = getBrandIconFromValue(icon)
-  if (brand) {
-    const { Icon } = brand
+  if (isAsyncBrandIconValue(icon)) {
     return (
       <div className="size-8 rounded bg-muted/40 flex items-center justify-center shrink-0">
-        <Icon size={20} color="default" />
+        <AsyncBrandIcon
+          value={icon}
+          size={20}
+          color="default"
+          fallback={<span className="text-xs font-medium text-muted-foreground">{name.charAt(0).toUpperCase()}</span>}
+        />
       </div>
     )
   }

@@ -53,6 +53,21 @@ function preloadSubscriptionDetailDrawer() {
   void loadSubscriptionDetailDrawer()
 }
 
+function scheduleIdlePreload(callback: () => void, timeout: number): () => void {
+  const idleWindow = window as Window & {
+    cancelIdleCallback?: (handle: number) => void
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+  }
+
+  if (typeof idleWindow.requestIdleCallback === "function") {
+    const handle = idleWindow.requestIdleCallback(callback, { timeout })
+    return () => idleWindow.cancelIdleCallback?.(handle)
+  }
+
+  const handle = window.setTimeout(callback, timeout)
+  return () => window.clearTimeout(handle)
+}
+
 function DashboardSkeleton() {
   return (
     <>
@@ -363,13 +378,11 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    const timeout = window.setTimeout(preloadSubscriptionForm, 250)
-    return () => window.clearTimeout(timeout)
+    return scheduleIdlePreload(preloadSubscriptionForm, 700)
   }, [])
 
   useEffect(() => {
-    const timeout = window.setTimeout(preloadSubscriptionDetailDrawer, 400)
-    return () => window.clearTimeout(timeout)
+    return scheduleIdlePreload(preloadSubscriptionDetailDrawer, 1100)
   }, [])
 
   useEffect(() => {
@@ -486,7 +499,15 @@ export default function DashboardPage() {
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
           <h1 className="text-lg font-bold tracking-tight">{t("dashboard.title")}</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={openNewForm} disabled={loading}>
+            <Button
+              variant="outline"
+              size="sm"
+              onFocus={preloadSubscriptionForm}
+              onPointerDown={preloadSubscriptionForm}
+              onPointerEnter={preloadSubscriptionForm}
+              onClick={openNewForm}
+              disabled={loading}
+            >
               <Plus className="size-4" />
               {t("dashboard.add")}
             </Button>
@@ -585,7 +606,13 @@ export default function DashboardPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {t("dashboard.empty.description")}
                   </p>
-                  <Button className="mt-4" onClick={openNewForm}>
+                  <Button
+                    className="mt-4"
+                    onFocus={preloadSubscriptionForm}
+                    onPointerDown={preloadSubscriptionForm}
+                    onPointerEnter={preloadSubscriptionForm}
+                    onClick={openNewForm}
+                  >
                     <Plus className="size-4" />
                     {t("dashboard.empty.addButton")}
                   </Button>

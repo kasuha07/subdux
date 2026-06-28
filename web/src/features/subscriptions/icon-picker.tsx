@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
-import { getBrandIconFromValue, loadBrandIconsCatalog, type BrandIcon } from "@/lib/brand-icons"
+import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
+import type { BrandIcon } from "@/lib/brand-icons/types"
 import { emojiCategories } from "@/lib/emoji-data"
 import { buildIconProxySuggestionURL, isRenderableImageURL } from "@/lib/icon-proxy"
 
@@ -25,9 +27,15 @@ function renderPreview(value: string): ReactNode {
     return <ImageIcon className="size-5 text-muted-foreground" />
   }
 
-  const brand = getBrandIconFromValue(value)
-  if (brand) {
-    return <brand.Icon size={20} color="default" />
+  if (isAsyncBrandIconValue(value)) {
+    return (
+      <AsyncBrandIcon
+        value={value}
+        size={20}
+        color="default"
+        fallback={<ImageIcon className="size-5 text-muted-foreground" />}
+      />
+    )
   }
 
   if (isRenderableImageURL(value)) {
@@ -54,8 +62,12 @@ function isNonEmojiValue(v: string) {
     v.startsWith("https://") ||
     v.startsWith("/api/icon-proxy/") ||
     v.startsWith("file:") ||
-    Boolean(getBrandIconFromValue(v))
+    isAsyncBrandIconValue(v)
   )
+}
+
+function loadBrandIconsCatalog(): Promise<BrandIcon[]> {
+  return import("@/lib/brand-icons").then((module) => module.loadBrandIconsCatalog())
 }
 
 function isImageURLValue(value: string): boolean {

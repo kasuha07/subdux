@@ -4,10 +4,11 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { AsyncBrandIcon } from "@/components/async-brand-icon"
+import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { safeHref } from "@/lib/safe-href"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
-import { getBrandIconFromValue } from "@/lib/brand-icons"
 import {
   getSubscriptionEndsAt,
   getSubscriptionRenewalMode,
@@ -28,10 +29,15 @@ function renderIcon(icon: string, name: string): ReactNode {
     return fallbackInitial
   }
 
-  const brand = getBrandIconFromValue(icon)
-  if (brand) {
-    const { Icon } = brand
-    return <Icon size={24} color="default" />
+  if (isAsyncBrandIconValue(icon)) {
+    return (
+      <AsyncBrandIcon
+        value={icon}
+        size={24}
+        color="default"
+        fallback={fallbackInitial}
+      />
+    )
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
@@ -108,10 +114,15 @@ function renderInlineIcon(icon: string, name: string): ReactNode {
     return null
   }
 
-  const brand = getBrandIconFromValue(icon)
-  if (brand) {
-    const { Icon } = brand
-    return <Icon size={12} color="default" />
+  if (isAsyncBrandIconValue(icon)) {
+    return (
+      <AsyncBrandIcon
+        value={icon}
+        size={12}
+        color="default"
+        fallback={<span className="text-[10px] leading-none">{name.charAt(0).toUpperCase()}</span>}
+      />
+    )
   }
 
   if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
