@@ -85,6 +85,7 @@ func main() {
 	var backgroundTasks sync.WaitGroup
 	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
 	startNotificationWorkers(appCtx, notificationService, taskMonitor, &backgroundTasks)
+	startSubscriptionLifecycleSweep(appCtx, service.NewSubscriptionService(db), taskMonitor, &backgroundTasks)
 
 	setupUploads(e, filepath.Join(pkg.GetDataPath(), "assets"))
 
@@ -486,6 +487,79 @@ func startNotificationWorkers(
 			select {
 			case <-ticker.C:
 				runDispatch()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// startSubscriptionLifecycleSweep periodically advances subscription lifecycle
+// for all users in the background. It is the primary driver of lifecycle
+// transitions so that read requests no longer have to write: the sweep handles
+// the boundary-crossing case ahead of time, and the read path's own reconcile
+// remains only as a backstop for the window between sweeps.
+func startSubscriptionLifecycleSweep(
+	ctx context.Context,
+	subscriptions *service.SubscriptionService,
+	monitor *service.BackgroundTaskMonitor,
+	wg *sync.WaitGroup,
+) {
+	const (
+		taskKey       = "subscription_lifecycle_sweep"
+		sweepInterval = time.Hour
+	)
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	ownerID := service.NewBackgroundTaskOwnerID()
+
+	if monitor != nil {
+		monitor.Register(
+			taskKey,
+			"Subscription lifecycle sweep",
+			"Rolls renewals forward and ends overdue subscriptions so read requests stay write-free.",
+			sweepInterval,
+		)
+	}
+
+	runSweep := func() {
+		run := func() error { return subscriptions.ReconcileDueLifecycles(ownerID) }
+		if monitor != nil {
+			if err := monitor.Run(taskKey, run); err != nil {
+				logging.Error("subscription lifecycle sweep failed", slog.Any("error", err))
+			}
+			return
+		}
+		if err := run(); err != nil {
+			logging.Error("subscription lifecycle sweep failed", slog.Any("error", err))
+		}
+	}
+
+	if wg != nil {
+		wg.Add(1)
+	}
+
+	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+
+		runSweep()
+
+		ticker := time.NewTicker(sweepInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				runSweep()
 			case <-ctx.Done():
 				return
 			}

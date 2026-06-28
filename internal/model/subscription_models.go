@@ -4,22 +4,22 @@ import "time"
 
 type Subscription struct {
 	ID               uint           `gorm:"primaryKey" json:"id"`
-	UserID           uint           `gorm:"index;not null" json:"user_id"`
+	UserID           uint           `gorm:"not null;index;index:idx_subscriptions_user_status_billing,priority:1;index:idx_subscriptions_user_next_billing,priority:1" json:"user_id"`
 	Name             string         `gorm:"not null;size:255" json:"name"`
 	Amount           float64        `gorm:"not null;check:chk_subscriptions_amount_non_negative,amount >= 0" json:"amount"`
 	Currency         string         `gorm:"not null;size:10;default:'USD'" json:"currency"`
 	Enabled          bool           `gorm:"default:true" json:"enabled"`
-	Status           string         `gorm:"not null;size:30;default:'active';check:chk_subscriptions_status,status IN ('active','ended')" json:"status"`
+	Status           string         `gorm:"not null;size:30;default:'active';check:chk_subscriptions_status,status IN ('active','ended');index:idx_subscriptions_user_status_billing,priority:2" json:"status"`
 	RenewalMode      string         `gorm:"not null;size:30;default:'auto_renew';check:chk_subscriptions_renewal_mode,renewal_mode IN ('auto_renew','manual_renew','cancel_at_period_end')" json:"renewal_mode"`
 	EndsAt           *time.Time     `json:"ends_at"`
-	BillingType      string         `gorm:"not null;size:30;default:'recurring'" json:"billing_type"`
+	BillingType      string         `gorm:"not null;size:30;default:'recurring';index:idx_subscriptions_user_status_billing,priority:3" json:"billing_type"`
 	RecurrenceType   string         `gorm:"size:30" json:"recurrence_type"`
 	IntervalCount    *int           `json:"interval_count"`
 	IntervalUnit     string         `gorm:"size:10" json:"interval_unit"`
 	MonthlyDay       *int           `json:"monthly_day"`
 	YearlyMonth      *int           `json:"yearly_month"`
 	YearlyDay        *int           `json:"yearly_day"`
-	NextBillingDate  *time.Time     `json:"next_billing_date"`
+	NextBillingDate  *time.Time     `gorm:"index:idx_subscriptions_user_next_billing,priority:2" json:"next_billing_date"`
 	Category         string         `gorm:"size:100" json:"category"`
 	CategoryID       *uint          `gorm:"index" json:"category_id"`
 	PaymentMethodID  *uint          `gorm:"index" json:"payment_method_id"`
@@ -37,9 +37,9 @@ type Subscription struct {
 
 type SubscriptionEvent struct {
 	ID                        uint          `gorm:"primaryKey" json:"id"`
-	UserID                    uint          `gorm:"not null;index:idx_subscription_events_user_created,priority:1" json:"user_id"`
+	UserID                    uint          `gorm:"not null;index:idx_subscription_events_user_created,priority:1;index:idx_subscription_events_user_sub_created,priority:1" json:"user_id"`
 	ActorUserID               *uint         `gorm:"index" json:"actor_user_id"`
-	SubscriptionID            *uint         `gorm:"index" json:"subscription_id"`
+	SubscriptionID            *uint         `gorm:"index;index:idx_subscription_events_user_sub_created,priority:2" json:"subscription_id"`
 	SubscriptionName          string        `gorm:"not null;size:255" json:"subscription_name"`
 	Type                      string        `gorm:"not null;size:30;index" json:"type"`
 	ChangedFields             string        `gorm:"type:text;not null;default:'[]'" json:"changed_fields"`
@@ -63,7 +63,7 @@ type SubscriptionEvent struct {
 	NewPaymentMethodID        *uint         `json:"new_payment_method_id"`
 	PreviousPaymentMethodName string        `gorm:"size:50" json:"previous_payment_method_name"`
 	NewPaymentMethodName      string        `gorm:"size:50" json:"new_payment_method_name"`
-	CreatedAt                 time.Time     `gorm:"index:idx_subscription_events_user_created,priority:2" json:"created_at"`
+	CreatedAt                 time.Time     `gorm:"index:idx_subscription_events_user_created,priority:2;index:idx_subscription_events_user_sub_created,priority:3" json:"created_at"`
 	User                      *User         `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 	Subscription              *Subscription `gorm:"foreignKey:SubscriptionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-"`
 }

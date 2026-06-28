@@ -64,6 +64,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260623_01_api_key_kind_and_audit", Run: migrateAPIKeyKindAndAudit},
 	{Name: "20260628_01_manual_renew_daily_notifications", Run: migrateManualRenewDailyNotificationPolicy},
 	{Name: "20260628_02_mcp_idempotency_keys", Run: migrateMCPIdempotencyKeys},
+	{Name: "20260628_03_performance_composite_indexes", Run: migratePerformanceCompositeIndexes},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
@@ -105,6 +106,40 @@ func migrateMCPIdempotencyKeys(db *gorm.DB) error {
 	// silently running with a weakened guarantee.
 	if !db.Migrator().HasIndex(&model.MCPIdempotencyKey{}, "idx_mcp_idempotency_user_key") {
 		return fmt.Errorf("expected unique index idx_mcp_idempotency_user_key was not created")
+	}
+	return nil
+}
+
+// migratePerformanceCompositeIndexes adds composite indexes that cover the hot
+// read queries (lifecycle reconcile, dashboard summary, action center, price
+// history, annual-growth baseline). Under SQLite's single-writer queue an
+// unindexed scan directly lengthens the serialized queue, so these indexes are
+// pure throughput wins with no behavioral change. AutoMigrate creates only the
+// indexes that are missing; the HasIndex assertions fail loudly if a composite
+// index the hot paths rely on did not materialize.
+func migratePerformanceCompositeIndexes(db *gorm.DB) error {
+	if err := db.AutoMigrate(
+		&model.Subscription{},
+		&model.SubscriptionEvent{},
+		&model.NotificationLog{},
+	); err != nil {
+		return err
+	}
+
+	required := []struct {
+		model interface{}
+		name  string
+	}{
+		{&model.Subscription{}, "idx_subscriptions_user_status_billing"},
+		{&model.Subscription{}, "idx_subscriptions_user_next_billing"},
+		{&model.SubscriptionEvent{}, "idx_subscription_events_user_sub_created"},
+		{&model.NotificationLog{}, "idx_notification_logs_user_status_sent"},
+		{&model.NotificationLog{}, "idx_notification_logs_user_sub_channel_sent"},
+	}
+	for _, index := range required {
+		if !db.Migrator().HasIndex(index.model, index.name) {
+			return fmt.Errorf("expected index %s was not created", index.name)
+		}
 	}
 	return nil
 }

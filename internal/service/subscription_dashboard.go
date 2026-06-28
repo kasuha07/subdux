@@ -18,6 +18,52 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 		return nil, err
 	}
 
+	return computeDashboardSummary(subs, targetCurrency, converter, now), nil
+}
+
+// SubscriptionsWithSummary returns a user's full subscription list (ordered as
+// the list endpoint expects) together with the dashboard summary, while
+// reconciling lifecycle once and reading the subscriptions table once. It backs
+// the dashboard bootstrap endpoint: the summary is derived from the active
+// subset in memory rather than issuing a second reconcile and SELECT, which
+// matters under SQLite's single-writer queue where those duplicate reads
+// serialize behind every other request.
+func (s *SubscriptionService) SubscriptionsWithSummary(
+	userID uint,
+	targetCurrency string,
+	converter CurrencyConverter,
+) ([]model.Subscription, *DashboardSummary, error) {
+	now := pkg.NowInSystemTimezone()
+	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
+		return nil, nil, err
+	}
+
+	var subs []model.Subscription
+	if err := s.DB.Where("user_id = ?", userID).
+		Order("next_billing_date IS NULL ASC").
+		Order("next_billing_date ASC").
+		Order("id ASC").
+		Find(&subs).Error; err != nil {
+		return nil, nil, err
+	}
+	for i := range subs {
+		normalizeSubscriptionForResponse(&subs[i])
+	}
+
+	activeSubs := make([]model.Subscription, 0, len(subs))
+	for _, sub := range subs {
+		if normalizeStatus(sub.Status) == subscriptionStatusActive {
+			activeSubs = append(activeSubs, sub)
+		}
+	}
+
+	return subs, computeDashboardSummary(activeSubs, targetCurrency, converter, now), nil
+}
+
+// computeDashboardSummary aggregates spend metrics from a set of active
+// subscriptions. It performs no I/O so it can be reused by any caller that has
+// already loaded the active subscriptions.
+func computeDashboardSummary(subs []model.Subscription, targetCurrency string, converter CurrencyConverter, now time.Time) *DashboardSummary {
 	if targetCurrency == "" {
 		targetCurrency = "USD"
 	}
@@ -72,7 +118,7 @@ func (s *SubscriptionService) GetDashboardSummary(userID uint, targetCurrency st
 		ActiveCount:          int64(len(subs)),
 		UpcomingRenewalCount: upcomingRenewalCount,
 		Currency:             targetCurrency,
-	}, nil
+	}
 }
 
 func subscriptionContributesToOngoingSpend(sub model.Subscription) bool {

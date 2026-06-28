@@ -1,14 +1,12 @@
 package service
 
 import (
-	"errors"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
-	"gorm.io/gorm"
 )
 
 const (
@@ -413,6 +411,11 @@ func (s *SubscriptionService) reportAnnualGrowth(userID uint, targetCurrency str
 		return nil, err
 	}
 
+	baselines, err := s.annualGrowthBaselineMonthlyAmounts(userID, targetCurrency, converter, pkg.NowInSystemTimezone())
+	if err != nil {
+		return nil, err
+	}
+
 	items := make([]ReportAnnualGrowthItem, 0, len(subs))
 	for _, sub := range subs {
 		if !subscriptionContributesToOngoingSpend(sub) {
@@ -423,10 +426,7 @@ func (s *SubscriptionService) reportAnnualGrowth(userID uint, targetCurrency str
 			continue
 		}
 
-		baselineMonthly, ok, err := s.subscriptionAnnualGrowthBaselineMonthlyAmount(userID, sub.ID, targetCurrency, converter, pkg.NowInSystemTimezone())
-		if err != nil {
-			return nil, err
-		}
+		baselineMonthly, ok := baselines[sub.ID]
 		if !ok || baselineMonthly <= 0 {
 			continue
 		}
@@ -458,32 +458,42 @@ func (s *SubscriptionService) reportAnnualGrowth(userID uint, targetCurrency str
 	return items, nil
 }
 
-func (s *SubscriptionService) subscriptionAnnualGrowthBaselineMonthlyAmount(
+// annualGrowthBaselineMonthlyAmounts returns, per subscription, the monthly
+// amount recorded by that subscription's earliest price-bearing event within
+// the trailing year, converted to targetCurrency. It replaces a per-row lookup
+// with a single ordered scan: events arrive oldest-first, so the first event
+// seen for each subscription is its baseline. The query is covered by
+// idx_subscription_events_user_sub_created.
+func (s *SubscriptionService) annualGrowthBaselineMonthlyAmounts(
 	userID uint,
-	subscriptionID uint,
 	targetCurrency string,
 	converter CurrencyConverter,
 	now time.Time,
-) (float64, bool, error) {
+) (map[uint]float64, error) {
 	oneYearAgo := normalizeDateUTC(now).AddDate(-1, 0, 0)
-	var event model.SubscriptionEvent
-	err := s.DB.Where(
-		"user_id = ? AND subscription_id = ? AND type != ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL AND created_at >= ?",
+	var events []model.SubscriptionEvent
+	if err := s.DB.Where(
+		"user_id = ? AND type != ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL AND created_at >= ?",
 		userID,
-		subscriptionID,
 		subscriptionEventCreated,
 		oneYearAgo,
-	).Order("created_at ASC").First(&event).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, false, nil
+	).Order("subscription_id ASC, created_at ASC, id ASC").Find(&events).Error; err != nil {
+		return nil, err
+	}
+
+	baselines := make(map[uint]float64)
+	for _, event := range events {
+		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil {
+			continue
 		}
-		return 0, false, err
+		if _, ok := baselines[*event.SubscriptionID]; ok {
+			continue
+		}
+		baselines[*event.SubscriptionID] = convertHistoricalAmount(
+			*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter,
+		)
 	}
-	if event.PreviousMonthlyAmount == nil {
-		return 0, false, nil
-	}
-	return convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter), true, nil
+	return baselines, nil
 }
 
 func convertSubscriptionAmount(sub model.Subscription, targetCurrency string, converter CurrencyConverter) float64 {

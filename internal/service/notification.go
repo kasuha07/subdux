@@ -2,10 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
-	"os"
 
 	"gorm.io/gorm"
 )
@@ -54,17 +50,7 @@ func (s *NotificationService) notificationOwnerID() string {
 }
 
 func newNotificationOwnerID() string {
-	hostname, err := os.Hostname()
-	if err != nil || hostname == "" {
-		hostname = "subdux"
-	}
-
-	var randomBytes [4]byte
-	if _, err := rand.Read(randomBytes[:]); err != nil {
-		return fmt.Sprintf("%s:%d", hostname, os.Getpid())
-	}
-
-	return fmt.Sprintf("%s:%d:%s", hostname, os.Getpid(), hex.EncodeToString(randomBytes[:]))
+	return NewBackgroundTaskOwnerID()
 }
 
 type CreateChannelInput struct {

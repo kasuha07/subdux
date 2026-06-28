@@ -382,30 +382,47 @@ func (s *SubscriptionService) notificationFailureActions(userID uint, today time
 		return nil, err
 	}
 
-	items := make([]SubscriptionAction, 0, len(logs))
+	recovered, err := s.notificationRecoveryIndex(userID, since)
+	if err != nil {
+		return nil, err
+	}
+
+	// Process logs newest-first and keep only the most recent failure per
+	// (subscription, channel): once recovered, every older failure for that key
+	// is necessarily recovered too, so a single check at the most recent entry
+	// decides the whole key.
+	type failedCandidate struct {
+		log model.NotificationLog
+		key string
+	}
 	seen := map[string]struct{}{}
+	candidates := make([]failedCandidate, 0, len(logs))
+	ids := make([]uint, 0, len(logs))
 	for _, logEntry := range logs {
 		key := subscriptionActionKey(logEntry.SubscriptionID, actionTypeNotificationFailed, logEntry.ChannelType)
 		if _, ok := seen[key]; ok {
 			continue
 		}
-		recovered, err := s.notificationFailureRecovered(userID, logEntry)
-		if err != nil {
-			return nil, err
-		}
-		if recovered {
+		seen[key] = struct{}{}
+		if recovered(logEntry) {
 			continue
 		}
-		seen[key] = struct{}{}
+		candidates = append(candidates, failedCandidate{log: logEntry, key: key})
+		ids = append(ids, logEntry.SubscriptionID)
+	}
 
-		var sub model.Subscription
-		if err := s.DB.Where("id = ? AND user_id = ?", logEntry.SubscriptionID, userID).First(&sub).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			return nil, err
+	subsByID, err := s.loadSubscriptionsByIDs(userID, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]SubscriptionAction, 0, len(candidates))
+	for _, candidate := range candidates {
+		logEntry := candidate.log
+		sub, ok := subsByID[logEntry.SubscriptionID]
+		if !ok {
+			continue
 		}
-		normalizeSubscriptionForResponse(&sub)
 		if normalizeStatus(sub.Status) != subscriptionStatusActive {
 			continue
 		}
@@ -413,7 +430,7 @@ func (s *SubscriptionService) notificationFailureActions(userID uint, today time
 		eventDate := logEntry.SentAt.UTC().Format(time.RFC3339)
 		notifyDate := normalizeDateUTC(logEntry.NotifyDate).Format("2006-01-02")
 		items = append(items, SubscriptionAction{
-			Key:                 key,
+			Key:                 candidate.key,
 			Type:                actionTypeNotificationFailed,
 			Severity:            actionSeverityHigh,
 			NeedsRepair:         true,
@@ -435,23 +452,39 @@ func (s *SubscriptionService) notificationFailureActions(userID uint, today time
 	return items, nil
 }
 
-func (s *SubscriptionService) notificationFailureRecovered(userID uint, failedLog model.NotificationLog) (bool, error) {
-	var recovered model.NotificationLog
-	err := s.DB.Select("id").
-		Where(
-			"user_id = ? AND subscription_id = ? AND channel_type = ? AND status = ? AND sent_at > ?",
-			userID,
-			failedLog.SubscriptionID,
-			failedLog.ChannelType,
-			notificationLogStatusSent,
-			failedLog.SentAt,
-		).
-		Order("sent_at DESC, id DESC").
-		First(&recovered).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
+// notificationRecoveryIndex returns a predicate that reports whether a failed
+// log has since been superseded by a successful delivery on the same
+// (subscription, channel). It collapses the former per-failure lookup into a
+// single query: a failure is recovered exactly when the latest successful
+// delivery for its key occurred after it. Sent logs older than `since` can
+// never recover an in-window failure (whose own sent_at is >= since), so the
+// same lower bound bounds this scan and is covered by
+// idx_notification_logs_user_status_sent.
+func (s *SubscriptionService) notificationRecoveryIndex(userID uint, since time.Time) (func(model.NotificationLog) bool, error) {
+	var sentLogs []model.NotificationLog
+	if err := s.DB.
+		Select("subscription_id", "channel_type", "sent_at").
+		Where("user_id = ? AND status = ? AND sent_at >= ?", userID, notificationLogStatusSent, since).
+		Find(&sentLogs).Error; err != nil {
+		return nil, err
 	}
-	return err == nil, err
+
+	latestSent := make(map[string]time.Time, len(sentLogs))
+	for _, sent := range sentLogs {
+		key := notificationRecoveryKey(sent.SubscriptionID, sent.ChannelType)
+		if current, ok := latestSent[key]; !ok || sent.SentAt.After(current) {
+			latestSent[key] = sent.SentAt
+		}
+	}
+
+	return func(failed model.NotificationLog) bool {
+		latest, ok := latestSent[notificationRecoveryKey(failed.SubscriptionID, failed.ChannelType)]
+		return ok && latest.After(failed.SentAt)
+	}, nil
+}
+
+func notificationRecoveryKey(subscriptionID uint, channelType string) string {
+	return fmt.Sprintf("%d:%s", subscriptionID, channelType)
 }
 
 func (s *SubscriptionService) priceIncreaseActions(userID uint, today time.Time) ([]SubscriptionAction, error) {
@@ -467,6 +500,15 @@ func (s *SubscriptionService) priceIncreaseActions(userID uint, today time.Time)
 
 	items := make([]SubscriptionAction, 0, len(events))
 	seen := map[uint]struct{}{}
+	type priceChange struct {
+		event model.SubscriptionEvent
+		delta float64
+	}
+	// Keep only the most recent non-zero price change per subscription (events
+	// arrive newest-first), mirroring the original first-seen-wins semantics: a
+	// most-recent decrease suppresses the subscription entirely.
+	candidates := make([]priceChange, 0, len(events))
+	ids := make([]uint, 0, len(events))
 	for _, event := range events {
 		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil || event.NewMonthlyAmount == nil {
 			continue
@@ -483,15 +525,21 @@ func (s *SubscriptionService) priceIncreaseActions(userID uint, today time.Time)
 		if delta < 0 {
 			continue
 		}
+		candidates = append(candidates, priceChange{event: event, delta: delta})
+		ids = append(ids, subscriptionID)
+	}
 
-		var sub model.Subscription
-		if err := s.DB.Where("id = ? AND user_id = ?", subscriptionID, userID).First(&sub).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			return nil, err
+	subsByID, err := s.loadSubscriptionsByIDs(userID, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, candidate := range candidates {
+		event := candidate.event
+		sub, ok := subsByID[*event.SubscriptionID]
+		if !ok {
+			continue
 		}
-		normalizeSubscriptionForResponse(&sub)
 		if normalizeStatus(sub.Status) != subscriptionStatusActive {
 			continue
 		}
@@ -499,7 +547,7 @@ func (s *SubscriptionService) priceIncreaseActions(userID uint, today time.Time)
 		eventDate := event.CreatedAt.UTC().Format(time.RFC3339)
 		previous := *event.PreviousMonthlyAmount
 		current := *event.NewMonthlyAmount
-		deltaCopy := delta
+		deltaCopy := candidate.delta
 		percentage := percentageDelta(previous, current)
 		items = append(items, SubscriptionAction{
 			Key:                   subscriptionActionKey(sub.ID, actionTypePriceIncrease, event.CreatedAt.Format("2006-01-02")),

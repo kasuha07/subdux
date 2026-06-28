@@ -27,14 +27,14 @@ type NotificationPolicy struct {
 type NotificationLog struct {
 	ID             uint          `gorm:"primaryKey" json:"id"`
 	OutboxID       *uint         `gorm:"index" json:"outbox_id"`
-	UserID         uint          `gorm:"index;not null" json:"user_id"`
-	SubscriptionID uint          `gorm:"index;not null" json:"subscription_id"`
-	ChannelType    string        `gorm:"not null;size:20" json:"channel_type"`
+	UserID         uint          `gorm:"index;not null;index:idx_notification_logs_user_status_sent,priority:1;index:idx_notification_logs_user_sub_channel_sent,priority:1" json:"user_id"`
+	SubscriptionID uint          `gorm:"index;not null;index:idx_notification_logs_user_sub_channel_sent,priority:2" json:"subscription_id"`
+	ChannelType    string        `gorm:"not null;size:20;index:idx_notification_logs_user_sub_channel_sent,priority:3" json:"channel_type"`
 	TriggerType    string        `gorm:"size:30;index;default:''" json:"trigger_type"`
 	NotifyDate     time.Time     `gorm:"not null;index" json:"notify_date"`
-	Status         string        `gorm:"not null;size:20" json:"status"`
+	Status         string        `gorm:"not null;size:20;index:idx_notification_logs_user_status_sent,priority:2" json:"status"`
 	Error          string        `gorm:"type:text" json:"error"`
-	SentAt         time.Time     `json:"sent_at"`
+	SentAt         time.Time     `gorm:"index:idx_notification_logs_user_status_sent,priority:3;index:idx_notification_logs_user_sub_channel_sent,priority:4" json:"sent_at"`
 	User           *User         `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 	Subscription   *Subscription `gorm:"foreignKey:SubscriptionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
