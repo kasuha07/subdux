@@ -22,6 +22,7 @@ const (
 type MCPHandler struct {
 	apiKeys        *service.APIKeyService
 	audit          *service.AuditService
+	idempotency    *service.IdempotencyService
 	subscriptions  *service.SubscriptionService
 	exchangeRates  *service.ExchangeRateService
 	currencies     *service.CurrencyService
@@ -43,6 +44,7 @@ func NewMCPHandler(
 	handler := &MCPHandler{
 		apiKeys:        apiKeys,
 		audit:          audit,
+		idempotency:    service.NewIdempotencyService(subscriptions.DB),
 		subscriptions:  subscriptions,
 		exchangeRates:  exchangeRates,
 		currencies:     currencies,

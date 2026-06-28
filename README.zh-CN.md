@@ -141,6 +141,7 @@ MCP 客户端可以使用用户创建的 API 密钥连接：
 
 - Subdux 不维护 MCP 传输 session。每个 `POST /mcp` 请求都会独立校验 `X-API-Key`。
 - MCP 请求必须使用 `Content-Type: application/json` 和 `Accept: application/json`。
+- 写操作工具（`create_subscription`、`update_subscription`、`delete_subscription`、`mark_subscription_renewed`）必须携带 `idempotency_key` 参数。使用相同 key 重试会重放首次结果而不会重复执行操作，因此 agent 在超时后可以安全重试；用相同 key 携带不同参数则会被拒绝。key 按用户隔离。
 - 端点会为 `initialize`、`ping`、`tools/list`、`tools/call` 返回 JSON-RPC 响应；`notifications/initialized` 等 JSON-RPC notification 返回 `202 Accepted` 且没有响应 body。
 - 端点不提供 SSE 或服务端主动流式推送。
 

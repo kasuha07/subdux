@@ -41,6 +41,7 @@ func newMCPTestDB(t *testing.T) *gorm.DB {
 		&model.UserPreference{},
 		&model.ExchangeRate{},
 		&model.AuditEvent{},
+		&model.MCPIdempotencyKey{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
@@ -488,6 +489,7 @@ func TestMCPWriteCreatesLightweightAuditEvent(t *testing.T) {
 	}
 
 	result, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+		"idempotency_key":   "create-audit-1",
 		"name":              "Claude Pro",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
@@ -536,9 +538,10 @@ func TestMCPUpdateAuditRecordsChangedFields(t *testing.T) {
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
 
 	result, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
-		"id":     float64(sub.ID),
-		"name":   "New",
-		"amount": float64(12),
+		"idempotency_key": "update-audit-1",
+		"id":              float64(sub.ID),
+		"name":            "New",
+		"amount":          float64(12),
 	})
 	if rpcErr != nil {
 		t.Fatalf("callUpdateSubscription() rpcErr = %v", rpcErr)
@@ -580,7 +583,7 @@ func TestMCPDeleteAuditFailureKeepsManagedIconFile(t *testing.T) {
 	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
 		t.Fatalf("failed to drop audit table: %v", err)
 	}
-	_, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"id": float64(sub.ID)})
+	_, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"idempotency_key": "delete-rollback-1", "id": float64(sub.ID)})
 	if rpcErr == nil {
 		t.Fatal("callDeleteSubscription() rpcErr = nil, want audit failure")
 	}
@@ -618,7 +621,7 @@ func TestMCPDeleteCleansManagedIconFileAfterAuditCommit(t *testing.T) {
 	handler := newMCPTestHandler(db)
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
 
-	result, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"id": float64(sub.ID)})
+	result, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"idempotency_key": "delete-commit-1", "id": float64(sub.ID)})
 	if rpcErr != nil {
 		t.Fatalf("callDeleteSubscription() rpcErr = %v", rpcErr)
 	}
@@ -650,6 +653,7 @@ func TestMCPWriteSkipsAuditWhenDisabled(t *testing.T) {
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
 
 	_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+		"idempotency_key":   "no-audit-1",
 		"name":              "No Audit",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
@@ -676,6 +680,7 @@ func TestMCPAuditFailureRollsBackWrite(t *testing.T) {
 		t.Fatalf("failed to drop audit table: %v", err)
 	}
 	_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+		"idempotency_key":   "rollback-1",
 		"name":              "Rollback",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
@@ -837,6 +842,7 @@ func TestMCPCreateAndListSubscriptionWithAPIKey(t *testing.T) {
 		"params": map[string]interface{}{
 			"name": "create_subscription",
 			"arguments": map[string]interface{}{
+				"idempotency_key":   "create-list-1",
 				"name":              "Claude Pro",
 				"amount":            20,
 				"currency":          "USD",
@@ -1409,6 +1415,7 @@ func TestMCPUpdateSubscriptionClearsNullableReferences(t *testing.T) {
 		"params": map[string]interface{}{
 			"name": "update_subscription",
 			"arguments": map[string]interface{}{
+				"idempotency_key":   "update-clear-1",
 				"id":                sub.ID,
 				"category_id":       nil,
 				"payment_method_id": nil,
@@ -1503,5 +1510,450 @@ func TestMCPRejectsCrossOriginRequest(t *testing.T) {
 	}
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestMCPWriteToolsRequireIdempotencyKey(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	intervalCount := 1
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Existing",
+		Amount:          10,
+		Currency:        "USD",
+		Status:          "active",
+		RenewalMode:     "manual_renew",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-06-15",
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		toolName  string
+		arguments map[string]interface{}
+	}{
+		{
+			name:     "create",
+			toolName: "create_subscription",
+			arguments: map[string]interface{}{
+				"name":              "Claude Pro",
+				"amount":            20,
+				"next_billing_date": "2026-06-15",
+			},
+		},
+		{
+			name:      "update",
+			toolName:  "update_subscription",
+			arguments: map[string]interface{}{"id": sub.ID, "name": "Renamed"},
+		},
+		{
+			name:      "delete",
+			toolName:  "delete_subscription",
+			arguments: map[string]interface{}{"id": sub.ID},
+		},
+		{
+			name:      "mark_renewed",
+			toolName:  "mark_subscription_renewed",
+			arguments: map[string]interface{}{"id": sub.ID},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  "tools/call",
+				"params": map[string]interface{}{
+					"name":      tt.toolName,
+					"arguments": tt.arguments,
+				},
+			})
+
+			errPayload, ok := resp["error"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("response missing RPC error, want idempotency_key validation: %#v", resp)
+			}
+			if int(errPayload["code"].(float64)) != -32602 {
+				t.Fatalf("error code = %v, want -32602", errPayload["code"])
+			}
+			if errPayload["message"] != "idempotency_key is required" {
+				t.Fatalf("error message = %v, want idempotency_key is required", errPayload["message"])
+			}
+		})
+	}
+}
+
+func TestMCPWriteRejectsUnknownArgument(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	_, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "create_subscription",
+			"arguments": map[string]interface{}{
+				"idempotency_key":   "unknown-arg-1",
+				"name":              "Claude Pro",
+				"amount":            20,
+				"next_billing_date": "2026-06-15",
+				"nmae":              "typo",
+			},
+		},
+	})
+
+	errPayload, ok := resp["error"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("response missing RPC error, want unknown-argument rejection: %#v", resp)
+	}
+	if int(errPayload["code"].(float64)) != -32602 {
+		t.Fatalf("error code = %v, want -32602", errPayload["code"])
+	}
+	if errPayload["message"] != "unexpected argument: nmae" {
+		t.Fatalf("error message = %v, want unexpected argument: nmae", errPayload["message"])
+	}
+
+	var count int64
+	if err := db.Model(&model.Subscription{}).Where("user_id = ?", user.ID).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count subscriptions: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("subscription count = %d, want 0 (rejected request must not create)", count)
+	}
+}
+
+func TestMCPWriteRejectsNonStringIdempotencyKey(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	_, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "create_subscription",
+			"arguments": map[string]interface{}{
+				"idempotency_key":   123,
+				"name":              "Claude Pro",
+				"amount":            20,
+				"next_billing_date": "2026-06-15",
+			},
+		},
+	})
+
+	errPayload, ok := resp["error"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("response missing RPC error, want non-string key rejection: %#v", resp)
+	}
+	if int(errPayload["code"].(float64)) != -32602 {
+		t.Fatalf("error code = %v, want -32602", errPayload["code"])
+	}
+	if errPayload["message"] != "idempotency_key must be a string" {
+		t.Fatalf("error message = %v, want idempotency_key must be a string", errPayload["message"])
+	}
+}
+
+func TestMCPCreateReplayDoesNotDuplicate(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{
+		UserID:  user.ID,
+		KeyID:   7,
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		Request: mcpRequestMetadata{ClientName: "test-client", ClientVersion: "1.0", RequestID: "req-1"},
+	}
+	args := map[string]interface{}{
+		"idempotency_key":   "create-replay-1",
+		"name":              "Claude Pro",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	}
+
+	first, rpcErr := handler.callCreateSubscription(context.Background(), principal, args)
+	if rpcErr != nil {
+		t.Fatalf("first callCreateSubscription() rpcErr = %v", rpcErr)
+	}
+	if first == nil || first.IsError {
+		t.Fatalf("first result = %#v, want success", first)
+	}
+
+	second, rpcErr := handler.callCreateSubscription(context.Background(), principal, args)
+	if rpcErr != nil {
+		t.Fatalf("second callCreateSubscription() rpcErr = %v", rpcErr)
+	}
+	if second == nil || second.IsError {
+		t.Fatalf("second result = %#v, want success", second)
+	}
+
+	var stored model.Subscription
+	if err := db.Where("user_id = ?", user.ID).First(&stored).Error; err != nil {
+		t.Fatalf("failed to load stored subscription: %v", err)
+	}
+	if replayID := decodeStructuredID(t, second); replayID != stored.ID {
+		t.Fatalf("replay id = %d, want %d", replayID, stored.ID)
+	}
+
+	var subCount int64
+	if err := db.Model(&model.Subscription{}).Where("user_id = ?", user.ID).Count(&subCount).Error; err != nil {
+		t.Fatalf("failed to count subscriptions: %v", err)
+	}
+	if subCount != 1 {
+		t.Fatalf("subscription count = %d, want 1 (replay must not duplicate)", subCount)
+	}
+
+	var auditCount int64
+	if err := db.Model(&model.AuditEvent{}).Where("tool_name = ?", "create_subscription").Count(&auditCount).Error; err != nil {
+		t.Fatalf("failed to count audit events: %v", err)
+	}
+	if auditCount != 1 {
+		t.Fatalf("audit event count = %d, want 1 (replay must not re-audit)", auditCount)
+	}
+
+	var keyCount int64
+	if err := db.Model(&model.MCPIdempotencyKey{}).Where("user_id = ?", user.ID).Count(&keyCount).Error; err != nil {
+		t.Fatalf("failed to count idempotency keys: %v", err)
+	}
+	if keyCount != 1 {
+		t.Fatalf("idempotency key count = %d, want 1", keyCount)
+	}
+}
+
+func TestMCPReusedKeyWithDifferentArgsIsRejected(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{
+		UserID:  user.ID,
+		KeyID:   7,
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+	}
+
+	if _, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+		"idempotency_key":   "reused-1",
+		"name":              "Claude Pro",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	}); rpcErr != nil {
+		t.Fatalf("first callCreateSubscription() rpcErr = %v", rpcErr)
+	}
+
+	_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+		"idempotency_key":   "reused-1",
+		"name":              "Different Name",
+		"amount":            99,
+		"next_billing_date": "2026-06-15",
+	})
+	if rpcErr == nil {
+		t.Fatal("second callCreateSubscription() rpcErr = nil, want mismatch rejection")
+	}
+	if rpcErr.Code != -32602 {
+		t.Fatalf("error code = %d, want -32602", rpcErr.Code)
+	}
+
+	var subCount int64
+	if err := db.Model(&model.Subscription{}).Where("user_id = ?", user.ID).Count(&subCount).Error; err != nil {
+		t.Fatalf("failed to count subscriptions: %v", err)
+	}
+	if subCount != 1 {
+		t.Fatalf("subscription count = %d, want 1 (mismatch must not create)", subCount)
+	}
+}
+
+func TestMCPMarkRenewedReplayDoesNotAdvanceTwice(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{
+		UserID:  user.ID,
+		KeyID:   7,
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+	}
+
+	intervalCount := 1
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "Manual",
+		Amount:          10,
+		Currency:        "USD",
+		Status:          "active",
+		RenewalMode:     "manual_renew",
+		BillingType:     "recurring",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-12-15",
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+
+	args := map[string]interface{}{"idempotency_key": "renew-replay-1", "id": float64(sub.ID)}
+
+	first, rpcErr := handler.callMarkSubscriptionRenewed(context.Background(), principal, args)
+	if rpcErr != nil {
+		t.Fatalf("first callMarkSubscriptionRenewed() rpcErr = %v", rpcErr)
+	}
+	if first == nil || first.IsError {
+		t.Fatalf("first result = %#v, want success", first)
+	}
+
+	var afterFirst model.Subscription
+	if err := db.Where("id = ?", sub.ID).First(&afterFirst).Error; err != nil {
+		t.Fatalf("failed to reload subscription after first renew: %v", err)
+	}
+	advanced := formatDateOnly(afterFirst.NextBillingDate)
+	if advanced == nil || *advanced != "2027-01-15" {
+		t.Fatalf("next_billing_date after first renew = %v, want 2027-01-15", advanced)
+	}
+
+	second, rpcErr := handler.callMarkSubscriptionRenewed(context.Background(), principal, args)
+	if rpcErr != nil {
+		t.Fatalf("second callMarkSubscriptionRenewed() rpcErr = %v", rpcErr)
+	}
+	if second == nil || second.IsError {
+		t.Fatalf("second result = %#v, want success", second)
+	}
+
+	var stored model.Subscription
+	if err := db.Where("id = ?", sub.ID).First(&stored).Error; err != nil {
+		t.Fatalf("failed to reload subscription: %v", err)
+	}
+	if got := formatDateOnly(stored.NextBillingDate); got == nil || *got != "2027-01-15" {
+		t.Fatalf("stored next_billing_date = %v, want 2027-01-15 (replay must not advance twice)", got)
+	}
+}
+
+func TestMCPDeleteReplayIsIdempotent(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := &mcpPrincipal{
+		UserID:  user.ID,
+		KeyID:   7,
+		KeyKind: service.APIKeyKindMCPClient,
+		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+	}
+
+	intervalCount := 1
+	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+		Name:            "ToDelete",
+		Amount:          10,
+		Currency:        "USD",
+		RecurrenceType:  "interval",
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    "month",
+		NextBillingDate: "2026-06-15",
+	})
+	if err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+
+	args := map[string]interface{}{"idempotency_key": "delete-replay-1", "id": float64(sub.ID)}
+
+	first, rpcErr := handler.callDeleteSubscription(context.Background(), principal, args)
+	if rpcErr != nil {
+		t.Fatalf("first callDeleteSubscription() rpcErr = %v", rpcErr)
+	}
+	if first == nil || first.IsError {
+		t.Fatalf("first result = %#v, want success", first)
+	}
+
+	// A naive retry without idempotency would now fail with "not found" because
+	// the row is gone; the replay must instead return the original success.
+	second, rpcErr := handler.callDeleteSubscription(context.Background(), principal, args)
+	if rpcErr != nil {
+		t.Fatalf("second callDeleteSubscription() rpcErr = %v", rpcErr)
+	}
+	if second == nil || second.IsError {
+		t.Fatalf("second result = %#v, want replayed success", second)
+	}
+
+	var auditCount int64
+	if err := db.Model(&model.AuditEvent{}).Where("tool_name = ?", "delete_subscription").Count(&auditCount).Error; err != nil {
+		t.Fatalf("failed to count audit events: %v", err)
+	}
+	if auditCount != 1 {
+		t.Fatalf("audit event count = %d, want 1 (replay must not re-audit)", auditCount)
+	}
+}
+
+func TestMCPIdempotencyKeyIsScopedPerUser(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	otherUser := model.User{
+		Username: "other-idem-user",
+		Email:    "other-idem@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&otherUser).Error; err != nil {
+		t.Fatalf("failed to create other user: %v", err)
+	}
+	handler := newMCPTestHandler(db)
+
+	args := map[string]interface{}{
+		"idempotency_key":   "shared-key",
+		"name":              "Claude Pro",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	}
+
+	principalA := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principalB := &mcpPrincipal{UserID: otherUser.ID, KeyID: 8, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+
+	if _, rpcErr := handler.callCreateSubscription(context.Background(), principalA, args); rpcErr != nil {
+		t.Fatalf("user A callCreateSubscription() rpcErr = %v", rpcErr)
+	}
+	if _, rpcErr := handler.callCreateSubscription(context.Background(), principalB, args); rpcErr != nil {
+		t.Fatalf("user B callCreateSubscription() rpcErr = %v; same key must be independent across users", rpcErr)
+	}
+
+	for _, u := range []model.User{user, otherUser} {
+		var count int64
+		if err := db.Model(&model.Subscription{}).Where("user_id = ?", u.ID).Count(&count).Error; err != nil {
+			t.Fatalf("failed to count subscriptions: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("user %d subscription count = %d, want 1", u.ID, count)
+		}
+	}
+}
+
+// decodeStructuredID extracts the subscription id from a tool result whose
+// structured content survived a JSON encode/decode round trip during replay,
+// where numeric values are decoded as float64.
+func decodeStructuredID(t *testing.T, result *mcpToolResult) uint {
+	t.Helper()
+	structured, ok := result.StructuredContent.(map[string]interface{})
+	if !ok {
+		t.Fatalf("structured content type = %T, want map", result.StructuredContent)
+	}
+	switch id := structured["id"].(type) {
+	case float64:
+		return uint(id)
+	case uint:
+		return id
+	default:
+		t.Fatalf("structured id type = %T, want number", structured["id"])
+		return 0
 	}
 }

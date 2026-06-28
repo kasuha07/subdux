@@ -141,6 +141,7 @@ Protocol boundary:
 
 - Subdux does not maintain MCP transport sessions. Each `POST /mcp` request is authenticated independently with `X-API-Key`.
 - MCP requests must use `Content-Type: application/json` and `Accept: application/json`.
+- Write tools (`create_subscription`, `update_subscription`, `delete_subscription`, `mark_subscription_renewed`) require an `idempotency_key` argument. Retrying with the same key replays the original result instead of repeating the operation, so an agent can safely retry after a timeout; reusing a key with different arguments is rejected. Keys are scoped per user.
 - The endpoint returns JSON-RPC responses for `initialize`, `ping`, `tools/list`, and `tools/call`; JSON-RPC notifications such as `notifications/initialized` return `202 Accepted` with no response body.
 - The endpoint does not provide SSE or server-initiated streaming.
 

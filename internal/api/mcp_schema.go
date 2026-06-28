@@ -77,7 +77,7 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			Title:       "Create Subscription",
 			Description: "Create a recurring subscription. If recurrence fields are omitted, it defaults to every 1 month.",
 			InputSchema: func() map[string]interface{} {
-				return subscriptionWriteInputSchema([]string{"name", "amount", "next_billing_date"})
+				return subscriptionWriteInputSchema([]string{"idempotency_key", "name", "amount", "next_billing_date"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -89,7 +89,7 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			Title:       "Update Subscription",
 			Description: "Update a subscription by ID. Send only fields that should change.",
 			InputSchema: func() map[string]interface{} {
-				return subscriptionWriteInputSchema([]string{"id"})
+				return subscriptionWriteInputSchema([]string{"idempotency_key", "id"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -102,8 +102,9 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			Description: "Delete a subscription by ID.",
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{
-					"id": idSchema("Subscription ID."),
-				}, []string{"id"})
+					"idempotency_key": idempotencyKeySchema(),
+					"id":              idSchema("Subscription ID."),
+				}, []string{"idempotency_key", "id"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -116,8 +117,9 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			Description: "Advance a manual-renew subscription to its next billing date.",
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{
-					"id": idSchema("Subscription ID."),
-				}, []string{"id"})
+					"idempotency_key": idempotencyKeySchema(),
+					"id":              idSchema("Subscription ID."),
+				}, []string{"idempotency_key", "id"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -256,6 +258,7 @@ func isMCPWriteTool(name string) bool {
 
 func subscriptionWriteInputSchema(required []string) map[string]interface{} {
 	properties := map[string]interface{}{
+		"idempotency_key":    idempotencyKeySchema(),
 		"id":                 idSchema("Subscription ID. Required for updates."),
 		"name":               stringSchema("Subscription name."),
 		"amount":             numberSchema("Subscription amount."),
@@ -297,6 +300,15 @@ func objectSchema(properties map[string]interface{}, required []string) map[stri
 
 func stringSchema(description string) map[string]interface{} {
 	return map[string]interface{}{"type": "string", "description": description}
+}
+
+func idempotencyKeySchema() map[string]interface{} {
+	return map[string]interface{}{
+		"type":        "string",
+		"description": "Required unique key that makes this write safe to retry. Reusing the same key replays the original result instead of repeating the operation; a new key performs a new operation.",
+		"minLength":   1,
+		"maxLength":   maxIdempotencyKeyLength,
+	}
 }
 
 func nullableStringSchema(description string) map[string]interface{} {

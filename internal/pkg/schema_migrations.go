@@ -45,6 +45,7 @@ var applicationModels = []interface{}{
 	&model.RefreshToken{},
 	&model.CalendarToken{},
 	&model.AuditEvent{},
+	&model.MCPIdempotencyKey{},
 }
 
 var postIntegrityApplicationModels = []interface{}{
@@ -62,6 +63,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260622_01_notification_outbox_leases", Run: migrateNotificationOutboxLeases},
 	{Name: "20260623_01_api_key_kind_and_audit", Run: migrateAPIKeyKindAndAudit},
 	{Name: "20260628_01_manual_renew_daily_notifications", Run: migrateManualRenewDailyNotificationPolicy},
+	{Name: "20260628_02_mcp_idempotency_keys", Run: migrateMCPIdempotencyKeys},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
@@ -91,6 +93,20 @@ func migrateAPIKeyKindAndAudit(db *gorm.DB) error {
 
 func migrateManualRenewDailyNotificationPolicy(db *gorm.DB) error {
 	return db.AutoMigrate(&model.NotificationPolicy{})
+}
+
+func migrateMCPIdempotencyKeys(db *gorm.DB) error {
+	if err := db.AutoMigrate(&model.MCPIdempotencyKey{}); err != nil {
+		return err
+	}
+	// Idempotency correctness depends on this unique index actually existing:
+	// it is the backstop that prevents two concurrent retries from both
+	// inserting a record for the same key. Fail loudly at startup rather than
+	// silently running with a weakened guarantee.
+	if !db.Migrator().HasIndex(&model.MCPIdempotencyKey{}, "idx_mcp_idempotency_user_key") {
+		return fmt.Errorf("expected unique index idx_mcp_idempotency_user_key was not created")
+	}
+	return nil
 }
 
 func runSchemaMigrations(db *gorm.DB) error {

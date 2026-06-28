@@ -65,6 +65,12 @@ func (s *AuditService) WithContext(ctx context.Context) *AuditService {
 	return &clone
 }
 
+func (s *IdempotencyService) WithContext(ctx context.Context) *IdempotencyService {
+	clone := *s
+	clone.DB = withContext(s.DB, ctx)
+	return &clone
+}
+
 func (s *CalendarService) WithContext(ctx context.Context) *CalendarService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)

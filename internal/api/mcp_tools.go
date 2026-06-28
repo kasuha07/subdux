@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/service"
@@ -104,56 +103,22 @@ func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpP
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
 	}
 
-	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
-	if err != nil {
-		return nil, internalMCPError(err)
-	}
-	if !auditEnabled {
-		sub, err := h.subscriptions.WithContext(ctx).Create(userID, input)
-		if err != nil {
-			if isSubscriptionBadRequestError(err.Error()) {
-				return mcpToolExecutionError(err.Error()), nil
+	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
+		ToolName:     "create_subscription",
+		ResourceType: service.AuditResourceSubscription,
+		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
+			created, err := service.NewSubscriptionService(tx).Create(userID, input)
+			if err != nil {
+				return nil, err
 			}
-			return nil, internalMCPError(err)
-		}
-		return mcpStructuredResult(mapSubscriptionResponse(*sub)), nil
-	}
-
-	start := time.Now()
-	var sub model.Subscription
-	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
-		created, err := service.NewSubscriptionService(tx).Create(userID, input)
-		if err != nil {
-			return err
-		}
-		sub = *created
-		_, err = service.NewAuditService(tx).Create(service.CreateAuditEventInput{
-			UserID:              userID,
-			KeyID:               principal.KeyID,
-			KeyKind:             principal.KeyKind,
-			ScopeUsed:           service.APIKeyScopeWrite,
-			Transport:           service.AuditTransportMCP,
-			ToolName:            "create_subscription",
-			ResourceType:        service.AuditResourceSubscription,
-			ResourceID:          fmt.Sprint(sub.ID),
-			Action:              "create",
-			Status:              service.AuditStatusSuccess,
-			LatencyMS:           time.Since(start).Milliseconds(),
-			ClientName:          principal.Request.ClientName,
-			ClientVersion:       principal.Request.ClientVersion,
-			RequestID:           principal.Request.RequestID,
-			RequestArgsRedacted: args,
-			AfterSnapshot:       auditSubscriptionSnapshot(sub, nil),
-		})
-		return err
+			return &mcpWriteOutcome{
+				Result:        mcpStructuredResult(mapSubscriptionResponse(*created)),
+				Action:        "create",
+				ResourceID:    fmt.Sprint(created.ID),
+				AfterSnapshot: auditSubscriptionSnapshot(*created, nil),
+			}, nil
+		},
 	})
-	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) {
-			return mcpToolExecutionError(err.Error()), nil
-		}
-		return nil, internalMCPError(err)
-	}
-	return mcpStructuredResult(mapSubscriptionResponse(sub)), nil
 }
 
 func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -173,65 +138,30 @@ func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpP
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
 	}
 
-	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
-	if err != nil {
-		return nil, internalMCPError(err)
-	}
-	if !auditEnabled {
-		sub, err := h.subscriptions.WithContext(ctx).Update(userID, id, input)
-		if err != nil {
-			if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
-				return mcpToolExecutionError(err.Error()), nil
+	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
+		ToolName:     "update_subscription",
+		ResourceType: service.AuditResourceSubscription,
+		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
+			txService := service.NewSubscriptionService(tx)
+			existing, err := txService.GetByID(userID, id)
+			if err != nil {
+				return nil, err
 			}
-			return nil, internalMCPError(err)
-		}
-		return mcpStructuredResult(mapSubscriptionResponse(*sub)), nil
-	}
-
-	start := time.Now()
-	var before model.Subscription
-	var sub model.Subscription
-	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
-		txService := service.NewSubscriptionService(tx)
-		existing, err := txService.GetByID(userID, id)
-		if err != nil {
-			return err
-		}
-		before = *existing
-		updated, err := txService.Update(userID, id, input)
-		if err != nil {
-			return err
-		}
-		sub = *updated
-		changedFields := auditChangedSubscriptionFields(before, sub)
-		_, err = service.NewAuditService(tx).Create(service.CreateAuditEventInput{
-			UserID:              userID,
-			KeyID:               principal.KeyID,
-			KeyKind:             principal.KeyKind,
-			ScopeUsed:           service.APIKeyScopeWrite,
-			Transport:           service.AuditTransportMCP,
-			ToolName:            "update_subscription",
-			ResourceType:        service.AuditResourceSubscription,
-			ResourceID:          fmt.Sprint(id),
-			Action:              "update",
-			Status:              service.AuditStatusSuccess,
-			LatencyMS:           time.Since(start).Milliseconds(),
-			ClientName:          principal.Request.ClientName,
-			ClientVersion:       principal.Request.ClientVersion,
-			RequestID:           principal.Request.RequestID,
-			RequestArgsRedacted: args,
-			BeforeSnapshot:      auditSubscriptionSnapshot(before, nil),
-			AfterSnapshot:       auditSubscriptionSnapshot(sub, changedFields),
-		})
-		return err
+			before := *existing
+			updated, err := txService.Update(userID, id, input)
+			if err != nil {
+				return nil, err
+			}
+			changedFields := auditChangedSubscriptionFields(before, *updated)
+			return &mcpWriteOutcome{
+				Result:         mcpStructuredResult(mapSubscriptionResponse(*updated)),
+				Action:         "update",
+				ResourceID:     fmt.Sprint(id),
+				BeforeSnapshot: auditSubscriptionSnapshot(before, nil),
+				AfterSnapshot:  auditSubscriptionSnapshot(*updated, changedFields),
+			}, nil
+		},
 	})
-	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
-			return mcpToolExecutionError(err.Error()), nil
-		}
-		return nil, internalMCPError(err)
-	}
-	return mcpStructuredResult(mapSubscriptionResponse(sub)), nil
 }
 
 func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -240,64 +170,36 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
-	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
-	if err != nil {
-		return nil, internalMCPError(err)
-	}
-	if !auditEnabled {
-		if err := h.subscriptions.WithContext(ctx).Delete(userID, id); err != nil {
-			if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
-				return mcpToolExecutionError(err.Error()), nil
-			}
-			return nil, internalMCPError(err)
-		}
-		return mcpStructuredResult(map[string]interface{}{"deleted": true, "id": id}), nil
-	}
 
-	start := time.Now()
-	var before model.Subscription
-	var deleted *model.Subscription
-	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
-		txService := service.NewSubscriptionService(tx)
-		existing, err := txService.GetByID(userID, id)
-		if err != nil {
-			return err
-		}
-		before = *existing
-		deleted, err = txService.DeleteRecord(userID, id)
-		if err != nil {
-			return err
-		}
-		_, err = service.NewAuditService(tx).Create(service.CreateAuditEventInput{
-			UserID:              userID,
-			KeyID:               principal.KeyID,
-			KeyKind:             principal.KeyKind,
-			ScopeUsed:           service.APIKeyScopeWrite,
-			Transport:           service.AuditTransportMCP,
-			ToolName:            "delete_subscription",
-			ResourceType:        service.AuditResourceSubscription,
-			ResourceID:          fmt.Sprint(id),
-			Action:              "delete",
-			Status:              service.AuditStatusSuccess,
-			LatencyMS:           time.Since(start).Milliseconds(),
-			ClientName:          principal.Request.ClientName,
-			ClientVersion:       principal.Request.ClientVersion,
-			RequestID:           principal.Request.RequestID,
-			RequestArgsRedacted: args,
-			BeforeSnapshot:      auditSubscriptionSnapshot(before, nil),
-		})
-		return err
+	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
+		ToolName:     "delete_subscription",
+		ResourceType: service.AuditResourceSubscription,
+		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
+			txService := service.NewSubscriptionService(tx)
+			existing, err := txService.GetByID(userID, id)
+			if err != nil {
+				return nil, err
+			}
+			before := *existing
+			deleted, err := txService.DeleteRecord(userID, id)
+			if err != nil {
+				return nil, err
+			}
+			outcome := &mcpWriteOutcome{
+				Result:         mcpStructuredResult(map[string]interface{}{"deleted": true, "id": id}),
+				Action:         "delete",
+				ResourceID:     fmt.Sprint(id),
+				BeforeSnapshot: auditSubscriptionSnapshot(before, nil),
+			}
+			if deleted != nil {
+				removed := *deleted
+				outcome.PostCommit = func() {
+					h.subscriptions.CleanupDeletedSubscriptionResources(removed)
+				}
+			}
+			return outcome, nil
+		},
 	})
-	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
-			return mcpToolExecutionError(err.Error()), nil
-		}
-		return nil, internalMCPError(err)
-	}
-	if deleted != nil {
-		h.subscriptions.CleanupDeletedSubscriptionResources(*deleted)
-	}
-	return mcpStructuredResult(map[string]interface{}{"deleted": true, "id": id}), nil
 }
 
 func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -306,65 +208,31 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
-	auditEnabled, err := h.audit.WithContext(ctx).IsEnabled()
-	if err != nil {
-		return nil, internalMCPError(err)
-	}
-	if !auditEnabled {
-		sub, err := h.subscriptions.WithContext(ctx).MarkManualRenewed(userID, id)
-		if err != nil {
-			if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
-				return mcpToolExecutionError(err.Error()), nil
-			}
-			return nil, internalMCPError(err)
-		}
-		return mcpStructuredResult(mapSubscriptionResponse(*sub)), nil
-	}
 
-	start := time.Now()
-	var before model.Subscription
-	var sub model.Subscription
-	err = h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
-		txService := service.NewSubscriptionService(tx)
-		existing, err := txService.GetByID(userID, id)
-		if err != nil {
-			return err
-		}
-		before = *existing
-		updated, err := txService.MarkManualRenewed(userID, id)
-		if err != nil {
-			return err
-		}
-		sub = *updated
-		changedFields := auditChangedSubscriptionFields(before, sub)
-		_, err = service.NewAuditService(tx).Create(service.CreateAuditEventInput{
-			UserID:              userID,
-			KeyID:               principal.KeyID,
-			KeyKind:             principal.KeyKind,
-			ScopeUsed:           service.APIKeyScopeWrite,
-			Transport:           service.AuditTransportMCP,
-			ToolName:            "mark_subscription_renewed",
-			ResourceType:        service.AuditResourceSubscription,
-			ResourceID:          fmt.Sprint(id),
-			Action:              "mark_renewed",
-			Status:              service.AuditStatusSuccess,
-			LatencyMS:           time.Since(start).Milliseconds(),
-			ClientName:          principal.Request.ClientName,
-			ClientVersion:       principal.Request.ClientVersion,
-			RequestID:           principal.Request.RequestID,
-			RequestArgsRedacted: args,
-			BeforeSnapshot:      auditSubscriptionSnapshot(before, nil),
-			AfterSnapshot:       auditSubscriptionSnapshot(sub, changedFields),
-		})
-		return err
+	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
+		ToolName:     "mark_subscription_renewed",
+		ResourceType: service.AuditResourceSubscription,
+		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
+			txService := service.NewSubscriptionService(tx)
+			existing, err := txService.GetByID(userID, id)
+			if err != nil {
+				return nil, err
+			}
+			before := *existing
+			updated, err := txService.MarkManualRenewed(userID, id)
+			if err != nil {
+				return nil, err
+			}
+			changedFields := auditChangedSubscriptionFields(before, *updated)
+			return &mcpWriteOutcome{
+				Result:         mcpStructuredResult(mapSubscriptionResponse(*updated)),
+				Action:         "mark_renewed",
+				ResourceID:     fmt.Sprint(id),
+				BeforeSnapshot: auditSubscriptionSnapshot(before, nil),
+				AfterSnapshot:  auditSubscriptionSnapshot(*updated, changedFields),
+			}, nil
+		},
 	})
-	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) || errors.Is(err, gorm.ErrRecordNotFound) {
-			return mcpToolExecutionError(err.Error()), nil
-		}
-		return nil, internalMCPError(err)
-	}
-	return mcpStructuredResult(mapSubscriptionResponse(sub)), nil
 }
 
 func auditSubscriptionSnapshot(sub model.Subscription, changedFields []string) map[string]interface{} {
