@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client"
 import "./index.css"
-import "@/i18n"
+import { i18nReady } from "@/i18n"
 import { initTheme, watchSystemTheme } from "@/lib/theme"
 import App from "./App"
 
@@ -11,4 +11,10 @@ if (import.meta.env.DEV) {
   void import("react-grep")
 }
 
-createRoot(document.getElementById("root")!).render(<App />)
+i18nReady
+  .catch((error: unknown) => {
+    console.error("Failed to initialize i18n", error)
+  })
+  .finally(() => {
+    createRoot(document.getElementById("root")!).render(<App />)
+  })

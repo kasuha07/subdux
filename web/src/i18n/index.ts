@@ -21,7 +21,7 @@ const dynamicLocaleBackend: BackendModule = {
   },
 }
 
-i18n
+export const i18nReady = i18n
   .use(dynamicLocaleBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
