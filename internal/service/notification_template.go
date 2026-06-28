@@ -188,6 +188,9 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 		Amount:           15.99,
 		Currency:         "USD",
 		DaysUntil:        3,
+		EventType:        "auto_renew_reminder",
+		RenewalMode:      renewalModeAutoRenew,
+		Status:           subscriptionStatusActive,
 		Category:         "Entertainment",
 		PaymentMethod:    "Credit Card",
 		URL:              "https://www.netflix.com",
@@ -197,11 +200,11 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 
 	var sub model.Subscription
 	if err := s.DB.Where(
-		"user_id = ? AND status = ? AND renewal_mode != ? AND next_billing_date IS NOT NULL",
+		"user_id = ? AND status = ? AND billing_type = ? AND (next_billing_date IS NOT NULL OR ends_at IS NOT NULL)",
 		userID,
 		subscriptionStatusActive,
-		renewalModeCancelAtPeriodEnd,
-	).Order("next_billing_date ASC, id ASC").First(&sub).Error; err != nil {
+		billingTypeRecurring,
+	).Order("COALESCE(ends_at, next_billing_date) ASC, id ASC").First(&sub).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", err
 		}
@@ -214,14 +217,21 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 	templateData.URL = sub.URL
 	templateData.Remark = sub.Notes
 	templateData.Category = sub.Category
+	templateData.EventType = notificationEventTypeForSubscription(sub)
+	templateData.RenewalMode = normalizeRenewalMode(sub.RenewalMode)
+	templateData.Status = normalizeStatus(sub.Status)
 
-	if sub.NextBillingDate != nil {
+	billingDateSource := sub.NextBillingDate
+	if normalizeRenewalMode(sub.RenewalMode) == renewalModeCancelAtPeriodEnd {
+		billingDateSource = cancelAtPeriodEndBoundary(sub)
+	}
+	if billingDateSource != nil {
 		billingDate := time.Date(
-			sub.NextBillingDate.Year(),
-			sub.NextBillingDate.Month(),
-			sub.NextBillingDate.Day(),
+			billingDateSource.Year(),
+			billingDateSource.Month(),
+			billingDateSource.Day(),
 			0, 0, 0, 0,
-			sub.NextBillingDate.Location(),
+			billingDateSource.Location(),
 		)
 		templateData.BillingDate = billingDate.Format("2006-01-02")
 		now := pkg.Now().In(billingDate.Location())

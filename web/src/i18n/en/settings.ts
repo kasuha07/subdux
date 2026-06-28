@@ -578,7 +578,7 @@ const settings = {
       "channelOverride": "Channel Override",
       "templateTips": "Variable Reference & Example",
       "availableVariables": "Available Variables",
-      "variablesList": "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
+      "variablesList": "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.EventType}}, {{.RenewalMode}}, {{.Status}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
       "addSuccess": "Template added",
       "updateSuccess": "Template updated",
       "deleteSuccess": "Template deleted",
@@ -586,17 +586,20 @@ const settings = {
       "previewTitle": "Preview Template",
       "previewResult": "Preview Result",
       "varSubscriptionName": "Subscription name",
-      "varBillingDate": "Next billing date (YYYY-MM-DD)",
+      "varBillingDate": "Billing/end date (YYYY-MM-DD)",
       "varAmount": "Subscription amount",
       "varCurrency": "Currency code",
-      "varDaysUntil": "Days until billing",
+      "varDaysUntil": "Days until billing/end",
+      "varEventType": "Event type (auto_renew_reminder, manual_renew_reminder, ending_soon, manual_renew_ended)",
+      "varRenewalMode": "Renewal mode",
+      "varStatus": "Subscription status",
       "varCategory": "Subscription category",
       "varPaymentMethod": "Payment method name",
       "varURL": "Subscription URL",
       "varRemark": "Subscription remark/notes",
       "varUserEmail": "Your email address",
       "exampleTitle": "Example",
-      "exampleTemplate": "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}. Payment method: {{.PaymentMethod}}. URL: {{.URL}}. Remark: {{.Remark}}."
+      "exampleTemplate": "{{.SubscriptionName}} reminder: {{.EventType}} in {{.DaysUntil}} days on {{.BillingDate}}. Amount: {{.Amount}} {{.Currency}}. Payment method: {{.PaymentMethod}}. URL: {{.URL}}. Remark: {{.Remark}}."
     }
   }
 } as const

@@ -578,7 +578,7 @@ const settings = {
       channelOverride: "渠道覆盖",
       templateTips: "变量说明与示例",
       availableVariables: "可用变量",
-      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
+      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.EventType}}, {{.RenewalMode}}, {{.Status}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
       addSuccess: "模板已添加",
       updateSuccess: "模板已更新",
       deleteSuccess: "模板已删除",
@@ -586,17 +586,20 @@ const settings = {
       previewTitle: "预览模板",
       previewResult: "预览结果",
       varSubscriptionName: "订阅名称",
-      varBillingDate: "下次账单日期 (YYYY-MM-DD)",
+      varBillingDate: "账单/结束日期 (YYYY-MM-DD)",
       varAmount: "订阅金额",
       varCurrency: "货币代码",
-      varDaysUntil: "距离账单天数",
+      varDaysUntil: "距离账单/结束天数",
+      varEventType: "事件类型（auto_renew_reminder、manual_renew_reminder、ending_soon、manual_renew_ended）",
+      varRenewalMode: "续费模式",
+      varStatus: "订阅状态",
       varCategory: "订阅分类",
       varPaymentMethod: "支付方式名称",
       varURL: "订阅网址",
       varRemark: "备注/说明",
       varUserEmail: "您的邮箱地址",
       exampleTitle: "示例",
-      exampleTemplate: "您的订阅 {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) 将在 {{.DaysUntil}} 天后的 {{.BillingDate}} 扣费。支付方式：{{.PaymentMethod}}。网址：{{.URL}}。备注：{{.Remark}}。"
+      exampleTemplate: "{{.SubscriptionName}} 提醒：{{.EventType}}，将在 {{.DaysUntil}} 天后的 {{.BillingDate}} 发生。金额：{{.Amount}} {{.Currency}}。支付方式：{{.PaymentMethod}}。网址：{{.URL}}。备注：{{.Remark}}。"
     },
   }
 } as const

@@ -26,6 +26,8 @@ func newSubscriptionRolloverTestDB(t *testing.T) *gorm.DB {
 		&model.SubscriptionEvent{},
 		&model.NotificationPolicy{},
 		&model.NotificationChannel{},
+		&model.NotificationTemplate{},
+		&model.NotificationOutbox{},
 		&model.NotificationLog{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
@@ -479,15 +481,22 @@ func TestProcessUserNotificationsAutoAdvancesOverdueRecurringNextBillingDate(t *
 	}
 }
 
-func TestProcessUserNotificationsSkipsCancelAtPeriodEndSubscription(t *testing.T) {
+func TestProcessUserNotificationsCreatesEndingSoonOutboxForCancelAtPeriodEndSubscription(t *testing.T) {
 	db := newSubscriptionRolloverTestDB(t)
 	user := createSubscriptionRolloverTestUser(t, db)
 	subscriptionService := NewSubscriptionService(db)
-	notificationService := NewNotificationService(db, nil, nil)
+	if err := db.Create(&model.NotificationTemplate{
+		UserID:   user.ID,
+		Format:   "plaintext",
+		Template: "{{.SubscriptionName}}|{{.BillingDate}}|{{.EventType}}",
+	}).Error; err != nil {
+		t.Fatalf("create notification template failed: %v", err)
+	}
+	notificationService := NewNotificationService(db, NewNotificationTemplateService(db, NewTemplateValidator()), NewTemplateRenderer(NewTemplateValidator()))
 
 	today := setSubscriptionRolloverTestNow(t)
 	intervalCount := 1
-	if _, err := subscriptionService.Create(user.ID, CreateSubscriptionInput{
+	sub, err := subscriptionService.Create(user.ID, CreateSubscriptionInput{
 		Name:            "Ending notification",
 		Amount:          5.99,
 		Status:          subscriptionStatusActive,
@@ -497,7 +506,8 @@ func TestProcessUserNotificationsSkipsCancelAtPeriodEndSubscription(t *testing.T
 		IntervalCount:   &intervalCount,
 		IntervalUnit:    intervalUnitMonth,
 		NextBillingDate: today.Format("2006-01-02"),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("Create cancel-at-period-end subscription error = %v", err)
 	}
 
@@ -521,11 +531,17 @@ func TestProcessUserNotificationsSkipsCancelAtPeriodEndSubscription(t *testing.T
 		t.Fatalf("processUserNotifications() error = %v", err)
 	}
 
-	var logCount int64
-	if err := db.Model(&model.NotificationLog{}).Count(&logCount).Error; err != nil {
-		t.Fatalf("count notification logs failed: %v", err)
+	var jobs []model.NotificationOutbox
+	if err := db.Where("subscription_id = ?", sub.ID).Find(&jobs).Error; err != nil {
+		t.Fatalf("load outbox jobs failed: %v", err)
 	}
-	if logCount != 0 {
-		t.Fatalf("notification log count = %d, want 0", logCount)
+	if len(jobs) != 1 {
+		t.Fatalf("outbox job count = %d, want 1", len(jobs))
+	}
+	if jobs[0].TriggerType != notificationTriggerEndingSoon {
+		t.Fatalf("trigger_type = %q, want %q", jobs[0].TriggerType, notificationTriggerEndingSoon)
+	}
+	if jobs[0].Message != "Ending notification|2026-03-15|ending_soon" {
+		t.Fatalf("message = %q, want ending_soon event", jobs[0].Message)
 	}
 }

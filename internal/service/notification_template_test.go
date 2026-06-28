@@ -105,7 +105,7 @@ func TestPreviewTemplateUsesFirstSubscriptionData(t *testing.T) {
 	}
 }
 
-func TestPreviewTemplateSkipsEndingSubscriptions(t *testing.T) {
+func TestPreviewTemplateCanUseEndingSubscriptionData(t *testing.T) {
 	db := newNotificationTemplatePreviewTestDB(t)
 	svc := NewNotificationTemplateService(db, NewTemplateValidator())
 
@@ -152,7 +152,7 @@ func TestPreviewTemplateSkipsEndingSubscriptions(t *testing.T) {
 
 	input := CreateTemplateInput{
 		Format:   "plaintext",
-		Template: "{{.SubscriptionName}}|{{.BillingDate}}|{{.Amount}}",
+		Template: "{{.SubscriptionName}}|{{.BillingDate}}|{{.Amount}}|{{.EventType}}|{{.RenewalMode}}|{{.Status}}",
 	}
 
 	preview, err := svc.PreviewTemplate(user.ID, input)
@@ -160,7 +160,7 @@ func TestPreviewTemplateSkipsEndingSubscriptions(t *testing.T) {
 		t.Fatalf("PreviewTemplate() error = %v", err)
 	}
 
-	const want = "Renewing Plan|2026-04-05|12"
+	const want = "Ending Plan|2026-03-15|99|ending_soon|cancel_at_period_end|active"
 	if preview != want {
 		t.Fatalf("PreviewTemplate() preview = %q, want %q", preview, want)
 	}
@@ -183,7 +183,7 @@ func TestPreviewTemplateFallsBackToSampleDataWhenNoSubscription(t *testing.T) {
 
 	input := CreateTemplateInput{
 		Format:   "plaintext",
-		Template: "{{.SubscriptionName}}|{{.Amount}}|{{.Currency}}|{{.Category}}|{{.PaymentMethod}}|{{.URL}}|{{.Remark}}|{{.UserEmail}}|{{.BillingDate}}",
+		Template: "{{.SubscriptionName}}|{{.Amount}}|{{.Currency}}|{{.Category}}|{{.PaymentMethod}}|{{.URL}}|{{.Remark}}|{{.UserEmail}}|{{.BillingDate}}|{{.EventType}}|{{.RenewalMode}}|{{.Status}}",
 	}
 
 	preview, err := svc.PreviewTemplate(user.ID, input)
@@ -191,7 +191,7 @@ func TestPreviewTemplateFallsBackToSampleDataWhenNoSubscription(t *testing.T) {
 		t.Fatalf("PreviewTemplate() error = %v", err)
 	}
 
-	const want = "Netflix Premium|15.99|USD|Entertainment|Credit Card|https://www.netflix.com|Family plan|user@example.com|2026-03-15"
+	const want = "Netflix Premium|15.99|USD|Entertainment|Credit Card|https://www.netflix.com|Family plan|user@example.com|2026-03-15|auto_renew_reminder|auto_renew|active"
 	if preview != want {
 		t.Fatalf("PreviewTemplate() preview = %q, want %q", preview, want)
 	}

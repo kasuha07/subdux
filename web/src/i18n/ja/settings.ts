@@ -578,7 +578,7 @@ const settings = {
       channelOverride: "チャネル上書き",
       templateTips: "変数リファレンスと例",
       availableVariables: "利用可能な変数",
-      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
+      variablesList: "{{.SubscriptionName}}, {{.BillingDate}}, {{.Amount}}, {{.Currency}}, {{.DaysUntil}}, {{.EventType}}, {{.RenewalMode}}, {{.Status}}, {{.Category}}, {{.PaymentMethod}}, {{.URL}}, {{.Remark}}, {{.UserEmail}}",
       addSuccess: "テンプレートを追加しました",
       updateSuccess: "テンプレートを更新しました",
       deleteSuccess: "テンプレートを削除しました",
@@ -586,17 +586,20 @@ const settings = {
       previewTitle: "テンプレートプレビュー",
       previewResult: "プレビュー結果",
       varSubscriptionName: "サブスクリプション名",
-      varBillingDate: "次回請求日 (YYYY-MM-DD)",
+      varBillingDate: "請求/終了日 (YYYY-MM-DD)",
       varAmount: "サブスクリプション金額",
       varCurrency: "通貨コード",
-      varDaysUntil: "請求までの日数",
+      varDaysUntil: "請求/終了までの日数",
+      varEventType: "イベント種別 (auto_renew_reminder, manual_renew_reminder, ending_soon, manual_renew_ended)",
+      varRenewalMode: "更新方法",
+      varStatus: "サブスクリプションステータス",
       varCategory: "サブスクリプションカテゴリ",
       varPaymentMethod: "支払い方法名",
       varURL: "サブスクリプションURL",
       varRemark: "備考/メモ",
       varUserEmail: "メールアドレス",
       exampleTitle: "例",
-      exampleTemplate: "サブスクリプション {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) は {{.DaysUntil}} 日後の {{.BillingDate}} に請求されます。支払い方法: {{.PaymentMethod}}。URL: {{.URL}}。備考: {{.Remark}}。"
+      exampleTemplate: "{{.SubscriptionName}} リマインダー: {{.EventType}} は {{.DaysUntil}} 日後の {{.BillingDate}} です。金額: {{.Amount}} {{.Currency}}。支払い方法: {{.PaymentMethod}}。URL: {{.URL}}。備考: {{.Remark}}。"
     },
   }
 } as const

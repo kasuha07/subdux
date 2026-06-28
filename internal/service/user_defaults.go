@@ -46,7 +46,7 @@ var defaultCurrencyTemplates = []defaultCurrencyTemplate{
 	{Code: "GBP", Symbol: "£", SortOrder: 3},
 }
 
-const defaultNotificationTemplate = "Your subscription {{.SubscriptionName}} ({{.Amount}} {{.Currency}}) will be billed in {{.DaysUntil}} days on {{.BillingDate}}. Payment method: {{.PaymentMethod}}. URL: {{.URL}}. Remark: {{.Remark}}."
+const defaultNotificationTemplate = "{{.SubscriptionName}} reminder: {{.EventType}} in {{.DaysUntil}} days on {{.BillingDate}}. Amount: {{.Amount}} {{.Currency}}. Payment method: {{.PaymentMethod}}. URL: {{.URL}}. Remark: {{.Remark}}."
 
 func SeedUserDefaults(tx *gorm.DB, userID uint) error {
 	if err := seedDefaultCategories(tx, userID); err != nil {
