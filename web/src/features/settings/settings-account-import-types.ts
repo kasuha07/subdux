@@ -58,6 +58,8 @@ export interface SubduxPreviewPolicyChange {
   incoming_days_before: number
   current_notify_on_due_day: boolean
   incoming_notify_on_due_day: boolean
+  current_notify_manual_renew_daily: boolean
+  incoming_notify_manual_renew_daily: boolean
 }
 
 export interface SubduxImportPreview {

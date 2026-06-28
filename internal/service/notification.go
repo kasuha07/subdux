@@ -81,6 +81,7 @@ type UpdateChannelInput struct {
 }
 
 type UpdatePolicyInput struct {
-	DaysBefore     *int  `json:"days_before"`
-	NotifyOnDueDay *bool `json:"notify_on_due_day"`
+	DaysBefore             *int  `json:"days_before"`
+	NotifyOnDueDay         *bool `json:"notify_on_due_day"`
+	NotifyManualRenewDaily *bool `json:"notify_manual_renew_daily"`
 }

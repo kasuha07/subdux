@@ -57,12 +57,14 @@ type PreviewPreferenceChange struct {
 }
 
 type PreviewNotificationPolicyChange struct {
-	WillCreate     bool `json:"will_create"`
-	WillUpdate     bool `json:"will_update"`
-	CurrentDays    int  `json:"current_days_before"`
-	IncomingDays   int  `json:"incoming_days_before"`
-	CurrentDueDay  bool `json:"current_notify_on_due_day"`
-	IncomingDueDay bool `json:"incoming_notify_on_due_day"`
+	WillCreate          bool `json:"will_create"`
+	WillUpdate          bool `json:"will_update"`
+	CurrentDays         int  `json:"current_days_before"`
+	IncomingDays        int  `json:"incoming_days_before"`
+	CurrentDueDay       bool `json:"current_notify_on_due_day"`
+	IncomingDueDay      bool `json:"incoming_notify_on_due_day"`
+	CurrentManualDaily  bool `json:"current_notify_manual_renew_daily"`
+	IncomingManualDaily bool `json:"incoming_notify_manual_renew_daily"`
 }
 
 type SubduxImportPreview struct {
@@ -888,33 +890,40 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 					return err
 				}
 
-				willUpdate := !willCreate && (existing.DaysBefore != incomingPolicy.DaysBefore || existing.NotifyOnDueDay != incomingPolicy.NotifyOnDueDay)
+				willUpdate := !willCreate &&
+					(existing.DaysBefore != incomingPolicy.DaysBefore ||
+						existing.NotifyOnDueDay != incomingPolicy.NotifyOnDueDay ||
+						existing.NotifyManualRenewDaily != incomingPolicy.NotifyManualRenewDaily)
 				preview.Policy = &PreviewNotificationPolicyChange{
-					WillCreate:     willCreate,
-					WillUpdate:     willUpdate,
-					CurrentDays:    existing.DaysBefore,
-					IncomingDays:   incomingPolicy.DaysBefore,
-					CurrentDueDay:  existing.NotifyOnDueDay,
-					IncomingDueDay: incomingPolicy.NotifyOnDueDay,
+					WillCreate:          willCreate,
+					WillUpdate:          willUpdate,
+					CurrentDays:         existing.DaysBefore,
+					IncomingDays:        incomingPolicy.DaysBefore,
+					CurrentDueDay:       existing.NotifyOnDueDay,
+					IncomingDueDay:      incomingPolicy.NotifyOnDueDay,
+					CurrentManualDaily:  existing.NotifyManualRenewDaily,
+					IncomingManualDaily: incomingPolicy.NotifyManualRenewDaily,
 				}
 
 				if confirm {
 					switch {
 					case willCreate:
-						created := model.NotificationPolicy{
-							UserID:         userID,
-							DaysBefore:     incomingPolicy.DaysBefore,
-							NotifyOnDueDay: incomingPolicy.NotifyOnDueDay,
+						created := map[string]any{
+							"user_id":                   userID,
+							"days_before":               incomingPolicy.DaysBefore,
+							"notify_on_due_day":         incomingPolicy.NotifyOnDueDay,
+							"notify_manual_renew_daily": incomingPolicy.NotifyManualRenewDaily,
 						}
-						if err := tx.Create(&created).Error; err != nil {
+						if err := tx.Model(&model.NotificationPolicy{}).Create(created).Error; err != nil {
 							result.Errors = append(result.Errors, fmt.Sprintf("failed to create policy: %v", err))
 						} else {
 							result.Imported++
 						}
 					case willUpdate:
 						updates := map[string]any{
-							"days_before":       incomingPolicy.DaysBefore,
-							"notify_on_due_day": incomingPolicy.NotifyOnDueDay,
+							"days_before":               incomingPolicy.DaysBefore,
+							"notify_on_due_day":         incomingPolicy.NotifyOnDueDay,
+							"notify_manual_renew_daily": incomingPolicy.NotifyManualRenewDaily,
 						}
 						if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 							result.Errors = append(result.Errors, fmt.Sprintf("failed to update policy: %v", err))

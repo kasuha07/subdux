@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,13 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
   const { t } = useTranslation()
   const [daysBefore, setDaysBefore] = useState(policy.days_before.toString())
   const [notifyOnDueDay, setNotifyOnDueDay] = useState(policy.notify_on_due_day)
+  const [notifyManualRenewDaily, setNotifyManualRenewDaily] = useState(policy.notify_manual_renew_daily)
+
+  useEffect(() => {
+    setDaysBefore(policy.days_before.toString())
+    setNotifyOnDueDay(policy.notify_on_due_day)
+    setNotifyManualRenewDaily(policy.notify_manual_renew_daily)
+  }, [policy])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -27,6 +34,7 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
     void onSave({
       days_before: normalized,
       notify_on_due_day: notifyOnDueDay,
+      notify_manual_renew_daily: notifyManualRenewDaily,
     })
   }
 
@@ -62,6 +70,17 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
         />
         <Label htmlFor="on-due-day" className="cursor-pointer">
           {t("settings.notifications.policy.notifyOnDueDay")}
+        </Label>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Switch
+          id="manual-renew-daily"
+          checked={notifyManualRenewDaily}
+          onCheckedChange={setNotifyManualRenewDaily}
+        />
+        <Label htmlFor="manual-renew-daily" className="cursor-pointer">
+          {t("settings.notifications.policy.notifyManualRenewDaily")}
         </Label>
       </div>
 

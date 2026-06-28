@@ -61,6 +61,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260527_01_subscription_action_snoozes", Run: migrateSubscriptionEventsSchema},
 	{Name: "20260622_01_notification_outbox_leases", Run: migrateNotificationOutboxLeases},
 	{Name: "20260623_01_api_key_kind_and_audit", Run: migrateAPIKeyKindAndAudit},
+	{Name: "20260628_01_manual_renew_daily_notifications", Run: migrateManualRenewDailyNotificationPolicy},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
@@ -86,6 +87,10 @@ func migrateAPIKeyKindAndAudit(db *gorm.DB) error {
 	return db.Model(&model.APIKey{}).
 		Where("key_kind IS NULL OR TRIM(key_kind) = ''").
 		Update("key_kind", "api_integration").Error
+}
+
+func migrateManualRenewDailyNotificationPolicy(db *gorm.DB) error {
+	return db.AutoMigrate(&model.NotificationPolicy{})
 }
 
 func runSchemaMigrations(db *gorm.DB) error {

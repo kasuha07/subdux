@@ -539,6 +539,7 @@ const settings = {
       "daysBefore": "事前通知日数",
       "daysBeforeHint": "請求日の何日前にリマインダーを送信するか",
       "notifyOnDueDay": "請求日当日にも通知する",
+      "notifyManualRenewDaily": "手動更新は確認まで毎日通知する",
       "saveSuccess": "通知ポリシーを更新しました"
     },
     "logs": {

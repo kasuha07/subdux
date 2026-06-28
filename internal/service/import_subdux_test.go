@@ -93,7 +93,7 @@ func sampleSubduxImportData() SubduxImportData {
 			Templates: []model.NotificationTemplate{
 				{ChannelType: nil, Format: "plaintext", Template: "{{.SubscriptionName}} due soon"},
 			},
-			Policy: &model.NotificationPolicy{DaysBefore: 2, NotifyOnDueDay: true},
+			Policy: &model.NotificationPolicy{DaysBefore: 2, NotifyOnDueDay: true, NotifyManualRenewDaily: true},
 		},
 	}
 }
@@ -154,7 +154,12 @@ func TestImportFromSubduxConfirmImportsAndUpdates(t *testing.T) {
 	if err := db.Create(&model.UserPreference{UserID: user.ID, PreferredCurrency: "EUR"}).Error; err != nil {
 		t.Fatalf("failed to seed preference: %v", err)
 	}
-	if err := db.Create(&model.NotificationPolicy{UserID: user.ID, DaysBefore: 7, NotifyOnDueDay: false}).Error; err != nil {
+	if err := db.Model(&model.NotificationPolicy{}).Create(map[string]interface{}{
+		"user_id":                   user.ID,
+		"days_before":               7,
+		"notify_on_due_day":         false,
+		"notify_manual_renew_daily": false,
+	}).Error; err != nil {
 		t.Fatalf("failed to seed policy: %v", err)
 	}
 
@@ -201,8 +206,8 @@ func TestImportFromSubduxConfirmImportsAndUpdates(t *testing.T) {
 	if err := db.Where("user_id = ?", user.ID).First(&policy).Error; err != nil {
 		t.Fatalf("failed to query policy: %v", err)
 	}
-	if policy.DaysBefore != 2 || !policy.NotifyOnDueDay {
-		t.Fatalf("policy = (%d, %v), want (2, true)", policy.DaysBefore, policy.NotifyOnDueDay)
+	if policy.DaysBefore != 2 || !policy.NotifyOnDueDay || !policy.NotifyManualRenewDaily {
+		t.Fatalf("policy = (%d, %v, %v), want (2, true, true)", policy.DaysBefore, policy.NotifyOnDueDay, policy.NotifyManualRenewDaily)
 	}
 }
 

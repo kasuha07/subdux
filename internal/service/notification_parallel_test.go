@@ -89,19 +89,19 @@ func TestShouldScheduleNotificationOutbox(t *testing.T) {
 	scheduled := make(map[string]struct{})
 	notifyDate := time.Date(2026, 2, 24, 0, 0, 0, 0, time.UTC)
 
-	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDueDay, notifyDate); !ok {
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDueDay, notifyDate, notifyDate); !ok {
 		t.Fatal("first outbox scheduling returned false, want true")
 	}
 
-	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDueDay, notifyDate); ok {
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDueDay, notifyDate, notifyDate); ok {
 		t.Fatal("duplicate outbox scheduling returned true, want false")
 	}
 
-	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "smtp", notificationTriggerDueDay, notifyDate); !ok {
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "smtp", notificationTriggerDueDay, notifyDate, notifyDate); !ok {
 		t.Fatal("different channel scheduling returned false, want true")
 	}
 
-	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDaysBefore, notifyDate); !ok {
+	if ok := shouldScheduleNotificationOutbox(scheduled, 7, "webhook", notificationTriggerDaysBefore, notifyDate, notifyDate); !ok {
 		t.Fatal("different trigger scheduling returned false, want true")
 	}
 }

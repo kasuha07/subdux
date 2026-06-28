@@ -28,7 +28,11 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
   const [, startHydrationTransition] = useTransition()
 
   const [channels, setChannels] = useState<NotificationChannel[]>([])
-  const [policy, setPolicy] = useState<NotificationPolicy>({ days_before: 3, notify_on_due_day: true })
+  const [policy, setPolicy] = useState<NotificationPolicy>({
+    days_before: 3,
+    notify_on_due_day: true,
+    notify_manual_renew_daily: false,
+  })
   const [logs, setLogs] = useState<NotificationLog[]>([])
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
 

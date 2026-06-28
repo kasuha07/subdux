@@ -23,8 +23,9 @@ const (
 	notificationOutboxStatusCancelled  = "cancelled"
 	notificationOutboxStatusExpired    = "expired"
 
-	notificationTriggerDaysBefore = "days_before"
-	notificationTriggerDueDay     = "due_day"
+	notificationTriggerDaysBefore  = "days_before"
+	notificationTriggerDueDay      = "due_day"
+	notificationTriggerManualDaily = "manual_renew_daily"
 
 	notificationOutboxVersion      = "v1"
 	notificationOutboxLeaseTTL     = 5 * time.Minute
@@ -37,6 +38,7 @@ type notificationOutboxJob struct {
 	channel         model.NotificationChannel
 	triggerType     string
 	notifyDate      time.Time
+	dedupeDate      time.Time
 	message         string
 	targetEmail     string
 	subscriptionURL string
@@ -52,6 +54,24 @@ type NotificationDispatchSummary struct {
 }
 
 func notificationOutboxDedupeKey(userID, subscriptionID uint, channelType, triggerType string, notifyDate time.Time) string {
+	return notificationOutboxDedupeKeyForTrigger(userID, subscriptionID, channelType, triggerType, notifyDate, notifyDate)
+}
+
+func notificationOutboxDedupeKeyForTrigger(userID, subscriptionID uint, channelType, triggerType string, notifyDate, dedupeDate time.Time) string {
+	notifyDateKey := normalizeDateUTC(notifyDate).Format("2006-01-02")
+	if triggerType == notificationTriggerManualDaily {
+		return fmt.Sprintf(
+			"%s:%d:%d:%s:%s:%s:%s",
+			notificationOutboxVersion,
+			userID,
+			subscriptionID,
+			channelType,
+			triggerType,
+			notifyDateKey,
+			normalizeDateUTC(dedupeDate).Format("2006-01-02"),
+		)
+	}
+
 	return fmt.Sprintf(
 		"%s:%d:%d:%s:%s:%s",
 		notificationOutboxVersion,
@@ -59,7 +79,7 @@ func notificationOutboxDedupeKey(userID, subscriptionID uint, channelType, trigg
 		subscriptionID,
 		channelType,
 		triggerType,
-		normalizeDateUTC(notifyDate).Format("2006-01-02"),
+		notifyDateKey,
 	)
 }
 
@@ -70,6 +90,25 @@ func notificationTriggerTypes(daysUntilBilling, daysBefore int, notifyOnDueDay b
 	}
 	if daysUntilBilling == 0 && notifyOnDueDay {
 		triggers = append(triggers, notificationTriggerDueDay)
+	}
+	return triggers
+}
+
+func notificationTriggerTypesForSubscription(
+	renewalMode string,
+	daysUntilBilling int,
+	daysBefore int,
+	notifyOnDueDay bool,
+	notifyManualRenewDaily bool,
+) []string {
+	triggers := notificationTriggerTypes(daysUntilBilling, daysBefore, notifyOnDueDay)
+	if normalizeRenewalMode(renewalMode) == renewalModeManualRenew &&
+		notifyManualRenewDaily &&
+		daysBefore > 0 &&
+		daysUntilBilling >= 0 &&
+		daysUntilBilling < daysBefore &&
+		(daysUntilBilling != 0 || !notifyOnDueDay) {
+		triggers = append(triggers, notificationTriggerManualDaily)
 	}
 	return triggers
 }
@@ -98,8 +137,18 @@ func shouldScheduleNotificationOutbox(
 	channelType string,
 	triggerType string,
 	notifyDate time.Time,
+	dedupeDate time.Time,
 ) bool {
-	key := fmt.Sprintf("%d|%s|%s|%s", subscriptionID, channelType, triggerType, notifyDate.UTC().Format(time.RFC3339Nano))
+	if dedupeDate.IsZero() {
+		dedupeDate = notifyDate
+	}
+	key := fmt.Sprintf("%d|%s|%s|%s|%s",
+		subscriptionID,
+		channelType,
+		triggerType,
+		notifyDate.UTC().Format(time.RFC3339Nano),
+		dedupeDate.UTC().Format(time.RFC3339Nano),
+	)
 	if _, exists := scheduled[key]; exists {
 		return false
 	}
@@ -109,7 +158,11 @@ func shouldScheduleNotificationOutbox(
 
 func (s *NotificationService) enqueueNotificationOutbox(job notificationOutboxJob) error {
 	notifyDate := normalizeDateUTC(job.notifyDate)
-	if sent, err := s.notificationAlreadySent(job.subscriptionID, job.channel.Type, job.triggerType, notifyDate, job.notifyDate); err != nil || sent {
+	dedupeDate := job.dedupeDate
+	if dedupeDate.IsZero() {
+		dedupeDate = notifyDate
+	}
+	if sent, err := s.notificationAlreadySent(job.subscriptionID, job.channel.Type, job.triggerType, notifyDate, job.notifyDate, dedupeDate); err != nil || sent {
 		return err
 	}
 
@@ -117,7 +170,7 @@ func (s *NotificationService) enqueueNotificationOutbox(job notificationOutboxJo
 	expiresAt := notifyDate.Add(notificationOutboxExpiryWindow)
 	now := pkg.NowUTC()
 	outbox := model.NotificationOutbox{
-		DedupeKey:       notificationOutboxDedupeKey(job.userID, job.subscriptionID, job.channel.Type, job.triggerType, notifyDate),
+		DedupeKey:       notificationOutboxDedupeKeyForTrigger(job.userID, job.subscriptionID, job.channel.Type, job.triggerType, notifyDate, dedupeDate),
 		UserID:          job.userID,
 		SubscriptionID:  job.subscriptionID,
 		ChannelID:       &channelID,
@@ -137,14 +190,20 @@ func (s *NotificationService) enqueueNotificationOutbox(job notificationOutboxJo
 	return s.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&outbox).Error
 }
 
-func (s *NotificationService) notificationAlreadySent(subscriptionID uint, channelType, triggerType string, notifyDate, originalNotifyDate time.Time) (bool, error) {
+func (s *NotificationService) notificationAlreadySent(subscriptionID uint, channelType, triggerType string, notifyDate, originalNotifyDate, dedupeDate time.Time) (bool, error) {
 	var count int64
 	notifyDates := notificationSentDateCandidates(notifyDate, originalNotifyDate)
-	err := s.DB.Model(&model.NotificationLog{}).
+	query := s.DB.Model(&model.NotificationLog{}).
 		Where("subscription_id = ? AND channel_type = ? AND notify_date IN ? AND status = ?",
 			subscriptionID, channelType, notifyDates, notificationLogStatusSent).
-		Where("trigger_type = ? OR trigger_type = ? OR trigger_type IS NULL", triggerType, "").
-		Count(&count).Error
+		Where("trigger_type = ? OR trigger_type = ? OR trigger_type IS NULL", triggerType, "")
+	if triggerType == notificationTriggerManualDaily {
+		systemLoc := pkg.GetSystemTimezone()
+		sentDateStart := pkg.NormalizeDateInTimezone(dedupeDate, systemLoc)
+		sentDateEnd := sentDateStart.AddDate(0, 0, 1)
+		query = query.Where("sent_at >= ? AND sent_at < ?", sentDateStart.UTC(), sentDateEnd.UTC())
+	}
+	err := query.Count(&count).Error
 	return count > 0, err
 }
 
@@ -411,7 +470,21 @@ func (s *NotificationService) outboxMatchesCurrentReminder(job model.Notificatio
 	}
 
 	daysUntilBilling := pkg.DaysUntil(*sub.NextBillingDate, systemLoc)
-	for _, triggerType := range notificationTriggerTypes(daysUntilBilling, daysBefore, notifyOnDueDay) {
+	if job.TriggerType == notificationTriggerManualDaily {
+		scheduledDate := pkg.NormalizeDateInTimezone(job.ScheduledFor, systemLoc)
+		today := pkg.TodayInTimezone(systemLoc)
+		if !scheduledDate.Equal(today) {
+			return false, "queued daily manual-renew reminder is stale", nil
+		}
+	}
+
+	for _, triggerType := range notificationTriggerTypesForSubscription(
+		sub.RenewalMode,
+		daysUntilBilling,
+		daysBefore,
+		notifyOnDueDay,
+		policy.NotifyManualRenewDaily,
+	) {
 		if triggerType == job.TriggerType {
 			return true, "", nil
 		}

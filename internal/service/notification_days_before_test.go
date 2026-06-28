@@ -64,6 +64,38 @@ func TestUpdatePolicyRejectsDaysBeforeAboveMax(t *testing.T) {
 	}
 }
 
+func TestUpdatePolicySavesManualRenewDailyPreference(t *testing.T) {
+	db := newNotificationDaysBeforeTestDB(t)
+	user := createNotificationDaysBeforeTestUser(t, db)
+	service := NewNotificationService(db, nil, nil)
+	enabled := true
+
+	policy, err := service.UpdatePolicy(user.ID, UpdatePolicyInput{NotifyManualRenewDaily: &enabled})
+	if err != nil {
+		t.Fatalf("UpdatePolicy() error = %v", err)
+	}
+	if !policy.NotifyManualRenewDaily {
+		t.Fatal("NotifyManualRenewDaily = false, want true")
+	}
+	if policy.DaysBefore != 3 || !policy.NotifyOnDueDay {
+		t.Fatalf("policy defaults = (%d, %v), want (3, true)", policy.DaysBefore, policy.NotifyOnDueDay)
+	}
+}
+
+func TestDefaultPolicyDisablesManualRenewDailyPreference(t *testing.T) {
+	db := newNotificationDaysBeforeTestDB(t)
+	user := createNotificationDaysBeforeTestUser(t, db)
+	service := NewNotificationService(db, nil, nil)
+
+	policy, err := service.GetPolicy(user.ID)
+	if err != nil {
+		t.Fatalf("GetPolicy() error = %v", err)
+	}
+	if policy.NotifyManualRenewDaily {
+		t.Fatal("NotifyManualRenewDaily = true, want false default")
+	}
+}
+
 func TestCreateSubscriptionRejectsNotifyDaysBeforeAboveMax(t *testing.T) {
 	db := newNotificationDaysBeforeTestDB(t)
 	user := createNotificationDaysBeforeTestUser(t, db)

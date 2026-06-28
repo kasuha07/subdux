@@ -107,8 +107,14 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		t.Fatalf("create legacy subscription error = %v", err)
 	}
 
-	policy := model.NotificationPolicy{UserID: primaryUser.ID, DaysBefore: 3, NotifyOnDueDay: true, CreatedAt: now, UpdatedAt: now}
-	if err := db.Create(&policy).Error; err != nil {
+	policy := map[string]interface{}{
+		"user_id":           primaryUser.ID,
+		"days_before":       3,
+		"notify_on_due_day": true,
+		"created_at":        now,
+		"updated_at":        now,
+	}
+	if err := db.Table("notification_policies").Create(policy).Error; err != nil {
 		t.Fatalf("create legacy notification policy error = %v", err)
 	}
 
@@ -207,6 +213,14 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 	invalidPolicy := model.NotificationPolicy{UserID: otherUser.ID, DaysBefore: 99, NotifyOnDueDay: true}
 	if err := db.Create(&invalidPolicy).Error; err == nil {
 		t.Fatal("expected notification policy check constraint error, got nil")
+	}
+
+	var migratedPolicy model.NotificationPolicy
+	if err := db.Where("user_id = ?", primaryUser.ID).First(&migratedPolicy).Error; err != nil {
+		t.Fatalf("reload migrated notification policy error = %v", err)
+	}
+	if migratedPolicy.NotifyManualRenewDaily {
+		t.Fatal("notify_manual_renew_daily = true, want false default for migrated policy")
 	}
 
 	if err := db.Delete(&model.User{}, primaryUser.ID).Error; err != nil {

@@ -151,11 +151,13 @@ export interface UpdateNotificationChannelInput {
 export interface NotificationPolicy {
   days_before: number
   notify_on_due_day: boolean
+  notify_manual_renew_daily: boolean
 }
 
 export interface UpdateNotificationPolicyInput {
   days_before?: number
   notify_on_due_day?: boolean
+  notify_manual_renew_daily?: boolean
 }
 
 export interface NotificationLog {

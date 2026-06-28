@@ -539,6 +539,7 @@ const settings = {
       "daysBefore": "提前通知天数",
       "daysBeforeHint": "在扣费日前几天发送提醒",
       "notifyOnDueDay": "扣费当天也发送通知",
+      "notifyManualRenewDaily": "手动续费项目在确认前每天提醒",
       "saveSuccess": "通知策略已更新"
     },
     "logs": {

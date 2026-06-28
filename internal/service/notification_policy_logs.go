@@ -13,9 +13,10 @@ func (s *NotificationService) GetPolicy(userID uint) (*model.NotificationPolicy,
 	if err := s.DB.Where("user_id = ?", userID).First(&policy).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &model.NotificationPolicy{
-				UserID:         userID,
-				DaysBefore:     3,
-				NotifyOnDueDay: true,
+				UserID:                 userID,
+				DaysBefore:             3,
+				NotifyOnDueDay:         true,
+				NotifyManualRenewDaily: false,
 			}, nil
 		}
 		return nil, err
@@ -32,9 +33,10 @@ func (s *NotificationService) UpdatePolicy(userID uint, input UpdatePolicyInput)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		policy = model.NotificationPolicy{
-			UserID:         userID,
-			DaysBefore:     3,
-			NotifyOnDueDay: true,
+			UserID:                 userID,
+			DaysBefore:             3,
+			NotifyOnDueDay:         true,
+			NotifyManualRenewDaily: false,
 		}
 	}
 
@@ -47,9 +49,20 @@ func (s *NotificationService) UpdatePolicy(userID uint, input UpdatePolicyInput)
 	if input.NotifyOnDueDay != nil {
 		policy.NotifyOnDueDay = *input.NotifyOnDueDay
 	}
+	if input.NotifyManualRenewDaily != nil {
+		policy.NotifyManualRenewDaily = *input.NotifyManualRenewDaily
+	}
 
 	if policy.ID == 0 {
-		if err := s.DB.Create(&policy).Error; err != nil {
+		if err := s.DB.Model(&model.NotificationPolicy{}).Create(map[string]interface{}{
+			"user_id":                   policy.UserID,
+			"days_before":               policy.DaysBefore,
+			"notify_on_due_day":         policy.NotifyOnDueDay,
+			"notify_manual_renew_daily": policy.NotifyManualRenewDaily,
+		}).Error; err != nil {
+			return nil, err
+		}
+		if err := s.DB.Where("user_id = ?", userID).First(&policy).Error; err != nil {
 			return nil, err
 		}
 	} else {

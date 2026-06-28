@@ -159,16 +159,27 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 		}
 
 		billingDate := pkg.NormalizeDateInTimezone(*sub.NextBillingDate, systemLoc)
+		scanDate := pkg.NormalizeDateInTimezone(now, systemLoc)
 
 		daysUntilBilling := pkg.DaysUntil(*sub.NextBillingDate, systemLoc)
-		triggerTypes := notificationTriggerTypes(daysUntilBilling, daysBefore, notifyOnDueDay)
+		triggerTypes := notificationTriggerTypesForSubscription(
+			sub.RenewalMode,
+			daysUntilBilling,
+			daysBefore,
+			notifyOnDueDay,
+			policy.NotifyManualRenewDaily,
+		)
 		if len(triggerTypes) == 0 {
 			continue
 		}
 
 		for _, channel := range enabledChannels {
 			for _, triggerType := range triggerTypes {
-				if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, triggerType, billingDate) {
+				dedupeDate := billingDate
+				if triggerType == notificationTriggerManualDaily {
+					dedupeDate = scanDate
+				}
+				if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, triggerType, billingDate, dedupeDate) {
 					continue
 				}
 
@@ -188,6 +199,7 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 					channel:         channel,
 					triggerType:     triggerType,
 					notifyDate:      billingDate,
+					dedupeDate:      dedupeDate,
 					message:         message,
 					targetEmail:     user.Email,
 					subscriptionURL: sub.URL,

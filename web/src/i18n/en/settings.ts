@@ -539,6 +539,7 @@ const settings = {
       "daysBefore": "Notify days before",
       "daysBeforeHint": "How many days before the billing date to send a reminder",
       "notifyOnDueDay": "Also notify on the billing day",
+      "notifyManualRenewDaily": "Notify manual-renew subscriptions daily until confirmed",
       "saveSuccess": "Notification policy updated"
     },
     "logs": {
