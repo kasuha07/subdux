@@ -198,6 +198,13 @@ const subscription = {
     "urlPlaceholder": "https://...",
     "notesLabel": "备注",
     "notesPlaceholder": "可选备注...",
+    "notification": {
+      "title": "通知",
+      "useDefault": "使用默认策略",
+      "enabled": "已开启",
+      "disabled": "已关闭",
+      "daysBeforeOverride": "提前提醒的天数"
+    },
     "cancel": "取消",
     "saving": "保存中...",
     "update": "更新",

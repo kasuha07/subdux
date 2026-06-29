@@ -198,6 +198,13 @@ const subscription = {
     "urlPlaceholder": "https://...",
     "notesLabel": "Notes",
     "notesPlaceholder": "Optional notes...",
+    "notification": {
+      "title": "Notification",
+      "useDefault": "Use default policy",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "daysBeforeOverride": "Days before reminder override"
+    },
     "cancel": "Cancel",
     "saving": "Saving...",
     "update": "Update",

@@ -198,6 +198,13 @@ const subscription = {
     "urlPlaceholder": "https://...",
     "notesLabel": "メモ",
     "notesPlaceholder": "メモ（任意）...",
+    "notification": {
+      "title": "通知",
+      "useDefault": "デフォルトポリシーを使用",
+      "enabled": "有効",
+      "disabled": "無効",
+      "daysBeforeOverride": "通知上書きの事前日数"
+    },
     "cancel": "キャンセル",
     "saving": "保存中...",
     "update": "更新",

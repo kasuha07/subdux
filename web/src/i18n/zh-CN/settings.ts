@@ -554,13 +554,6 @@ const settings = {
       "statusSent": "已发送",
       "statusFailed": "失败"
     },
-    "subscription": {
-      "title": "通知",
-      "useDefault": "默认",
-      "enabled": "通知",
-      "disabled": "不通知",
-      "daysBeforeOverride": "自定义提前天数"
-    },
     templates: {
       title: "通知模板",
       description: "为每个渠道自定义通知消息模板",

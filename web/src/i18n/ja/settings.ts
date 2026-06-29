@@ -554,13 +554,6 @@ const settings = {
       "statusSent": "送信済み",
       "statusFailed": "失敗"
     },
-    "subscription": {
-      "title": "通知",
-      "useDefault": "デフォルトポリシーを使用",
-      "enabled": "このサブスクリプションを通知する",
-      "disabled": "通知しない",
-      "daysBeforeOverride": "カスタム事前日数"
-    },
     templates: {
       title: "通知テンプレート",
       description: "各チャネルの通知メッセージテンプレートをカスタマイズ",

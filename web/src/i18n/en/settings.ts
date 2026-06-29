@@ -554,13 +554,6 @@ const settings = {
       "statusSent": "Sent",
       "statusFailed": "Failed"
     },
-    "subscription": {
-      "title": "Notifications",
-      "useDefault": "Use default policy",
-      "enabled": "Notify for this subscription",
-      "disabled": "Do not notify",
-      "daysBeforeOverride": "Custom days before"
-    },
     "templates": {
       "title": "Notification Templates",
       "description": "Customize notification message templates for each channel",

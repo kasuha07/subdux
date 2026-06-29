@@ -1,8 +1,9 @@
 import { Suspense, lazy, type ReactNode, useEffect, useState } from "react"
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { isAuthenticated, isAdmin, restoreSession } from "@/lib/api"
-import { useSiteSettings } from "@/hooks/useSiteSettings"
 import { AppToaster } from "@/components/app-toaster"
+import { useSiteTitle } from "@/hooks/useSiteSettings"
+import { preloadNeighborRoutesForPath, preloadRouteForPath } from "@/lib/route-preload"
 
 const LoginPage = lazy(() => import("@/features/auth/login-page"))
 const RegisterPage = lazy(() => import("@/features/auth/register-page"))
@@ -60,8 +61,20 @@ function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
 }
 
+function RoutePreloader() {
+  const location = useLocation()
+
+  useEffect(() => {
+    preloadRouteForPath(location.pathname)
+    preloadNeighborRoutesForPath(location.pathname)
+  }, [location.pathname])
+
+  return null
+}
+
 export default function App() {
   const [authReady, setAuthReady] = useState(() => isAuthenticated())
+  useSiteTitle()
 
   useEffect(() => {
     let cancelled = false
@@ -83,11 +96,10 @@ export default function App() {
     }
   }, [])
 
-  useSiteSettings()
-
   return (
     <BrowserRouter>
       <AppToaster />
+      <RoutePreloader />
       <Routes>
         <Route path="/login" element={<LazyRoute><PublicRoute authReady={authReady}><LoginPage /></PublicRoute></LazyRoute>} />
         <Route path="/register" element={<LazyRoute><PublicRoute authReady={authReady}><RegisterPage /></PublicRoute></LazyRoute>} />

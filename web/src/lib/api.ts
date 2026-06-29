@@ -1,4 +1,4 @@
-import { toast } from "sonner"
+import { toast } from "@/lib/toast-store"
 import i18n from "@/i18n"
 import type { AuthResponse, User } from "@/types"
 

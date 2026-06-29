@@ -33,20 +33,20 @@ export default function SubscriptionNotificationFields({
   return (
     <div className={showDaysBeforeOverride ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "space-y-0"}>
       <div className="space-y-2">
-        <Label>{t("settings.notifications.subscription.title")}</Label>
+        <Label>{t("subscription.form.notification.title")}</Label>
         <Select value={notifyEnabled} onValueChange={onNotifyEnabledChange}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="default">
-              {t("settings.notifications.subscription.useDefault")}
+              {t("subscription.form.notification.useDefault")}
             </SelectItem>
             <SelectItem value="enabled">
-              {t("settings.notifications.subscription.enabled")}
+              {t("subscription.form.notification.enabled")}
             </SelectItem>
             <SelectItem value="disabled">
-              {t("settings.notifications.subscription.disabled")}
+              {t("subscription.form.notification.disabled")}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -54,7 +54,7 @@ export default function SubscriptionNotificationFields({
 
       {showDaysBeforeOverride && (
         <div className="space-y-2">
-          <Label htmlFor="notify-days">{t("settings.notifications.subscription.daysBeforeOverride")}</Label>
+          <Label htmlFor="notify-days">{t("subscription.form.notification.daysBeforeOverride")}</Label>
           <Input
             id="notify-days"
             type="number"

@@ -21,6 +21,7 @@ import {
 } from "@/features/subscriptions/subscription-detail-cache"
 import { api, isAdmin } from "@/lib/api"
 import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
+import { preloadRouteForPath } from "@/lib/route-preload"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
   DISPLAY_DISABLED_SUBSCRIPTIONS_LAST_KEY,
@@ -383,6 +384,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     return scheduleIdlePreload(preloadSubscriptionDetailDrawer, 1100)
+  }, [])
+
+  useEffect(() => {
+    preloadRouteForPath("/actions")
+    preloadRouteForPath("/calendar")
+    preloadRouteForPath("/reports")
+    preloadRouteForPath("/settings")
+    if (isAdmin()) {
+      preloadRouteForPath("/admin")
+    }
   }, [])
 
   useEffect(() => {
