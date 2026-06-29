@@ -184,4 +184,30 @@ func TestSetupSPAServesStaticAsset(t *testing.T) {
 	if got := rec.Body.String(); got != "console.log('ok')" {
 		t.Fatalf("body = %q, want asset content", got)
 	}
+	if got, want := rec.Header().Get("Cache-Control"), immutableCacheControl; got != want {
+		t.Fatalf("Cache-Control = %q, want %q", got, want)
+	}
+}
+
+func TestSetupSPAFallbackDoesNotCacheImmutable(t *testing.T) {
+	dist := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<!doctype html>")},
+	}
+
+	e := echo.New()
+	setupSPA(e, dist)
+
+	// A path under /assets/ that does not exist must fall back to index.html,
+	// and must never inherit the immutable cache header (otherwise a hashed URL
+	// that 404s would be cached forever as the SPA shell).
+	req := httptest.NewRequest(http.MethodGet, "/assets/missing-Dead0000.js", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "no-store") {
+		t.Fatalf("Cache-Control = %q, want no-store fallback", got)
+	}
 }

@@ -102,6 +102,7 @@ This starts Subdux on `127.0.0.1:8080` and stores persistent data in the `subdux
 - Configure SMTP before enabling email verification, password reset, or email notifications.
 - If you use OIDC, make sure the redirect URL configured in Subdux exactly matches the provider configuration.
 - Passkeys and OIDC generally require correct public URL and HTTPS configuration.
+- Enable response compression (gzip/zstd/brotli) at your reverse proxy. Subdux already sends long-lived `immutable` cache headers for its content-hashed `/assets/*` bundles, but it does not compress responses itself — terminating compression at the edge (Caddy `encode zstd gzip`, Nginx `gzip on`) keeps it off the SSE/streaming paths and cuts first-load transfer size the most.
 
 ## Architecture
 

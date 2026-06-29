@@ -567,6 +567,15 @@ func startSubscriptionLifecycleSweep(
 	}()
 }
 
+// assetsPathPrefix is Vite's output directory for content-hashed build assets.
+const assetsPathPrefix = "assets/"
+
+// immutableCacheControl is applied to content-hashed assets. Vite fingerprints
+// these filenames by content, so the bytes behind a given URL never change and
+// the response can be cached indefinitely. Non-hashed files (e.g. index.html)
+// must not use this.
+const immutableCacheControl = "public, max-age=31536000, immutable"
+
 func setupSPA(e *echo.Echo, fsys fs.FS) {
 	indexHTML, _ := fs.ReadFile(fsys, "index.html")
 	fileServer := http.FileServer(http.FS(fsys))
@@ -582,6 +591,9 @@ func setupSPA(e *echo.Echo, fsys fs.FS) {
 		// Try serving the actual file
 		if f, err := fsys.Open(path); err == nil {
 			_ = f.Close()
+			if strings.HasPrefix(path, assetsPathPrefix) {
+				w.Header().Set("Cache-Control", immutableCacheControl)
+			}
 			fileServer.ServeHTTP(w, r)
 			return
 		}
