@@ -49,7 +49,7 @@ export default function AdminSettingsOIDCTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="auth" className="space-y-6">
+    <TabsContent value="auth" className="space-y-6 select-none">
       <AdminSettingsRegistrationSection
         emailDomainWhitelist={emailDomainWhitelist}
         onEmailDomainWhitelistChange={onEmailDomainWhitelistChange}

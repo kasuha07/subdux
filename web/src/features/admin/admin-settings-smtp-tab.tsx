@@ -44,7 +44,7 @@ export default function AdminSettingsSMTPTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="smtp" className="space-y-6">
+    <TabsContent value="smtp" className="space-y-6 select-none">
       <AdminSettingsSMTPSection
         onSMTPAuthMethodChange={onSMTPAuthMethodChange}
         onSMTPEnabledChange={onSMTPEnabledChange}

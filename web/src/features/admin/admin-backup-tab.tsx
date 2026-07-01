@@ -149,7 +149,7 @@ export default function AdminBackupTab({
         : t("admin.backup.lastRunNever")
 
   return (
-    <TabsContent value="backup" className="space-y-6">
+    <TabsContent value="backup" className="space-y-6 select-none">
       <div className="space-y-4">
         <div>
           <h3 className="text-sm font-medium">{t("admin.backup.download")}</h3>
