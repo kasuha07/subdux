@@ -170,6 +170,46 @@ export default function AdminBackupTab({
 
       <div className="space-y-4">
         <div>
+          <h3 className="text-sm font-medium">{t("admin.backup.restore")}</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t("admin.backup.restoreDescription")}
+          </p>
+        </div>
+        <Input
+          type="file"
+          accept=".db,.zip"
+          onChange={(event) => onRestoreFileChange(event.target.files?.[0] ?? null)}
+        />
+        <Button
+          variant="destructive"
+          disabled={!restoreFile}
+          onClick={() => onRestoreConfirmOpenChange(true)}
+        >
+          {t("admin.backup.restoreButton")}
+        </Button>
+
+        {restoreConfirmOpen && (
+          <div className="rounded-md border border-destructive bg-destructive/10 p-4">
+            <div className="mb-2 flex items-center gap-2 font-medium text-destructive">
+              <AlertTriangle className="size-4" />
+              {t("admin.backup.restoreConfirm")}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" variant="destructive" onClick={() => void onRestore()}>
+                {t("admin.backup.confirm")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onRestoreConfirmOpenChange(false)}>
+                {t("admin.backup.cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <div>
           <h3 className="text-sm font-medium">{t("admin.backup.scheduleTitle")}</h3>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {t("admin.backup.scheduleDescription")}
@@ -355,46 +395,6 @@ export default function AdminBackupTab({
               </li>
             ))}
           </ul>
-        )}
-      </div>
-
-      <Separator />
-
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-medium">{t("admin.backup.restore")}</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {t("admin.backup.restoreDescription")}
-          </p>
-        </div>
-        <Input
-          type="file"
-          accept=".db,.zip"
-          onChange={(event) => onRestoreFileChange(event.target.files?.[0] ?? null)}
-        />
-        <Button
-          variant="destructive"
-          disabled={!restoreFile}
-          onClick={() => onRestoreConfirmOpenChange(true)}
-        >
-          {t("admin.backup.restoreButton")}
-        </Button>
-
-        {restoreConfirmOpen && (
-          <div className="rounded-md border border-destructive bg-destructive/10 p-4">
-            <div className="mb-2 flex items-center gap-2 font-medium text-destructive">
-              <AlertTriangle className="size-4" />
-              {t("admin.backup.restoreConfirm")}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" variant="destructive" onClick={() => void onRestore()}>
-                {t("admin.backup.confirm")}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onRestoreConfirmOpenChange(false)}>
-                {t("admin.backup.cancel")}
-              </Button>
-            </div>
-          </div>
         )}
       </div>
     </TabsContent>
