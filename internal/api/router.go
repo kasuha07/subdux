@@ -124,6 +124,7 @@ func SetupRoutes(
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)
+	reauthService := service.NewReauthService(db, authService)
 	systemSettingsService := service.NewSystemSettingsService(db)
 	iconProxyService := service.NewIconProxyService(db)
 	erService := service.NewExchangeRateService(db)
@@ -145,7 +146,8 @@ func SetupRoutes(
 
 	authHandler := NewAuthHandler(authService, totpService)
 	subHandler := NewSubscriptionHandler(subService, erService)
-	adminHandler := NewAdminHandler(adminService, taskMonitor)
+	adminHandler := NewAdminHandler(adminService, taskMonitor, reauthService)
+	reauthHandler := NewReauthHandler(reauthService)
 	siteInfoHandler := NewSiteInfoHandler(systemSettingsService)
 	iconProxyHandler := NewIconProxyHandler(iconProxyService)
 	erHandler := NewExchangeRateHandler(erService)
@@ -185,6 +187,8 @@ func SetupRoutes(
 	totpAccountLimiter := authAccountRateLimit(8, 5*time.Minute, totpAccountKey)
 	refreshTokenLimiter := authAccountRateLimit(20, time.Minute, refreshTokenAccountKey)
 	iconProxyLimiter := authIPRateLimit(600, time.Minute)
+	reauthIPLimiter := authIPRateLimit(30, time.Minute)
+	reauthUserLimiter := authAccountRateLimit(6, 10*time.Minute, reauthUserAccountKey)
 
 	api.GET("/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, version.Get())
@@ -304,6 +308,12 @@ func SetupRoutes(
 	admin.POST("/backup/run", adminHandler.RunBackupNow)
 	admin.GET("/backup/local", adminHandler.ListLocalBackups)
 	admin.POST("/restore", adminHandler.RestoreDB, requestBodyLimitMiddleware(32<<20, nil))
+	admin.GET("/reauth/methods", reauthHandler.Methods)
+	admin.POST("/reauth/password", reauthHandler.VerifyPassword, reauthIPLimiter, reauthUserLimiter)
+	admin.POST("/reauth/passkey/start", reauthHandler.BeginPasskey, reauthIPLimiter, reauthUserLimiter)
+	admin.POST("/reauth/passkey/finish", reauthHandler.FinishPasskey)
+	admin.POST("/reauth/oidc/start", reauthHandler.BeginOIDC, reauthIPLimiter, reauthUserLimiter)
+	admin.POST("/reauth/oidc/finish", reauthHandler.FinishOIDC)
 	admin.GET("/exchange-rates/status", erHandler.GetStatus)
 	admin.POST("/exchange-rates/refresh", erHandler.RefreshRates)
 

@@ -25,6 +25,7 @@ import (
 const (
 	oidcPurposeLogin   = "login"
 	oidcPurposeConnect = "connect"
+	oidcPurposeReauth  = "reauth"
 	oidcProviderKey    = "oidc"
 
 	defaultOIDCScopes    = "openid profile email"
@@ -65,11 +66,19 @@ type OIDCSessionResult struct {
 	Connected    bool                `json:"connected,omitempty"`
 	Connection   *OIDCConnectionInfo `json:"connection,omitempty"`
 	Error        string              `json:"error,omitempty"`
+
+	// UserID and Operation are internal to the reauth ("step-up") flow. They are
+	// never serialized to clients: the reauth result session is consumed
+	// server-side (VerifyOIDC) to mint a ticket, and these fields let Consume
+	// bind the OIDC identity back to the requesting admin and operation.
+	UserID    uint   `json:"-"`
+	Operation string `json:"-"`
 }
 
 type oidcStateSession struct {
 	Purpose      string
 	UserID       uint
+	Operation    string
 	CodeVerifier string
 	Nonce        string
 	CreatedAt    time.Time
@@ -128,7 +137,7 @@ func (s *AuthService) BeginOIDCLogin() (*OIDCStartResult, error) {
 		return nil, errors.New("oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0)
+	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0, "")
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +151,29 @@ func (s *AuthService) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 		return nil, errors.New("oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID)
+	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+}
+
+// BeginOIDCReauth starts an OIDC step-up ("reauth") for an already-authenticated
+// user before a sensitive operation. Unlike login/connect it carries the
+// operation through the state session so the minted ticket can be scoped to it,
+// and on completion issues no tokens — success only proves the admin still
+// controls their linked OIDC identity.
+func (s *AuthService) BeginOIDCReauth(userID uint, operation string) (*OIDCStartResult, error) {
+	if userID == 0 {
+		return nil, errors.New("invalid oidc reauth session")
+	}
+	settings := s.getOIDCSettings()
+	if !settings.Enabled || !settings.isConfigured() {
+		return nil, errors.New("oidc login is not available")
+	}
+
+	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeReauth, userID, operation)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +219,8 @@ func (s *AuthService) HandleOIDCCallback(state string, code string, providerErro
 	var result OIDCSessionResult
 	if purpose == oidcPurposeConnect {
 		result, err = s.finishOIDCConnect(session.UserID, claims)
+	} else if purpose == oidcPurposeReauth {
+		result, err = s.finishOIDCReauth(session.UserID, session.Operation, claims)
 	} else {
 		result, err = s.finishOIDCLogin(settings, claims)
 	}
@@ -207,6 +240,25 @@ func (s *AuthService) ConsumeOIDCSessionResult(sessionID string) (*OIDCSessionRe
 	return &result, nil
 }
 
+// ConsumeOIDCReauthResult atomically spends the reauth result session created by
+// a successful OIDC step-up callback. It succeeds only when the session was
+// minted for the reauth purpose, belongs to the same admin (userID), and matches
+// the operation the step-up was started for. The single-use semantics come from
+// takeOIDCResultSession, which deletes the session on read.
+func (s *AuthService) ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) error {
+	result, err := s.takeOIDCResultSession(strings.TrimSpace(sessionID))
+	if err != nil {
+		return err
+	}
+	if result.Error != "" {
+		return errors.New(result.Error)
+	}
+	if result.Purpose != oidcPurposeReauth || result.UserID != userID || result.Operation != operation {
+		return errors.New("invalid oidc reauth session")
+	}
+	return nil
+}
+
 func (s *AuthService) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, error) {
 	var records []model.OIDCConnection
 	if err := s.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&records).Error; err != nil {
@@ -220,6 +272,24 @@ func (s *AuthService) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, er
 	return result, nil
 }
 
+// CanReauthWithOIDC reports whether the user can use OIDC as a step-up factor:
+// the provider must be enabled/configured and the user must have a linked OIDC
+// connection to authenticate against.
+func (s *AuthService) CanReauthWithOIDC(userID uint) (bool, error) {
+	settings := s.getOIDCSettings()
+	if !settings.Enabled || !settings.isConfigured() {
+		return false, nil
+	}
+
+	var count int64
+	if err := s.DB.Model(&model.OIDCConnection{}).
+		Where("provider = ? AND user_id = ?", oidcProviderKey, userID).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error {
 	result := s.DB.Where("id = ? AND user_id = ?", connectionID, userID).Delete(&model.OIDCConnection{})
 	if result.Error != nil {
@@ -231,7 +301,7 @@ func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error
 	return nil
 }
 
-func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint) (string, error) {
+func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
@@ -267,6 +337,7 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 	s.storeOIDCStateSession(state, oidcStateSession{
 		Purpose:      purpose,
 		UserID:       userID,
+		Operation:    operation,
 		CodeVerifier: codeVerifier,
 		Nonce:        nonce,
 		ExpiresAt:    pkg.NowUTC().Add(oidcStateSessionTTL),
@@ -499,6 +570,43 @@ func (s *AuthService) finishOIDCConnect(userID uint, claims *oidcIdentityClaims)
 	}, nil
 }
 
+// finishOIDCReauth resolves the OIDC identity of a completed step-up and confirms
+// it belongs to the same admin who started it. It issues no tokens and creates no
+// connections: the returned result is a short-lived, single-use session that
+// VerifyOIDC later spends to mint a reauth ticket. Requiring an existing
+// connection owned by userID means an admin can only step up with their own
+// linked identity, never by authenticating as a different OIDC account.
+func (s *AuthService) finishOIDCReauth(userID uint, operation string, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
+	if userID == 0 {
+		return OIDCSessionResult{}, errors.New("invalid oidc reauth session")
+	}
+
+	user, err := s.GetUser(userID)
+	if err != nil {
+		return OIDCSessionResult{}, err
+	}
+	if user.Status == "disabled" {
+		return OIDCSessionResult{}, errors.New("account is disabled")
+	}
+
+	var connection model.OIDCConnection
+	err = s.DB.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&connection).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return OIDCSessionResult{}, errors.New("oidc identity is not linked to this account")
+	} else if err != nil {
+		return OIDCSessionResult{}, errors.New("failed to load oidc connection")
+	}
+	if connection.UserID != userID {
+		return OIDCSessionResult{}, errors.New("oidc identity is not linked to this account")
+	}
+
+	return OIDCSessionResult{
+		Purpose:   oidcPurposeReauth,
+		UserID:    userID,
+		Operation: operation,
+	}, nil
+}
+
 func (s *AuthService) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error) {
 	email := strings.TrimSpace(claims.Email)
 	if email == "" {
@@ -615,7 +723,7 @@ func (s *AuthService) allocateOIDCUsername(seed string) (string, error) {
 }
 
 func (s *AuthService) createOIDCCallbackErrorResult(purpose string, message string) (*OIDCCallbackResult, error) {
-	if purpose != oidcPurposeConnect {
+	if purpose != oidcPurposeConnect && purpose != oidcPurposeReauth {
 		purpose = oidcPurposeLogin
 	}
 

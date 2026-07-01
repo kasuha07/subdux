@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { TabsContent } from "@/components/ui/tabs"
 import type { LocalBackupInfo } from "@/types"
+import ReauthDialog from "./reauth-dialog"
 
 interface AdminBackupTabProps {
   backupEncryptEnabled: boolean
@@ -42,11 +43,12 @@ interface AdminBackupTabProps {
   onBackupRetentionCountChange: (value: number) => void
   onBackupScheduleEnabledChange: (value: boolean) => void
   onBackupTimeOfDayChange: (value: string) => void
-  onDownloadBackup: () => void | Promise<void>
+  onDownloadBackup: (reauthTicket: string) => Promise<boolean>
   onDownloadPasswordChange: (value: string) => void
   onIncludeAssetsInBackupChange: (value: boolean) => void
   onRefreshLocalBackups: () => void | Promise<void>
-  onRestore: () => void | Promise<void>
+  onRestore: (reauthTicket: string) => Promise<boolean>
+  onValidateRestoreInputs: () => Promise<boolean>
   onRestoreConfirmOpenChange: (open: boolean) => void
   onRestoreFileChange: (file: File | null) => void
   onRestorePasswordChange: (value: string) => void
@@ -122,6 +124,7 @@ export default function AdminBackupTab({
   onIncludeAssetsInBackupChange,
   onRefreshLocalBackups,
   onRestore,
+  onValidateRestoreInputs,
   onRestoreConfirmOpenChange,
   onRestoreFileChange,
   onRestorePasswordChange,
@@ -135,6 +138,9 @@ export default function AdminBackupTab({
 }: AdminBackupTabProps) {
   const { t, i18n } = useTranslation()
   const [editingEncryptionPassword, setEditingEncryptionPassword] = useState(false)
+  // Which flow, if any, is awaiting step-up re-authentication.
+  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | null>(null)
+
   const configuredMaskValue = "••••••••"
   const encryptionPasswordDisplayValue = editingEncryptionPassword
     ? backupEncryptionPassword
@@ -183,7 +189,7 @@ export default function AdminBackupTab({
             {t("admin.backup.downloadPasswordDescription")}
           </p>
         </div>
-        <Button variant="outline" onClick={() => void onDownloadBackup()}>
+        <Button variant="outline" onClick={() => setReauthPrompt("download")}>
           <Download className="size-4" />
           {t("admin.backup.downloadButton")}
         </Button>
@@ -233,7 +239,18 @@ export default function AdminBackupTab({
               {t("admin.backup.restoreConfirm")}
             </div>
             <div className="mt-3 flex gap-2">
-              <Button size="sm" variant="destructive" onClick={() => void onRestore()}>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={async () => {
+                  // Validate the file/password client-side before minting a
+                  // single-use re-auth ticket; otherwise a failed pre-check
+                  // would waste the ticket and force a needless re-auth.
+                  if (await onValidateRestoreInputs()) {
+                    setReauthPrompt("restore")
+                  }
+                }}
+              >
                 {t("admin.backup.confirm")}
               </Button>
               <Button size="sm" variant="outline" onClick={() => onRestoreConfirmOpenChange(false)}>
@@ -435,6 +452,32 @@ export default function AdminBackupTab({
           </ul>
         )}
       </div>
+
+      <ReauthDialog
+        key={reauthPrompt ?? "closed"}
+        operation={reauthPrompt === "restore" ? "restore" : "backup"}
+        open={reauthPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReauthPrompt(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          if (reauthPrompt === "download") {
+            await onDownloadBackup(ticket)
+          } else if (reauthPrompt === "restore") {
+            await onRestore(ticket)
+          }
+          setReauthPrompt(null)
+        }}
+        title={t("admin.backup.reauth.title")}
+        description={
+          reauthPrompt === "restore"
+            ? t("admin.backup.reauth.restoreDescription")
+            : t("admin.backup.reauth.downloadDescription")
+        }
+        confirmVariant={reauthPrompt === "restore" ? "destructive" : "default"}
+      />
     </TabsContent>
   )
 }

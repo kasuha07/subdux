@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/shiroha/subdux/internal/model"
+	"github.com/shiroha/subdux/internal/pkg"
 )
 
 func TestBuildWebAuthnRequiresConfiguredSiteURL(t *testing.T) {
@@ -104,5 +105,36 @@ func TestBuildWebAuthnRejectsPlainHTTPNonLoopbackSiteURL(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "must use https") {
 		t.Fatalf("buildWebAuthn() error = %q, want https requirement error", err.Error())
+	}
+}
+
+// TestFinishPasskeyReauthRejectsCrossOperation proves the reauth challenge is
+// bound to the operation it was started for: a session issued for "backup"
+// cannot be completed as "restore" to mint a restore-scoped ticket. The
+// operation check runs before any WebAuthn validation, so seeding the session
+// directly exercises the guard without a real signed assertion.
+func TestFinishPasskeyReauthRejectsCrossOperation(t *testing.T) {
+	authService := NewAuthService(nil)
+
+	const userID = uint(7)
+	sessionID := authService.storePasskeySession(passkeySession{
+		Kind:      passkeySessionKindReauth,
+		UserID:    userID,
+		Operation: ReauthOperationBackup,
+		ExpiresAt: pkg.NowUTC().Add(passkeySessionTTL),
+	})
+
+	err := authService.FinishPasskeyReauth(userID, ReauthOperationRestore, sessionID, nil, "", "", "")
+	if err == nil {
+		t.Fatal("FinishPasskeyReauth() error = nil for cross-operation finish, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "invalid passkey session") {
+		t.Fatalf("FinishPasskeyReauth() error = %q, want invalid passkey session", err.Error())
+	}
+
+	// The mismatched attempt must also have spent the single-use session, so a
+	// correctly-scoped retry with the same session id fails too.
+	if err := authService.FinishPasskeyReauth(userID, ReauthOperationBackup, sessionID, nil, "", "", ""); err == nil {
+		t.Fatal("FinishPasskeyReauth() error = nil after session spent, want non-nil")
 	}
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
-import { api, getUser } from "@/lib/api"
+import { api, getUser, localizeBackendError } from "@/lib/api"
 import {
   detectZipEncryption,
   verifyZipPassword,
@@ -18,6 +18,22 @@ import type {
   SystemSettings,
   UpdateSettingsInput,
 } from "@/types"
+
+// Best-effort extraction of a JSON `{ "error": string }` message from a raw
+// Response returned by api.fetch. Returns undefined when the body is absent,
+// not JSON, or has no usable error string, letting callers fall back to a
+// generic message.
+async function readErrorMessage(res: Response): Promise<string | undefined> {
+  try {
+    const data = (await res.clone().json()) as { error?: unknown }
+    if (typeof data?.error === "string" && data.error.trim() !== "") {
+      return localizeBackendError(data.error)
+    }
+  } catch {
+    void 0
+  }
+  return undefined
+}
 
 interface AdminSettingsFormState {
   allowImageUpload: boolean
@@ -104,10 +120,11 @@ interface UseAdminPageStateResult {
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
   handleDeleteUser: (id: number) => Promise<void>
-  handleDownloadBackup: () => Promise<void>
+  handleDownloadBackup: (reauthTicket: string) => Promise<boolean>
   handleRefreshRates: () => Promise<void>
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
-  handleRestore: () => Promise<void>
+  handleRestore: (reauthTicket: string) => Promise<boolean>
+  handleValidateRestoreInputs: () => Promise<boolean>
   handleRunBackupNow: () => Promise<void>
   handleSaveSettings: () => Promise<void>
   handleTestSSRF: () => Promise<void>
@@ -578,7 +595,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleDownloadBackup() {
+  async function handleDownloadBackup(reauthTicket: string): Promise<boolean> {
     try {
       const password = downloadPassword.trim()
       const res = await api.fetch("/admin/backup", {
@@ -586,10 +603,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         body: JSON.stringify({
           include_assets: includeAssetsInBackup,
           password,
+          reauth_ticket: reauthTicket,
         }),
       })
       if (!res.ok) {
-        throw new Error()
+        const message = await readErrorMessage(res)
+        toast.error(message ?? t("admin.backup.downloadFailed"))
+        return false
       }
 
       const encrypted = password !== ""
@@ -610,8 +630,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       window.URL.revokeObjectURL(url)
       document.body.removeChild(anchor)
       toast.success(t("admin.backup.downloadSuccess"))
+      return true
     } catch {
       toast.error(t("admin.backup.downloadFailed"))
+      return false
     }
   }
 
@@ -642,9 +664,14 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleRestore() {
+  // Client-side pre-checks for the restore inputs. Run this BEFORE opening the
+  // re-auth dialog so a single-use re-auth ticket is never minted (and then
+  // wasted) for a request that can't be sent. The restore file/password fields
+  // live behind the modal, so a failure here can't be corrected from the dialog
+  // anyway — the admin fixes the inputs, then re-authenticates.
+  async function validateRestoreInputs(): Promise<boolean> {
     if (!restoreFile) {
-      return
+      return false
     }
 
     const password = restorePassword.trim()
@@ -652,7 +679,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     if (restoreEncrypted) {
       if (password === "") {
         toast.error(t("admin.backup.restorePasswordRequired"))
-        return
+        return false
       }
       if (restoreEncryptedEntry) {
         // Fast client-side WinZip-AES password check. When verification could
@@ -661,10 +688,22 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         const verification = await verifyZipPassword(restoreFile, restoreEncryptedEntry, password)
         if (verification.verified && !verification.valid) {
           toast.error(t("admin.backup.restoreWrongPassword"))
-          return
+          return false
         }
       }
     }
+
+    return true
+  }
+
+  async function handleRestore(reauthTicket: string): Promise<boolean> {
+    // Inputs were validated via validateRestoreInputs() before re-auth; guard
+    // against a missing file for type-safety without re-running the checks.
+    if (!restoreFile) {
+      return false
+    }
+
+    const password = restorePassword.trim()
 
     const formData = new FormData()
     formData.append("backup", restoreFile)
@@ -675,16 +714,21 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     try {
       const res = await api.fetch("/admin/restore", {
         method: "POST",
+        headers: { "X-Reauth-Ticket": reauthTicket },
         body: formData,
       })
       if (!res.ok) {
-        throw new Error()
+        const message = await readErrorMessage(res)
+        toast.error(message ?? t("admin.backup.restoreFailed"))
+        return false
       }
 
       setRestoreConfirmOpen(false)
       toast.success(t("admin.backup.restoreSuccess"))
+      return true
     } catch {
       toast.error(t("admin.backup.restoreFailed"))
+      return false
     }
   }
 
@@ -734,6 +778,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleRefreshRates,
     handleRegistrationEmailVerificationChange,
     handleRestore,
+    handleValidateRestoreInputs: validateRestoreInputs,
     handleRunBackupNow,
     handleSaveSettings,
     handleTestSSRF,

@@ -23,6 +23,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 		&model.SystemSetting{},
 		&model.EmailVerificationCode{},
 		&model.RefreshToken{},
+		&model.PasskeyCredential{},
 		&model.UserPreference{},
 		&model.UserCurrency{},
 		&model.Category{},

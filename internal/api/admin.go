@@ -23,6 +23,7 @@ import (
 type AdminHandler struct {
 	Service     *service.AdminService
 	TaskMonitor *service.BackgroundTaskMonitor
+	Reauth      *service.ReauthService
 }
 
 var (
@@ -94,8 +95,8 @@ func isRestorableAssetPath(relativePath string) bool {
 	return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".ico"
 }
 
-func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTaskMonitor) *AdminHandler {
-	return &AdminHandler{Service: s, TaskMonitor: taskMonitor}
+func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTaskMonitor, reauth *service.ReauthService) *AdminHandler {
+	return &AdminHandler{Service: s, TaskMonitor: taskMonitor, Reauth: reauth}
 }
 
 type adminUserResponse struct {
@@ -297,9 +298,14 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 	var input struct {
 		IncludeAssets bool   `json:"include_assets"`
 		Password      string `json:"password"`
+		ReauthTicket  string `json:"reauth_ticket"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	}
+
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(getUserID(c), service.ReauthOperationBackup, input.ReauthTicket); err != nil {
+		return writeReauthError(c, err)
 	}
 
 	backupPath, err := h.Service.WithContext(c.Request().Context()).BackupDB(input.IncludeAssets, input.Password)
@@ -354,6 +360,17 @@ func (h *AdminHandler) ListLocalBackups(c echo.Context) error {
 
 func (h *AdminHandler) RestoreDB(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxBackupUploadSize)
+
+	// Re-authenticate before any work: the ticket is carried in a header (not the
+	// multipart body) so it can be consumed before the request body is parsed.
+	// This gates the (potentially large) upload and the destructive replace, and
+	// identity is verified before the server reads anything. The ticket is
+	// single-use, so a failure after this point requires a fresh re-auth on retry
+	// — an intentional trade-off that keeps the destructive step strictly behind a
+	// proven-present admin.
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(getUserID(c), service.ReauthOperationRestore, strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader))); err != nil {
+		return writeReauthError(c, err)
+	}
 
 	file, err := c.FormFile("backup")
 	if err != nil {

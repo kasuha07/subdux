@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react"
+import { Suspense, lazy, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -57,6 +57,28 @@ export default function AdminPage() {
   const { settingsForm } = admin
   const [activeTab, setActiveTab] = useState<AdminTab>("users")
   const [visitedTabs, setVisitedTabs] = useState<AdminTab[]>(["users"])
+
+  // When this page is opened as the OIDC step-up ("reauth") popup, the callback
+  // redirects here with ?oidc_action=reauth. Notify the opener (the admin page
+  // that started the step-up) so it can mint its ticket, then close. The
+  // reauth-scoped session cookie was already set by the callback; the opener's
+  // finish request carries it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("oidc_action") !== "reauth") {
+      return
+    }
+    if (window.opener && window.opener !== window) {
+      window.opener.postMessage({ type: "oidc-reauth" }, window.location.origin)
+      window.close()
+      return
+    }
+    // Opened directly (no opener, e.g. a stale bookmark): just strip the param.
+    const url = new URL(window.location.href)
+    url.searchParams.delete("oidc_action")
+    const query = url.searchParams.toString()
+    window.history.replaceState({}, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`)
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -370,6 +392,7 @@ export default function AdminPage() {
                   onRestoreConfirmOpenChange={admin.setRestoreConfirmOpen}
                   onDownloadBackup={admin.handleDownloadBackup}
                   onRestore={admin.handleRestore}
+                  onValidateRestoreInputs={admin.handleValidateRestoreInputs}
                   backupScheduleEnabled={settingsForm.backupScheduleEnabled}
                   onBackupScheduleEnabledChange={(value) =>
                     admin.setSettingsField("backupScheduleEnabled", value)

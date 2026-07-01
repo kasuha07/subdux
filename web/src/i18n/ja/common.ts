@@ -6,7 +6,9 @@ const common = {
   "requestFailed": "リクエストに失敗しました",
   "backendErrors": {
     "maxNotificationChannels": "有効化できる通知チャンネルは最大3件です",
-    "smtpRateLimited": "SMTP送信レート制限に達しました。しばらく待ってから再試行してください。"
+    "smtpRateLimited": "SMTP送信レート制限に達しました。しばらく待ってから再試行してください。",
+    "reauthRequired": "再認証に失敗しました。もう一度お試しください。",
+    "noPasskeyRegistered": "アカウントにパスキーが登録されていません。設定で追加するか、パスワードを使用してください。"
   },
   "passkeyErrors": {
     "notAllowed": "Passkey リクエストはキャンセルされたかタイムアウトしました",

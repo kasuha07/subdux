@@ -80,6 +80,14 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to finalize oidc callback"})
 	}
 
+	// Reauth ("step-up") uses its own path-scoped cookie and returns to the admin
+	// page (loaded in a popup), which posts the outcome back to the opener. Login
+	// and connect keep the ordinary session cookie and full-page redirect.
+	if callbackResult.Purpose == "reauth" {
+		setOIDCReauthSessionCookie(c, callbackResult.SessionID)
+		return c.Redirect(http.StatusFound, "/admin?oidc_action=reauth")
+	}
+
 	setOIDCSessionCookie(c, callbackResult.SessionID)
 
 	redirectPath := "/login"

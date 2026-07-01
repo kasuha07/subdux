@@ -28,6 +28,12 @@ export interface OIDCStartResponse {
   authorization_url: string
 }
 
+export interface ReauthMethods {
+  password: boolean
+  passkey: boolean
+  oidc: boolean
+}
+
 export interface OIDCConnection {
   id: number
   provider: string

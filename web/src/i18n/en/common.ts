@@ -6,7 +6,9 @@ const common = {
   "requestFailed": "Request failed",
   "backendErrors": {
     "maxNotificationChannels": "You can enable at most 3 notification channels",
-    "smtpRateLimited": "SMTP send rate limit reached. Please wait before trying again."
+    "smtpRateLimited": "SMTP send rate limit reached. Please wait before trying again.",
+    "reauthRequired": "Re-authentication failed. Please try again.",
+    "noPasskeyRegistered": "No passkey is registered for your account. Add one in Settings, or use your password."
   },
   "passkeyErrors": {
     "notAllowed": "Passkey request was cancelled or timed out",

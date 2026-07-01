@@ -26,12 +26,27 @@ type passkeySessionKind string
 const (
 	passkeySessionKindRegistration passkeySessionKind = "registration"
 	passkeySessionKindLogin        passkeySessionKind = "login"
+	// passkeySessionKindReauth is a user-scoped assertion challenge used to
+	// re-authenticate an already-logged-in user for a sensitive operation. It
+	// issues no tokens; success only proves the user still controls one of
+	// their registered passkeys.
+	passkeySessionKindReauth passkeySessionKind = "reauth"
 )
 
+// ErrNoPasskeyRegistered signals that a user attempted passkey re-authentication
+// without having any registered passkey. Callers surface this so the UI can
+// direct the user to register one first.
+var ErrNoPasskeyRegistered = errors.New("no passkey registered for this account")
+
 type passkeySession struct {
-	Kind      passkeySessionKind
-	UserID    uint
-	Name      string
+	Kind   passkeySessionKind
+	UserID uint
+	Name   string
+	// Operation binds a reauth challenge to the single sensitive operation it was
+	// started for. It is only set for passkeySessionKindReauth sessions and is
+	// enforced at FinishPasskeyReauth so a challenge issued for one operation
+	// cannot be completed to mint a ticket for another.
+	Operation string
 	Data      webauthn.SessionData
 	CreatedAt time.Time
 	ExpiresAt time.Time
@@ -250,6 +265,99 @@ func (s *AuthService) FinishPasskeyLogin(sessionID string, parsedResponse *proto
 	s.recordPasskeyLoginMetadataAsync(user.ID, credential, pkg.NowUTC())
 
 	return authResp, nil
+}
+
+// BeginPasskeyReauth starts a user-scoped passkey assertion used to
+// re-authenticate an already-authenticated user before a sensitive operation.
+// Unlike BeginPasskeyLogin it is bound to a specific user (allowCredentials is
+// limited to that user's passkeys) and, on completion, issues no tokens. It
+// returns ErrNoPasskeyRegistered when the user has no passkeys so callers can
+// steer the user toward registration.
+func (s *AuthService) BeginPasskeyReauth(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
+	user, err := s.GetUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	waUser, err := s.getWebAuthnUser(*user)
+	if err != nil {
+		return nil, err
+	}
+	if len(waUser.credentials) == 0 {
+		return nil, ErrNoPasskeyRegistered
+	}
+
+	wa, err := s.buildWebAuthn(origin, host, scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	options, sessionData, err := wa.BeginLogin(waUser)
+	if err != nil {
+		return nil, err
+	}
+	options.Response.UserVerification = protocol.VerificationPreferred
+
+	sessionID := s.storePasskeySession(passkeySession{
+		Kind:      passkeySessionKindReauth,
+		UserID:    userID,
+		Operation: operation,
+		Data:      *sessionData,
+		ExpiresAt: pkg.NowUTC().Add(passkeySessionTTL),
+	})
+
+	return &PasskeyBeginResult{
+		SessionID: sessionID,
+		Options:   options,
+	}, nil
+}
+
+// FinishPasskeyReauth completes a user-scoped assertion started by
+// BeginPasskeyReauth. It validates the signed challenge against the same user's
+// credentials and returns nil on success without issuing any tokens. The
+// session is single-use (consumed by takePasskeySession) and must belong to the
+// same user, and match the operation, that began it — so a challenge started for
+// one operation cannot be completed to authorize another.
+func (s *AuthService) FinishPasskeyReauth(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) error {
+	session, err := s.takePasskeySession(sessionID, passkeySessionKindReauth)
+	if err != nil {
+		return err
+	}
+	if session.UserID != userID || session.Operation != operation {
+		return errors.New("invalid passkey session")
+	}
+
+	user, err := s.GetUser(userID)
+	if err != nil {
+		return err
+	}
+
+	waUser, err := s.getWebAuthnUser(*user)
+	if err != nil {
+		return err
+	}
+
+	wa, err := s.buildWebAuthn(origin, host, scheme)
+	if err != nil {
+		return err
+	}
+
+	credential, err := wa.ValidateLogin(waUser, session.Data, parsedResponse)
+	if err != nil {
+		return errors.New("passkey verification failed")
+	}
+
+	s.recordPasskeyLoginMetadataAsync(user.ID, credential, pkg.NowUTC())
+	return nil
+}
+
+// HasPasskeys reports whether the user has at least one registered passkey.
+func (s *AuthService) HasPasskeys(userID uint) (bool, error) {
+	var count int64
+	if err := s.DB.Model(&model.PasskeyCredential{}).Where("user_id = ?", userID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (s *AuthService) DeletePasskey(userID uint, passkeyID uint) error {

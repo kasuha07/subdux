@@ -15,6 +15,8 @@ let userLoaded = false
 const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
   "you can enable at most 3 notification channels": "common.backendErrors.maxNotificationChannels",
   "smtp send rate limit exceeded, please wait before trying again": "common.backendErrors.smtpRateLimited",
+  "re-authentication required": "common.backendErrors.reauthRequired",
+  "no passkey registered for this account": "common.backendErrors.noPasskeyRegistered",
 }
 
 function readLocalStorage(key: string): string | null {
@@ -146,7 +148,7 @@ function canRefresh(path: string, hasAccessToken: boolean): boolean {
   return hasAccessToken && path !== "/auth/refresh"
 }
 
-function localizeBackendError(error: unknown): string {
+export function localizeBackendError(error: unknown): string {
   if (typeof error !== "string" || !error) {
     return i18n.t("common.requestFailed")
   }
