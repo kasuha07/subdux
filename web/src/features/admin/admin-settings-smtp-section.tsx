@@ -134,7 +134,7 @@ export default function AdminSettingsSMTPSection({
           onFocus={() => setEditingSMTPPassword(true)}
           onBlur={() => setEditingSMTPPassword(false)}
           onChange={(event) => onSMTPPasswordChange(event.target.value)}
-          placeholder={t("admin.settings.smtpPasswordPlaceholder")}
+          placeholder={t("admin.settings.secretNotConfigured")}
         />
       </div>
 

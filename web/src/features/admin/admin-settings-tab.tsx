@@ -11,21 +11,17 @@ import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 
 export default function AdminSettingsTab({
   allowImageUpload,
-  emailDomainWhitelist,
   iconProxyDomainWhitelist,
   iconProxyEnabled,
   maxIconFileSize,
   mcpEnabled,
   auditEnabled,
   onAllowImageUploadChange,
-  onEmailDomainWhitelistChange,
   onIconProxyDomainWhitelistChange,
   onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
   onMCPEnabledChange,
   onAuditEnabledChange,
-  onRegistrationEmailVerificationEnabledChange,
-  onRegistrationEnabledChange,
   onSave,
   onSiteNameChange,
   onSiteUrlChange,
@@ -41,8 +37,6 @@ export default function AdminSettingsTab({
   onSystemProxyEnabledChange,
   onSystemProxyTypeChange,
   onSystemProxyUrlChange,
-  registrationEmailVerificationEnabled,
-  registrationEnabled,
   siteName,
   siteUrl,
   ssrfAllowPrivateIP,
@@ -66,25 +60,19 @@ export default function AdminSettingsTab({
     <TabsContent value="settings" className="space-y-6">
       <AdminSettingsGeneralSection
         allowImageUpload={allowImageUpload}
-        emailDomainWhitelist={emailDomainWhitelist}
         iconProxyDomainWhitelist={iconProxyDomainWhitelist}
         iconProxyEnabled={iconProxyEnabled}
         maxIconFileSize={maxIconFileSize}
         mcpEnabled={mcpEnabled}
         auditEnabled={auditEnabled}
         onAllowImageUploadChange={onAllowImageUploadChange}
-        onEmailDomainWhitelistChange={onEmailDomainWhitelistChange}
         onIconProxyDomainWhitelistChange={onIconProxyDomainWhitelistChange}
         onIconProxyEnabledChange={onIconProxyEnabledChange}
         onMaxIconFileSizeChange={onMaxIconFileSizeChange}
         onMCPEnabledChange={onMCPEnabledChange}
         onAuditEnabledChange={onAuditEnabledChange}
-        onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
-        onRegistrationEnabledChange={onRegistrationEnabledChange}
         onSiteNameChange={onSiteNameChange}
         onSiteUrlChange={onSiteUrlChange}
-        registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
-        registrationEnabled={registrationEnabled}
         siteName={siteName}
         siteUrl={siteUrl}
       />

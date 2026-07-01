@@ -10,25 +10,19 @@ import type { AdminSettingsBasicSectionProps } from "./admin-settings-types"
 
 export default function AdminSettingsGeneralSection({
   allowImageUpload,
-  emailDomainWhitelist,
   iconProxyDomainWhitelist,
   iconProxyEnabled,
   maxIconFileSize,
   mcpEnabled,
   auditEnabled,
   onAllowImageUploadChange,
-  onEmailDomainWhitelistChange,
   onIconProxyDomainWhitelistChange,
   onIconProxyEnabledChange,
   onMaxIconFileSizeChange,
   onMCPEnabledChange,
   onAuditEnabledChange,
-  onRegistrationEmailVerificationEnabledChange,
-  onRegistrationEnabledChange,
   onSiteNameChange,
   onSiteUrlChange,
-  registrationEmailVerificationEnabled,
-  registrationEnabled,
   siteName,
   siteUrl,
 }: AdminSettingsBasicSectionProps) {
@@ -59,54 +53,6 @@ export default function AdminSettingsGeneralSection({
           placeholder="https://example.com"
         />
         <p className="text-xs text-muted-foreground">{t("admin.settings.siteUrlDescription")}</p>
-      </div>
-
-      <Separator />
-
-      <div className="space-y-2">
-        <Label htmlFor="email-domain-whitelist">{t("admin.settings.emailDomainWhitelist")}</Label>
-        <Textarea
-          id="email-domain-whitelist"
-          value={emailDomainWhitelist}
-          onChange={(event) => onEmailDomainWhitelistChange(event.target.value)}
-          placeholder={t("admin.settings.emailDomainWhitelistPlaceholder")}
-          rows={4}
-        />
-        <p className="text-xs text-muted-foreground">
-          {t("admin.settings.emailDomainWhitelistDescription")}
-        </p>
-      </div>
-
-      <Separator />
-
-      <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <Label htmlFor="registration">{t("admin.settings.registrationEnabled")}</Label>
-          <p className="text-sm text-muted-foreground">{t("admin.settings.registrationDescription")}</p>
-        </div>
-        <Switch
-          id="registration"
-          checked={registrationEnabled}
-          onCheckedChange={onRegistrationEnabledChange}
-        />
-      </div>
-
-      <Separator />
-
-      <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <Label htmlFor="registration-email-verification">
-            {t("admin.settings.registrationEmailVerificationEnabled")}
-          </Label>
-          <p className="text-sm text-muted-foreground">
-            {t("admin.settings.registrationEmailVerificationDescription")}
-          </p>
-        </div>
-        <Switch
-          id="registration-email-verification"
-          checked={registrationEmailVerificationEnabled}
-          onCheckedChange={onRegistrationEmailVerificationEnabledChange}
-        />
       </div>
 
       <Separator />

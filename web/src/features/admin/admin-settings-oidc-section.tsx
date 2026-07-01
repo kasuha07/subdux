@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Input } from "@/components/ui/input"
@@ -40,6 +40,11 @@ export default function AdminSettingsOIDCSection({
   oidcUserinfoEndpoint,
 }: AdminSettingsOIDCSectionProps) {
   const { t } = useTranslation()
+  const [editingOIDCClientSecret, setEditingOIDCClientSecret] = useState(false)
+  const configuredMaskValue = "••••••••"
+  const oidcClientSecretDisplayValue = editingOIDCClientSecret
+    ? oidcClientSecret
+    : oidcClientSecret || (oidcClientSecretConfigured ? configuredMaskValue : "")
   const suggestedRedirectURL = useMemo(() => {
     if (typeof window === "undefined" || !window.location.origin) {
       return "/api/auth/oidc/callback"
@@ -98,15 +103,12 @@ export default function AdminSettingsOIDCSection({
         <Input
           id="oidc-client-secret"
           type="password"
-          value={oidcClientSecret}
+          value={oidcClientSecretDisplayValue}
+          onFocus={() => setEditingOIDCClientSecret(true)}
+          onBlur={() => setEditingOIDCClientSecret(false)}
           onChange={(event) => onOIDCClientSecretChange(event.target.value)}
-          placeholder={t("admin.settings.oidcClientSecretPlaceholder")}
+          placeholder={t("admin.settings.secretNotConfigured")}
         />
-        <p className="text-xs text-muted-foreground">
-          {oidcClientSecretConfigured
-            ? t("admin.settings.oidcClientSecretConfigured")
-            : t("admin.settings.oidcClientSecretNotConfigured")}
-        </p>
       </div>
 
       <div className="space-y-2">

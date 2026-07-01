@@ -115,27 +115,31 @@ export interface AdminSettingsTabProps {
 export type AdminSettingsBasicSectionProps = Pick<
   AdminSettingsTabProps,
   | "allowImageUpload"
-  | "emailDomainWhitelist"
   | "iconProxyDomainWhitelist"
   | "iconProxyEnabled"
   | "maxIconFileSize"
   | "mcpEnabled"
   | "auditEnabled"
-  | "onEmailDomainWhitelistChange"
   | "onAllowImageUploadChange"
   | "onIconProxyDomainWhitelistChange"
   | "onIconProxyEnabledChange"
   | "onMaxIconFileSizeChange"
   | "onMCPEnabledChange"
   | "onAuditEnabledChange"
-  | "onRegistrationEnabledChange"
-  | "onRegistrationEmailVerificationEnabledChange"
   | "onSiteNameChange"
   | "onSiteUrlChange"
-  | "registrationEnabled"
-  | "registrationEmailVerificationEnabled"
   | "siteName"
   | "siteUrl"
+>
+
+export type AdminSettingsRegistrationSectionProps = Pick<
+  AdminSettingsTabProps,
+  | "emailDomainWhitelist"
+  | "onEmailDomainWhitelistChange"
+  | "onRegistrationEnabledChange"
+  | "onRegistrationEmailVerificationEnabledChange"
+  | "registrationEnabled"
+  | "registrationEmailVerificationEnabled"
 >
 
 export type AdminSettingsOIDCSectionProps = Pick<
@@ -284,5 +288,6 @@ export type AdminSettingsGeneralTabProps = AdminSettingsBasicSectionProps &
 export type AdminSettingsSMTPTabProps = AdminSettingsSMTPSectionProps &
   AdminSettingsSaveProps
 
-export type AdminSettingsOIDCTabProps = AdminSettingsOIDCSectionProps &
+export type AdminSettingsOIDCTabProps = AdminSettingsRegistrationSectionProps &
+  AdminSettingsOIDCSectionProps &
   AdminSettingsSaveProps

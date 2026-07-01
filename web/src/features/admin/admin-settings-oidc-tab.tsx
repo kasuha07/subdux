@@ -5,9 +5,16 @@ import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 
 import AdminSettingsOIDCSection from "./admin-settings-oidc-section"
+import AdminSettingsRegistrationSection from "./admin-settings-registration-section"
 import type { AdminSettingsOIDCTabProps } from "./admin-settings-types"
 
 export default function AdminSettingsOIDCTab({
+  emailDomainWhitelist,
+  onEmailDomainWhitelistChange,
+  onRegistrationEnabledChange,
+  onRegistrationEmailVerificationEnabledChange,
+  registrationEnabled,
+  registrationEmailVerificationEnabled,
   onOIDCAutoCreateUserChange,
   onOIDCAudienceChange,
   onOIDCAuthorizationEndpointChange,
@@ -43,6 +50,17 @@ export default function AdminSettingsOIDCTab({
 
   return (
     <TabsContent value="auth" className="space-y-6">
+      <AdminSettingsRegistrationSection
+        emailDomainWhitelist={emailDomainWhitelist}
+        onEmailDomainWhitelistChange={onEmailDomainWhitelistChange}
+        onRegistrationEnabledChange={onRegistrationEnabledChange}
+        onRegistrationEmailVerificationEnabledChange={onRegistrationEmailVerificationEnabledChange}
+        registrationEnabled={registrationEnabled}
+        registrationEmailVerificationEnabled={registrationEmailVerificationEnabled}
+      />
+
+      <Separator />
+
       <AdminSettingsOIDCSection
         onOIDCAutoCreateUserChange={onOIDCAutoCreateUserChange}
         onOIDCAudienceChange={onOIDCAudienceChange}

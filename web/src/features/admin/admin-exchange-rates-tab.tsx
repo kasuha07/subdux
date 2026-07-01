@@ -57,7 +57,7 @@ export default function AdminExchangeRatesTab({
           onFocus={() => setEditingCurrencyApiKey(true)}
           onBlur={() => setEditingCurrencyApiKey(false)}
           onChange={(event) => onCurrencyApiKeyChange(event.target.value)}
-          placeholder={t("admin.exchangeRates.apiKeyPlaceholder")}
+          placeholder={t("admin.settings.secretNotConfigured")}
         />
         <p className="text-xs text-muted-foreground">
           {t("admin.exchangeRates.apiKeyDescription")}

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,11 @@ export default function AdminSettingsProxySection({
   systemProxyUrlConfigured,
 }: AdminSettingsProxySectionProps) {
   const { t } = useTranslation()
+  const [editingSystemProxyUrl, setEditingSystemProxyUrl] = useState(false)
+  const configuredMaskValue = "••••••••"
+  const systemProxyUrlDisplayValue = editingSystemProxyUrl
+    ? systemProxyUrl
+    : systemProxyUrl || (systemProxyUrlConfigured ? configuredMaskValue : "")
 
   return (
     <>
@@ -58,18 +64,14 @@ export default function AdminSettingsProxySection({
           <Label htmlFor="system-proxy-url">{t("admin.settings.systemProxyUrl")}</Label>
           <Input
             id="system-proxy-url"
-            value={systemProxyUrl}
+            value={systemProxyUrlDisplayValue}
+            onFocus={() => setEditingSystemProxyUrl(true)}
+            onBlur={() => setEditingSystemProxyUrl(false)}
             onChange={(event) => onSystemProxyUrlChange(event.target.value)}
-            placeholder={
-              systemProxyUrlConfigured
-                ? t("admin.settings.systemProxyUrlConfiguredPlaceholder")
-                : t("admin.settings.systemProxyUrlPlaceholder")
-            }
+            placeholder={t("admin.settings.secretNotConfigured")}
           />
           <p className="text-xs text-muted-foreground">
-            {systemProxyUrlConfigured
-              ? t("admin.settings.systemProxyUrlConfiguredDescription")
-              : t("admin.settings.systemProxyUrlDescription")}
+            {t("admin.settings.systemProxyUrlDescription")}
           </p>
         </div>
       </div>

@@ -156,18 +156,6 @@ export default function AdminPage() {
                   onSiteNameChange={(value) => admin.setSettingsField("siteName", value)}
                   siteUrl={settingsForm.siteUrl}
                   onSiteUrlChange={(value) => admin.setSettingsField("siteUrl", value)}
-                  registrationEnabled={settingsForm.registrationEnabled}
-                  registrationEmailVerificationEnabled={settingsForm.registrationEmailVerificationEnabled}
-                  emailDomainWhitelist={settingsForm.emailDomainWhitelist}
-                  onRegistrationEnabledChange={(enabled) =>
-                    admin.setSettingsField("registrationEnabled", enabled)
-                  }
-                  onEmailDomainWhitelistChange={(value) =>
-                    admin.setSettingsField("emailDomainWhitelist", value)
-                  }
-                  onRegistrationEmailVerificationEnabledChange={
-                    admin.handleRegistrationEmailVerificationChange
-                  }
                   maxIconFileSize={settingsForm.maxIconFileSize}
                   mcpEnabled={settingsForm.mcpEnabled}
                   auditEnabled={settingsForm.auditEnabled}
@@ -278,6 +266,18 @@ export default function AdminPage() {
             {visitedTabs.includes("auth") && (
               <Suspense fallback={<AdminTabLoading value="auth" />}>
                 <AdminSettingsOIDCTab
+                  registrationEnabled={settingsForm.registrationEnabled}
+                  registrationEmailVerificationEnabled={settingsForm.registrationEmailVerificationEnabled}
+                  emailDomainWhitelist={settingsForm.emailDomainWhitelist}
+                  onRegistrationEnabledChange={(enabled) =>
+                    admin.setSettingsField("registrationEnabled", enabled)
+                  }
+                  onEmailDomainWhitelistChange={(value) =>
+                    admin.setSettingsField("emailDomainWhitelist", value)
+                  }
+                  onRegistrationEmailVerificationEnabledChange={
+                    admin.handleRegistrationEmailVerificationChange
+                  }
                   oidcEnabled={settingsForm.oidcEnabled}
                   onOIDCEnabledChange={(enabled) => admin.setSettingsField("oidcEnabled", enabled)}
                   oidcProviderName={settingsForm.oidcProviderName}

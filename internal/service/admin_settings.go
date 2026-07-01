@@ -150,25 +150,13 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if input.RegistrationEnabled != nil {
-			value := "false"
-			if *input.RegistrationEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "registration_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "registration_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "registration_enabled", *input.RegistrationEnabled); err != nil {
 				return err
 			}
 		}
 
 		if input.RegistrationEmailVerificationEnabled != nil {
-			value := "false"
-			if *input.RegistrationEmailVerificationEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "registration_email_verification_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "registration_email_verification_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "registration_email_verification_enabled", *input.RegistrationEmailVerificationEnabled); err != nil {
 				return err
 			}
 		}
@@ -178,78 +166,49 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err != nil {
 				return err
 			}
-			if err := tx.Where("key = ?", "email_domain_whitelist").
-				Assign(model.SystemSetting{Value: normalized}).
-				FirstOrCreate(&model.SystemSetting{Key: "email_domain_whitelist"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "email_domain_whitelist", normalized); err != nil {
 				return err
 			}
 		}
 
 		if input.SiteName != nil {
-			if err := tx.Where("key = ?", "site_name").
-				Assign(model.SystemSetting{Value: *input.SiteName}).
-				FirstOrCreate(&model.SystemSetting{Key: "site_name"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "site_name", *input.SiteName); err != nil {
 				return err
 			}
 		}
 
 		if input.SiteURL != nil {
-			if err := tx.Where("key = ?", "site_url").
-				Assign(model.SystemSetting{Value: *input.SiteURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "site_url"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "site_url", *input.SiteURL); err != nil {
 				return err
 			}
 		}
 
 		if input.CurrencyAPIKey != nil {
-			encryptedCurrencyAPIKey, err := encryptSystemSettingValueIfNeeded("currencyapi_key", *input.CurrencyAPIKey)
-			if err != nil {
-				return err
-			}
-			if err := tx.Where("key = ?", "currencyapi_key").
-				Assign(model.SystemSetting{Value: encryptedCurrencyAPIKey}).
-				FirstOrCreate(&model.SystemSetting{Key: "currencyapi_key"}).Error; err != nil {
+			if err := saveEncryptedSystemSetting(tx, "currencyapi_key", *input.CurrencyAPIKey); err != nil {
 				return err
 			}
 		}
 
 		if input.ExchangeRateSource != nil {
-			if err := tx.Where("key = ?", "exchange_rate_source").
-				Assign(model.SystemSetting{Value: *input.ExchangeRateSource}).
-				FirstOrCreate(&model.SystemSetting{Key: "exchange_rate_source"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "exchange_rate_source", *input.ExchangeRateSource); err != nil {
 				return err
 			}
 		}
 
 		if input.AllowImageUpload != nil {
-			value := "false"
-			if *input.AllowImageUpload {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "allow_image_upload").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "allow_image_upload"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "allow_image_upload", *input.AllowImageUpload); err != nil {
 				return err
 			}
 		}
 
 		if input.MaxIconFileSize != nil {
-			value := strconv.FormatInt(*input.MaxIconFileSize, 10)
-			if err := tx.Where("key = ?", "max_icon_file_size").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "max_icon_file_size"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "max_icon_file_size", strconv.FormatInt(*input.MaxIconFileSize, 10)); err != nil {
 				return err
 			}
 		}
 
 		if input.IconProxyEnabled != nil {
-			value := "false"
-			if *input.IconProxyEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "icon_proxy_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "icon_proxy_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "icon_proxy_enabled", *input.IconProxyEnabled); err != nil {
 				return err
 			}
 		}
@@ -259,33 +218,19 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err != nil {
 				return err
 			}
-			if err := tx.Where("key = ?", "icon_proxy_domain_whitelist").
-				Assign(model.SystemSetting{Value: normalized}).
-				FirstOrCreate(&model.SystemSetting{Key: "icon_proxy_domain_whitelist"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "icon_proxy_domain_whitelist", normalized); err != nil {
 				return err
 			}
 		}
 
 		if input.MCPEnabled != nil {
-			value := "false"
-			if *input.MCPEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "mcp_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "mcp_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "mcp_enabled", *input.MCPEnabled); err != nil {
 				return err
 			}
 		}
 
 		if input.AuditEnabled != nil {
-			value := "false"
-			if *input.AuditEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "audit_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "audit_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "audit_enabled", *input.AuditEnabled); err != nil {
 				return err
 			}
 		}
@@ -295,13 +240,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.SystemProxyEnabled != nil {
-			value := "false"
-			if *input.SystemProxyEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "system_proxy_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "system_proxy_enabled", *input.SystemProxyEnabled); err != nil {
 				return err
 			}
 		}
@@ -311,9 +250,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err != nil {
 				return err
 			}
-			if err := tx.Where("key = ?", "system_proxy_type").
-				Assign(model.SystemSetting{Value: normalizedType}).
-				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_type"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "system_proxy_type", normalizedType); err != nil {
 				return err
 			}
 		}
@@ -339,13 +276,9 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 				}
 				value = normalizedURL.String()
 			}
-			encryptedSystemProxyURL, err := encryptSystemSettingValueIfNeeded("system_proxy_url", value)
-			if err != nil {
-				return err
-			}
-			if err := tx.Where("key = ?", "system_proxy_url").
-				Assign(model.SystemSetting{Value: encryptedSystemProxyURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_url"}).Error; err != nil {
+			// Write-only like the other secrets: an empty value keeps the
+			// existing proxy URL rather than clearing it.
+			if err := saveEncryptedSystemSetting(tx, "system_proxy_url", value); err != nil {
 				return err
 			}
 		}
@@ -413,99 +346,67 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.SMTPEnabled != nil {
-			value := "false"
-			if *input.SMTPEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "smtp_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "smtp_enabled", *input.SMTPEnabled); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPHost != nil {
-			if err := tx.Where("key = ?", "smtp_host").
-				Assign(model.SystemSetting{Value: *input.SMTPHost}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_host"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_host", *input.SMTPHost); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPPort != nil {
-			value := strconv.FormatInt(*input.SMTPPort, 10)
-			if err := tx.Where("key = ?", "smtp_port").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_port"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_port", strconv.FormatInt(*input.SMTPPort, 10)); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPUsername != nil {
-			if err := tx.Where("key = ?", "smtp_username").
-				Assign(model.SystemSetting{Value: *input.SMTPUsername}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_username"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_username", *input.SMTPUsername); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPPassword != nil {
-			encryptedSMTPPassword, err := encryptSystemSettingValueIfNeeded("smtp_password", *input.SMTPPassword)
-			if err != nil {
-				return err
-			}
-			if err := tx.Where("key = ?", "smtp_password").
-				Assign(model.SystemSetting{Value: encryptedSMTPPassword}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_password"}).Error; err != nil {
+			if err := saveEncryptedSystemSetting(tx, "smtp_password", *input.SMTPPassword); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPFromEmail != nil {
-			if err := tx.Where("key = ?", "smtp_from_email").
-				Assign(model.SystemSetting{Value: *input.SMTPFromEmail}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_from_email"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_from_email", *input.SMTPFromEmail); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPFromName != nil {
-			if err := tx.Where("key = ?", "smtp_from_name").
-				Assign(model.SystemSetting{Value: *input.SMTPFromName}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_from_name"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_from_name", *input.SMTPFromName); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPEncryption != nil {
-			if err := tx.Where("key = ?", "smtp_encryption").
-				Assign(model.SystemSetting{Value: *input.SMTPEncryption}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_encryption"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_encryption", *input.SMTPEncryption); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPAuthMethod != nil {
-			if err := tx.Where("key = ?", "smtp_auth_method").
-				Assign(model.SystemSetting{Value: *input.SMTPAuthMethod}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_auth_method"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_auth_method", *input.SMTPAuthMethod); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPHeloName != nil {
-			if err := tx.Where("key = ?", "smtp_helo_name").
-				Assign(model.SystemSetting{Value: *input.SMTPHeloName}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_helo_name"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_helo_name", *input.SMTPHeloName); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPTimeoutSeconds != nil {
-			value := strconv.FormatInt(*input.SMTPTimeoutSeconds, 10)
-			if err := tx.Where("key = ?", "smtp_timeout_seconds").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_timeout_seconds"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_timeout_seconds", strconv.FormatInt(*input.SMTPTimeoutSeconds, 10)); err != nil {
 				return err
 			}
 		}
@@ -515,146 +416,97 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err != nil {
 				return err
 			}
-			value := strconv.FormatInt(rateLimitSeconds, 10)
-			if err := tx.Where("key = ?", "smtp_rate_limit_seconds").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_rate_limit_seconds"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "smtp_rate_limit_seconds", strconv.FormatInt(rateLimitSeconds, 10)); err != nil {
 				return err
 			}
 		}
 
 		if input.SMTPSkipTLSVerify != nil {
-			value := "false"
-			if *input.SMTPSkipTLSVerify {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "smtp_skip_tls_verify").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "smtp_skip_tls_verify"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "smtp_skip_tls_verify", *input.SMTPSkipTLSVerify); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCEnabled != nil {
-			value := "false"
-			if *input.OIDCEnabled {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "oidc_enabled").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_enabled"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "oidc_enabled", *input.OIDCEnabled); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCProviderName != nil {
-			if err := tx.Where("key = ?", "oidc_provider_name").
-				Assign(model.SystemSetting{Value: *input.OIDCProviderName}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_provider_name"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_provider_name", *input.OIDCProviderName); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCIssuerURL != nil {
-			if err := tx.Where("key = ?", "oidc_issuer_url").
-				Assign(model.SystemSetting{Value: *input.OIDCIssuerURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_issuer_url"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_issuer_url", *input.OIDCIssuerURL); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCClientID != nil {
-			if err := tx.Where("key = ?", "oidc_client_id").
-				Assign(model.SystemSetting{Value: *input.OIDCClientID}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_client_id"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_client_id", *input.OIDCClientID); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCClientSecret != nil {
-			encryptedOIDCClientSecret, err := encryptSystemSettingValueIfNeeded("oidc_client_secret", *input.OIDCClientSecret)
-			if err != nil {
-				return err
-			}
-			if err := tx.Where("key = ?", "oidc_client_secret").
-				Assign(model.SystemSetting{Value: encryptedOIDCClientSecret}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_client_secret"}).Error; err != nil {
+			if err := saveEncryptedSystemSetting(tx, "oidc_client_secret", *input.OIDCClientSecret); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCRedirectURL != nil {
-			if err := tx.Where("key = ?", "oidc_redirect_url").
-				Assign(model.SystemSetting{Value: *input.OIDCRedirectURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_redirect_url"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_redirect_url", *input.OIDCRedirectURL); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCScopes != nil {
-			if err := tx.Where("key = ?", "oidc_scopes").
-				Assign(model.SystemSetting{Value: *input.OIDCScopes}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_scopes"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_scopes", *input.OIDCScopes); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCAutoCreateUser != nil {
-			value := "false"
-			if *input.OIDCAutoCreateUser {
-				value = "true"
-			}
-			if err := tx.Where("key = ?", "oidc_auto_create_user").
-				Assign(model.SystemSetting{Value: value}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_auto_create_user"}).Error; err != nil {
+			if err := saveBoolSystemSetting(tx, "oidc_auto_create_user", *input.OIDCAutoCreateUser); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCAuthorizeURL != nil {
-			if err := tx.Where("key = ?", "oidc_authorization_endpoint").
-				Assign(model.SystemSetting{Value: *input.OIDCAuthorizeURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_authorization_endpoint"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_authorization_endpoint", *input.OIDCAuthorizeURL); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCTokenURL != nil {
-			if err := tx.Where("key = ?", "oidc_token_endpoint").
-				Assign(model.SystemSetting{Value: *input.OIDCTokenURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_token_endpoint"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_token_endpoint", *input.OIDCTokenURL); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCUserinfoURL != nil {
-			if err := tx.Where("key = ?", "oidc_userinfo_endpoint").
-				Assign(model.SystemSetting{Value: *input.OIDCUserinfoURL}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_userinfo_endpoint"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_userinfo_endpoint", *input.OIDCUserinfoURL); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCAudience != nil {
-			if err := tx.Where("key = ?", "oidc_audience").
-				Assign(model.SystemSetting{Value: *input.OIDCAudience}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_audience"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_audience", *input.OIDCAudience); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCResource != nil {
-			if err := tx.Where("key = ?", "oidc_resource").
-				Assign(model.SystemSetting{Value: *input.OIDCResource}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_resource"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_resource", *input.OIDCResource); err != nil {
 				return err
 			}
 		}
 
 		if input.OIDCExtraAuthParams != nil {
-			if err := tx.Where("key = ?", "oidc_extra_auth_params").
-				Assign(model.SystemSetting{Value: *input.OIDCExtraAuthParams}).
-				FirstOrCreate(&model.SystemSetting{Key: "oidc_extra_auth_params"}).Error; err != nil {
+			if err := saveStringSystemSetting(tx, "oidc_extra_auth_params", *input.OIDCExtraAuthParams); err != nil {
 				return err
 			}
 		}
@@ -696,6 +548,22 @@ func saveStringSystemSetting(tx *gorm.DB, key string, value string) error {
 	return tx.Where("key = ?", key).
 		Assign(map[string]interface{}{"value": value}).
 		FirstOrCreate(&model.SystemSetting{Key: key}).Error
+}
+
+func saveEncryptedSystemSetting(tx *gorm.DB, key string, value string) error {
+	// Encrypted keys are write-only: their values are never returned to clients
+	// (only a "<key>Set" flag is). By convention an empty incoming value means
+	// "keep the existing secret unchanged" rather than "clear it", because a
+	// blank field cannot be distinguished from "leave as-is" when the current
+	// value is never shown back. Skip the write so the stored secret survives.
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	encrypted, err := encryptSystemSettingValueIfNeeded(key, value)
+	if err != nil {
+		return err
+	}
+	return saveStringSystemSetting(tx, key, encrypted)
 }
 
 func validateIncomingSystemProxySettings(tx *gorm.DB, input UpdateSettingsInput) error {
