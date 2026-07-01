@@ -6,6 +6,7 @@ import { TabsContent } from "@/components/ui/tabs"
 
 import AdminSettingsGeneralSection from "./admin-settings-general-section"
 import AdminSettingsProxySection from "./admin-settings-proxy-section"
+import AdminSettingsSSRFSection from "./admin-settings-ssrf-section"
 import type { AdminSettingsGeneralTabProps } from "./admin-settings-types"
 
 export default function AdminSettingsTab({
@@ -28,6 +29,15 @@ export default function AdminSettingsTab({
   onSave,
   onSiteNameChange,
   onSiteUrlChange,
+  onSSRFAllowPrivateIPChange,
+  onSSRFDomainFilterListChange,
+  onSSRFDomainFilterModeChange,
+  onSSRFFilterResolvedIPsChange,
+  onSSRFIPFilterListChange,
+  onSSRFIPFilterModeChange,
+  onSSRFProtectionEnabledChange,
+  onSSRFTest,
+  onSSRFTestTargetChange,
   onSystemProxyEnabledChange,
   onSystemProxyTypeChange,
   onSystemProxyUrlChange,
@@ -35,6 +45,16 @@ export default function AdminSettingsTab({
   registrationEnabled,
   siteName,
   siteUrl,
+  ssrfAllowPrivateIP,
+  ssrfDomainFilterList,
+  ssrfDomainFilterMode,
+  ssrfFilterResolvedIPs,
+  ssrfIPFilterList,
+  ssrfIPFilterMode,
+  ssrfProtectionEnabled,
+  ssrfTestResult,
+  ssrfTestTarget,
+  ssrfTesting,
   systemProxyEnabled,
   systemProxyType,
   systemProxyUrl,
@@ -79,6 +99,30 @@ export default function AdminSettingsTab({
         systemProxyType={systemProxyType}
         systemProxyUrl={systemProxyUrl}
         systemProxyUrlConfigured={systemProxyUrlConfigured}
+      />
+
+      <Separator />
+
+      <AdminSettingsSSRFSection
+        onSSRFAllowPrivateIPChange={onSSRFAllowPrivateIPChange}
+        onSSRFDomainFilterListChange={onSSRFDomainFilterListChange}
+        onSSRFDomainFilterModeChange={onSSRFDomainFilterModeChange}
+        onSSRFFilterResolvedIPsChange={onSSRFFilterResolvedIPsChange}
+        onSSRFIPFilterListChange={onSSRFIPFilterListChange}
+        onSSRFIPFilterModeChange={onSSRFIPFilterModeChange}
+        onSSRFProtectionEnabledChange={onSSRFProtectionEnabledChange}
+        onSSRFTest={onSSRFTest}
+        onSSRFTestTargetChange={onSSRFTestTargetChange}
+        ssrfAllowPrivateIP={ssrfAllowPrivateIP}
+        ssrfDomainFilterList={ssrfDomainFilterList}
+        ssrfDomainFilterMode={ssrfDomainFilterMode}
+        ssrfFilterResolvedIPs={ssrfFilterResolvedIPs}
+        ssrfIPFilterList={ssrfIPFilterList}
+        ssrfIPFilterMode={ssrfIPFilterMode}
+        ssrfProtectionEnabled={ssrfProtectionEnabled}
+        ssrfTestResult={ssrfTestResult}
+        ssrfTestTarget={ssrfTestTarget}
+        ssrfTesting={ssrfTesting}
       />
 
       <Separator />

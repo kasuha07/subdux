@@ -508,7 +508,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				continue
 			}
 
-			if err := validateChannelConfig(channelType, canonicalConfig); err != nil {
+			if err := validateChannelConfig(channelType, canonicalConfig, tx); err != nil {
 				if confirm {
 					result.Errors = append(result.Errors, fmt.Sprintf("invalid config for channel %q: %v", channelType, err))
 					result.Skipped++

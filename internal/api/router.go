@@ -191,7 +191,7 @@ func SetupRoutes(
 	})
 
 	api.GET("/version/latest", func(c echo.Context) error {
-		client := service.NewSafeOutboundHTTPClient(db, 10*time.Second)
+		client := service.NewOutboundHTTPClient(db, 10*time.Second)
 		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
 			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
 		if err != nil {
@@ -299,6 +299,7 @@ func SetupRoutes(
 	admin.GET("/audit-events", auditHandler.ListAdminEvents)
 	admin.GET("/settings", adminHandler.GetSettings)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
+	admin.POST("/settings/ssrf/test", adminHandler.TestSSRF)
 	admin.POST("/settings/smtp/test", adminHandler.TestSMTP)
 	admin.GET("/backup", adminHandler.BackupDB)
 	admin.POST("/restore", adminHandler.RestoreDB, requestBodyLimitMiddleware(32<<20, nil))

@@ -41,7 +41,7 @@ type IconProxyResolution struct {
 func NewIconProxyService(db *gorm.DB) *IconProxyService {
 	return &IconProxyService{
 		DB:         db,
-		httpClient: NewSafeOutboundHTTPClient(db, 10*time.Second),
+		httpClient: NewOutboundHTTPClient(db, 10*time.Second),
 	}
 }
 
@@ -85,10 +85,7 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 		return nil, errors.New("invalid icon proxy request")
 	}
 
-	proxyMediated := clientUsesOutboundProxy(s.httpClient)
-	if err := validateOutboundRequestHost(parsed.Hostname(), proxyMediated); err != nil {
-		return nil, err
-	}
+	client := s.outboundHTTPClient()
 	if !isIconProxyDomainAllowed(parsed.Hostname(), resolution.AllowedHosts) {
 		return nil, ErrIconProxyDomainNotAllowed
 	}
@@ -99,14 +96,11 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 	}
 	req.Header.Set("User-Agent", "SubduxIconProxy/1.0")
 
-	client := *s.httpClient
+	checkedClient := *client
 	originalCheckRedirect := client.CheckRedirect
-	client.CheckRedirect = func(redirectReq *http.Request, via []*http.Request) error {
+	checkedClient.CheckRedirect = func(redirectReq *http.Request, via []*http.Request) error {
 		if redirectReq == nil || redirectReq.URL == nil {
 			return errors.New("invalid outbound request")
-		}
-		if err := validateOutboundRequestHost(redirectReq.URL.Hostname(), proxyMediated); err != nil {
-			return err
 		}
 		if !isIconProxyDomainAllowed(redirectReq.URL.Hostname(), resolution.AllowedHosts) {
 			return ErrIconProxyDomainNotAllowed
@@ -120,7 +114,14 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 		return nil
 	}
 
-	return client.Do(req)
+	return checkedClient.Do(req)
+}
+
+func (s *IconProxyService) outboundHTTPClient() *http.Client {
+	if s.httpClient != nil {
+		return s.httpClient
+	}
+	return NewOutboundHTTPClient(s.DB, 10*time.Second)
 }
 
 func (s *IconProxyService) getBoolSetting(key string, defaultValue bool) bool {

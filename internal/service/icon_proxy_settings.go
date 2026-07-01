@@ -80,9 +80,6 @@ func normalizeIconProxyDomain(raw string) (string, error) {
 		return "", ErrInvalidIconProxyDomainWhitelist
 	}
 
-	if err := validateOutboundHost(domain, "icon proxy domain whitelist"); err != nil {
-		return "", ErrInvalidIconProxyDomainWhitelist
-	}
 	if !isValidEmailDomain(domain) {
 		return "", ErrInvalidIconProxyDomainWhitelist
 	}

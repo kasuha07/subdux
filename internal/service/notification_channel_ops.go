@@ -33,7 +33,7 @@ func (s *NotificationService) CreateChannel(userID uint, input CreateChannelInpu
 		return nil, err
 	}
 
-	if err := validateChannelConfig(channelType, canonicalConfig); err != nil {
+	if err := validateChannelConfig(channelType, canonicalConfig, s.DB); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (s *NotificationService) UpdateChannel(userID, channelID uint, input Update
 			return nil, err
 		}
 
-		if err := validateChannelConfig(channel.Type, mergedConfig); err != nil {
+		if err := validateChannelConfig(channel.Type, mergedConfig, s.DB); err != nil {
 			return nil, err
 		}
 

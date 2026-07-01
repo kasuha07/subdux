@@ -38,7 +38,7 @@ type ExchangeRateService struct {
 func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 	s := &ExchangeRateService{
 		DB:         db,
-		httpClient: NewSafeOutboundHTTPClient(db, 30*time.Second),
+		httpClient: NewOutboundHTTPClient(db, 30*time.Second),
 		cache:      newRateCache(),
 	}
 	s.loadCacheFromDB()
@@ -47,7 +47,8 @@ func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 
 // WithContext returns a shallow copy of the service whose database handle is
 // bound to ctx, so GORM cancels in-flight queries when ctx is cancelled (client
-// disconnect or write-timeout). The cache pointer and HTTP client are shared.
+// disconnect or write-timeout). The cache pointer and HTTP client are shared
+// across clones.
 func (s *ExchangeRateService) WithContext(ctx context.Context) *ExchangeRateService {
 	clone := *s
 	clone.DB = s.DB.WithContext(ctx)
@@ -358,7 +359,7 @@ func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
 		}
 		req.Header.Set("apikey", apiKey)
 
-		resp, err := doNotificationRequest(s.httpClient, req)
+		resp, err := s.outboundHTTPClient().Do(req)
 		if err != nil {
 			return fmt.Errorf("premium API request: %w", err)
 		}
@@ -493,7 +494,7 @@ func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
 		return nil, err
 	}
 
-	resp, err := doNotificationRequest(s.httpClient, req)
+	resp, err := s.outboundHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -516,6 +517,13 @@ func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
 		}
 	}
 	return buf[:n], nil
+}
+
+func (s *ExchangeRateService) outboundHTTPClient() *http.Client {
+	if s.httpClient != nil {
+		return s.httpClient
+	}
+	return NewOutboundHTTPClient(s.DB, 30*time.Second)
 }
 
 func (s *ExchangeRateService) StartBackgroundRefresh(

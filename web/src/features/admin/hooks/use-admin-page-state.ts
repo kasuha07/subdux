@@ -8,6 +8,7 @@ import type {
   AdminUser,
   BackgroundTask,
   ExchangeRateStatus,
+  SSRFTestResult,
   SystemSettings,
   UpdateSettingsInput,
 } from "@/types"
@@ -56,6 +57,13 @@ interface AdminSettingsFormState {
   smtpSkipTLSVerify: boolean
   smtpTimeoutSeconds: number
   smtpUsername: string
+  ssrfAllowPrivateIP: boolean
+  ssrfDomainFilterList: string
+  ssrfDomainFilterMode: string
+  ssrfFilterResolvedIPs: boolean
+  ssrfIPFilterList: string
+  ssrfIPFilterMode: string
+  ssrfProtectionEnabled: boolean
   systemProxyEnabled: boolean
   systemProxyType: string
   systemProxyUrl: string
@@ -78,6 +86,7 @@ interface UseAdminPageStateResult {
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
   handleRestore: () => Promise<void>
   handleSaveSettings: () => Promise<void>
+  handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
   handleToggleRole: (user: AdminUser) => Promise<void>
   handleToggleStatus: (user: AdminUser) => Promise<void>
@@ -99,6 +108,7 @@ interface UseAdminPageStateResult {
   setNewUsername: (value: string) => void
   setRestoreConfirmOpen: (value: boolean) => void
   setRestoreFile: (file: File | null) => void
+  setSSRFTestTarget: (value: string) => void
   setSettingsField: <K extends keyof AdminSettingsFormState>(
     key: K,
     value: AdminSettingsFormState[K]
@@ -107,6 +117,9 @@ interface UseAdminPageStateResult {
   settingsForm: AdminSettingsFormState
   smtpTestRecipient: string
   smtpTesting: boolean
+  ssrfTestResult: SSRFTestResult | null
+  ssrfTestTarget: string
+  ssrfTesting: boolean
   stats: AdminStats | null
   users: AdminUser[]
 }
@@ -159,6 +172,13 @@ function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
     smtpSkipTLSVerify: settings?.smtp_skip_tls_verify ?? false,
     smtpTimeoutSeconds: settings?.smtp_timeout_seconds || 10,
     smtpUsername: settings?.smtp_username || "",
+    ssrfAllowPrivateIP: settings?.ssrf_allow_private_ip ?? false,
+    ssrfDomainFilterList: settings?.ssrf_domain_filter_list || "",
+    ssrfDomainFilterMode: settings?.ssrf_domain_filter_mode || "blacklist",
+    ssrfFilterResolvedIPs: settings?.ssrf_filter_resolved_ips ?? true,
+    ssrfIPFilterList: settings?.ssrf_ip_filter_list || "",
+    ssrfIPFilterMode: settings?.ssrf_ip_filter_mode || "blacklist",
+    ssrfProtectionEnabled: settings?.ssrf_protection_enabled ?? true,
     systemProxyEnabled: settings?.system_proxy_enabled ?? false,
     systemProxyType: settings?.system_proxy_type || "http",
     systemProxyUrl: "",
@@ -225,6 +245,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   const [backgroundTasksRefreshing, setBackgroundTasksRefreshing] = useState(false)
   const [smtpTestRecipient, setSMTPTestRecipient] = useState(() => getUser()?.email ?? "")
   const [smtpTesting, setSMTPTesting] = useState(false)
+  const [ssrfTestTarget, setSSRFTestTarget] = useState("")
+  const [ssrfTestResult, setSSRFTestResult] = useState<SSRFTestResult | null>(null)
+  const [ssrfTesting, setSSRFTesting] = useState(false)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newUsername, setNewUsername] = useState("")
@@ -354,6 +377,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         smtp_timeout_seconds: settingsForm.smtpTimeoutSeconds,
         smtp_rate_limit_seconds: settingsForm.smtpRateLimitSeconds,
         smtp_skip_tls_verify: settingsForm.smtpSkipTLSVerify,
+        ssrf_protection_enabled: settingsForm.ssrfProtectionEnabled,
+        ssrf_allow_private_ip: settingsForm.ssrfAllowPrivateIP,
+        ssrf_domain_filter_mode: settingsForm.ssrfDomainFilterMode,
+        ssrf_domain_filter_list: settingsForm.ssrfDomainFilterList,
+        ssrf_ip_filter_mode: settingsForm.ssrfIPFilterMode,
+        ssrf_ip_filter_list: settingsForm.ssrfIPFilterList,
+        ssrf_filter_resolved_ips: settingsForm.ssrfFilterResolvedIPs,
         system_proxy_enabled: settingsForm.systemProxyEnabled,
         system_proxy_type: settingsForm.systemProxyType,
         oidc_enabled: settingsForm.oidcEnabled,
@@ -419,6 +449,29 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       void 0
     } finally {
       setSMTPTesting(false)
+    }
+  }
+
+  async function handleTestSSRF() {
+    const target = ssrfTestTarget.trim()
+    if (!target) {
+      toast.error(t("admin.settings.ssrfTestTargetRequired"))
+      return
+    }
+
+    setSSRFTesting(true)
+    try {
+      const result = await api.post<SSRFTestResult>("/admin/settings/ssrf/test", { target })
+      setSSRFTestResult(result)
+      toast.success(
+        result.allowed
+          ? t("admin.settings.ssrfTestAllowedToast")
+          : t("admin.settings.ssrfTestBlockedToast")
+      )
+    } catch {
+      void 0
+    } finally {
+      setSSRFTesting(false)
     }
   }
 
@@ -515,6 +568,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleRegistrationEmailVerificationChange,
     handleRestore,
     handleSaveSettings,
+    handleTestSSRF,
     handleTestSMTP,
     handleToggleRole,
     handleToggleStatus,
@@ -536,11 +590,15 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     setNewUsername,
     setRestoreConfirmOpen,
     setRestoreFile,
+    setSSRFTestTarget,
     setSettingsField,
     setSMTPTestRecipient,
     settingsForm,
     smtpTestRecipient,
     smtpTesting,
+    ssrfTestResult,
+    ssrfTestTarget,
+    ssrfTesting,
     stats,
     users,
   }

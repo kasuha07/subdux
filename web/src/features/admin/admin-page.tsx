@@ -190,6 +190,39 @@ export default function AdminPage() {
                   onMaxIconFileSizeChange={(value) => admin.setSettingsField("maxIconFileSize", value)}
                   onMCPEnabledChange={(enabled) => admin.setSettingsField("mcpEnabled", enabled)}
                   onAuditEnabledChange={(enabled) => admin.setSettingsField("auditEnabled", enabled)}
+                  ssrfProtectionEnabled={settingsForm.ssrfProtectionEnabled}
+                  onSSRFProtectionEnabledChange={(enabled) =>
+                    admin.setSettingsField("ssrfProtectionEnabled", enabled)
+                  }
+                  ssrfAllowPrivateIP={settingsForm.ssrfAllowPrivateIP}
+                  onSSRFAllowPrivateIPChange={(enabled) =>
+                    admin.setSettingsField("ssrfAllowPrivateIP", enabled)
+                  }
+                  ssrfDomainFilterMode={settingsForm.ssrfDomainFilterMode}
+                  onSSRFDomainFilterModeChange={(value) =>
+                    admin.setSettingsField("ssrfDomainFilterMode", value)
+                  }
+                  ssrfDomainFilterList={settingsForm.ssrfDomainFilterList}
+                  onSSRFDomainFilterListChange={(value) =>
+                    admin.setSettingsField("ssrfDomainFilterList", value)
+                  }
+                  ssrfIPFilterMode={settingsForm.ssrfIPFilterMode}
+                  onSSRFIPFilterModeChange={(value) =>
+                    admin.setSettingsField("ssrfIPFilterMode", value)
+                  }
+                  ssrfIPFilterList={settingsForm.ssrfIPFilterList}
+                  onSSRFIPFilterListChange={(value) =>
+                    admin.setSettingsField("ssrfIPFilterList", value)
+                  }
+                  ssrfFilterResolvedIPs={settingsForm.ssrfFilterResolvedIPs}
+                  onSSRFFilterResolvedIPsChange={(enabled) =>
+                    admin.setSettingsField("ssrfFilterResolvedIPs", enabled)
+                  }
+                  ssrfTestTarget={admin.ssrfTestTarget}
+                  onSSRFTestTargetChange={admin.setSSRFTestTarget}
+                  ssrfTestResult={admin.ssrfTestResult}
+                  ssrfTesting={admin.ssrfTesting}
+                  onSSRFTest={admin.handleTestSSRF}
                   systemProxyEnabled={settingsForm.systemProxyEnabled}
                   onSystemProxyEnabledChange={(enabled) =>
                     admin.setSettingsField("systemProxyEnabled", enabled)

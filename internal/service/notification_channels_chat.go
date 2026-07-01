@@ -45,8 +45,8 @@ func (s *NotificationService) sendTelegram(channel model.NotificationChannel, me
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("telegram request failed: %w", err)
 	}
@@ -99,7 +99,7 @@ func (s *NotificationService) sendFeishu(channel model.NotificationChannel, mess
 	req.Header.Set("Content-Type", "application/json")
 
 	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, s.DB)
 	if err != nil {
 		return fmt.Errorf("feishu request failed: %w", err)
 	}
@@ -143,7 +143,7 @@ func (s *NotificationService) sendWeCom(channel model.NotificationChannel, messa
 	req.Header.Set("Content-Type", "application/json")
 
 	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, s.DB)
 	if err != nil {
 		return fmt.Errorf("wecom request failed: %w", err)
 	}
@@ -199,7 +199,7 @@ func (s *NotificationService) sendDingTalk(channel model.NotificationChannel, me
 	req.Header.Set("Content-Type", "application/json")
 
 	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, s.DB)
 	if err != nil {
 		return fmt.Errorf("dingtalk request failed: %w", err)
 	}
@@ -266,7 +266,7 @@ func (s *NotificationService) sendNapCat(channel model.NotificationChannel, mess
 	}
 
 	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, s.DB)
 	if err != nil {
 		return fmt.Errorf("napcat request failed: %w", err)
 	}

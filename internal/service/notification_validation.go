@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 // --- Channel config types for strict decoding and validation ---
@@ -182,7 +184,7 @@ func isValidHTTPHeaderName(name string) bool {
 	return true
 }
 
-func validateChannelConfig(channelType, config string) error {
+func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	if strings.TrimSpace(config) == "" {
 		config = "{}"
 	}
@@ -201,7 +203,7 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.Host == "" {
 			return errors.New("smtp channel requires host")
 		}
-		if err := validateOutboundHost(cfg.Host, "smtp host"); err != nil {
+		if err := validateOutboundHost(cfg.Host, "smtp host", db); err != nil {
 			return err
 		}
 		if cfg.FromEmail == "" {
@@ -261,7 +263,7 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.URL == "" {
 			return errors.New("webhook channel requires url")
 		}
-		if err := validateOutboundChannelURL(cfg.URL, "webhook url", false); err != nil {
+		if err := validateOutboundChannelURL(cfg.URL, "webhook url", false, db); err != nil {
 			return err
 		}
 		method, err := normalizeWebhookMethod(cfg.Method)
@@ -283,7 +285,7 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.URL == "" {
 			return errors.New("gotify channel requires url")
 		}
-		if err := validateOutboundChannelURL(cfg.URL, "gotify url", false); err != nil {
+		if err := validateOutboundChannelURL(cfg.URL, "gotify url", false, db); err != nil {
 			return err
 		}
 		if cfg.Token == "" {
@@ -299,7 +301,7 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("ntfy channel requires topic")
 		}
 		if cfg.URL != "" {
-			if err := validateOutboundChannelURL(cfg.URL, "ntfy url", false); err != nil {
+			if err := validateOutboundChannelURL(cfg.URL, "ntfy url", false, db); err != nil {
 				return err
 			}
 		}
@@ -313,7 +315,7 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("bark channel requires device_key")
 		}
 		if cfg.URL != "" {
-			if err := validateOutboundChannelURL(cfg.URL, "bark url", false); err != nil {
+			if err := validateOutboundChannelURL(cfg.URL, "bark url", false, db); err != nil {
 				return err
 			}
 		}
@@ -335,7 +337,7 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.WebhookURL == "" {
 			return errors.New("feishu channel requires webhook_url")
 		}
-		if err := validateOutboundChannelURL(cfg.WebhookURL, "feishu webhook_url", true); err != nil {
+		if err := validateOutboundChannelURL(cfg.WebhookURL, "feishu webhook_url", true, db); err != nil {
 			return err
 		}
 		return nil
@@ -347,7 +349,7 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.WebhookURL == "" {
 			return errors.New("wecom channel requires webhook_url")
 		}
-		if err := validateOutboundChannelURL(cfg.WebhookURL, "wecom webhook_url", true); err != nil {
+		if err := validateOutboundChannelURL(cfg.WebhookURL, "wecom webhook_url", true, db); err != nil {
 			return err
 		}
 		return nil
@@ -359,7 +361,7 @@ func validateChannelConfig(channelType, config string) error {
 		if cfg.WebhookURL == "" {
 			return errors.New("dingtalk channel requires webhook_url")
 		}
-		if err := validateOutboundChannelURL(cfg.WebhookURL, "dingtalk webhook_url", true); err != nil {
+		if err := validateOutboundChannelURL(cfg.WebhookURL, "dingtalk webhook_url", true, db); err != nil {
 			return err
 		}
 		return nil
@@ -373,7 +375,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		serverURL := strings.TrimSpace(cfg.ServerURL)
 		if serverURL != "" {
-			if err := validateOutboundChannelURL(serverURL, "pushdeer server_url", false); err != nil {
+			if err := validateOutboundChannelURL(serverURL, "pushdeer server_url", false, db); err != nil {
 				return err
 			}
 		}
@@ -388,7 +390,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint != "" {
-			if err := validateOutboundChannelURL(endpoint, "pushplus endpoint", false); err != nil {
+			if err := validateOutboundChannelURL(endpoint, "pushplus endpoint", false, db); err != nil {
 				return err
 			}
 		}
@@ -406,7 +408,7 @@ func validateChannelConfig(channelType, config string) error {
 		}
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint != "" {
-			if err := validateOutboundChannelURL(endpoint, "pushover endpoint", false); err != nil {
+			if err := validateOutboundChannelURL(endpoint, "pushover endpoint", false, db); err != nil {
 				return err
 			}
 		}
@@ -420,7 +422,7 @@ func validateChannelConfig(channelType, config string) error {
 			return errors.New("napcat channel requires url")
 		}
 		napcatURL := strings.TrimSpace(cfg.URL)
-		if err := validateOutboundChannelURL(napcatURL, "napcat url", false); err != nil {
+		if err := validateOutboundChannelURL(napcatURL, "napcat url", false, db); err != nil {
 			return err
 		}
 		msgType := strings.ToLower(strings.TrimSpace(cfg.MessageType))

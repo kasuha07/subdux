@@ -1,3 +1,5 @@
+import type { SSRFTestResult } from "@/types"
+
 export interface AdminSettingsTabProps {
   allowImageUpload: boolean
   iconProxyEnabled: boolean
@@ -43,6 +45,15 @@ export interface AdminSettingsTabProps {
   onSMTPTest: () => void | Promise<void>
   onSMTPTimeoutSecondsChange: (value: number) => void
   onSMTPUsernameChange: (value: string) => void
+  onSSRFAllowPrivateIPChange: (enabled: boolean) => void
+  onSSRFDomainFilterListChange: (value: string) => void
+  onSSRFDomainFilterModeChange: (value: string) => void
+  onSSRFFilterResolvedIPsChange: (enabled: boolean) => void
+  onSSRFIPFilterListChange: (value: string) => void
+  onSSRFIPFilterModeChange: (value: string) => void
+  onSSRFProtectionEnabledChange: (enabled: boolean) => void
+  onSSRFTest: () => void | Promise<void>
+  onSSRFTestTargetChange: (value: string) => void
   onSystemProxyEnabledChange: (enabled: boolean) => void
   onSystemProxyTypeChange: (value: string) => void
   onSystemProxyUrlChange: (value: string) => void
@@ -83,6 +94,16 @@ export interface AdminSettingsTabProps {
   smtpTesting: boolean
   smtpTimeoutSeconds: number
   smtpUsername: string
+  ssrfAllowPrivateIP: boolean
+  ssrfDomainFilterList: string
+  ssrfDomainFilterMode: string
+  ssrfFilterResolvedIPs: boolean
+  ssrfIPFilterList: string
+  ssrfIPFilterMode: string
+  ssrfProtectionEnabled: boolean
+  ssrfTestResult: SSRFTestResult | null
+  ssrfTestTarget: string
+  ssrfTesting: boolean
   systemProxyEnabled: boolean
   systemProxyType: string
   systemProxyUrl: string
@@ -196,6 +217,29 @@ export type AdminSettingsProxySectionProps = Pick<
   | "systemProxyUrlConfigured"
 >
 
+export type AdminSettingsSSRFSectionProps = Pick<
+  AdminSettingsTabProps,
+  | "onSSRFAllowPrivateIPChange"
+  | "onSSRFDomainFilterListChange"
+  | "onSSRFDomainFilterModeChange"
+  | "onSSRFFilterResolvedIPsChange"
+  | "onSSRFIPFilterListChange"
+  | "onSSRFIPFilterModeChange"
+  | "onSSRFProtectionEnabledChange"
+  | "onSSRFTest"
+  | "onSSRFTestTargetChange"
+  | "ssrfAllowPrivateIP"
+  | "ssrfDomainFilterList"
+  | "ssrfDomainFilterMode"
+  | "ssrfFilterResolvedIPs"
+  | "ssrfIPFilterList"
+  | "ssrfIPFilterMode"
+  | "ssrfProtectionEnabled"
+  | "ssrfTestResult"
+  | "ssrfTestTarget"
+  | "ssrfTesting"
+>
+
 export type AdminSettingsOIDCAdvancedFieldsProps = Pick<
   AdminSettingsOIDCSectionProps,
   | "onOIDCAudienceChange"
@@ -234,6 +278,7 @@ export interface AdminSettingsSaveProps {
 
 export type AdminSettingsGeneralTabProps = AdminSettingsBasicSectionProps &
   AdminSettingsProxySectionProps &
+  AdminSettingsSSRFSectionProps &
   AdminSettingsSaveProps
 
 export type AdminSettingsSMTPTabProps = AdminSettingsSMTPSectionProps &

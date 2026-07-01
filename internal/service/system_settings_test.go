@@ -52,6 +52,22 @@ func TestSystemSettingsServiceSeedDefaultsIsIdempotent(t *testing.T) {
 	if mcpEnabled.Value != "false" {
 		t.Fatalf("mcp_enabled = %q, want false", mcpEnabled.Value)
 	}
+
+	var ssrfProtectionEnabled model.SystemSetting
+	if err := db.Where("key = ?", ssrfProtectionEnabledKey).First(&ssrfProtectionEnabled).Error; err != nil {
+		t.Fatalf("failed to load ssrf_protection_enabled: %v", err)
+	}
+	if ssrfProtectionEnabled.Value != "true" {
+		t.Fatalf("ssrf_protection_enabled = %q, want true", ssrfProtectionEnabled.Value)
+	}
+
+	var ssrfFilterResolvedIPs model.SystemSetting
+	if err := db.Where("key = ?", ssrfFilterResolvedIPsKey).First(&ssrfFilterResolvedIPs).Error; err != nil {
+		t.Fatalf("failed to load ssrf_filter_resolved_ips: %v", err)
+	}
+	if ssrfFilterResolvedIPs.Value != "true" {
+		t.Fatalf("ssrf_filter_resolved_ips = %q, want true", ssrfFilterResolvedIPs.Value)
+	}
 }
 
 func TestSystemSettingsServiceGetSiteInfo(t *testing.T) {

@@ -8,18 +8,18 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func TestFetchOIDCUserInfoClaimsRejectsLocalhostEndpoint(t *testing.T) {
+func TestFetchOIDCUserInfoClaimsRejectsNonHTTPUserinfoEndpoint(t *testing.T) {
 	_, err := fetchOIDCUserInfoClaims(
 		context.Background(),
 		nil,
 		&oauth2.Token{AccessToken: "token"},
-		"http://localhost/userinfo",
+		"ftp://localhost/userinfo",
 		nil,
 	)
 	if err == nil {
-		t.Fatal("fetchOIDCUserInfoClaims() error = nil, want localhost/private address validation error")
+		t.Fatal("fetchOIDCUserInfoClaims() error = nil, want URL scheme validation error")
 	}
-	if !strings.Contains(err.Error(), "must not target localhost or private network addresses") {
-		t.Fatalf("fetchOIDCUserInfoClaims() error = %q, want localhost/private address validation error", err.Error())
+	if !strings.Contains(err.Error(), "must start with http:// or https://") {
+		t.Fatalf("fetchOIDCUserInfoClaims() error = %q, want URL scheme validation error", err.Error())
 	}
 }

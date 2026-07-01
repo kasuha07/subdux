@@ -217,6 +217,84 @@ func TestUpdateSettingsRejectsInvalidSMTPRateLimit(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsClearsSSRFIPFilterList(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	svc := NewAdminService(db)
+
+	ipList := "10.0.0.0/8\n192.168.0.0/16"
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &ipList}); err != nil {
+		t.Fatalf("UpdateSettings() failed to set list: %v", err)
+	}
+
+	settings, err := svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() failed: %v", err)
+	}
+	if settings.SSRFIPFilterList == "" {
+		t.Fatal("SSRFIPFilterList should not be empty after setting a list")
+	}
+
+	empty := ""
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &empty}); err != nil {
+		t.Fatalf("UpdateSettings() failed to clear list: %v", err)
+	}
+
+	settings, err = svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() failed after clear: %v", err)
+	}
+	if settings.SSRFIPFilterList != "" {
+		t.Fatalf("SSRFIPFilterList = %q, want empty after clearing", settings.SSRFIPFilterList)
+	}
+
+	var stored model.SystemSetting
+	if err := db.Where("key = ?", ssrfIPFilterListKey).First(&stored).Error; err != nil {
+		t.Fatalf("failed to read stored ssrf ip filter list: %v", err)
+	}
+	if stored.Value != "" {
+		t.Fatalf("stored ssrf ip filter list = %q, want empty", stored.Value)
+	}
+}
+
+func TestUpdateSettingsClearsSSRFDomainFilterList(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	svc := NewAdminService(db)
+
+	domainList := "example.com\ninternal.test"
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &domainList}); err != nil {
+		t.Fatalf("UpdateSettings() failed to set list: %v", err)
+	}
+
+	settings, err := svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() failed: %v", err)
+	}
+	if settings.SSRFDomainFilterList == "" {
+		t.Fatal("SSRFDomainFilterList should not be empty after setting a list")
+	}
+
+	empty := ""
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &empty}); err != nil {
+		t.Fatalf("UpdateSettings() failed to clear list: %v", err)
+	}
+
+	settings, err = svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() failed after clear: %v", err)
+	}
+	if settings.SSRFDomainFilterList != "" {
+		t.Fatalf("SSRFDomainFilterList = %q, want empty after clearing", settings.SSRFDomainFilterList)
+	}
+}
+
 func TestReserveSMTPRateLimitSlotRejectsTooFrequentAttempts(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {

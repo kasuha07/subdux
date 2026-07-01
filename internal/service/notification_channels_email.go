@@ -94,8 +94,8 @@ func (s *NotificationService) sendResend(channel model.NotificationChannel, mess
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("resend request failed: %w", err)
 	}

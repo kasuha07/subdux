@@ -94,7 +94,7 @@ func (s *NotificationService) sendWebhook(channel model.NotificationChannel, mes
 	}
 
 	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, s.DB)
 	if err != nil {
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
@@ -139,7 +139,7 @@ func (s *NotificationService) sendGotify(channel model.NotificationChannel, mess
 	req.Header.Set("Content-Type", "application/json")
 
 	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, s.DB)
 	if err != nil {
 		return fmt.Errorf("gotify request failed: %w", err)
 	}
@@ -169,8 +169,9 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 		return errors.New("invalid ntfy config")
 	}
 
-	serverURL := cfg.URL
-	if serverURL == "" {
+	serverURL := strings.TrimSpace(cfg.URL)
+	customServerURL := serverURL != ""
+	if !customServerURL {
 		serverURL = "https://ntfy.sh"
 	}
 
@@ -216,8 +217,14 @@ func (s *NotificationService) sendNtfy(channel model.NotificationChannel, messag
 		req.SetBasicAuth(cfg.Username, cfg.Password)
 	}
 
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	var resp *http.Response
+	if customServerURL {
+		client = s.newNotificationHTTPClient(15 * time.Second)
+		resp, err = doNotificationRequest(client, req, s.DB)
+	} else {
+		resp, err = client.Do(req)
+	}
 	if err != nil {
 		return fmt.Errorf("ntfy request failed: %w", err)
 	}
@@ -240,8 +247,9 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, messag
 		return errors.New("invalid bark config")
 	}
 
-	serverURL := cfg.URL
-	if serverURL == "" {
+	serverURL := strings.TrimSpace(cfg.URL)
+	customServerURL := serverURL != ""
+	if !customServerURL {
 		serverURL = "https://api.day.app"
 	}
 
@@ -267,8 +275,14 @@ func (s *NotificationService) sendBark(channel model.NotificationChannel, messag
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	var resp *http.Response
+	if customServerURL {
+		client = s.newNotificationHTTPClient(15 * time.Second)
+		resp, err = doNotificationRequest(client, req, s.DB)
+	} else {
+		resp, err = client.Do(req)
+	}
 	if err != nil {
 		return fmt.Errorf("bark request failed: %w", err)
 	}
@@ -309,8 +323,8 @@ func (s *NotificationService) sendServerChan(channel model.NotificationChannel, 
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("serverchan request failed: %w", err)
 	}
@@ -379,7 +393,8 @@ func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, me
 	}
 
 	serverURL := strings.TrimSpace(cfg.ServerURL)
-	if serverURL == "" {
+	customServerURL := serverURL != ""
+	if !customServerURL {
 		serverURL = "https://api2.pushdeer.com"
 	}
 
@@ -396,8 +411,14 @@ func (s *NotificationService) sendPushDeer(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	var resp *http.Response
+	if customServerURL {
+		client = s.newNotificationHTTPClient(15 * time.Second)
+		resp, err = doNotificationRequest(client, req, s.DB)
+	} else {
+		resp, err = client.Do(req)
+	}
 	if err != nil {
 		return fmt.Errorf("pushdeer request failed: %w", err)
 	}
@@ -427,7 +448,8 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, me
 	}
 
 	endpoint := strings.TrimSpace(cfg.Endpoint)
-	if endpoint == "" {
+	customEndpoint := endpoint != ""
+	if !customEndpoint {
 		endpoint = "https://www.pushplus.plus/send"
 	}
 
@@ -460,8 +482,14 @@ func (s *NotificationService) sendPushplus(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	var resp *http.Response
+	if customEndpoint {
+		client = s.newNotificationHTTPClient(15 * time.Second)
+		resp, err = doNotificationRequest(client, req, s.DB)
+	} else {
+		resp, err = client.Do(req)
+	}
 	if err != nil {
 		return fmt.Errorf("pushplus request failed: %w", err)
 	}
@@ -509,7 +537,8 @@ func (s *NotificationService) sendPushover(channel model.NotificationChannel, me
 	}
 
 	endpoint := strings.TrimSpace(cfg.Endpoint)
-	if endpoint == "" {
+	customEndpoint := endpoint != ""
+	if !customEndpoint {
 		endpoint = "https://api.pushover.net/1/messages.json"
 	}
 
@@ -534,8 +563,14 @@ func (s *NotificationService) sendPushover(channel model.NotificationChannel, me
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := s.newNotificationHTTPClient(15 * time.Second)
-	resp, err := doNotificationRequest(client, req)
+	client := s.newFixedNotificationHTTPClient(15 * time.Second)
+	var resp *http.Response
+	if customEndpoint {
+		client = s.newNotificationHTTPClient(15 * time.Second)
+		resp, err = doNotificationRequest(client, req, s.DB)
+	} else {
+		resp, err = client.Do(req)
+	}
 	if err != nil {
 		return fmt.Errorf("pushover request failed: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestValidateChannelConfigWebhook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateChannelConfig("webhook", tt.config)
+			err := validateChannelConfig("webhook", tt.config, nil)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("validateChannelConfig() error = %v, want nil", err)
@@ -233,7 +234,7 @@ func TestValidateChannelConfigPushChannels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateChannelConfig(tt.channelType, tt.config)
+			err := validateChannelConfig(tt.channelType, tt.config, nil)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("validateChannelConfig() error = %v, want nil", err)
@@ -307,7 +308,7 @@ func TestValidateChannelConfigRejectsUnknownFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateChannelConfig(tt.channelType, tt.config)
+			err := validateChannelConfig(tt.channelType, tt.config, nil)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("validateChannelConfig() error = %v, want nil", err)
@@ -376,7 +377,7 @@ func TestDoNotificationRequestRejectsRedirectToPrivateHost(t *testing.T) {
 		t.Fatalf("http.NewRequest() error = %v, want nil", err)
 	}
 
-	resp, err := doNotificationRequest(client, req)
+	resp, err := doNotificationRequest(client, req, nil)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -400,7 +401,7 @@ func TestValidateResolvedOutboundHostRejectsDNSLookupFailure(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	err := validateResolvedOutboundHost("example.com")
+	err := validateResolvedOutboundHost("example.com", nil)
 	if err == nil {
 		t.Fatal("validateResolvedOutboundHost() error = nil, want DNS resolution error")
 	}
@@ -418,12 +419,36 @@ func TestValidateResolvedOutboundHostRejectsEmptyDNSResults(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	err := validateResolvedOutboundHost("example.com")
+	err := validateResolvedOutboundHost("example.com", nil)
 	if err == nil {
 		t.Fatal("validateResolvedOutboundHost() error = nil, want empty DNS result error")
 	}
 	if !strings.Contains(err.Error(), "resolves to no addresses") {
 		t.Fatalf("validateResolvedOutboundHost() error = %q, want empty DNS result failure", err.Error())
+	}
+}
+
+func TestValidateResolvedOutboundHostClassifiesRestrictedResolvedIP(t *testing.T) {
+	originalLookup := lookupOutboundHostIPs
+	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+		if host != "example.com" {
+			t.Fatalf("lookup host = %q, want example.com", host)
+		}
+		return []net.IP{net.ParseIP("10.0.0.5")}, nil
+	}
+	defer func() {
+		lookupOutboundHostIPs = originalLookup
+	}()
+
+	err := validateResolvedOutboundHost("example.com", nil)
+	if err == nil {
+		t.Fatal("validateResolvedOutboundHost() error = nil, want private address validation error")
+	}
+	if !errors.Is(err, errRestrictedOutboundTarget) {
+		t.Fatalf("validateResolvedOutboundHost() error = %q, want restricted outbound target classification", err.Error())
+	}
+	if !strings.Contains(err.Error(), "resolves to localhost or private network addresses") {
+		t.Fatalf("validateResolvedOutboundHost() error = %q, want resolved private address validation error", err.Error())
 	}
 }
 
@@ -456,5 +481,78 @@ func TestSendSMTPRejectsRuntimePrivateHost(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "resolves to localhost or private network addresses") {
 		t.Fatalf("sendSMTP() error = %q, want private address validation error", err.Error())
+	}
+}
+
+func TestValidateOutboundHostBareIPCannotBypassDomainWhitelist(t *testing.T) {
+	// Domain whitelist active, IP filtering left at defaults (blacklist + empty
+	// list). A bare public IP satisfies no domain whitelist entry, so it must be
+	// rejected rather than waved through by the empty IP blacklist.
+	cfg := ssrfProtectionConfig{
+		Enabled:          true,
+		AllowPrivateIP:   false,
+		DomainFilterMode: ssrfFilterModeWhitelist,
+		DomainFilters:    []string{"example.com"},
+		IPFilterMode:     ssrfFilterModeBlacklist,
+		IPFilters:        nil,
+		FilterResolvedIP: true,
+	}
+
+	err := validateOutboundHostWithConfig("93.184.216.34", "outbound request url", cfg)
+	if err == nil {
+		t.Fatal("validateOutboundHostWithConfig() error = nil, want domain whitelist rejection for bare IP")
+	}
+	if !strings.Contains(err.Error(), "not allowed by ssrf domain whitelist") {
+		t.Fatalf("validateOutboundHostWithConfig() error = %q, want domain whitelist rejection", err.Error())
+	}
+}
+
+func TestValidateOutboundHostBareprivateIPStillReportsPrivateUnderDomainWhitelist(t *testing.T) {
+	// A restricted (private) bare IP under the same config should surface the
+	// more specific private-network error before the whitelist message.
+	cfg := ssrfProtectionConfig{
+		Enabled:          true,
+		AllowPrivateIP:   false,
+		DomainFilterMode: ssrfFilterModeWhitelist,
+		DomainFilters:    []string{"example.com"},
+		IPFilterMode:     ssrfFilterModeBlacklist,
+		IPFilters:        nil,
+		FilterResolvedIP: true,
+	}
+
+	err := validateOutboundHostWithConfig("10.0.0.5", "outbound request url", cfg)
+	if err == nil {
+		t.Fatal("validateOutboundHostWithConfig() error = nil, want private address rejection for bare IP")
+	}
+	if !strings.Contains(err.Error(), "must not target localhost or private network addresses") {
+		t.Fatalf("validateOutboundHostWithConfig() error = %q, want private address rejection", err.Error())
+	}
+}
+
+func TestValidateOutboundHostBareIPHonorsIPWhitelistWhenEnabled(t *testing.T) {
+	// When the admin opts into IP whitelist mode alongside the domain whitelist,
+	// a bare IP is validated against the IP whitelist instead of being rejected
+	// outright.
+	allowed := netip.MustParsePrefix("93.184.216.34/32")
+	cfg := ssrfProtectionConfig{
+		Enabled:          true,
+		AllowPrivateIP:   false,
+		DomainFilterMode: ssrfFilterModeWhitelist,
+		DomainFilters:    []string{"example.com"},
+		IPFilterMode:     ssrfFilterModeWhitelist,
+		IPFilters:        []netip.Prefix{allowed},
+		FilterResolvedIP: true,
+	}
+
+	if err := validateOutboundHostWithConfig("93.184.216.34", "outbound request url", cfg); err != nil {
+		t.Fatalf("validateOutboundHostWithConfig() error = %v, want nil for whitelisted IP", err)
+	}
+
+	err := validateOutboundHostWithConfig("198.51.100.7", "outbound request url", cfg)
+	if err == nil {
+		t.Fatal("validateOutboundHostWithConfig() error = nil, want IP whitelist rejection for non-listed IP")
+	}
+	if !strings.Contains(err.Error(), "not allowed by ssrf ip whitelist") {
+		t.Fatalf("validateOutboundHostWithConfig() error = %q, want IP whitelist rejection", err.Error())
 	}
 }

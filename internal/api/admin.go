@@ -222,13 +222,35 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) ||
 			errors.Is(err, service.ErrInvalidSMTPRateLimit) ||
 			errors.Is(err, service.ErrInvalidSystemProxyType) ||
-			errors.Is(err, service.ErrInvalidSystemProxyURL) {
+			errors.Is(err, service.ErrInvalidSystemProxyURL) ||
+			errors.Is(err, service.ErrInvalidSSRFFilterMode) ||
+			errors.Is(err, service.ErrInvalidSSRFDomainFilterList) ||
+			errors.Is(err, service.ErrSSRFDomainFilterListTooLong) ||
+			errors.Is(err, service.ErrInvalidSSRFIPFilterList) ||
+			errors.Is(err, service.ErrSSRFIPFilterListTooLong) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})
+}
+
+func (h *AdminHandler) TestSSRF(c echo.Context) error {
+	var input service.SSRFTestInput
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	}
+
+	result, err := h.Service.WithContext(c.Request().Context()).TestSSRF(input)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidSSRFTestTarget) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
+		return writeInternalServerError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *AdminHandler) TestSMTP(c echo.Context) error {

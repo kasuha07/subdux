@@ -2,30 +2,32 @@ package service
 
 import (
 	"context"
-	"net"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 
 	"golang.org/x/oauth2"
 )
 
-func TestFetchOIDCUserInfoClaimsRejectsPrivateEndpoint(t *testing.T) {
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
-		if host != "127.0.0.1" {
-			t.Fatalf("lookup host = %q, want 127.0.0.1", host)
+func TestFetchOIDCUserInfoClaimsAllowsAdminConfiguredLocalEndpoint(t *testing.T) {
+	client := &http.Client{Transport: notificationTestRoundTripper(func(req *http.Request) (*http.Response, error) {
+		if got := req.URL.String(); got != "http://127.0.0.1/userinfo" {
+			t.Fatalf("userinfo URL = %q, want local admin-configured endpoint", got)
 		}
-		return []net.IP{net.ParseIP("127.0.0.1")}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"sub":"user-1","email":"user@example.com"}`)),
+			Request:    req,
+		}, nil
+	})}
 
-	_, err := fetchOIDCUserInfoClaims(context.Background(), nil, &oauth2.Token{AccessToken: "token"}, "http://127.0.0.1/userinfo", nil)
-	if err == nil {
-		t.Fatal("fetchOIDCUserInfoClaims() error = nil, want validation error")
+	claims, err := fetchOIDCUserInfoClaims(context.Background(), nil, &oauth2.Token{AccessToken: "token"}, "http://127.0.0.1/userinfo", client)
+	if err != nil {
+		t.Fatalf("fetchOIDCUserInfoClaims() error = %v, want nil", err)
 	}
-	if !strings.Contains(err.Error(), "must not target localhost or private network addresses") {
-		t.Fatalf("fetchOIDCUserInfoClaims() error = %q, want localhost/private address validation error", err.Error())
+	if claims.Subject != "user-1" {
+		t.Fatalf("Subject = %q, want user-1", claims.Subject)
 	}
 }

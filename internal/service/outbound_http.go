@@ -104,10 +104,22 @@ func NewSafeOutboundDialContext(db *gorm.DB, timeout time.Duration) func(context
 	if db != nil {
 		cfg, err := loadSystemProxyConfig(db)
 		if err == nil && cfg.Enabled {
-			return NewOutboundDialContext(db, timeout)
+			proxyDialContext := NewOutboundDialContext(db, timeout)
+			return func(ctx context.Context, network string, address string) (net.Conn, error) {
+				if isTCPNetwork(network) {
+					host, _, err := net.SplitHostPort(address)
+					if err != nil {
+						return nil, err
+					}
+					if err := validateOutboundHost(host, "outbound request url", db); err != nil {
+						return nil, err
+					}
+				}
+				return proxyDialContext(ctx, network, address)
+			}
 		}
 	}
-	return newSafeOutboundDialer(timeout).DialContext
+	return newSafeOutboundDialerWithDB(db, timeout).DialContext
 }
 
 func newOutboundHTTPClient(options outboundHTTPClientOptions) *http.Client {
@@ -179,7 +191,7 @@ func newOutboundHTTPTransport(options outboundHTTPClientOptions) (http.RoundTrip
 	}
 
 	if options.SecureEgress {
-		return outboundProxyRoundTripper{transport: transport}, nil
+		return outboundProxyRoundTripper{transport: transport, db: options.DB}, nil
 	}
 	return transport, nil
 }
@@ -188,15 +200,20 @@ func (options outboundHTTPClientOptions) safeDialer() *safeOutboundDialer {
 	if options.SecureDialer != nil {
 		return options.SecureDialer
 	}
-	return newSafeOutboundDialer(options.Timeout)
+	return newSafeOutboundDialerWithDB(options.DB, options.Timeout)
 }
 
 type safeOutboundDialer struct {
 	dialer      *net.Dialer
 	dialContext func(context.Context, string, string) (net.Conn, error)
+	db          *gorm.DB
 }
 
 func newSafeOutboundDialer(timeout time.Duration) *safeOutboundDialer {
+	return newSafeOutboundDialerWithDB(nil, timeout)
+}
+
+func newSafeOutboundDialerWithDB(db *gorm.DB, timeout time.Duration) *safeOutboundDialer {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
@@ -205,6 +222,7 @@ func newSafeOutboundDialer(timeout time.Duration) *safeOutboundDialer {
 			Timeout:   timeout,
 			KeepAlive: 30 * time.Second,
 		},
+		db: db,
 	}
 }
 
@@ -221,7 +239,7 @@ func (d *safeOutboundDialer) DialContext(ctx context.Context, network string, ad
 		return nil, err
 	}
 
-	ips, err := resolveSafeOutboundHostIPs(ctx, network, host, "outbound request url")
+	ips, err := resolveSafeOutboundHostIPs(ctx, network, host, "outbound request url", d.db)
 	if err != nil {
 		return nil, err
 	}
@@ -261,9 +279,16 @@ func isTCPNetwork(network string) bool {
 
 type outboundProxyRoundTripper struct {
 	transport http.RoundTripper
+	db        *gorm.DB
 }
 
 func (t outboundProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req == nil || req.URL == nil {
+		return nil, errors.New("invalid outbound request")
+	}
+	if err := validateOutboundRequestHost(req.URL.Hostname(), true, t.db); err != nil {
+		return nil, err
+	}
 	if t.transport == nil {
 		return http.DefaultTransport.RoundTrip(req)
 	}

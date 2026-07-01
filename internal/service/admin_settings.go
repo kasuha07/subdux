@@ -59,6 +59,28 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			}
 		case "system_proxy_url":
 			settings.SystemProxyURLSet = strings.TrimSpace(settingValue) != ""
+		case ssrfProtectionEnabledKey:
+			settings.SSRFProtectionEnabled = settingValue == "true"
+		case ssrfAllowPrivateIPKey:
+			settings.SSRFAllowPrivateIP = settingValue == "true"
+		case ssrfDomainFilterModeKey:
+			if mode, err := normalizeSSRFFilterMode(settingValue); err == nil {
+				settings.SSRFDomainFilterMode = mode
+			}
+		case ssrfDomainFilterListKey:
+			if normalized, err := normalizeSSRFDomainFilterList(settingValue); err == nil {
+				settings.SSRFDomainFilterList = normalized
+			}
+		case ssrfIPFilterModeKey:
+			if mode, err := normalizeSSRFFilterMode(settingValue); err == nil {
+				settings.SSRFIPFilterMode = mode
+			}
+		case ssrfIPFilterListKey:
+			if normalized, err := normalizeSSRFIPFilterList(settingValue); err == nil {
+				settings.SSRFIPFilterList = normalized
+			}
+		case ssrfFilterResolvedIPsKey:
+			settings.SSRFFilterResolvedIPs = settingValue == "true"
 		case "smtp_enabled":
 			settings.SMTPEnabled = settingValue == "true"
 		case "smtp_host":
@@ -324,6 +346,68 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := tx.Where("key = ?", "system_proxy_url").
 				Assign(model.SystemSetting{Value: encryptedSystemProxyURL}).
 				FirstOrCreate(&model.SystemSetting{Key: "system_proxy_url"}).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := validateSSRFProtectionSettings(input); err != nil {
+			return err
+		}
+
+		if input.SSRFProtectionEnabled != nil {
+			if err := saveBoolSystemSetting(tx, ssrfProtectionEnabledKey, *input.SSRFProtectionEnabled); err != nil {
+				return err
+			}
+		}
+
+		if input.SSRFAllowPrivateIP != nil {
+			if err := saveBoolSystemSetting(tx, ssrfAllowPrivateIPKey, *input.SSRFAllowPrivateIP); err != nil {
+				return err
+			}
+		}
+
+		if input.SSRFDomainFilterMode != nil {
+			normalizedMode, err := normalizeSSRFFilterMode(*input.SSRFDomainFilterMode)
+			if err != nil {
+				return err
+			}
+			if err := saveStringSystemSetting(tx, ssrfDomainFilterModeKey, normalizedMode); err != nil {
+				return err
+			}
+		}
+
+		if input.SSRFDomainFilterList != nil {
+			normalizedList, err := normalizeSSRFDomainFilterList(*input.SSRFDomainFilterList)
+			if err != nil {
+				return err
+			}
+			if err := saveStringSystemSetting(tx, ssrfDomainFilterListKey, normalizedList); err != nil {
+				return err
+			}
+		}
+
+		if input.SSRFIPFilterMode != nil {
+			normalizedMode, err := normalizeSSRFFilterMode(*input.SSRFIPFilterMode)
+			if err != nil {
+				return err
+			}
+			if err := saveStringSystemSetting(tx, ssrfIPFilterModeKey, normalizedMode); err != nil {
+				return err
+			}
+		}
+
+		if input.SSRFIPFilterList != nil {
+			normalizedList, err := normalizeSSRFIPFilterList(*input.SSRFIPFilterList)
+			if err != nil {
+				return err
+			}
+			if err := saveStringSystemSetting(tx, ssrfIPFilterListKey, normalizedList); err != nil {
+				return err
+			}
+		}
+
+		if input.SSRFFilterResolvedIPs != nil {
+			if err := saveBoolSystemSetting(tx, ssrfFilterResolvedIPsKey, *input.SSRFFilterResolvedIPs); err != nil {
 				return err
 			}
 		}
@@ -595,6 +679,23 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 
 func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, error) {
 	return getBoolSystemSettingValue(tx, key, defaultValue)
+}
+
+func saveBoolSystemSetting(tx *gorm.DB, key string, enabled bool) error {
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	return saveStringSystemSetting(tx, key, value)
+}
+
+func saveStringSystemSetting(tx *gorm.DB, key string, value string) error {
+	// Use a map rather than a struct for Assign so that empty-string values are
+	// persisted. GORM omits zero-value struct fields from updates, which would
+	// otherwise make it impossible to clear a setting back to an empty value.
+	return tx.Where("key = ?", key).
+		Assign(map[string]interface{}{"value": value}).
+		FirstOrCreate(&model.SystemSetting{Key: key}).Error
 }
 
 func validateIncomingSystemProxySettings(tx *gorm.DB, input UpdateSettingsInput) error {

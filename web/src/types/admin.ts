@@ -41,6 +41,13 @@ export interface SystemSettings {
   system_proxy_enabled: boolean
   system_proxy_type: string
   system_proxy_url_configured: boolean
+  ssrf_protection_enabled: boolean
+  ssrf_allow_private_ip: boolean
+  ssrf_domain_filter_mode: string
+  ssrf_domain_filter_list: string
+  ssrf_ip_filter_mode: string
+  ssrf_ip_filter_list: string
+  ssrf_filter_resolved_ips: boolean
   currencyapi_key_configured: boolean
   exchange_rate_source: string
   allow_image_upload: boolean
@@ -87,6 +94,13 @@ export interface UpdateSettingsInput {
   system_proxy_enabled?: boolean
   system_proxy_type?: string
   system_proxy_url?: string
+  ssrf_protection_enabled?: boolean
+  ssrf_allow_private_ip?: boolean
+  ssrf_domain_filter_mode?: string
+  ssrf_domain_filter_list?: string
+  ssrf_ip_filter_mode?: string
+  ssrf_ip_filter_list?: string
+  ssrf_filter_resolved_ips?: boolean
   currencyapi_key?: string
   exchange_rate_source?: string
   allow_image_upload?: boolean
@@ -118,4 +132,19 @@ export interface UpdateSettingsInput {
   oidc_audience?: string
   oidc_resource?: string
   oidc_extra_auth_params?: string
+}
+
+export interface SSRFTestResult {
+  target: string
+  host: string
+  allowed: boolean
+  reason: string
+  resolved_ips: string[]
+  protection_enabled: boolean
+  allow_private_ip: boolean
+  domain_filter_mode: string
+  ip_filter_mode: string
+  filter_resolved_ips: boolean
+  proxy_mediated: boolean
+  resolved_ip_filter_applied: boolean
 }
