@@ -257,7 +257,7 @@ const admin = {
     "encryptionPasswordConfigured": "留空则保留当前密码",
     "localDir": "本地备份目录",
     "localDirDescription": "服务器上的绝对路径。留空则使用默认备份目录。",
-    "localDirPlaceholder": "<DATA_PATH>/backups",
+    "localDirPlaceholder": "/data/backups",
     "retentionCount": "保留数量",
     "retentionCountDescription": "保留最近备份的数量，较旧的备份会被自动清理。",
     "saveSchedule": "保存计划",

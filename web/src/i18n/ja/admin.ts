@@ -257,7 +257,7 @@ const admin = {
     "encryptionPasswordConfigured": "空欄の場合は現在のパスワードを維持します",
     "localDir": "ローカルバックアップ ディレクトリ",
     "localDirDescription": "サーバー上の絶対パス。空欄の場合は既定のバックアップディレクトリを使用します。",
-    "localDirPlaceholder": "<DATA_PATH>/backups",
+    "localDirPlaceholder": "/data/backups",
     "retentionCount": "保持数",
     "retentionCountDescription": "保持する最新バックアップの数。古いものは自動的に削除されます。",
     "saveSchedule": "スケジュールを保存",

@@ -257,7 +257,7 @@ const admin = {
     "encryptionPasswordConfigured": "Leave blank to keep current password",
     "localDir": "Local backup directory",
     "localDirDescription": "Absolute path on the server. Leave empty to use the default backups directory.",
-    "localDirPlaceholder": "<DATA_PATH>/backups",
+    "localDirPlaceholder": "/data/backups",
     "retentionCount": "Retention count",
     "retentionCountDescription": "Number of most recent backups to keep. Older ones are pruned automatically.",
     "saveSchedule": "Save schedule",
