@@ -3,7 +3,6 @@ import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   ArrowLeft,
-  BarChart3,
   Database,
   FileClock,
   Mail,
@@ -27,10 +26,9 @@ const AdminExchangeRatesTab = lazy(() => import("./admin-exchange-rates-tab"))
 const AdminSettingsOIDCTab = lazy(() => import("./admin-settings-oidc-tab"))
 const AdminSettingsSMTPTab = lazy(() => import("./admin-settings-smtp-tab"))
 const AdminSettingsTab = lazy(() => import("./admin-settings-tab"))
-const AdminStatsTab = lazy(() => import("./admin-stats-tab"))
 const AdminUsersTab = lazy(() => import("./admin-users-tab"))
 
-type AdminTab = "users" | "settings" | "smtp" | "auth" | "exchange-rates" | "stats" | "background-tasks" | "audit" | "backup"
+type AdminTab = "users" | "settings" | "smtp" | "auth" | "exchange-rates" | "background-tasks" | "audit" | "backup"
 
 function isAdminTab(value: string): value is AdminTab {
   return value === "users" ||
@@ -38,7 +36,6 @@ function isAdminTab(value: string): value is AdminTab {
     value === "smtp" ||
     value === "auth" ||
     value === "exchange-rates" ||
-    value === "stats" ||
     value === "background-tasks" ||
     value === "audit" ||
     value === "backup"
@@ -111,10 +108,6 @@ export default function AdminPage() {
                 <TabsTrigger value="exchange-rates" className="flex-none gap-2">
                   <RefreshCw className="size-4" />
                   {t("admin.exchangeRates.title")}
-                </TabsTrigger>
-                <TabsTrigger value="stats" className="flex-none gap-2">
-                  <BarChart3 className="size-4" />
-                  {t("admin.tabs.statistics")}
                 </TabsTrigger>
                 <TabsTrigger value="background-tasks" className="flex-none gap-2">
                   <ServerCog className="size-4" />
@@ -342,12 +335,6 @@ export default function AdminPage() {
                   onRefresh={admin.handleRefreshRates}
                   onSave={admin.handleSaveSettings}
                 />
-              </Suspense>
-            )}
-
-            {visitedTabs.includes("stats") && (
-              <Suspense fallback={<AdminTabLoading value="stats" />}>
-                <AdminStatsTab stats={admin.stats} />
               </Suspense>
             )}
 

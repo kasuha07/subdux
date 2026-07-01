@@ -9,9 +9,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *AdminService) ListUsers() ([]model.User, error) {
-	var users []model.User
-	err := s.DB.Select("id, email, role, status, created_at").Order("id ASC").Find(&users).Error
+type AdminUserListItem struct {
+	model.User
+	SubscriptionCount int64 `gorm:"column:subscription_count"`
+}
+
+func (s *AdminService) ListUsers() ([]AdminUserListItem, error) {
+	var users []AdminUserListItem
+	err := s.DB.Model(&model.User{}).
+		Select("users.id, users.email, users.role, users.status, users.created_at, COUNT(subscriptions.id) AS subscription_count").
+		Joins("LEFT JOIN subscriptions ON subscriptions.user_id = users.id").
+		Group("users.id").
+		Order("users.id ASC").
+		Find(&users).Error
 	return users, err
 }
 

@@ -155,6 +155,7 @@ export default function AdminUsersTab({
               <TableHead>{t("admin.users.email")}</TableHead>
               <TableHead>{t("admin.users.role")}</TableHead>
               <TableHead>{t("admin.users.status")}</TableHead>
+              <TableHead>{t("admin.users.subscriptions")}</TableHead>
               <TableHead>{t("admin.users.created")}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
@@ -173,6 +174,7 @@ export default function AdminUsersTab({
                     {user.status}
                   </Badge>
                 </TableCell>
+                <TableCell className="tabular-nums">{user.subscription_count}</TableCell>
                 <TableCell>{formatDate(user.created_at, i18n.language)}</TableCell>
                 <TableCell>
                   <DropdownMenu>

@@ -4,12 +4,7 @@ export interface AdminUser {
   role: "admin" | "user"
   status: "active" | "disabled"
   created_at: string
-}
-
-export interface AdminStats {
-  total_users: number
-  total_subscriptions: number
-  total_monthly_spend: number
+  subscription_count: number
 }
 
 export interface BackgroundTask {

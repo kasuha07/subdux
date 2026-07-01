@@ -294,7 +294,6 @@ func SetupRoutes(
 	admin.PUT("/users/:id/role", adminHandler.ChangeUserRole)
 	admin.PUT("/users/:id/status", adminHandler.ChangeUserStatus)
 	admin.DELETE("/users/:id", adminHandler.DeleteUser)
-	admin.GET("/stats", adminHandler.GetStats)
 	admin.GET("/background-tasks", adminHandler.ListBackgroundTasks)
 	admin.GET("/audit-events", auditHandler.ListAdminEvents)
 	admin.GET("/settings", adminHandler.GetSettings)

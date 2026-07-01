@@ -5,7 +5,6 @@ const admin = {
     "settings": "Settings",
     "email": "Email",
     "authentication": "Authentication",
-    "statistics": "Statistics",
     "backgroundTasks": "Background Tasks",
     "audit": "Audit",
     "backup": "Backup"
@@ -14,6 +13,7 @@ const admin = {
     "email": "Email",
     "role": "Role",
     "status": "Status",
+    "subscriptions": "Subscriptions",
     "created": "Created",
     "makeAdmin": "Make admin",
     "makeUser": "Make user",
@@ -187,11 +187,6 @@ const admin = {
     "resource": "Resource",
     "client": "Client",
     "details": "Details"
-  },
-  "stats": {
-    "totalUsers": "Total Users",
-    "totalSubscriptions": "Total Subscriptions",
-    "monthlySpend": "Monthly Spend"
   },
   "backgroundTasks": {
     "title": "Background Tasks",

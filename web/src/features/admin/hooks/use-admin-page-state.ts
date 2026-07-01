@@ -4,7 +4,6 @@ import { updateSiteTitle } from "@/hooks/useSiteSettings"
 import { api, getUser } from "@/lib/api"
 import { toast } from "sonner"
 import type {
-  AdminStats,
   AdminUser,
   BackgroundTask,
   ExchangeRateStatus,
@@ -120,7 +119,6 @@ interface UseAdminPageStateResult {
   ssrfTestResult: SSRFTestResult | null
   ssrfTestTarget: string
   ssrfTesting: boolean
-  stats: AdminStats | null
   users: AdminUser[]
 }
 
@@ -229,7 +227,6 @@ function hasSMTPConfigForRegistrationVerification(form: AdminSettingsFormState):
 
 export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPageStateResult {
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [stats, setStats] = useState<AdminStats | null>(null)
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsForm, setSettingsForm] = useState<AdminSettingsFormState>(() =>
@@ -269,14 +266,12 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     Promise.all([
       api.get<AdminUser[]>("/admin/users"),
       api.get<SystemSettings>("/admin/settings"),
-      api.get<AdminStats>("/admin/stats"),
       api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
       api.get<BackgroundTask[]>("/admin/background-tasks"),
     ])
-      .then(([usersData, settingsData, statsData, rateStatusData, backgroundTasksData]) => {
+      .then(([usersData, settingsData, rateStatusData, backgroundTasksData]) => {
         setUsers(usersData || [])
         setSettingsForm(createSettingsForm(settingsData))
-        setStats(statsData)
         setRateStatus(rateStatusData)
         setBackgroundTasks(backgroundTasksData || [])
       })
@@ -599,7 +594,6 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     ssrfTestResult,
     ssrfTestTarget,
     ssrfTesting,
-    stats,
     users,
   }
 }

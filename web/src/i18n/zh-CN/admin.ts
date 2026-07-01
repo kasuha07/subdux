@@ -5,7 +5,6 @@ const admin = {
     "settings": "设置",
     "email": "邮件",
     "authentication": "认证",
-    "statistics": "统计",
     "backgroundTasks": "后台任务",
     "audit": "审计",
     "backup": "备份"
@@ -14,6 +13,7 @@ const admin = {
     "email": "邮箱",
     "role": "角色",
     "status": "状态",
+    "subscriptions": "订阅数",
     "created": "创建时间",
     "makeAdmin": "设为管理员",
     "makeUser": "设为普通用户",
@@ -187,11 +187,6 @@ const admin = {
     "resource": "资源",
     "client": "客户端",
     "details": "详情"
-  },
-  "stats": {
-    "totalUsers": "用户总数",
-    "totalSubscriptions": "订阅总数",
-    "monthlySpend": "月度总支出"
   },
   "backgroundTasks": {
     "title": "后台任务",

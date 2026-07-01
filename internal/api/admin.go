@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
 )
@@ -77,24 +76,26 @@ func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTas
 }
 
 type adminUserResponse struct {
-	ID        uint      `json:"id"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                uint      `json:"id"`
+	Email             string    `json:"email"`
+	Role              string    `json:"role"`
+	Status            string    `json:"status"`
+	CreatedAt         time.Time `json:"created_at"`
+	SubscriptionCount int64     `json:"subscription_count"`
 }
 
-func mapAdminUserResponse(user model.User) adminUserResponse {
+func mapAdminUserResponse(user service.AdminUserListItem) adminUserResponse {
 	return adminUserResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		Role:      user.Role,
-		Status:    user.Status,
-		CreatedAt: user.CreatedAt,
+		ID:                user.ID,
+		Email:             user.Email,
+		Role:              user.Role,
+		Status:            user.Status,
+		CreatedAt:         user.CreatedAt,
+		SubscriptionCount: user.SubscriptionCount,
 	}
 }
 
-func mapAdminUserResponses(users []model.User) []adminUserResponse {
+func mapAdminUserResponses(users []service.AdminUserListItem) []adminUserResponse {
 	responses := make([]adminUserResponse, len(users))
 	for i, user := range users {
 		responses[i] = mapAdminUserResponse(user)
@@ -132,7 +133,7 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, mapAdminUserResponse(*user))
+	return c.JSON(http.StatusCreated, mapAdminUserResponse(service.AdminUserListItem{User: *user}))
 }
 
 func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
@@ -187,14 +188,6 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "user deleted"})
-}
-
-func (h *AdminHandler) GetStats(c echo.Context) error {
-	stats, err := h.Service.WithContext(c.Request().Context()).GetStats()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to get stats"})
-	}
-	return c.JSON(http.StatusOK, stats)
 }
 
 func (h *AdminHandler) ListBackgroundTasks(c echo.Context) error {

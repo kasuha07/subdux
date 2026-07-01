@@ -27,12 +27,6 @@ type ChangeStatusInput struct {
 	Status string `json:"status"`
 }
 
-type AdminStats struct {
-	TotalUsers         int64   `json:"total_users"`
-	TotalSubscriptions int64   `json:"total_subscriptions"`
-	TotalMonthlySpend  float64 `json:"total_monthly_spend"`
-}
-
 type SystemSettings struct {
 	RegistrationEnabled                  bool   `json:"registration_enabled"`
 	RegistrationEmailVerificationEnabled bool   `json:"registration_email_verification_enabled"`

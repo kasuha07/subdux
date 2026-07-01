@@ -24,7 +24,6 @@ admin/
 ├── admin-settings-oidc-section.tsx
 ├── admin-settings-oidc-advanced-fields.tsx
 ├── admin-exchange-rates-tab.tsx           # Exchange source/API key/status/refresh
-├── admin-stats-tab.tsx                    # Admin stats
 ├── admin-background-tasks-tab.tsx         # Background task status and refresh
 ├── admin-audit-tab.tsx                    # Admin audit-event view
 ├── admin-backup-tab.tsx                   # Backup download and restore upload

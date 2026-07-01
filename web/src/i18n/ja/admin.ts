@@ -5,7 +5,6 @@ const admin = {
     "settings": "設定",
     "email": "メール",
     "authentication": "認証",
-    "statistics": "統計",
     "backgroundTasks": "バックグラウンドタスク",
     "audit": "監査",
     "backup": "バックアップ"
@@ -14,6 +13,7 @@ const admin = {
     "email": "メール",
     "role": "ロール",
     "status": "ステータス",
+    "subscriptions": "サブスクリプション数",
     "created": "作成日",
     "makeAdmin": "管理者にする",
     "makeUser": "一般ユーザーにする",
@@ -187,11 +187,6 @@ const admin = {
     "resource": "リソース",
     "client": "クライアント",
     "details": "詳細"
-  },
-  "stats": {
-    "totalUsers": "ユーザー数",
-    "totalSubscriptions": "サブスクリプション数",
-    "monthlySpend": "月間支出"
   },
   "backgroundTasks": {
     "title": "バックグラウンドタスク",
