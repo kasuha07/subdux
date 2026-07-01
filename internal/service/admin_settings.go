@@ -141,6 +141,28 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.OIDCResource = settingValue
 		case "oidc_extra_auth_params":
 			settings.OIDCExtraAuthParams = settingValue
+		case backupScheduleEnabledKey:
+			settings.BackupScheduleEnabled = settingValue == "true"
+		case backupTimeOfDayKey:
+			settings.BackupTimeOfDay = settingValue
+		case backupIncludeAssetsKey:
+			settings.BackupIncludeAssets = settingValue == "true"
+		case backupEncryptEnabledKey:
+			settings.BackupEncryptEnabled = settingValue == "true"
+		case backupEncryptionPasswordKey:
+			settings.BackupEncryptionPasswordSet = strings.TrimSpace(settingValue) != ""
+		case backupLocalDirKey:
+			settings.BackupLocalDir = settingValue
+		case backupRetentionCountKey:
+			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
+				settings.BackupRetentionCount = v
+			}
+		case backupLastRunAtKey:
+			settings.BackupLastRunAt = settingValue
+		case backupLastStatusKey:
+			settings.BackupLastStatus = settingValue
+		case backupLastErrorKey:
+			settings.BackupLastError = settingValue
 		}
 	}
 
@@ -509,6 +531,10 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			if err := saveStringSystemSetting(tx, "oidc_extra_auth_params", *input.OIDCExtraAuthParams); err != nil {
 				return err
 			}
+		}
+
+		if err := applyBackupSettings(tx, input); err != nil {
+			return err
 		}
 
 		registrationEmailVerificationEnabled, err := isSystemSettingEnabled(

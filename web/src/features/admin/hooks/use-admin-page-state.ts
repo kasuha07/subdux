@@ -7,6 +7,8 @@ import type {
   AdminUser,
   BackgroundTask,
   ExchangeRateStatus,
+  LocalBackupInfo,
+  LocalBackupList,
   SSRFTestResult,
   SystemSettings,
   UpdateSettingsInput,
@@ -14,6 +16,14 @@ import type {
 
 interface AdminSettingsFormState {
   allowImageUpload: boolean
+  backupScheduleEnabled: boolean
+  backupTimeOfDay: string
+  backupIncludeAssets: boolean
+  backupEncryptEnabled: boolean
+  backupEncryptionPassword: string
+  backupEncryptionPasswordConfigured: boolean
+  backupLocalDir: string
+  backupRetentionCount: number
   currencyApiKey: string
   currencyApiKeyConfigured: boolean
   emailDomainWhitelist: string
@@ -73,17 +83,26 @@ interface UseAdminPageStateOptions {
   t: (key: string) => string
 }
 
+interface BackupStatus {
+  lastRunAt: string
+  lastStatus: string
+  lastError: string
+}
+
 interface UseAdminPageStateResult {
   backgroundTasks: BackgroundTask[]
   backgroundTasksRefreshing: boolean
+  backupStatus: BackupStatus
   createDialogOpen: boolean
   handleCreateUser: () => Promise<void>
   handleRefreshBackgroundTasks: () => Promise<void>
+  handleRefreshLocalBackups: () => Promise<void>
   handleDeleteUser: (id: number) => Promise<void>
   handleDownloadBackup: () => Promise<void>
   handleRefreshRates: () => Promise<void>
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
   handleRestore: () => Promise<void>
+  handleRunBackupNow: () => Promise<void>
   handleSaveSettings: () => Promise<void>
   handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
@@ -91,6 +110,9 @@ interface UseAdminPageStateResult {
   handleToggleStatus: (user: AdminUser) => Promise<void>
   includeAssetsInBackup: boolean
   loading: boolean
+  localBackupDir: string
+  localBackups: LocalBackupInfo[]
+  localBackupsRefreshing: boolean
   newEmail: string
   newPassword: string
   newRole: "user" | "admin"
@@ -99,6 +121,7 @@ interface UseAdminPageStateResult {
   refreshing: boolean
   restoreConfirmOpen: boolean
   restoreFile: File | null
+  runningBackup: boolean
   setCreateDialogOpen: (open: boolean) => void
   setIncludeAssetsInBackup: (value: boolean) => void
   setNewEmail: (value: string) => void
@@ -125,6 +148,14 @@ interface UseAdminPageStateResult {
 function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
   return {
     allowImageUpload: settings?.allow_image_upload ?? true,
+    backupScheduleEnabled: settings?.backup_schedule_enabled ?? false,
+    backupTimeOfDay: settings?.backup_time_of_day || "03:00",
+    backupIncludeAssets: settings?.backup_include_assets ?? false,
+    backupEncryptEnabled: settings?.backup_encrypt_enabled ?? false,
+    backupEncryptionPassword: "",
+    backupEncryptionPasswordConfigured: settings?.backup_encryption_password_configured ?? false,
+    backupLocalDir: settings?.backup_local_dir || "",
+    backupRetentionCount: settings?.backup_retention_count ?? 7,
     currencyApiKey: "",
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
     emailDomainWhitelist: settings?.email_domain_whitelist || "",
@@ -197,6 +228,14 @@ function parseFilenameFromContentDisposition(contentDisposition: string | null):
   return match[1]
 }
 
+function createBackupStatus(settings?: SystemSettings): BackupStatus {
+  return {
+    lastRunAt: settings?.backup_last_run_at || "",
+    lastStatus: settings?.backup_last_status || "",
+    lastError: settings?.backup_last_error || "",
+  }
+}
+
 function hasSMTPConfigForRegistrationVerification(form: AdminSettingsFormState): boolean {
   if (!form.smtpEnabled) {
     return false
@@ -237,6 +276,12 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
 
+  const [backupStatus, setBackupStatus] = useState<BackupStatus>(() => createBackupStatus())
+  const [runningBackup, setRunningBackup] = useState(false)
+  const [localBackups, setLocalBackups] = useState<LocalBackupInfo[]>([])
+  const [localBackupDir, setLocalBackupDir] = useState("")
+  const [localBackupsRefreshing, setLocalBackupsRefreshing] = useState(false)
+
   const [rateStatus, setRateStatus] = useState<ExchangeRateStatus | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [backgroundTasksRefreshing, setBackgroundTasksRefreshing] = useState(false)
@@ -268,12 +313,16 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       api.get<SystemSettings>("/admin/settings"),
       api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
       api.get<BackgroundTask[]>("/admin/background-tasks"),
+      api.get<LocalBackupList>("/admin/backup/local"),
     ])
-      .then(([usersData, settingsData, rateStatusData, backgroundTasksData]) => {
+      .then(([usersData, settingsData, rateStatusData, backgroundTasksData, localBackupsData]) => {
         setUsers(usersData || [])
         setSettingsForm(createSettingsForm(settingsData))
+        setBackupStatus(createBackupStatus(settingsData))
         setRateStatus(rateStatusData)
         setBackgroundTasks(backgroundTasksData || [])
+        setLocalBackups(localBackupsData?.backups || [])
+        setLocalBackupDir(localBackupsData?.directory || "")
       })
       .catch(() => void 0)
       .finally(() => setLoading(false))
@@ -394,6 +443,12 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         oidc_audience: settingsForm.oidcAudience,
         oidc_resource: settingsForm.oidcResource,
         oidc_extra_auth_params: settingsForm.oidcExtraAuthParams,
+        backup_schedule_enabled: settingsForm.backupScheduleEnabled,
+        backup_time_of_day: settingsForm.backupTimeOfDay,
+        backup_include_assets: settingsForm.backupIncludeAssets,
+        backup_encrypt_enabled: settingsForm.backupEncryptEnabled,
+        backup_local_dir: settingsForm.backupLocalDir,
+        backup_retention_count: settingsForm.backupRetentionCount,
       }
 
       if (settingsForm.oidcClientSecret.trim()) {
@@ -408,10 +463,14 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       if (settingsForm.currencyApiKey.trim()) {
         payload.currencyapi_key = settingsForm.currencyApiKey.trim()
       }
+      if (settingsForm.backupEncryptionPassword.trim()) {
+        payload.backup_encryption_password = settingsForm.backupEncryptionPassword.trim()
+      }
 
       await api.put("/admin/settings", payload)
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSettingsForm(createSettingsForm(fresh))
+      setBackupStatus(createBackupStatus(fresh))
       updateSiteTitle(fresh.site_name)
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
@@ -551,17 +610,52 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
+  async function handleRefreshLocalBackups() {
+    setLocalBackupsRefreshing(true)
+    try {
+      const data = await api.get<LocalBackupList>("/admin/backup/local")
+      setLocalBackups(data?.backups || [])
+      setLocalBackupDir(data?.directory || "")
+    } catch {
+      void 0
+    } finally {
+      setLocalBackupsRefreshing(false)
+    }
+  }
+
+  async function handleRunBackupNow() {
+    setRunningBackup(true)
+    try {
+      const result = await api.post<{ message: string; file: string }>("/admin/backup/run", {})
+      toast.success(result?.message || t("admin.backup.runNowSuccess"))
+      const [data, fresh] = await Promise.all([
+        api.get<LocalBackupList>("/admin/backup/local"),
+        api.get<SystemSettings>("/admin/settings"),
+      ])
+      setLocalBackups(data?.backups || [])
+      setLocalBackupDir(data?.directory || "")
+      setBackupStatus(createBackupStatus(fresh))
+    } catch {
+      toast.error(t("admin.backup.runNowFailed"))
+    } finally {
+      setRunningBackup(false)
+    }
+  }
+
   return {
     backgroundTasks,
     backgroundTasksRefreshing,
+    backupStatus,
     createDialogOpen,
     handleCreateUser,
     handleRefreshBackgroundTasks,
+    handleRefreshLocalBackups,
     handleDeleteUser,
     handleDownloadBackup,
     handleRefreshRates,
     handleRegistrationEmailVerificationChange,
     handleRestore,
+    handleRunBackupNow,
     handleSaveSettings,
     handleTestSSRF,
     handleTestSMTP,
@@ -569,6 +663,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleToggleStatus,
     includeAssetsInBackup,
     loading,
+    localBackupDir,
+    localBackups,
+    localBackupsRefreshing,
     newEmail,
     newPassword,
     newRole,
@@ -577,6 +674,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     refreshing,
     restoreConfirmOpen,
     restoreFile,
+    runningBackup,
     setCreateDialogOpen,
     setIncludeAssetsInBackup,
     setNewEmail,

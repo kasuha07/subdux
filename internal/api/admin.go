@@ -220,7 +220,11 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 			errors.Is(err, service.ErrInvalidSSRFDomainFilterList) ||
 			errors.Is(err, service.ErrSSRFDomainFilterListTooLong) ||
 			errors.Is(err, service.ErrInvalidSSRFIPFilterList) ||
-			errors.Is(err, service.ErrSSRFIPFilterListTooLong) {
+			errors.Is(err, service.ErrSSRFIPFilterListTooLong) ||
+			errors.Is(err, service.ErrInvalidBackupTimeOfDay) ||
+			errors.Is(err, service.ErrInvalidBackupRetentionCount) ||
+			errors.Is(err, service.ErrInvalidBackupLocalDir) ||
+			errors.Is(err, service.ErrBackupEncryptionPasswordRequired) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -292,6 +296,38 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 	c.Response().Header().Set("Content-Type", contentType)
 
 	return c.File(backupPath)
+}
+
+func (h *AdminHandler) RunBackupNow(c echo.Context) error {
+	backupPath, err := h.Service.WithContext(c.Request().Context()).CreateLocalBackup()
+	if err != nil {
+		if errors.Is(err, service.ErrBackupEncryptionPasswordRequired) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		}
+		return writeInternalServerError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "backup created",
+		"file":    filepath.Base(backupPath),
+	})
+}
+
+type localBackupResponse struct {
+	Directory string                    `json:"directory"`
+	Backups   []service.LocalBackupInfo `json:"backups"`
+}
+
+func (h *AdminHandler) ListLocalBackups(c echo.Context) error {
+	directory, backups, err := h.Service.WithContext(c.Request().Context()).ListLocalBackups()
+	if err != nil {
+		return writeInternalServerError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, localBackupResponse{
+		Directory: directory,
+		Backups:   backups,
+	})
 }
 
 func (h *AdminHandler) RestoreDB(c echo.Context) error {

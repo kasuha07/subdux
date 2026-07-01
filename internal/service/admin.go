@@ -78,6 +78,16 @@ type SystemSettings struct {
 	OIDCAudience                         string `json:"oidc_audience"`
 	OIDCResource                         string `json:"oidc_resource"`
 	OIDCExtraAuthParams                  string `json:"oidc_extra_auth_params"`
+	BackupScheduleEnabled                bool   `json:"backup_schedule_enabled"`
+	BackupTimeOfDay                      string `json:"backup_time_of_day"`
+	BackupIncludeAssets                  bool   `json:"backup_include_assets"`
+	BackupEncryptEnabled                 bool   `json:"backup_encrypt_enabled"`
+	BackupEncryptionPasswordSet          bool   `json:"backup_encryption_password_configured"`
+	BackupLocalDir                       string `json:"backup_local_dir"`
+	BackupRetentionCount                 int64  `json:"backup_retention_count"`
+	BackupLastRunAt                      string `json:"backup_last_run_at"`
+	BackupLastStatus                     string `json:"backup_last_status"`
+	BackupLastError                      string `json:"backup_last_error"`
 }
 
 type UpdateSettingsInput struct {
@@ -131,6 +141,13 @@ type UpdateSettingsInput struct {
 	OIDCAudience                         *string `json:"oidc_audience"`
 	OIDCResource                         *string `json:"oidc_resource"`
 	OIDCExtraAuthParams                  *string `json:"oidc_extra_auth_params"`
+	BackupScheduleEnabled                *bool   `json:"backup_schedule_enabled"`
+	BackupTimeOfDay                      *string `json:"backup_time_of_day"`
+	BackupIncludeAssets                  *bool   `json:"backup_include_assets"`
+	BackupEncryptEnabled                 *bool   `json:"backup_encrypt_enabled"`
+	BackupEncryptionPassword             *string `json:"backup_encryption_password"`
+	BackupLocalDir                       *string `json:"backup_local_dir"`
+	BackupRetentionCount                 *int64  `json:"backup_retention_count"`
 }
 
 var ErrInvalidSSRFTestTarget = errors.New("ssrf test target must be a valid hostname or ip address")

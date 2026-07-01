@@ -365,6 +365,47 @@ export default function AdminPage() {
                   onRestoreConfirmOpenChange={admin.setRestoreConfirmOpen}
                   onDownloadBackup={admin.handleDownloadBackup}
                   onRestore={admin.handleRestore}
+                  backupScheduleEnabled={settingsForm.backupScheduleEnabled}
+                  onBackupScheduleEnabledChange={(value) =>
+                    admin.setSettingsField("backupScheduleEnabled", value)
+                  }
+                  backupTimeOfDay={settingsForm.backupTimeOfDay}
+                  onBackupTimeOfDayChange={(value) =>
+                    admin.setSettingsField("backupTimeOfDay", value)
+                  }
+                  backupIncludeAssets={settingsForm.backupIncludeAssets}
+                  onBackupIncludeAssetsChange={(value) =>
+                    admin.setSettingsField("backupIncludeAssets", value)
+                  }
+                  backupEncryptEnabled={settingsForm.backupEncryptEnabled}
+                  onBackupEncryptEnabledChange={(value) =>
+                    admin.setSettingsField("backupEncryptEnabled", value)
+                  }
+                  backupEncryptionPassword={settingsForm.backupEncryptionPassword}
+                  backupEncryptionPasswordConfigured={
+                    settingsForm.backupEncryptionPasswordConfigured
+                  }
+                  onBackupEncryptionPasswordChange={(value) =>
+                    admin.setSettingsField("backupEncryptionPassword", value)
+                  }
+                  backupLocalDir={settingsForm.backupLocalDir}
+                  onBackupLocalDirChange={(value) =>
+                    admin.setSettingsField("backupLocalDir", value)
+                  }
+                  backupRetentionCount={settingsForm.backupRetentionCount}
+                  onBackupRetentionCountChange={(value) =>
+                    admin.setSettingsField("backupRetentionCount", value)
+                  }
+                  onSaveSettings={admin.handleSaveSettings}
+                  onRunBackupNow={admin.handleRunBackupNow}
+                  runningBackup={admin.runningBackup}
+                  localBackups={admin.localBackups}
+                  localBackupDir={admin.localBackupDir}
+                  localBackupsRefreshing={admin.localBackupsRefreshing}
+                  onRefreshLocalBackups={admin.handleRefreshLocalBackups}
+                  lastRunAt={admin.backupStatus.lastRunAt}
+                  lastStatus={admin.backupStatus.lastStatus}
+                  lastError={admin.backupStatus.lastError}
                 />
               </Suspense>
             )}

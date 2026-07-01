@@ -72,6 +72,16 @@ func defaultAdminSystemSettings() *SystemSettings {
 		OIDCAudience:                         "",
 		OIDCResource:                         "",
 		OIDCExtraAuthParams:                  "",
+		BackupScheduleEnabled:                false,
+		BackupTimeOfDay:                      "03:00",
+		BackupIncludeAssets:                  false,
+		BackupEncryptEnabled:                 false,
+		BackupEncryptionPasswordSet:          false,
+		BackupLocalDir:                       "",
+		BackupRetentionCount:                 7,
+		BackupLastRunAt:                      "",
+		BackupLastStatus:                     "",
+		BackupLastError:                      "",
 	}
 }
 
@@ -163,6 +173,16 @@ var defaultSystemSettings = []model.SystemSetting{
 	{Key: "oidc_audience", Value: ""},
 	{Key: "oidc_resource", Value: ""},
 	{Key: "oidc_extra_auth_params", Value: ""},
+	{Key: backupScheduleEnabledKey, Value: "false"},
+	{Key: backupTimeOfDayKey, Value: "03:00"},
+	{Key: backupIncludeAssetsKey, Value: "false"},
+	{Key: backupEncryptEnabledKey, Value: "false"},
+	{Key: backupEncryptionPasswordKey, Value: ""},
+	{Key: backupLocalDirKey, Value: ""},
+	{Key: backupRetentionCountKey, Value: "7"},
+	{Key: backupLastRunAtKey, Value: ""},
+	{Key: backupLastStatusKey, Value: ""},
+	{Key: backupLastErrorKey, Value: ""},
 }
 
 func getSystemSettingValue(db *gorm.DB, key string, defaultValue string) (string, error) {

@@ -86,6 +86,7 @@ func main() {
 	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
 	startNotificationWorkers(appCtx, notificationService, taskMonitor, &backgroundTasks)
 	startSubscriptionLifecycleSweep(appCtx, service.NewSubscriptionService(db), taskMonitor, &backgroundTasks)
+	startScheduledBackupWorker(appCtx, service.NewAdminService(db), taskMonitor, &backgroundTasks)
 
 	setupUploads(e, filepath.Join(pkg.GetDataPath(), "assets"))
 
@@ -560,6 +561,77 @@ func startSubscriptionLifecycleSweep(
 			select {
 			case <-ticker.C:
 				runSweep()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// startScheduledBackupWorker periodically triggers the scheduled local-directory
+// backup. It ticks every minute; the service's own due-check plus the daily
+// last-run guard together produce "once per day at the configured HH:MM".
+func startScheduledBackupWorker(
+	ctx context.Context,
+	admin *service.AdminService,
+	monitor *service.BackgroundTaskMonitor,
+	wg *sync.WaitGroup,
+) {
+	const (
+		taskKey      = "scheduled_backup"
+		tickInterval = time.Minute
+	)
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	ownerID := service.NewBackgroundTaskOwnerID()
+
+	if monitor != nil {
+		monitor.Register(
+			taskKey,
+			"Scheduled backup",
+			"Runs the configured daily local-directory backup when it is due.",
+			tickInterval,
+		)
+	}
+
+	runBackup := func() {
+		run := func() error { return admin.RunScheduledBackup(ownerID) }
+		if monitor != nil {
+			if err := monitor.Run(taskKey, run); err != nil {
+				logging.Error("scheduled backup failed", slog.Any("error", err))
+			}
+			return
+		}
+		if err := run(); err != nil {
+			logging.Error("scheduled backup failed", slog.Any("error", err))
+		}
+	}
+
+	if wg != nil {
+		wg.Add(1)
+	}
+
+	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+
+		runBackup()
+
+		ticker := time.NewTicker(tickInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				runBackup()
 			case <-ctx.Done():
 				return
 			}

@@ -74,6 +74,16 @@ export interface SystemSettings {
   oidc_audience: string
   oidc_resource: string
   oidc_extra_auth_params: string
+  backup_schedule_enabled: boolean
+  backup_time_of_day: string
+  backup_include_assets: boolean
+  backup_encrypt_enabled: boolean
+  backup_encryption_password_configured: boolean
+  backup_local_dir: string
+  backup_retention_count: number
+  backup_last_run_at: string
+  backup_last_status: string
+  backup_last_error: string
 }
 
 export interface UpdateSettingsInput {
@@ -127,6 +137,25 @@ export interface UpdateSettingsInput {
   oidc_audience?: string
   oidc_resource?: string
   oidc_extra_auth_params?: string
+  backup_schedule_enabled?: boolean
+  backup_time_of_day?: string
+  backup_include_assets?: boolean
+  backup_encrypt_enabled?: boolean
+  backup_encryption_password?: string
+  backup_local_dir?: string
+  backup_retention_count?: number
+}
+
+export interface LocalBackupInfo {
+  name: string
+  size: number
+  modified_at: string
+  encrypted: boolean
+}
+
+export interface LocalBackupList {
+  directory: string
+  backups: LocalBackupInfo[]
 }
 
 export interface SSRFTestResult {

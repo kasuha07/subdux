@@ -9,10 +9,11 @@ import (
 const bcryptMaxPasswordBytes = 72
 
 var encryptedSystemSettingKeys = map[string]struct{}{
-	"smtp_password":      {},
-	"oidc_client_secret": {},
-	"currencyapi_key":    {},
-	"system_proxy_url":   {},
+	"smtp_password":              {},
+	"oidc_client_secret":         {},
+	"currencyapi_key":            {},
+	"system_proxy_url":           {},
+	"backup_encryption_password": {},
 }
 
 func isEncryptedSystemSettingKey(key string) bool {
