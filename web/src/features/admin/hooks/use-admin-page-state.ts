@@ -313,19 +313,26 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       api.get<SystemSettings>("/admin/settings"),
       api.get<ExchangeRateStatus>("/admin/exchange-rates/status"),
       api.get<BackgroundTask[]>("/admin/background-tasks"),
-      api.get<LocalBackupList>("/admin/backup/local"),
     ])
-      .then(([usersData, settingsData, rateStatusData, backgroundTasksData, localBackupsData]) => {
+      .then(([usersData, settingsData, rateStatusData, backgroundTasksData]) => {
         setUsers(usersData || [])
         setSettingsForm(createSettingsForm(settingsData))
         setBackupStatus(createBackupStatus(settingsData))
         setRateStatus(rateStatusData)
         setBackgroundTasks(backgroundTasksData || [])
+      })
+      .catch(() => void 0)
+      .finally(() => setLoading(false))
+
+    // Fetch the local backup list separately so a failure (e.g. an unreadable
+    // backup directory returning 500) can't blank out the whole admin page.
+    api
+      .get<LocalBackupList>("/admin/backup/local")
+      .then((localBackupsData) => {
         setLocalBackups(localBackupsData?.backups || [])
         setLocalBackupDir(localBackupsData?.directory || "")
       })
       .catch(() => void 0)
-      .finally(() => setLoading(false))
   }, [])
 
   async function handleToggleRole(user: AdminUser) {
