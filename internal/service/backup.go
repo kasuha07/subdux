@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -251,6 +253,17 @@ func resolveBackupDir(localDir string) (string, error) {
 	return absDir, nil
 }
 
+// newBackupToken returns a short random hex token appended to backup file names
+// so concurrent runs (manual + scheduled in the same second-precision clock
+// second) never resolve to the same temp DB or archive path.
+func newBackupToken() (string, error) {
+	var buf [6]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf[:]), nil
+}
+
 // CreateLocalBackup builds a local backup archive using the saved configuration
 // and returns the absolute path of the created file. Retention is applied after
 // a successful write.
@@ -272,14 +285,24 @@ func (s *AdminService) CreateLocalBackup() (string, error) {
 		return "", err
 	}
 
+	// The timestamp is second-precision, so two concurrent runs (e.g. the
+	// manual POST /backup/run firing in the same clock-second as the scheduled
+	// run) would otherwise resolve to the same paths and race on os.Create. A
+	// random token makes every run's temp DB and archive paths unique. The
+	// suffix is compatible with backupFileNamePattern and the mod-time based
+	// listing/retention ordering.
+	token, err := newBackupToken()
+	if err != nil {
+		return "", err
+	}
 	timestamp := pkg.Now().Format("20060102-150405")
-	dbTempPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
+	dbTempPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s-%s.db", timestamp, token))
 	if err := s.DB.Exec("VACUUM INTO ?", dbTempPath).Error; err != nil {
 		return "", err
 	}
 	defer os.Remove(dbTempPath)
 
-	archivePath := filepath.Join(dir, fmt.Sprintf("subdux-backup-%s.zip", timestamp))
+	archivePath := filepath.Join(dir, fmt.Sprintf("subdux-backup-%s-%s.zip", timestamp, token))
 	password := ""
 	if cfg.EncryptEnabled {
 		password = cfg.EncryptPassword
