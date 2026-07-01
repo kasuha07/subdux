@@ -553,6 +553,88 @@ func TestRunScheduledBackupWritesStatus(t *testing.T) {
 	}
 }
 
+func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	enabled := true
+	timeOfDay := "03:00"
+
+	// Point the backup directory at a path whose parent is a regular file so
+	// MkdirAll fails: a transient, self-clearing failure condition.
+	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
+		t.Fatalf("failed to create blocking file: %v", err)
+	}
+	badDir := filepath.Join(blockingFile, "backups")
+	if err := svc.UpdateSettings(UpdateSettingsInput{
+		BackupScheduleEnabled: &enabled,
+		BackupTimeOfDay:       &timeOfDay,
+		BackupLocalDir:        &badDir,
+	}); err != nil {
+		t.Fatalf("UpdateSettings() error = %v", err)
+	}
+
+	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
+	restore := pkg.SetNowForTest(fixedNow)
+	t.Cleanup(restore)
+
+	ownerID := NewBackgroundTaskOwnerID()
+
+	// First tick: the backup fails transiently.
+	if err := svc.RunScheduledBackup(ownerID); err == nil {
+		t.Fatal("expected RunScheduledBackup() to fail with an unwritable directory")
+	}
+
+	settings, err := svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() error = %v", err)
+	}
+	if settings.BackupLastStatus != backupStatusFailed {
+		t.Fatalf("BackupLastStatus = %q, want %q", settings.BackupLastStatus, backupStatusFailed)
+	}
+	if settings.BackupLastError == "" {
+		t.Fatal("BackupLastError should be set after a failed run")
+	}
+	// The failure must NOT stamp the last-run timestamp, otherwise the daily
+	// guard would suppress retries for the rest of the day.
+	if settings.BackupLastRunAt != "" {
+		t.Fatalf("BackupLastRunAt = %q, want empty after a failed run", settings.BackupLastRunAt)
+	}
+
+	// The failure condition clears (a writable directory is configured). A
+	// subsequent tick on the same day must still run the backup.
+	goodDir := filepath.Join(t.TempDir(), "backups")
+	if err := svc.UpdateSettings(UpdateSettingsInput{BackupLocalDir: &goodDir}); err != nil {
+		t.Fatalf("UpdateSettings() error = %v", err)
+	}
+
+	if err := svc.RunScheduledBackup(ownerID); err != nil {
+		t.Fatalf("retry RunScheduledBackup() error = %v", err)
+	}
+
+	settings, err = svc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() error = %v", err)
+	}
+	if settings.BackupLastStatus != backupStatusOK {
+		t.Fatalf("BackupLastStatus = %q, want %q after retry", settings.BackupLastStatus, backupStatusOK)
+	}
+	if settings.BackupLastError != "" {
+		t.Fatalf("BackupLastError = %q, want empty after successful retry", settings.BackupLastError)
+	}
+	if settings.BackupLastRunAt == "" {
+		t.Fatal("BackupLastRunAt should be set after a successful retry")
+	}
+
+	_, items, err := svc.ListLocalBackups()
+	if err != nil {
+		t.Fatalf("ListLocalBackups() error = %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected exactly 1 backup after a failed run and a same-day retry, got %d", len(items))
+	}
+}
+
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
 func int64Ptr(i int64) *int64 { return &i }

@@ -444,13 +444,17 @@ func (s *AdminService) RunScheduledBackup(ownerID string) error {
 		}
 
 		if _, backupErr := s.CreateLocalBackup(); backupErr != nil {
-			if statusErr := s.recordBackupRunStatus(now, backupStatusFailed, backupErr.Error()); statusErr != nil {
+			// Record the failure status/error but do NOT stamp the last-run
+			// timestamp: backupDue gates on the last successful run, so a
+			// transient failure must not suppress retries for the rest of the
+			// day.
+			if statusErr := s.recordBackupRunFailure(backupErr.Error()); statusErr != nil {
 				return statusErr
 			}
 			return backupErr
 		}
 
-		return s.recordBackupRunStatus(now, backupStatusOK, "")
+		return s.recordBackupRunSuccess(now)
 	})
 }
 
@@ -499,15 +503,29 @@ func backupDue(now time.Time, timeOfDay string, lastRunAt time.Time, loc *time.L
 	return lastRunLocal.Before(today)
 }
 
-// recordBackupRunStatus persists the runtime status keys for a scheduled run.
-// These keys are runtime-written status fields and are intentionally not part
-// of UpdateSettingsInput.
-func (s *AdminService) recordBackupRunStatus(runAt time.Time, status string, runErr string) error {
+// recordBackupRunSuccess persists the runtime status keys for a successful
+// scheduled run, stamping the last-run timestamp that backupDue uses to gate
+// the once-per-day schedule. These keys are runtime-written status fields and
+// are intentionally not part of UpdateSettingsInput.
+func (s *AdminService) recordBackupRunSuccess(runAt time.Time) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := saveStringSystemSetting(tx, backupLastRunAtKey, runAt.Format(time.RFC3339)); err != nil {
 			return err
 		}
-		if err := saveStringSystemSetting(tx, backupLastStatusKey, status); err != nil {
+		if err := saveStringSystemSetting(tx, backupLastStatusKey, backupStatusOK); err != nil {
+			return err
+		}
+		return saveStringSystemSetting(tx, backupLastErrorKey, "")
+	})
+}
+
+// recordBackupRunFailure persists the failure status and error for a scheduled
+// run without touching backupLastRunAtKey. Because backupDue gates on the last
+// successful run, leaving the timestamp untouched allows retries to proceed on
+// subsequent ticks the same day once the failure condition clears.
+func (s *AdminService) recordBackupRunFailure(runErr string) error {
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := saveStringSystemSetting(tx, backupLastStatusKey, backupStatusFailed); err != nil {
 			return err
 		}
 		return saveStringSystemSetting(tx, backupLastErrorKey, runErr)
