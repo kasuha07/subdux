@@ -52,7 +52,7 @@
     "globals": "^17.7.0",
     "react-grep": "^0.3.3",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.61.1",
+    "typescript-eslint": "^8.62.1",
     "vite": "^8.1.0",
     "vitest": "^4.1.9"
   }
