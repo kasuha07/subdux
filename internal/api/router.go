@@ -300,7 +300,7 @@ func SetupRoutes(
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.POST("/settings/ssrf/test", adminHandler.TestSSRF)
 	admin.POST("/settings/smtp/test", adminHandler.TestSMTP)
-	admin.GET("/backup", adminHandler.BackupDB)
+	admin.POST("/backup", adminHandler.BackupDB)
 	admin.POST("/backup/run", adminHandler.RunBackupNow)
 	admin.GET("/backup/local", adminHandler.ListLocalBackups)
 	admin.POST("/restore", adminHandler.RestoreDB, requestBodyLimitMiddleware(32<<20, nil))

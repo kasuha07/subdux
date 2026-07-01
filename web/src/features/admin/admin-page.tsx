@@ -358,7 +358,12 @@ export default function AdminPage() {
               <Suspense fallback={<AdminTabLoading value="backup" />}>
                 <AdminBackupTab
                   includeAssetsInBackup={admin.includeAssetsInBackup}
+                  downloadPassword={admin.downloadPassword}
+                  onDownloadPasswordChange={admin.setDownloadPassword}
                   restoreFile={admin.restoreFile}
+                  restoreEncrypted={admin.restoreEncrypted}
+                  restorePassword={admin.restorePassword}
+                  onRestorePasswordChange={admin.setRestorePassword}
                   onIncludeAssetsInBackupChange={admin.setIncludeAssetsInBackup}
                   onRestoreFileChange={admin.setRestoreFile}
                   restoreConfirmOpen={admin.restoreConfirmOpen}

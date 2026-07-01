@@ -638,3 +638,120 @@ func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
 func int64Ptr(i int64) *int64 { return &i }
+
+func TestBackupDBPasswordProducesEncryptedZip(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	const password = "download-secret"
+
+	tests := []struct {
+		name          string
+		includeAssets bool
+	}{
+		{name: "db only", includeAssets: false},
+		{name: "with assets", includeAssets: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path, err := svc.BackupDB(tc.includeAssets, password)
+			if err != nil {
+				t.Fatalf("BackupDB() error = %v", err)
+			}
+			t.Cleanup(func() { _ = os.Remove(path) })
+
+			// A non-empty password always forces the zip container even when
+			// assets are excluded.
+			if filepath.Ext(path) != ".zip" {
+				t.Fatalf("BackupDB() path = %q, want a .zip archive", path)
+			}
+			if !backupArchiveIsEncrypted(path) {
+				t.Fatal("BackupDB() with password produced an unencrypted archive")
+			}
+
+			// The database entry must decrypt with the correct password and be a
+			// valid SQLite file.
+			reader, err := yekazip.OpenReader(path)
+			if err != nil {
+				t.Fatalf("yekazip.OpenReader() error = %v", err)
+			}
+			defer reader.Close()
+			foundDB := false
+			for _, entry := range reader.File {
+				if entry.Name != "subdux.db" {
+					continue
+				}
+				foundDB = true
+				if !entry.IsEncrypted() {
+					t.Fatal("subdux.db entry should be encrypted")
+				}
+				entry.SetPassword(password)
+				rc, openErr := entry.Open()
+				if openErr != nil {
+					t.Fatalf("open encrypted db entry: %v", openErr)
+				}
+				header := make([]byte, len(sqliteFileHeaderBytes))
+				if _, readErr := io.ReadFull(rc, header); readErr != nil {
+					rc.Close()
+					t.Fatalf("read decrypted db header: %v", readErr)
+				}
+				rc.Close()
+				if string(header) != string(sqliteFileHeaderBytes) {
+					t.Fatalf("decrypted db header = %q, want SQLite header", header)
+				}
+			}
+			if !foundDB {
+				t.Fatal("encrypted archive missing subdux.db entry")
+			}
+		})
+	}
+}
+
+func TestBackupDBWhitespacePasswordKeepsPlainBehavior(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	// An all-whitespace password is treated as empty: db-only stays a raw .db.
+	path, err := svc.BackupDB(false, "   ")
+	if err != nil {
+		t.Fatalf("BackupDB() error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	if filepath.Ext(path) != ".db" {
+		t.Fatalf("BackupDB() path = %q, want a raw .db file", path)
+	}
+	if !isSQLiteFile(t, path) {
+		t.Fatal("BackupDB() db-only path is not a SQLite file")
+	}
+}
+
+func TestBackupDBPlainZipRemainsUnencrypted(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	path, err := svc.BackupDB(true, "")
+	if err != nil {
+		t.Fatalf("BackupDB() error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	if filepath.Ext(path) != ".zip" {
+		t.Fatalf("BackupDB() path = %q, want a .zip archive", path)
+	}
+	if backupArchiveIsEncrypted(path) {
+		t.Fatal("plain include-assets backup should not be encrypted")
+	}
+}
+
+func isSQLiteFile(t *testing.T, path string) bool {
+	t.Helper()
+	f, err := os.Open(path) // #nosec G304 -- path is an internally-created temp backup file.
+	if err != nil {
+		t.Fatalf("open %q: %v", path, err)
+	}
+	defer f.Close()
+	header := make([]byte, len(sqliteFileHeaderBytes))
+	if _, err := io.ReadFull(f, header); err != nil {
+		return false
+	}
+	return string(header) == string(sqliteFileHeaderBytes)
+}

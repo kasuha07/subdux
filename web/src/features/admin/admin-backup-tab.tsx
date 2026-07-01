@@ -27,6 +27,7 @@ interface AdminBackupTabProps {
   backupRetentionCount: number
   backupScheduleEnabled: boolean
   backupTimeOfDay: string
+  downloadPassword: string
   includeAssetsInBackup: boolean
   lastRunAt: string
   lastError: string
@@ -42,15 +43,19 @@ interface AdminBackupTabProps {
   onBackupScheduleEnabledChange: (value: boolean) => void
   onBackupTimeOfDayChange: (value: string) => void
   onDownloadBackup: () => void | Promise<void>
+  onDownloadPasswordChange: (value: string) => void
   onIncludeAssetsInBackupChange: (value: boolean) => void
   onRefreshLocalBackups: () => void | Promise<void>
   onRestore: () => void | Promise<void>
   onRestoreConfirmOpenChange: (open: boolean) => void
   onRestoreFileChange: (file: File | null) => void
+  onRestorePasswordChange: (value: string) => void
   onRunBackupNow: () => void | Promise<void>
   onSaveSettings: () => void | Promise<void>
   restoreConfirmOpen: boolean
+  restoreEncrypted: boolean
   restoreFile: File | null
+  restorePassword: string
   runningBackup: boolean
 }
 
@@ -97,6 +102,7 @@ export default function AdminBackupTab({
   backupRetentionCount,
   backupScheduleEnabled,
   backupTimeOfDay,
+  downloadPassword,
   includeAssetsInBackup,
   lastRunAt,
   lastError,
@@ -112,15 +118,19 @@ export default function AdminBackupTab({
   onBackupScheduleEnabledChange,
   onBackupTimeOfDayChange,
   onDownloadBackup,
+  onDownloadPasswordChange,
   onIncludeAssetsInBackupChange,
   onRefreshLocalBackups,
   onRestore,
   onRestoreConfirmOpenChange,
   onRestoreFileChange,
+  onRestorePasswordChange,
   onRunBackupNow,
   onSaveSettings,
   restoreConfirmOpen,
+  restoreEncrypted,
   restoreFile,
+  restorePassword,
   runningBackup,
 }: AdminBackupTabProps) {
   const { t, i18n } = useTranslation()
@@ -160,6 +170,19 @@ export default function AdminBackupTab({
             onCheckedChange={onIncludeAssetsInBackupChange}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="backup-download-password">{t("admin.backup.downloadPassword")}</Label>
+          <Input
+            id="backup-download-password"
+            type="password"
+            autoComplete="new-password"
+            value={downloadPassword}
+            onChange={(event) => onDownloadPasswordChange(event.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t("admin.backup.downloadPasswordDescription")}
+          </p>
+        </div>
         <Button variant="outline" onClick={() => void onDownloadBackup()}>
           <Download className="size-4" />
           {t("admin.backup.downloadButton")}
@@ -180,6 +203,21 @@ export default function AdminBackupTab({
           accept=".db,.zip"
           onChange={(event) => onRestoreFileChange(event.target.files?.[0] ?? null)}
         />
+        {restoreEncrypted && (
+          <div className="space-y-2">
+            <Label htmlFor="backup-restore-password">{t("admin.backup.restorePassword")}</Label>
+            <Input
+              id="backup-restore-password"
+              type="password"
+              autoComplete="new-password"
+              value={restorePassword}
+              onChange={(event) => onRestorePasswordChange(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("admin.backup.restorePasswordDescription")}
+            </p>
+          </div>
+        )}
         <Button
           variant="destructive"
           disabled={!restoreFile}

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"archive/zip"
 	"bytes"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
+	"github.com/yeka/zip"
 )
 
 type AdminHandler struct {
@@ -28,7 +28,30 @@ type AdminHandler struct {
 var (
 	sqliteFileHeader = []byte("SQLite format 3\x00")
 	errInvalidBackup = errors.New("invalid backup file")
+	// errBackupPasswordRequired signals that an uploaded archive is encrypted
+	// but no password was supplied. Maps to HTTP 400.
+	errBackupPasswordRequired = errors.New("backup is encrypted; a password is required")
+	// errBackupInvalidPassword signals that the supplied password failed to
+	// decrypt an encrypted archive entry. Maps to HTTP 400.
+	errBackupInvalidPassword = errors.New("invalid backup password")
 )
+
+// isClientBackupError reports whether err is a client-correctable restore
+// failure (missing/invalid password or a malformed archive) that should map to
+// HTTP 400 rather than 500. New client-facing sentinels can be added here in
+// one place as the restore flow grows.
+func isClientBackupError(err error) bool {
+	for _, target := range []error{
+		errBackupPasswordRequired,
+		errBackupInvalidPassword,
+		errInvalidBackup,
+	} {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
+}
 
 const (
 	maxBackupUploadSize            = 32 << 20 // 32 MiB
@@ -271,16 +294,15 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 }
 
 func (h *AdminHandler) BackupDB(c echo.Context) error {
-	includeAssets := false
-	if rawIncludeAssets := c.QueryParam("include_assets"); rawIncludeAssets != "" {
-		parsedIncludeAssets, err := strconv.ParseBool(rawIncludeAssets)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid include_assets query parameter"})
-		}
-		includeAssets = parsedIncludeAssets
+	var input struct {
+		IncludeAssets bool   `json:"include_assets"`
+		Password      string `json:"password"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	backupPath, err := h.Service.WithContext(c.Request().Context()).BackupDB(includeAssets)
+	backupPath, err := h.Service.WithContext(c.Request().Context()).BackupDB(input.IncludeAssets, input.Password)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "backup failed"})
 	}
@@ -354,9 +376,11 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 	}
 	defer os.Remove(uploadedBackupPath)
 
-	restorePayload, err := prepareRestorePayload(uploadedBackupPath)
+	password := strings.TrimSpace(c.FormValue("password"))
+
+	restorePayload, err := prepareRestorePayload(uploadedBackupPath, password)
 	if err != nil {
-		if errors.Is(err, errInvalidBackup) {
+		if isClientBackupError(err) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to process backup file"})
@@ -412,7 +436,7 @@ func saveUploadedBackupFile(fileHeader *multipart.FileHeader) (string, error) {
 	return tempFile.Name(), nil
 }
 
-func prepareRestorePayload(uploadedBackupPath string) (*backupRestorePayload, error) {
+func prepareRestorePayload(uploadedBackupPath string, password string) (*backupRestorePayload, error) {
 	if isSQLiteBackupFile(uploadedBackupPath) {
 		return &backupRestorePayload{
 			dbFilePath: uploadedBackupPath,
@@ -423,14 +447,14 @@ func prepareRestorePayload(uploadedBackupPath string) (*backupRestorePayload, er
 		return nil, invalidBackupError("unsupported format, please upload a .db or .zip backup")
 	}
 
-	return prepareRestorePayloadFromZip(uploadedBackupPath)
+	return prepareRestorePayloadFromZip(uploadedBackupPath, password)
 }
 
-func prepareRestorePayloadFromZip(zipPath string) (*backupRestorePayload, error) {
-	return prepareRestorePayloadFromZipWithLimits(zipPath, defaultBackupRestoreLimits)
+func prepareRestorePayloadFromZip(zipPath string, password string) (*backupRestorePayload, error) {
+	return prepareRestorePayloadFromZipWithLimits(zipPath, password, defaultBackupRestoreLimits)
 }
 
-func prepareRestorePayloadFromZipWithLimits(zipPath string, limits backupRestoreLimits) (*backupRestorePayload, error) {
+func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, limits backupRestoreLimits) (*backupRestorePayload, error) {
 	zipReader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return nil, invalidBackupError("invalid zip archive")
@@ -440,6 +464,18 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, limits backupRestore
 	dbEntry, err := findDatabaseBackupEntry(zipReader.File)
 	if err != nil {
 		return nil, err
+	}
+
+	// An encrypted archive requires a password. Detection keys off the database
+	// entry; every entry is decrypted with the same password below.
+	encrypted := dbEntry.IsEncrypted()
+	if encrypted && password == "" {
+		return nil, errBackupPasswordRequired
+	}
+	if encrypted {
+		for _, entry := range zipReader.File {
+			entry.SetPassword(password)
+		}
 	}
 
 	tempDBFile, err := os.CreateTemp("", "subdux-restore-db-*.db")
@@ -460,6 +496,9 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, limits backupRestore
 		return nil, err
 	}
 	if _, err = extractZipFileEntryLimited(dbEntry, tempDBPath, limits.maxDatabaseExtractedSize); err != nil {
+		if isZipPasswordError(err) {
+			return nil, errBackupInvalidPassword
+		}
 		return nil, invalidBackupError("failed to extract database from zip backup")
 	}
 	if !isSQLiteBackupFile(tempDBPath) {
@@ -618,6 +657,9 @@ func extractAssetsFromZip(entries []*zip.File, limits backupRestoreLimits) (bool
 func sanitizeRestoreAsset(entry *zip.File, filename string, maxBytes int64) ([]byte, int64, error) {
 	source, err := entry.Open()
 	if err != nil {
+		if isZipPasswordError(err) {
+			return nil, 0, errBackupInvalidPassword
+		}
 		return nil, 0, invalidBackupError("failed to extract assets from zip backup")
 	}
 	defer source.Close()
@@ -625,9 +667,21 @@ func sanitizeRestoreAsset(entry *zip.File, filename string, maxBytes int64) ([]b
 	countingSource := &countingReader{reader: source}
 	sanitized, _, err := service.SanitizeIconFile(countingSource, filename, maxBytes)
 	if err != nil {
+		if isZipPasswordError(err) {
+			return nil, 0, errBackupInvalidPassword
+		}
 		return nil, 0, invalidBackupError("zip backup contains invalid asset image")
 	}
 	return sanitized, countingSource.bytesRead, nil
+}
+
+// isZipPasswordError reports whether err is one of the yeka/zip decryption
+// failures raised when an encrypted entry is read with a wrong or missing
+// password. yeka surfaces these on Open or first Read/io.Copy.
+func isZipPasswordError(err error) bool {
+	return errors.Is(err, zip.ErrPassword) ||
+		errors.Is(err, zip.ErrAuthentication) ||
+		errors.Is(err, zip.ErrDecryption)
 }
 
 type countingReader struct {

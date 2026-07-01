@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from "react"
 
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
 import { api, getUser } from "@/lib/api"
+import {
+  detectZipEncryption,
+  verifyZipPassword,
+  type EncryptedZipEntry,
+} from "@/lib/zip-encryption"
 import { toast } from "sonner"
 import type {
   AdminUser,
@@ -94,6 +99,7 @@ interface UseAdminPageStateResult {
   backgroundTasksRefreshing: boolean
   backupStatus: BackupStatus
   createDialogOpen: boolean
+  downloadPassword: string
   handleCreateUser: () => Promise<void>
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
@@ -120,9 +126,12 @@ interface UseAdminPageStateResult {
   rateStatus: ExchangeRateStatus | null
   refreshing: boolean
   restoreConfirmOpen: boolean
+  restoreEncrypted: boolean
   restoreFile: File | null
+  restorePassword: string
   runningBackup: boolean
   setCreateDialogOpen: (open: boolean) => void
+  setDownloadPassword: (value: string) => void
   setIncludeAssetsInBackup: (value: boolean) => void
   setNewEmail: (value: string) => void
   setNewPassword: (value: string) => void
@@ -130,6 +139,7 @@ interface UseAdminPageStateResult {
   setNewUsername: (value: string) => void
   setRestoreConfirmOpen: (value: boolean) => void
   setRestoreFile: (file: File | null) => void
+  setRestorePassword: (value: string) => void
   setSSRFTestTarget: (value: string) => void
   setSettingsField: <K extends keyof AdminSettingsFormState>(
     key: K,
@@ -273,7 +283,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   )
 
   const [includeAssetsInBackup, setIncludeAssetsInBackup] = useState(false)
+  const [downloadPassword, setDownloadPassword] = useState("")
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
+  const [restorePassword, setRestorePassword] = useState("")
+  const [restoreEncrypted, setRestoreEncrypted] = useState(false)
+  const [restoreEncryptedEntry, setRestoreEncryptedEntry] = useState<EncryptedZipEntry | null>(
+    null
+  )
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
 
   const [backupStatus, setBackupStatus] = useState<BackupStatus>(() => createBackupStatus())
@@ -564,24 +580,30 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   async function handleDownloadBackup() {
     try {
-      const params = new URLSearchParams()
-      if (includeAssetsInBackup) {
-        params.set("include_assets", "true")
-      }
-      const endpoint = params.size > 0 ? `/admin/backup?${params.toString()}` : "/admin/backup"
-
-      const res = await api.fetch(endpoint)
+      const password = downloadPassword.trim()
+      const res = await api.fetch("/admin/backup", {
+        method: "POST",
+        body: JSON.stringify({
+          include_assets: includeAssetsInBackup,
+          password,
+        }),
+      })
       if (!res.ok) {
         throw new Error()
       }
 
+      const encrypted = password !== ""
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const anchor = document.createElement("a")
       anchor.href = url
-      const filename =
+      let filename =
         parseFilenameFromContentDisposition(res.headers.get("content-disposition")) ??
-        `subdux-backup-${new Date().toISOString().split("T")[0]}${includeAssetsInBackup ? ".zip" : ".db"}`
+        `subdux-backup-${new Date().toISOString().split("T")[0]}${includeAssetsInBackup || encrypted ? ".zip" : ".db"}`
+      // Encrypted archives are always zip containers.
+      if (encrypted && !filename.toLowerCase().endsWith(".zip")) {
+        filename = `${filename.replace(/\.[^./\\]+$/, "")}.zip`
+      }
       anchor.download = filename
       document.body.appendChild(anchor)
       anchor.click()
@@ -593,13 +615,62 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
+  async function handleRestoreFileChange(file: File | null) {
+    setRestoreFile(file)
+    setRestorePassword("")
+    setRestoreEncrypted(false)
+    setRestoreEncryptedEntry(null)
+    setRestoreConfirmOpen(false)
+
+    if (!file) {
+      return
+    }
+    // Only ZIP archives can be encrypted; a plain .db is never encrypted.
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      return
+    }
+
+    try {
+      const detection = await detectZipEncryption(file)
+      if (detection.encrypted && detection.firstEncryptedEntry) {
+        setRestoreEncrypted(true)
+        setRestoreEncryptedEntry(detection.firstEncryptedEntry)
+        toast.info(t("admin.backup.restoreEncryptedDetected"))
+      }
+    } catch {
+      void 0
+    }
+  }
+
   async function handleRestore() {
     if (!restoreFile) {
       return
     }
 
+    const password = restorePassword.trim()
+
+    if (restoreEncrypted) {
+      if (password === "") {
+        toast.error(t("admin.backup.restorePasswordRequired"))
+        return
+      }
+      if (restoreEncryptedEntry) {
+        // Fast client-side WinZip-AES password check. When verification could
+        // actually run and the password is wrong, stop early; otherwise fall
+        // through and let the server perform the authoritative validation.
+        const verification = await verifyZipPassword(restoreFile, restoreEncryptedEntry, password)
+        if (verification.verified && !verification.valid) {
+          toast.error(t("admin.backup.restoreWrongPassword"))
+          return
+        }
+      }
+    }
+
     const formData = new FormData()
     formData.append("backup", restoreFile)
+    if (password !== "") {
+      formData.append("password", password)
+    }
 
     try {
       const res = await api.fetch("/admin/restore", {
@@ -654,6 +725,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     backgroundTasksRefreshing,
     backupStatus,
     createDialogOpen,
+    downloadPassword,
     handleCreateUser,
     handleRefreshBackgroundTasks,
     handleRefreshLocalBackups,
@@ -680,16 +752,20 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     rateStatus,
     refreshing,
     restoreConfirmOpen,
+    restoreEncrypted,
     restoreFile,
+    restorePassword,
     runningBackup,
     setCreateDialogOpen,
+    setDownloadPassword,
     setIncludeAssetsInBackup,
     setNewEmail,
     setNewPassword,
     setNewRole,
     setNewUsername,
     setRestoreConfirmOpen,
-    setRestoreFile,
+    setRestoreFile: handleRestoreFileChange,
+    setRestorePassword,
     setSSRFTestTarget,
     setSettingsField,
     setSMTPTestRecipient,

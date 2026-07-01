@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	yekazip "github.com/yeka/zip"
 )
 
 func TestCreateUserRejectsPasswordOver72Bytes(t *testing.T) {
@@ -73,7 +74,7 @@ func TestPrepareRestorePayloadFromZipRejectsOversizedDatabaseEntry(t *testing.T)
 		"subdux.db": append(sqliteFileHeader, bytes.Repeat([]byte("x"), 32)...),
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: int64(len(sqliteFileHeader) + 8),
 		maxAssetsExtractedSize:   128,
 		maxAssetEntries:          4,
@@ -94,7 +95,7 @@ func TestPrepareRestorePayloadFromZipRejectsOversizedAssetsTotal(t *testing.T) {
 		"assets/icons/a.png": pngData,
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   int64(len(pngData) - 1),
 		maxAssetEntries:          8,
@@ -118,7 +119,7 @@ func TestPrepareRestorePayloadFromZipCountsOriginalAssetSize(t *testing.T) {
 		"assets/icons/b.png": pngWithPayload,
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   int64(len(pngWithPayload) + len(pngData)),
 		maxAssetEntries:          4,
@@ -142,7 +143,7 @@ func TestPrepareRestorePayloadFromZipRejectsTooManyAssetEntries(t *testing.T) {
 		"assets/icons/3.png": pngData,
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   4096,
 		maxAssetEntries:          2,
@@ -164,7 +165,7 @@ func TestPrepareRestorePayloadFromZipAcceptsBackupWithinExtractedLimits(t *testi
 		"assets/icons/a.png": pngData,
 	})
 
-	payload, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	payload, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   128,
 		maxAssetEntries:          2,
@@ -211,7 +212,7 @@ func TestPrepareRestorePayloadFromZipRejectsNonImageAsset(t *testing.T) {
 		"assets/icons/pwn.png": []byte("<script>evil()</script>"),
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   128,
 		maxAssetEntries:          2,
@@ -233,7 +234,7 @@ func TestPrepareRestorePayloadFromZipRejectsExecutableAssetPath(t *testing.T) {
 		"assets/icons/a.js": []byte("alert(1)"),
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, backupRestoreLimits{
+	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", backupRestoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   128,
 		maxAssetEntries:          2,
@@ -303,4 +304,112 @@ func mustEncodeRestorePNG(t *testing.T) []byte {
 		t.Fatalf("failed to encode png: %v", err)
 	}
 	return out.Bytes()
+}
+
+// writeEncryptedRestoreZip builds a WinZip AES-256 encrypted archive whose
+// entries are all protected with the given password, matching what the download
+// path produces via writeBackupZipFromDB.
+func writeEncryptedRestoreZip(t *testing.T, password string, files map[string][]byte) string {
+	t.Helper()
+
+	zipPath := filepath.Join(t.TempDir(), "backup.zip")
+	out, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatalf("failed to create encrypted zip: %v", err)
+	}
+	zipWriter := yekazip.NewWriter(out)
+
+	for name, contents := range files {
+		writer, err := zipWriter.Encrypt(name, password, yekazip.AES256Encryption)
+		if err != nil {
+			t.Fatalf("failed to create encrypted zip entry %q: %v", name, err)
+		}
+		if _, err := writer.Write(contents); err != nil {
+			t.Fatalf("failed to write encrypted zip entry %q: %v", name, err)
+		}
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		t.Fatalf("failed to close encrypted zip writer: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("failed to close encrypted zip file: %v", err)
+	}
+
+	return zipPath
+}
+
+func TestPrepareRestorePayloadPlaintextZipStillRestores(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	zipPath := writeRestoreZip(t, map[string][]byte{
+		"subdux.db": sqliteFileHeader,
+	})
+
+	payload, err := prepareRestorePayload(zipPath, "")
+	if err != nil {
+		t.Fatalf("prepareRestorePayload() error = %v, want nil", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(payload.dbFilePath) })
+	if payload.dbFilePath == "" {
+		t.Fatal("payload.dbFilePath is empty")
+	}
+	if !isSQLiteBackupFile(payload.dbFilePath) {
+		t.Fatal("restored db is not a valid SQLite file")
+	}
+}
+
+func TestPrepareRestorePayloadEncryptedZipCorrectPassword(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	const password = "restore-secret"
+	pngData := mustEncodeRestorePNG(t)
+	zipPath := writeEncryptedRestoreZip(t, password, map[string][]byte{
+		"subdux.db":          sqliteFileHeader,
+		"assets/icons/a.png": pngData,
+	})
+
+	payload, err := prepareRestorePayload(zipPath, password)
+	if err != nil {
+		t.Fatalf("prepareRestorePayload() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Remove(payload.dbFilePath)
+		if payload.assetsDirPath != "" {
+			_ = os.RemoveAll(payload.assetsDirPath)
+		}
+	})
+
+	if !isSQLiteBackupFile(payload.dbFilePath) {
+		t.Fatal("decrypted db is not a valid SQLite file")
+	}
+	if !payload.replaceAssetsDir {
+		t.Fatal("payload.replaceAssetsDir = false, want true")
+	}
+	assetPath := filepath.Join(payload.assetsDirPath, "icons", "a.png")
+	if _, err := os.Stat(assetPath); err != nil {
+		t.Fatalf("decrypted asset stat error = %v, want nil", err)
+	}
+}
+
+func TestPrepareRestorePayloadEncryptedZipWrongPassword(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	zipPath := writeEncryptedRestoreZip(t, "right-password", map[string][]byte{
+		"subdux.db": sqliteFileHeader,
+	})
+
+	_, err := prepareRestorePayload(zipPath, "wrong-password")
+	if !errors.Is(err, errBackupInvalidPassword) {
+		t.Fatalf("prepareRestorePayload() error = %v, want errBackupInvalidPassword", err)
+	}
+}
+
+func TestPrepareRestorePayloadEncryptedZipMissingPassword(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	zipPath := writeEncryptedRestoreZip(t, "some-password", map[string][]byte{
+		"subdux.db": sqliteFileHeader,
+	})
+
+	_, err := prepareRestorePayload(zipPath, "")
+	if !errors.Is(err, errBackupPasswordRequired) {
+		t.Fatalf("prepareRestorePayload() error = %v, want errBackupPasswordRequired", err)
+	}
 }
