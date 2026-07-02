@@ -144,7 +144,7 @@ func SetupRoutes(
 		logging.Error("failed to seed default system settings", slog.Any("error", err))
 	}
 
-	authHandler := NewAuthHandler(authService, totpService)
+	authHandler := NewAuthHandler(authService, totpService, reauthService)
 	subHandler := NewSubscriptionHandler(subService, erService)
 	adminHandler := NewAdminHandler(adminService, taskMonitor, reauthService)
 	reauthHandler := NewReauthHandler(reauthService)

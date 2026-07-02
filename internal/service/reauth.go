@@ -30,8 +30,9 @@ import (
 // Operation identifiers scope a ticket to a single sensitive action so a ticket
 // minted for one operation cannot authorize another.
 const (
-	ReauthOperationBackup  = "backup"
-	ReauthOperationRestore = "restore"
+	ReauthOperationBackup     = "backup"
+	ReauthOperationRestore    = "restore"
+	ReauthOperationAddPasskey = "add_passkey"
 )
 
 const (
@@ -105,7 +106,7 @@ func (s *ReauthService) WithContext(ctx context.Context) *ReauthService {
 // It is the single source of truth for the set of valid operations.
 func IsValidReauthOperation(operation string) bool {
 	switch operation {
-	case ReauthOperationBackup, ReauthOperationRestore:
+	case ReauthOperationBackup, ReauthOperationRestore, ReauthOperationAddPasskey:
 		return true
 	default:
 		return false

@@ -243,7 +243,11 @@ const settings = {
     "deleting": "删除中...",
     "deleteConfirm": "确定删除此 Passkey？",
     "deleteSuccess": "Passkey 已删除",
-    "deleteError": "Passkey 删除失败"
+    "deleteError": "Passkey 删除失败",
+    "reauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，添加 Passkey 前请重新验证身份。"
+    }
   },
   "oidc": {
     "title": "OIDC 连接",

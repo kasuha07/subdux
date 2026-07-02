@@ -243,7 +243,11 @@ const settings = {
     "deleting": "Deleting...",
     "deleteConfirm": "Delete this passkey?",
     "deleteSuccess": "Passkey deleted",
-    "deleteError": "Failed to delete passkey"
+    "deleteError": "Failed to delete passkey",
+    "reauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before adding a passkey."
+    }
   },
   "oidc": {
     "title": "OIDC Connection",

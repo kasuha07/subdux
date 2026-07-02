@@ -243,7 +243,11 @@ const settings = {
     "deleting": "削除中...",
     "deleteConfirm": "このPasskeyを削除しますか？",
     "deleteSuccess": "Passkeyを削除しました",
-    "deleteError": "Passkeyの削除に失敗しました"
+    "deleteError": "Passkeyの削除に失敗しました",
+    "reauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、Passkeyを追加する前に再認証してください。"
+    }
   },
   "oidc": {
     "title": "OIDC連携",

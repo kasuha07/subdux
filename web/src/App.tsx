@@ -15,6 +15,7 @@ const SettingsPage = lazy(() => import("@/features/settings/settings-page"))
 const AdminPage = lazy(() => import("@/features/admin/admin-page"))
 const CalendarPage = lazy(() => import("@/features/calendar/calendar-page"))
 const ReportsPage = lazy(() => import("@/features/reports/reports-page"))
+const OIDCReauthCallback = lazy(() => import("@/features/auth/oidc-reauth-callback"))
 
 function ProtectedRoute({ children, authReady }: { children: ReactNode, authReady: boolean }) {
   if (!authReady) {
@@ -111,6 +112,7 @@ export default function App() {
         <Route path="/settings" element={<LazyRoute><ProtectedRoute authReady={authReady}><SettingsPage /></ProtectedRoute></LazyRoute>} />
         <Route path="/calendar" element={<LazyRoute><ProtectedRoute authReady={authReady}><CalendarPage /></ProtectedRoute></LazyRoute>} />
         <Route path="/admin" element={<LazyRoute><AdminRoute authReady={authReady}><AdminPage /></AdminRoute></LazyRoute>} />
+        <Route path="/oidc/reauth" element={<LazyRoute><OIDCReauthCallback /></LazyRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

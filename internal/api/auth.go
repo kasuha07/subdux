@@ -12,10 +12,11 @@ import (
 type AuthHandler struct {
 	Service     *service.AuthService
 	TOTPService *service.TOTPService
+	Reauth      *service.ReauthService
 }
 
-func NewAuthHandler(s *service.AuthService, totpSvc *service.TOTPService) *AuthHandler {
-	return &AuthHandler{Service: s, TOTPService: totpSvc}
+func NewAuthHandler(s *service.AuthService, totpSvc *service.TOTPService, reauth *service.ReauthService) *AuthHandler {
+	return &AuthHandler{Service: s, TOTPService: totpSvc, Reauth: reauth}
 }
 
 type authUserResponse struct {

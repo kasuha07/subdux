@@ -24,7 +24,7 @@ import {
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import type { OIDCConfig, OIDCStartResponse, PasskeyBeginResult, ReauthMethods } from "@/types"
 
-type ReauthOperation = "backup" | "restore"
+type ReauthOperation = "backup" | "restore" | "add_passkey"
 
 // Base path for the step-up re-authentication API. The endpoints live in a
 // shared (human-session, not admin-only) group, so this dialog is not coupled
@@ -201,8 +201,8 @@ export default function ReauthDialog({
       })
       popupWin.location.href = authorization_url
 
-      // Wait for the callback popup (same origin, on /admin) to post its outcome
-      // back, or for the user to close the popup without finishing.
+      // Wait for the callback popup (same origin, on /oidc/reauth) to post its
+      // outcome back, or for the user to close the popup without finishing.
       await new Promise<void>((resolve, reject) => {
         function cleanup() {
           window.removeEventListener("message", onMessage)

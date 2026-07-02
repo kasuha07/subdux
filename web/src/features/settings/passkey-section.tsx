@@ -9,6 +9,7 @@ import { createPasskeyCredential, isPasskeySupported, type CredentialCreationJSO
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import { toast } from "sonner"
 import type { PasskeyBeginResult, PasskeyCredential } from "@/types"
+import ReauthDialog from "@/features/admin/reauth-dialog"
 
 export default function PasskeySection() {
   const { t } = useTranslation()
@@ -18,6 +19,7 @@ export default function PasskeySection() {
   const [deletingID, setDeletingID] = useState<number | null>(null)
   const [name, setName] = useState("")
   const [error, setError] = useState("")
+  const [reauthOpen, setReauthOpen] = useState(false)
 
   const passkeySupported = isPasskeySupported()
   const dateFormatter = useMemo(
@@ -32,14 +34,21 @@ export default function PasskeySection() {
       .finally(() => setLoading(false))
   }, [])
 
-  async function handleRegister(e: FormEvent) {
+  // Adding a passkey is gated behind step-up re-authentication: the form submit
+  // only opens the reauth dialog, and the actual WebAuthn registration runs once
+  // a factor is verified and a single-use ticket is minted.
+  function handleRegister(e: FormEvent) {
     e.preventDefault()
     setError("")
     if (!passkeySupported) {
       setError(t("settings.passkeys.unsupported"))
       return
     }
+    setReauthOpen(true)
+  }
 
+  async function registerWithTicket(reauthTicket: string) {
+    setError("")
     setRegistering(true)
     try {
       const begin = await api.post<PasskeyBeginResult<CredentialCreationJSON>>("/auth/passkeys/register/start", {
@@ -49,6 +58,7 @@ export default function PasskeySection() {
       const created = await api.post<PasskeyCredential>("/auth/passkeys/register/finish", {
         session_id: begin.session_id,
         credential,
+        reauth_ticket: reauthTicket,
       })
       setPasskeys((prev) => [created, ...prev])
       setName("")
@@ -126,6 +136,17 @@ export default function PasskeySection() {
           </Button>
         </div>
       </form>
+
+      <ReauthDialog
+        operation="add_passkey"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={async (ticket) => {
+          await registerWithTicket(ticket)
+        }}
+        title={t("settings.passkeys.reauth.title")}
+        description={t("settings.passkeys.reauth.description")}
+      />
 
       <div className="space-y-2">
         {loading && (

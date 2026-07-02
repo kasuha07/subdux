@@ -142,8 +142,8 @@ type reauthOIDCStartInput struct {
 
 // BeginOIDC starts an OIDC step-up for the operation and returns the provider
 // authorization URL. The client opens it in a popup; the callback lands on the
-// operation's originating page (see OIDCCallback / reauthOperationRedirectPath)
-// which posts the result back to the opener.
+// dedicated, operation-agnostic reauth route (see OIDCCallback) which posts the
+// result back to the opener.
 func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	var input reauthOIDCStartInput
 	if err := c.Bind(&input); err != nil {

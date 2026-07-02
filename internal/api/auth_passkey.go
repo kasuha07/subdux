@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/service"
 )
 
 type passkeyBeginRegistrationInput struct {
@@ -39,8 +40,9 @@ func (h *AuthHandler) BeginPasskeyRegistration(c echo.Context) error {
 }
 
 type passkeyFinishRegistrationInput struct {
-	SessionID  string          `json:"session_id"`
-	Credential json.RawMessage `json:"credential"`
+	SessionID    string          `json:"session_id"`
+	Credential   json.RawMessage `json:"credential"`
+	ReauthTicket string          `json:"reauth_ticket"`
 }
 
 func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
@@ -51,6 +53,14 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "session_id and credential are required"})
+	}
+
+	// Registering a passkey is a sensitive account change: a proven-present user
+	// must back it, so an attacker who steals a live session cannot silently
+	// enroll their own authenticator. The single-use ticket is consumed before
+	// the credential is validated/persisted.
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationAddPasskey, input.ReauthTicket); err != nil {
+		return writeReauthError(c, err)
 	}
 
 	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(input.Credential))
