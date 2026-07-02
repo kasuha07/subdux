@@ -264,7 +264,11 @@ const settings = {
     "disconnecting": "断开中...",
     "disconnectConfirm": "确定断开该 OIDC 连接？",
     "disconnectSuccess": "OIDC 已断开",
-    "disconnectError": "OIDC 断开失败"
+    "disconnectError": "OIDC 断开失败",
+    "reauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，连接 {{provider}} 前请重新验证身份。"
+    }
   },
   "about": {
     "title": "关于",

@@ -278,6 +278,16 @@ func (s *AuthService) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, er
 	return result, nil
 }
 
+func (s *AuthService) HasOIDCConnection(userID uint) (bool, error) {
+	var count int64
+	if err := s.DB.Model(&model.OIDCConnection{}).
+		Where("provider = ? AND user_id = ?", oidcProviderKey, userID).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // CanReauthWithOIDC reports whether the user can use OIDC as a step-up factor:
 // the provider must be enabled/configured and the user must have a linked OIDC
 // connection to authenticate against.
@@ -286,14 +296,7 @@ func (s *AuthService) CanReauthWithOIDC(userID uint) (bool, error) {
 	if !settings.Enabled || !settings.isConfigured() {
 		return false, nil
 	}
-
-	var count int64
-	if err := s.DB.Model(&model.OIDCConnection{}).
-		Where("provider = ? AND user_id = ?", oidcProviderKey, userID).
-		Count(&count).Error; err != nil {
-		return false, err
-	}
-	return count > 0, nil
+	return s.HasOIDCConnection(userID)
 }
 
 func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error {

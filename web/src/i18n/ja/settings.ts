@@ -264,7 +264,11 @@ const settings = {
     "disconnecting": "解除中...",
     "disconnectConfirm": "このOIDC連携を解除しますか？",
     "disconnectSuccess": "OIDC連携を解除しました",
-    "disconnectError": "OIDC連携の解除に失敗しました"
+    "disconnectError": "OIDC連携の解除に失敗しました",
+    "reauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、{{provider}}を連携する前に再認証してください。"
+    }
   },
   "about": {
     "title": "このアプリについて",

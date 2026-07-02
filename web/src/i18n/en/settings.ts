@@ -264,7 +264,11 @@ const settings = {
     "disconnecting": "Disconnecting...",
     "disconnectConfirm": "Disconnect this OIDC account?",
     "disconnectSuccess": "OIDC disconnected",
-    "disconnectError": "Failed to disconnect OIDC"
+    "disconnectError": "Failed to disconnect OIDC",
+    "reauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before connecting {{provider}}."
+    }
   },
   "about": {
     "title": "About",

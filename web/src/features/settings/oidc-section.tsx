@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import ReauthDialog from "@/features/admin/reauth-dialog"
 import { api } from "@/lib/api"
 import type { OIDCConfig, OIDCConnection, OIDCSessionResult, OIDCStartResponse } from "@/types"
 
@@ -17,6 +18,7 @@ export default function OIDCSection() {
   const [starting, setStarting] = useState(false)
   const [deletingID, setDeletingID] = useState<number | null>(null)
   const [error, setError] = useState("")
+  const [reauthOpen, setReauthOpen] = useState(false)
 
   const providerName = useMemo(() => config?.provider_name || "OIDC", [config?.provider_name])
 
@@ -72,11 +74,18 @@ export default function OIDCSection() {
     setConnections(latest ?? [])
   }
 
-  async function handleConnect() {
+  function handleConnect() {
+    setError("")
+    setReauthOpen(true)
+  }
+
+  async function startConnectWithTicket(reauthTicket: string) {
     setError("")
     setStarting(true)
     try {
-      const result = await api.post<OIDCStartResponse>("/auth/oidc/connect/start", {})
+      const result = await api.post<OIDCStartResponse>("/auth/oidc/connect/start", {
+        reauth_ticket: reauthTicket,
+      })
       window.location.href = result.authorization_url
     } catch (err) {
       setError(err instanceof Error ? err.message : t("settings.oidc.connectError"))
@@ -152,6 +161,17 @@ export default function OIDCSection() {
           )}
         </div>
       )}
+
+      <ReauthDialog
+        operation="connect_oidc"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={async (ticket) => {
+          await startConnectWithTicket(ticket)
+        }}
+        title={t("settings.oidc.reauth.title")}
+        description={t("settings.oidc.reauth.description", { provider: providerName })}
+      />
 
       <div className="space-y-2">
         {!loading && connections.length === 0 && (
