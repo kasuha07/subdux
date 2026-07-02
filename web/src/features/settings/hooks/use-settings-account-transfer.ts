@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@/lib/api"
+import { api, localizeBackendError } from "@/lib/api"
 import type {
   ImportPreview,
   SubduxImportPreview,
@@ -13,7 +13,7 @@ interface UseSettingsAccountTransferResult {
   exportSecretsConfirmOpen: boolean
   handleConfirmImport: () => Promise<void>
   handleConfirmSubduxImport: () => Promise<void>
-  handleExport: (includeSecrets?: boolean) => Promise<void>
+  handleExport: (includeSecrets: boolean, reauthTicket: string) => Promise<void>
   handleImportSubdux: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   handleImportWallos: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   importFileRef: RefObject<HTMLInputElement | null>
@@ -58,9 +58,28 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
     setSubduxImportRawData(null)
   }
 
-  async function downloadExport(path: string) {
-    const res = await api.fetch(path)
-    if (!res.ok) throw new Error("Export failed")
+  async function downloadExport(path: string, reauthTicket: string) {
+    let res: Response
+    try {
+      res = await api.fetch(path, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+      })
+    } catch {
+      const errorMsg = t("settings.account.exportFailed")
+      toast.error(errorMsg)
+      throw new Error(errorMsg)
+    }
+    if (!res.ok) {
+      let errorMsg: string
+      try {
+        const data = (await res.json()) as { error?: unknown }
+        errorMsg = localizeBackendError(data?.error)
+      } catch {
+        errorMsg = t("settings.account.exportFailed")
+      }
+      toast.error(errorMsg)
+      throw new Error(errorMsg)
+    }
     const blob = await res.blob()
     const disposition = res.headers.get("Content-Disposition")
     let filename = "subdux-export.json"
@@ -78,16 +97,16 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
     a.remove()
   }
 
-  async function handleExport(includeSecrets = false) {
+  async function handleExport(includeSecrets: boolean, reauthTicket: string) {
     setExportLoading(true)
     try {
       const path = includeSecrets ? "/export?include_secrets=1&confirm=include_secrets" : "/export"
-      await downloadExport(path)
+      await downloadExport(path, reauthTicket)
       if (includeSecrets) {
         setExportSecretsConfirmOpen(false)
       }
     } catch {
-      // error toast is handled by the fetch failure
+      // downloadExport surfaces a toast for API and transport failures.
     } finally {
       setExportLoading(false)
     }

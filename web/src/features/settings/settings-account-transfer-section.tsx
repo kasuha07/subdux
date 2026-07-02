@@ -1,4 +1,4 @@
-import { type ChangeEvent, type RefObject } from "react"
+import { type ChangeEvent, type RefObject, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AlertTriangle } from "lucide-react"
 
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import ReauthDialog from "@/features/admin/reauth-dialog"
 import type {
   ImportPreview,
   SubduxImportPreview,
@@ -21,7 +22,7 @@ interface SettingsAccountTransferSectionProps {
   exportSecretsConfirmOpen: boolean
   importFileRef: RefObject<HTMLInputElement | null>
   importLoading: boolean
-  onExport: (includeSecrets?: boolean) => void | Promise<void>
+  onExport: (includeSecrets: boolean, reauthTicket: string) => void | Promise<void>
   onExportSecretsConfirmOpenChange: (open: boolean) => void
   onImportSubdux: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>
   onImportWallos: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>
@@ -60,6 +61,7 @@ export function SettingsAccountTransferSection({
   subduxImportLoading,
 }: SettingsAccountTransferSectionProps) {
   const { t } = useTranslation()
+  const [reauthPrompt, setReauthPrompt] = useState<"redacted" | "secrets" | null>(null)
 
   return (
     <>
@@ -73,7 +75,7 @@ export function SettingsAccountTransferSection({
             variant="outline"
             size="sm"
             disabled={exportLoading}
-            onClick={() => void onExport(false)}
+            onClick={() => setReauthPrompt("redacted")}
           >
             {exportLoading
               ? t("settings.account.exporting")
@@ -102,7 +104,7 @@ export function SettingsAccountTransferSection({
                 size="sm"
                 variant="destructive"
                 disabled={exportLoading}
-                onClick={() => void onExport(true)}
+                onClick={() => setReauthPrompt("secrets")}
               >
                 {exportLoading
                   ? t("settings.account.exporting")
@@ -120,6 +122,23 @@ export function SettingsAccountTransferSection({
           </div>
         )}
       </div>
+
+      <ReauthDialog
+        operation={reauthPrompt === "secrets" ? "export_secrets" : "export_redacted"}
+        open={reauthPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReauthPrompt(null)
+          }
+        }}
+        onVerified={(ticket) => onExport(reauthPrompt === "secrets", ticket)}
+        title={t("settings.account.exportReauthTitle")}
+        description={
+          reauthPrompt === "secrets"
+            ? t("settings.account.exportSecretsReauthDescription")
+            : t("settings.account.exportReauthDescription")
+        }
+      />
 
       <div className="mt-3">
         <h3 className="text-base font-semibold tracking-tight select-none">{t("settings.account.subduxImportTitle")}</h3>

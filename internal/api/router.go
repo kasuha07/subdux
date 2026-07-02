@@ -160,7 +160,7 @@ func SetupRoutes(
 	apiKeyHandler := NewAPIKeyHandler(apiKeyService)
 	auditHandler := NewAuditHandler(auditService)
 	calendarHandler := NewCalendarHandler(calendarService)
-	exportHandler := NewExportHandler(exportService)
+	exportHandler := NewExportHandler(exportService, reauthService)
 	importHandler := NewImportHandler(importService)
 	mcpHandler := NewMCPHandler(apiKeyService, auditService, subService, erService, currencyService, categoryService, paymentMethodService)
 

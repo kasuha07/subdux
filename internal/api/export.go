@@ -12,10 +12,11 @@ import (
 
 type ExportHandler struct {
 	Service *service.ExportService
+	Reauth  *service.ReauthService
 }
 
-func NewExportHandler(s *service.ExportService) *ExportHandler {
-	return &ExportHandler{Service: s}
+func NewExportHandler(s *service.ExportService, reauth *service.ReauthService) *ExportHandler {
+	return &ExportHandler{Service: s, Reauth: reauth}
 }
 
 func (h *ExportHandler) Export(c echo.Context) error {
@@ -23,6 +24,17 @@ func (h *ExportHandler) Export(c echo.Context) error {
 	includeSecrets := c.QueryParam("include_secrets") == "1"
 	if includeSecrets && c.QueryParam("confirm") != "include_secrets" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "exporting notification secrets requires confirmation"})
+	}
+	operation := service.ReauthOperationExportRedacted
+	if includeSecrets {
+		operation = service.ReauthOperationExportSecrets
+	}
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		operation,
+		c.Request().Header.Get(reauthTicketHeader),
+	); err != nil {
+		return writeReauthError(c, err)
 	}
 
 	data, err := h.Service.WithContext(c.Request().Context()).ExportUserData(userID, includeSecrets)

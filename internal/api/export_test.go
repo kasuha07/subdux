@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -66,6 +69,27 @@ func createExportAPITestUser(t *testing.T, db *gorm.DB) model.User {
 	return user
 }
 
+func createExportReauthTestUser(t *testing.T, db *gorm.DB) model.User {
+	t.Helper()
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(reauthGateTestPassword), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	user := model.User{
+		Username: "export-reauth-user",
+		Email:    "export-reauth@example.com",
+		Password: string(hash),
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create reauth user: %v", err)
+	}
+	return user
+}
+
 func seedExportAPITestChannel(t *testing.T, db *gorm.DB, userID uint) {
 	t.Helper()
 
@@ -89,6 +113,42 @@ func newExportAPITestServer(t *testing.T, db *gorm.DB) *echo.Echo {
 	e := echo.New()
 	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
 	return e
+}
+
+func exportAPITestToken(t *testing.T, user model.User) string {
+	t.Helper()
+
+	token, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
+	if err != nil {
+		t.Fatalf("failed to generate access token: %v", err)
+	}
+	return token
+}
+
+func mintExportReauthTicket(t *testing.T, e *echo.Echo, token, operation string) string {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"operation":%q,"password":%q}`, operation, reauthGateTestPassword)
+	req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("mint ticket status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var resp struct {
+		Ticket string `json:"ticket"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode ticket response: %v; body = %s", err, rec.Body.String())
+	}
+	if resp.Ticket == "" {
+		t.Fatalf("mint ticket returned empty ticket; body = %s", rec.Body.String())
+	}
+	return resp.Ticket
 }
 
 func TestExportBlocksAPIKeyPrincipal(t *testing.T) {
@@ -119,16 +179,15 @@ func TestExportBlocksAPIKeyPrincipal(t *testing.T) {
 
 func TestExportRedactsSecretsUnlessConfirmed(t *testing.T) {
 	db := newExportAPITestDB(t)
-	user := createExportAPITestUser(t, db)
+	user := createExportReauthTestUser(t, db)
 	seedExportAPITestChannel(t, db, user.ID)
-	token, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
-	if err != nil {
-		t.Fatalf("failed to generate access token: %v", err)
-	}
+	token := exportAPITestToken(t, user)
 	e := newExportAPITestServer(t, db)
 
+	redactedTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
 	req := httptest.NewRequest(http.MethodGet, "/api/export", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(reauthTicketHeader, redactedTicket)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -141,8 +200,10 @@ func TestExportRedactsSecretsUnlessConfirmed(t *testing.T) {
 		t.Fatalf("default export missing secrets_included=false marker: %s", rec.Body.String())
 	}
 
+	secretsTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportSecrets)
 	req = httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(reauthTicketHeader, secretsTicket)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -172,4 +233,94 @@ func TestExportRequiresConfirmationToIncludeSecrets(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
+}
+
+func TestExportRequiresValidReauthTicket(t *testing.T) {
+	db := newExportAPITestDB(t)
+	user := createExportReauthTestUser(t, db)
+	seedExportAPITestChannel(t, db, user.ID)
+	token := exportAPITestToken(t, user)
+	e := newExportAPITestServer(t, db)
+
+	t.Run("redacted export requires matching ticket", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/export", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+
+		wrongTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportSecrets)
+		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(reauthTicketHeader, wrongTicket)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("wrong-ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("wrong-ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+
+		ticket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(reauthTicketHeader, ticket)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(reauthTicketHeader, ticket)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused-ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused-ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("secret export requires secret-scoped ticket", func(t *testing.T) {
+		redactedTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+		req := httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(reauthTicketHeader, redactedTicket)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("wrong-ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("wrong-ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+
+		ticket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportSecrets)
+		req = httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(reauthTicketHeader, ticket)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "resend-secret") {
+			t.Fatalf("confirmed export did not include secret: %s", rec.Body.String())
+		}
+	})
 }

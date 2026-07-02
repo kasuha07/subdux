@@ -24,7 +24,13 @@ import {
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import type { OIDCConfig, OIDCStartResponse, PasskeyBeginResult, ReauthMethods } from "@/types"
 
-type ReauthOperation = "backup" | "restore" | "add_passkey" | "connect_oidc"
+type ReauthOperation =
+  | "backup"
+  | "restore"
+  | "add_passkey"
+  | "connect_oidc"
+  | "export_redacted"
+  | "export_secrets"
 
 // Base path for the step-up re-authentication API. The endpoints live in a
 // shared (human-session, not admin-only) group, so this dialog is not coupled
