@@ -352,6 +352,36 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 			target: "/api/auth/oidc/connections/1",
 		},
 		{
+			name:   "list reauth methods",
+			method: http.MethodGet,
+			target: "/api/reauth/methods",
+		},
+		{
+			name:   "verify reauth password",
+			method: http.MethodPost,
+			target: "/api/reauth/password",
+		},
+		{
+			name:   "begin reauth passkey",
+			method: http.MethodPost,
+			target: "/api/reauth/passkey/start",
+		},
+		{
+			name:   "finish reauth passkey",
+			method: http.MethodPost,
+			target: "/api/reauth/passkey/finish",
+		},
+		{
+			name:   "begin reauth oidc",
+			method: http.MethodPost,
+			target: "/api/reauth/oidc/start",
+		},
+		{
+			name:   "finish reauth oidc",
+			method: http.MethodPost,
+			target: "/api/reauth/oidc/finish",
+		},
+		{
 			name:   "list api keys",
 			method: http.MethodGet,
 			target: "/api/api-keys",

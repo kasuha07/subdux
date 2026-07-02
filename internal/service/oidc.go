@@ -56,6 +56,10 @@ type OIDCConnectionInfo struct {
 type OIDCCallbackResult struct {
 	Purpose   string `json:"purpose"`
 	SessionID string `json:"session_id"`
+	// Operation is set only for the reauth ("step-up") purpose; it carries the
+	// operation the step-up was started for so the callback handler can redirect
+	// back to the originating page. Empty for login/connect.
+	Operation string `json:"operation,omitempty"`
 }
 
 type OIDCSessionResult struct {
@@ -217,9 +221,11 @@ func (s *AuthService) HandleOIDCCallback(state string, code string, providerErro
 	}
 
 	var result OIDCSessionResult
+	operation := ""
 	if purpose == oidcPurposeConnect {
 		result, err = s.finishOIDCConnect(session.UserID, claims)
 	} else if purpose == oidcPurposeReauth {
+		operation = session.Operation
 		result, err = s.finishOIDCReauth(session.UserID, session.Operation, claims)
 	} else {
 		result, err = s.finishOIDCLogin(settings, claims)
@@ -229,7 +235,7 @@ func (s *AuthService) HandleOIDCCallback(state string, code string, providerErro
 	}
 
 	sessionID := s.storeOIDCResultSession(result)
-	return &OIDCCallbackResult{Purpose: purpose, SessionID: sessionID}, nil
+	return &OIDCCallbackResult{Purpose: purpose, SessionID: sessionID, Operation: operation}, nil
 }
 
 func (s *AuthService) ConsumeOIDCSessionResult(sessionID string) (*OIDCSessionResult, error) {

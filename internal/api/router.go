@@ -259,6 +259,22 @@ func SetupRoutes(
 	humanProtected.Use(HumanSessionOnlyMiddleware)
 	humanProtected.Use(APIKeyScopeMiddleware)
 
+	// Reauth ("step-up") is a generic capability, not admin-only: any human
+	// session can prove presence and mint an operation-scoped ticket. Which
+	// operations exist and which endpoints consume tickets is decided elsewhere
+	// (today only the admin backup/restore endpoints do). It therefore lives on a
+	// human-session-only group mirroring humanProtected, not under /admin.
+	reauth := api.Group("/reauth")
+	reauth.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
+	reauth.Use(HumanSessionOnlyMiddleware)
+	reauth.Use(APIKeyScopeMiddleware)
+	reauth.GET("/methods", reauthHandler.Methods)
+	reauth.POST("/password", reauthHandler.VerifyPassword, reauthIPLimiter, reauthUserLimiter)
+	reauth.POST("/passkey/start", reauthHandler.BeginPasskey, reauthIPLimiter, reauthUserLimiter)
+	reauth.POST("/passkey/finish", reauthHandler.FinishPasskey)
+	reauth.POST("/oidc/start", reauthHandler.BeginOIDC, reauthIPLimiter, reauthUserLimiter)
+	reauth.POST("/oidc/finish", reauthHandler.FinishOIDC)
+
 	protected.GET("/subscriptions", subHandler.List)
 	protected.POST("/subscriptions", subHandler.Create)
 	protected.GET("/subscriptions/:id/detail", subHandler.GetDetail)
@@ -308,12 +324,6 @@ func SetupRoutes(
 	admin.POST("/backup/run", adminHandler.RunBackupNow)
 	admin.GET("/backup/local", adminHandler.ListLocalBackups)
 	admin.POST("/restore", adminHandler.RestoreDB, requestBodyLimitMiddleware(32<<20, nil))
-	admin.GET("/reauth/methods", reauthHandler.Methods)
-	admin.POST("/reauth/password", reauthHandler.VerifyPassword, reauthIPLimiter, reauthUserLimiter)
-	admin.POST("/reauth/passkey/start", reauthHandler.BeginPasskey, reauthIPLimiter, reauthUserLimiter)
-	admin.POST("/reauth/passkey/finish", reauthHandler.FinishPasskey)
-	admin.POST("/reauth/oidc/start", reauthHandler.BeginOIDC, reauthIPLimiter, reauthUserLimiter)
-	admin.POST("/reauth/oidc/finish", reauthHandler.FinishOIDC)
 	admin.GET("/exchange-rates/status", erHandler.GetStatus)
 	admin.POST("/exchange-rates/refresh", erHandler.RefreshRates)
 

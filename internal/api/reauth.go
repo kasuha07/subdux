@@ -35,14 +35,14 @@ func writeReauthError(c echo.Context, err error) error {
 	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 }
 
-// validateReauthOperation extracts and validates the operation identifier.
+// validateReauthOperation extracts and validates the operation identifier,
+// delegating the set of valid operations to service.IsValidReauthOperation so
+// there is a single source of truth.
 func validateReauthOperation(operation string) (string, error) {
-	switch operation {
-	case service.ReauthOperationBackup, service.ReauthOperationRestore:
-		return operation, nil
-	default:
+	if !service.IsValidReauthOperation(operation) {
 		return "", service.ErrInvalidReauthOperation
 	}
+	return operation, nil
 }
 
 func (h *ReauthHandler) Methods(c echo.Context) error {
@@ -142,7 +142,8 @@ type reauthOIDCStartInput struct {
 
 // BeginOIDC starts an OIDC step-up for the operation and returns the provider
 // authorization URL. The client opens it in a popup; the callback lands on the
-// admin page (see OIDCCallback) which posts the result back to the opener.
+// operation's originating page (see OIDCCallback / reauthOperationRedirectPath)
+// which posts the result back to the opener.
 func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	var input reauthOIDCStartInput
 	if err := c.Bind(&input); err != nil {

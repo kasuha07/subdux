@@ -80,12 +80,13 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to finalize oidc callback"})
 	}
 
-	// Reauth ("step-up") uses its own path-scoped cookie and returns to the admin
-	// page (loaded in a popup), which posts the outcome back to the opener. Login
-	// and connect keep the ordinary session cookie and full-page redirect.
+	// Reauth ("step-up") uses its own path-scoped cookie and returns to the page
+	// the operation originated from (loaded in a popup), which posts the outcome
+	// back to the opener. Login and connect keep the ordinary session cookie and
+	// full-page redirect.
 	if callbackResult.Purpose == "reauth" {
 		setOIDCReauthSessionCookie(c, callbackResult.SessionID)
-		return c.Redirect(http.StatusFound, "/admin?oidc_action=reauth")
+		return c.Redirect(http.StatusFound, reauthOperationRedirectPath(callbackResult.Operation)+"?oidc_action=reauth")
 	}
 
 	setOIDCSessionCookie(c, callbackResult.SessionID)
@@ -96,6 +97,19 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusFound, redirectPath+"?oidc_action="+callbackResult.Purpose)
+}
+
+// reauthOperationRedirectPath maps a reauth operation to the page it originated
+// from, so the OIDC step-up popup lands back where it started. This is the
+// extension point for future non-admin operations (which would map to /settings
+// etc.); unknown/empty operations fall back to the admin page.
+func reauthOperationRedirectPath(operation string) string {
+	switch operation {
+	case service.ReauthOperationBackup, service.ReauthOperationRestore:
+		return "/admin"
+	default:
+		return "/admin"
+	}
 }
 
 func (h *AuthHandler) GetOIDCSession(c echo.Context) error {

@@ -254,7 +254,7 @@ func totpAccountKey(c echo.Context) string {
 // JWT auth, so the identity comes from the verified token rather than the
 // request body — this bounds password-guessing by an attacker who holds an
 // admin session but not the password. Returns "" (skip) if the token is
-// somehow absent, which cannot happen behind the admin group's JWT middleware.
+// somehow absent, which cannot happen behind the reauth group's JWT middleware.
 func reauthUserAccountKey(c echo.Context) string {
 	token, ok := c.Get("user").(*jwt.Token)
 	if !ok || token == nil {

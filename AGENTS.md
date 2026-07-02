@@ -87,11 +87,16 @@ bun run test
 ## COMMIT MESSAGE REQUIREMENTS
 
 - For any non-trivial change, commit messages MUST include a detailed body, not only a short title.
+- Use Conventional Commits for the title: `type(scope): summary`. Scope is optional but preferred when it clarifies the affected area.
+- Prefer common types such as `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `build`, `ci`, `perf`, `style`, and `revert`.
+- Mark breaking changes with `!` in the title (for example `feat(api)!: ...`) and include a `BREAKING CHANGE:` footer explaining the impact and migration path.
 - Use scoped bullets such as `Backend`, `API`, `Frontend`, `MCP`, `Security`, `i18n`, `Tests`, or `Docs`.
 - Describe concrete behavior and implementation details: parsing rules, route paths, auth boundary changes, data mapping, dedup rules, validation, UX feedback, translation coverage, and test coverage when relevant.
 
 Example:
 ```text
+feat(import): add Wallos import
+
 - Backend: import service parses Wallos JSON export, maps payment cycles
       including "Every N Units", extracts currencies from symbols/codes, and
       deduplicates by name+amount+currency+billing_type+next_billing_date

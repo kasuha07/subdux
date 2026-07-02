@@ -101,7 +101,9 @@ func (s *ReauthService) WithContext(ctx context.Context) *ReauthService {
 	return &clone
 }
 
-func isValidReauthOperation(operation string) bool {
+// IsValidReauthOperation reports whether operation is a known reauth operation.
+// It is the single source of truth for the set of valid operations.
+func IsValidReauthOperation(operation string) bool {
 	switch operation {
 	case ReauthOperationBackup, ReauthOperationRestore:
 		return true
@@ -126,7 +128,7 @@ func (s *ReauthService) AvailableMethods(userID uint) (ReauthMethods, error) {
 // VerifyPassword checks the user's account password and, on success, mints a
 // ticket for the given operation.
 func (s *ReauthService) VerifyPassword(userID uint, operation string, password string) (string, error) {
-	if !isValidReauthOperation(operation) {
+	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
 	if password == "" {
@@ -147,7 +149,7 @@ func (s *ReauthService) VerifyPassword(userID uint, operation string, password s
 // BeginPasskey starts a user-scoped passkey assertion for the operation. The
 // operation is validated here; the challenge itself is issued by AuthService.
 func (s *ReauthService) BeginPasskey(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
-	if !isValidReauthOperation(operation) {
+	if !IsValidReauthOperation(operation) {
 		return nil, ErrInvalidReauthOperation
 	}
 	return s.auth.BeginPasskeyReauth(userID, operation, origin, host, scheme)
@@ -156,7 +158,7 @@ func (s *ReauthService) BeginPasskey(userID uint, operation string, origin strin
 // FinishPasskey validates a passkey assertion for the user and, on success,
 // mints a ticket for the operation.
 func (s *ReauthService) FinishPasskey(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (string, error) {
-	if !isValidReauthOperation(operation) {
+	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
 	if err := s.auth.FinishPasskeyReauth(userID, operation, sessionID, parsedResponse, origin, host, scheme); err != nil {
@@ -169,7 +171,7 @@ func (s *ReauthService) FinishPasskey(userID uint, operation string, sessionID s
 // authorization URL the client opens (in a popup) to authenticate. The operation
 // is validated here and carried through the OIDC state session.
 func (s *ReauthService) BeginOIDC(userID uint, operation string) (*OIDCStartResult, error) {
-	if !isValidReauthOperation(operation) {
+	if !IsValidReauthOperation(operation) {
 		return nil, ErrInvalidReauthOperation
 	}
 	return s.auth.BeginOIDCReauth(userID, operation)
@@ -180,7 +182,7 @@ func (s *ReauthService) BeginOIDC(userID uint, operation string) (*OIDCStartResu
 // on success, mints a ticket. Mirrors FinishPasskey — the sensitive endpoints
 // never learn which factor was used.
 func (s *ReauthService) VerifyOIDC(userID uint, operation string, sessionID string) (string, error) {
-	if !isValidReauthOperation(operation) {
+	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
 	if err := s.auth.ConsumeOIDCReauthResult(sessionID, userID, operation); err != nil {

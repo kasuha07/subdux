@@ -25,7 +25,7 @@ import (
 //
 // The router builds its own ReauthService internally, so the only way to obtain
 // a ticket the handler will accept is to mint one through the real
-// /api/admin/reauth/password endpoint against the same instance. That requires
+// /api/reauth/password endpoint against the same instance. That requires
 // the admin to have a genuine bcrypt password (unlike createReauthTestAdmin,
 // whose stored password is not a valid hash).
 
@@ -67,7 +67,7 @@ func mintReauthTicket(t *testing.T, e *echo.Echo, token, operation string) strin
 	t.Helper()
 
 	body := fmt.Sprintf(`{"operation":%q,"password":%q}`, operation, reauthGateTestPassword)
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/reauth/password", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()

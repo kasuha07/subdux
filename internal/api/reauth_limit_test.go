@@ -13,7 +13,8 @@ import (
 )
 
 // createReauthTestAdmin creates an active admin user for exercising the
-// step-up re-auth endpoints, which sit behind the admin JWT middleware.
+// step-up re-auth endpoints, which sit behind the human-session reauth group
+// (JWT-or-API-key auth followed by HumanSessionOnlyMiddleware).
 func createReauthTestAdmin(t *testing.T, db *gorm.DB) model.User {
 	t.Helper()
 
@@ -49,7 +50,7 @@ func TestReauthPasswordRateLimitedPerUser(t *testing.T) {
 	const limit = 6
 
 	for attempt := 1; attempt <= limit; attempt++ {
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/reauth/password", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer "+token)
 		rec := httptest.NewRecorder()
@@ -60,7 +61,7 @@ func TestReauthPasswordRateLimitedPerUser(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/reauth/password", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()

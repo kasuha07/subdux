@@ -26,6 +26,11 @@ import type { OIDCConfig, OIDCStartResponse, PasskeyBeginResult, ReauthMethods }
 
 type ReauthOperation = "backup" | "restore"
 
+// Base path for the step-up re-authentication API. The endpoints live in a
+// shared (human-session, not admin-only) group, so this dialog is not coupled
+// to the admin surface and can be reused for other sensitive operations.
+const REAUTH_API_BASE = "/reauth"
+
 interface ReauthDialogProps {
   operation: ReauthOperation
   open: boolean
@@ -79,7 +84,7 @@ export default function ReauthDialog({
     // Discover which factors this user can present.
     let cancelled = false
     api
-      .get<ReauthMethods>(`/admin/reauth/methods?operation=${operation}`)
+      .get<ReauthMethods>(`${REAUTH_API_BASE}/methods?operation=${operation}`)
       .then((result) => {
         if (!cancelled && result) {
           setMethods(result)
@@ -126,7 +131,7 @@ export default function ReauthDialog({
     }
     setBusy(true)
     try {
-      const { ticket } = await api.post<{ ticket: string }>("/admin/reauth/password", {
+      const { ticket } = await api.post<{ ticket: string }>(`${REAUTH_API_BASE}/password`, {
         operation,
         password,
       })
@@ -149,11 +154,11 @@ export default function ReauthDialog({
     setBusy(true)
     try {
       const begin = await api.post<PasskeyBeginResult<CredentialAssertionJSON>>(
-        "/admin/reauth/passkey/start",
+        `${REAUTH_API_BASE}/passkey/start`,
         { operation }
       )
       const credential = await getPasskeyCredential(begin.options)
-      const { ticket } = await api.post<{ ticket: string }>("/admin/reauth/passkey/finish", {
+      const { ticket } = await api.post<{ ticket: string }>(`${REAUTH_API_BASE}/passkey/finish`, {
         operation,
         session_id: begin.session_id,
         credential,
@@ -191,7 +196,7 @@ export default function ReauthDialog({
     setBusy(true)
 
     try {
-      const { authorization_url } = await api.post<OIDCStartResponse>("/admin/reauth/oidc/start", {
+      const { authorization_url } = await api.post<OIDCStartResponse>(`${REAUTH_API_BASE}/oidc/start`, {
         operation,
       })
       popupWin.location.href = authorization_url
@@ -224,7 +229,7 @@ export default function ReauthDialog({
         window.addEventListener("message", onMessage)
       })
 
-      const { ticket } = await api.post<{ ticket: string }>("/admin/reauth/oidc/finish", {
+      const { ticket } = await api.post<{ ticket: string }>(`${REAUTH_API_BASE}/oidc/finish`, {
         operation,
       })
       await verified(ticket)

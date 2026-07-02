@@ -17,12 +17,12 @@ const (
 	oidcSessionCookiePath = "/api/auth/oidc/session"
 	oidcSessionCookieTTL  = 3 * time.Minute
 
-	// The reauth ("step-up") OIDC session cookie is scoped to the admin reauth
+	// The reauth ("step-up") OIDC session cookie is scoped to the reauth OIDC
 	// finish endpoint so it is never sent on the ordinary login/connect session
 	// path, and vice versa. It carries the result-session id minted by the OIDC
 	// callback for a step-up flow.
 	oidcReauthSessionCookieName = "oidc_reauth_session"
-	oidcReauthSessionCookiePath = "/api/admin/reauth/oidc"
+	oidcReauthSessionCookiePath = "/api/reauth/oidc"
 )
 
 func setRefreshTokenCookie(c echo.Context, token string) {
