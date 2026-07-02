@@ -56,15 +56,27 @@ export default function ReauthDialog({
   // user closing it manually.
   const oidcPopupRef = useRef<Window | null>(null)
 
+  // Reset transient state each time the dialog transitions to open. This runs
+  // during render (React's documented pattern) rather than in an effect so we
+  // don't need a remounting `key` on the parent — remounting churns Radix's
+  // dismissable layer, which races its module-global body `pointer-events`
+  // bookkeeping and can leave the page stuck behind an invisible mask.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) {
+      setPassword("")
+      setBusy(false)
+    }
+  }
+
   const passkeySupported = isPasskeySupported()
 
   useEffect(() => {
     if (!open) {
       return
     }
-    // Discover which factors this user can present. Transient state (password,
-    // busy) starts fresh because the parent remounts this dialog per open via a
-    // `key`, so no in-effect reset is needed.
+    // Discover which factors this user can present.
     let cancelled = false
     api
       .get<ReauthMethods>(`/admin/reauth/methods?operation=${operation}`)

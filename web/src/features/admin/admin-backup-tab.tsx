@@ -454,7 +454,6 @@ export default function AdminBackupTab({
       </div>
 
       <ReauthDialog
-        key={reauthPrompt ?? "closed"}
         operation={reauthPrompt === "restore" ? "restore" : "backup"}
         open={reauthPrompt !== null}
         onOpenChange={(open) => {
