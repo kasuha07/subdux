@@ -1,6 +1,6 @@
 import { type ChangeEvent, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
-import { AlertTriangle, Download } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -75,7 +75,6 @@ export function SettingsAccountTransferSection({
             disabled={exportLoading}
             onClick={() => void onExport(false)}
           >
-            <Download className="size-4" />
             {exportLoading
               ? t("settings.account.exporting")
               : t("settings.account.exportButton")}
@@ -86,7 +85,6 @@ export function SettingsAccountTransferSection({
             disabled={exportLoading}
             onClick={() => onExportSecretsConfirmOpenChange(true)}
           >
-            <Download className="size-4" />
             {t("settings.account.exportWithSecretsButton")}
           </Button>
         </div>
