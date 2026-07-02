@@ -1,6 +1,5 @@
 import { Branch as DismissableLayerBranch } from "@radix-ui/react-dismissable-layer"
-import { XIcon } from "lucide-react"
-import { useSyncExternalStore } from "react"
+import { type KeyboardEvent, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
@@ -57,7 +56,6 @@ function getToastTypeClassName(type: ToastRecord["type"], richColors: boolean): 
 }
 
 export function Toaster({
-  closeButton = false,
   position = "top-right",
   richColors = false,
   theme,
@@ -75,7 +73,7 @@ export function Toaster({
         aria-live="polite"
         aria-relevant="additions text"
         className={cn(
-          "toaster pointer-events-none fixed z-[2147483647] flex max-h-screen w-full max-w-sm flex-col gap-2 px-4 sm:px-0",
+          "toaster pointer-events-none fixed z-[2147483647] flex max-h-screen w-80 max-w-[calc(100vw-2rem)] flex-col gap-2",
           POSITION_CLASS_NAMES[position]
         )}
         data-app-toaster="true"
@@ -84,13 +82,22 @@ export function Toaster({
       >
         {currentToasts.map((item) => {
           const dismissible = item.dismissible ?? true
+          const handleDismissKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+            if (!dismissible || (event.key !== "Enter" && event.key !== " ")) {
+              return
+            }
+
+            event.preventDefault()
+            dismissToast(item.id)
+          }
 
           return (
             <div
               key={item.id}
               className={cn(
-                "ulw-toast pointer-events-auto w-full rounded-lg border shadow-lg",
+                "ulw-toast pointer-events-auto w-full rounded-md border shadow-none",
                 "transition-[opacity,transform]",
+                dismissible && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 toastOptions?.className,
                 toastOptions?.classNames?.toast,
                 item.className,
@@ -103,9 +110,12 @@ export function Toaster({
               data-sonner-toast=""
               data-swipe-out="false"
               data-type={item.type}
+              onClick={dismissible ? () => dismissToast(item.id) : undefined}
+              onKeyDown={handleDismissKeyDown}
               role="status"
+              tabIndex={dismissible ? 0 : undefined}
             >
-              <div className="flex items-start gap-3 p-4">
+              <div className="flex items-start gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-5">{item.title}</p>
                   {item.description && (
@@ -120,17 +130,6 @@ export function Toaster({
                     </p>
                   )}
                 </div>
-
-                {closeButton && dismissible && (
-                  <button
-                    aria-label="Close notification"
-                    className="rounded-sm p-1 text-foreground/60 transition-colors hover:bg-black/5 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:hover:bg-white/10"
-                    onClick={() => dismissToast(item.id)}
-                    type="button"
-                  >
-                    <XIcon className="size-4" />
-                  </button>
-                )}
               </div>
             </div>
           )

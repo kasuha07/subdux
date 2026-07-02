@@ -8,7 +8,6 @@ export function AppToaster() {
     <SonnerToaster
       theme={theme as ToasterProps["theme"]}
       richColors
-      closeButton
       position="top-right"
       toastOptions={{
         duration: 4000,
