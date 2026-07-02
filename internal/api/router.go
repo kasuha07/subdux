@@ -161,7 +161,7 @@ func SetupRoutes(
 	auditHandler := NewAuditHandler(auditService)
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService, reauthService)
-	importHandler := NewImportHandler(importService)
+	importHandler := NewImportHandler(importService, reauthService)
 	mcpHandler := NewMCPHandler(apiKeyService, auditService, subService, erService, currencyService, categoryService, paymentMethodService)
 
 	requireMCPEnabled := mcpEnabledMiddleware(systemSettingsService)
@@ -376,8 +376,8 @@ func SetupRoutes(
 	humanProtected.DELETE("/calendar/tokens/:id", calendarHandler.DeleteToken)
 
 	humanProtected.GET("/export", exportHandler.Export)
+	humanProtected.POST("/import/subdux", importHandler.ImportSubdux, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
 	protected.POST("/import/wallos", importHandler.ImportWallos, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
-	protected.POST("/import/subdux", importHandler.ImportSubdux, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 

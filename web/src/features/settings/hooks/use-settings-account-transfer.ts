@@ -12,7 +12,7 @@ interface UseSettingsAccountTransferResult {
   exportLoading: boolean
   exportSecretsConfirmOpen: boolean
   handleConfirmImport: () => Promise<void>
-  handleConfirmSubduxImport: () => Promise<void>
+  handleConfirmSubduxImport: (reauthTicket: string) => Promise<void>
   handleExport: (includeSecrets: boolean, reauthTicket: string) => Promise<void>
   handleImportSubdux: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   handleImportWallos: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
@@ -221,13 +221,14 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
     }
   }
 
-  async function handleConfirmSubduxImport() {
+  async function handleConfirmSubduxImport(reauthTicket: string) {
     if (!subduxImportRawData) return
 
     setSubduxImportLoading(true)
     try {
       const res = await api.fetch("/import/subdux", {
         method: "POST",
+        headers: { "X-Reauth-Ticket": reauthTicket },
         body: JSON.stringify({ data: subduxImportRawData, confirm: true }),
       })
 

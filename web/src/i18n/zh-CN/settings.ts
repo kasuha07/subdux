@@ -166,6 +166,8 @@ const settings = {
     "subduxImportPreviewTitle": "Subdux 导入预览",
     "subduxImportPreviewDescription": "确认前请先检查将要导入的内容",
     "subduxImportPreviewConfirm": "确认导入",
+    "subduxImportReauthTitle": "确认身份后导入",
+    "subduxImportReauthDescription": "请重新验证身份后再导入 Subdux 导出中的数据。",
     "subduxImportPreference": "偏好设置",
     "subduxImportPolicy": "通知策略",
     "subduxImportChannels": "通知渠道",

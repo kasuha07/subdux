@@ -31,6 +31,7 @@ type ReauthOperation =
   | "connect_oidc"
   | "export_redacted"
   | "export_secrets"
+  | "import_subdux"
 
 // Base path for the step-up re-authentication API. The endpoints live in a
 // shared (human-session, not admin-only) group, so this dialog is not coupled
@@ -47,6 +48,7 @@ interface ReauthDialogProps {
   title: string
   description: string
   confirmVariant?: "default" | "destructive"
+  layer?: "base" | "stacked"
 }
 
 export default function ReauthDialog({
@@ -57,6 +59,7 @@ export default function ReauthDialog({
   title,
   description,
   confirmVariant = "default",
+  layer = "base",
 }: ReauthDialogProps) {
   const { t } = useTranslation()
   const [methods, setMethods] = useState<ReauthMethods>({ password: true, passkey: false, oidc: false })
@@ -260,7 +263,7 @@ export default function ReauthDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent layer={layer} className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

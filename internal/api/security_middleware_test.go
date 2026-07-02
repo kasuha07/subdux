@@ -421,6 +421,11 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 			method: http.MethodGet,
 			target: "/api/export",
 		},
+		{
+			name:   "import subdux",
+			method: http.MethodPost,
+			target: "/api/import/subdux",
+		},
 	}
 
 	for _, tt := range tests {

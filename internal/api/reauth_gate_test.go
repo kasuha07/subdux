@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/shiroha/subdux/internal/model"
 	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/shiroha/subdux/internal/service"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -117,6 +118,21 @@ func postRestore(t *testing.T, e *echo.Echo, token, ticket string) *httptest.Res
 	return rec
 }
 
+func postSubduxImport(t *testing.T, e *echo.Echo, token string, confirm bool, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"data":{"currencies":[],"categories":[],"payment_methods":[],"subscriptions":[],"notifications":{"channels":[],"templates":[]}},"confirm":%t}`, confirm)
+	req := httptest.NewRequest(http.MethodPost, "/api/import/subdux", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
@@ -210,6 +226,58 @@ func TestRestoreDBGateRequiresValidReauthTicket(t *testing.T) {
 		// The gate consumed the ticket even though the request failed after it,
 		// so a retry with the same ticket is refused at the gate.
 		rec = postRestore(t, e, token, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestImportSubduxGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("preview does not require reauth", func(t *testing.T) {
+		rec := postSubduxImport(t, e, token, false, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+
+	t.Run("missing ticket is refused on confirm", func(t *testing.T) {
+		rec := postSubduxImport(t, e, token, true, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused on confirm", func(t *testing.T) {
+		exportTicket := mintReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+		rec := postSubduxImport(t, e, token, true, exportTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationImportSubdux)
+
+		rec := postSubduxImport(t, e, token, true, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		rec = postSubduxImport(t, e, token, true, ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}

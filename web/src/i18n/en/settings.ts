@@ -166,6 +166,8 @@ const settings = {
     "subduxImportPreviewTitle": "Subdux Import Preview",
     "subduxImportPreviewDescription": "Review what will be imported before confirming",
     "subduxImportPreviewConfirm": "Confirm Import",
+    "subduxImportReauthTitle": "Re-authenticate to import",
+    "subduxImportReauthDescription": "Verify your identity before importing data from a Subdux export.",
     "subduxImportPreference": "Preference",
     "subduxImportPolicy": "Notification policy",
     "subduxImportChannels": "Notification channels",

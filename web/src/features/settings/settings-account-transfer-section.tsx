@@ -41,7 +41,7 @@ interface ImportPreviewDialogProps {
 
 interface SubduxImportPreviewDialogProps {
   loading: boolean
-  onConfirm: () => void | Promise<void>
+  onConfirm: (reauthTicket: string) => void | Promise<void>
   onOpenChange: (open: boolean) => void
   onReset: () => void
   open: boolean
@@ -202,108 +202,122 @@ export function SubduxImportPreviewDialog({
   preview,
 }: SubduxImportPreviewDialogProps) {
   const { t } = useTranslation()
+  const [reauthOpen, setReauthOpen] = useState(false)
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      if (nextOpen) {
-        onOpenChange(true)
-        return
-      }
-      if (!loading) {
-        onReset()
-      }
-    }}>
-      <DialogContent
-        className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh] sm:max-w-2xl"
-        onInteractOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => { if (loading) event.preventDefault() }}
-        showCloseButton={false}
-      >
-        <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
-          <DialogTitle>{t("settings.account.subduxImportPreviewTitle")}</DialogTitle>
-          <DialogDescription>{t("settings.account.subduxImportPreviewDescription")}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          onOpenChange(true)
+          return
+        }
+        if (!loading) {
+          setReauthOpen(false)
+          onReset()
+        }
+      }}>
+        <DialogContent
+          className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh] sm:max-w-2xl"
+          onInteractOutside={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => { if (loading) event.preventDefault() }}
+          showCloseButton={false}
+        >
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>{t("settings.account.subduxImportPreviewTitle")}</DialogTitle>
+            <DialogDescription>{t("settings.account.subduxImportPreviewDescription")}</DialogDescription>
+          </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
-          {preview && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-                <PreviewCount label={t("settings.account.importPreviewCurrencies")} value={preview.currencies.length} />
-                <PreviewCount label={t("settings.account.importPreviewCategories")} value={preview.categories.length} />
-                <PreviewCount label={t("settings.account.importPreviewPaymentMethods")} value={preview.payment_methods.length} />
-                <PreviewCount label={t("settings.account.importPreviewSubscriptions")} value={preview.subscriptions.length} />
-                <PreviewCount label={t("settings.account.subduxImportChannels")} value={preview.channels.length} />
-                <PreviewCount label={t("settings.account.subduxImportTemplates")} value={preview.templates.length} />
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {preview && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                  <PreviewCount label={t("settings.account.importPreviewCurrencies")} value={preview.currencies.length} />
+                  <PreviewCount label={t("settings.account.importPreviewCategories")} value={preview.categories.length} />
+                  <PreviewCount label={t("settings.account.importPreviewPaymentMethods")} value={preview.payment_methods.length} />
+                  <PreviewCount label={t("settings.account.importPreviewSubscriptions")} value={preview.subscriptions.length} />
+                  <PreviewCount label={t("settings.account.subduxImportChannels")} value={preview.channels.length} />
+                  <PreviewCount label={t("settings.account.subduxImportTemplates")} value={preview.templates.length} />
+                </div>
+
+                {(preview.preference || preview.policy) && (
+                  <div className="space-y-2">
+                    {preview.preference && (
+                      <PreviewUpdateRow
+                        label={t("settings.account.subduxImportPreference")}
+                        changed={preview.preference.will_create || preview.preference.will_update}
+                      />
+                    )}
+                    {preview.policy && (
+                      <PreviewUpdateRow
+                        label={t("settings.account.subduxImportPolicy")}
+                        changed={preview.policy.will_create || preview.policy.will_update}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {preview.subscriptions.length > 0 && (
+                  <SubscriptionPreviewList subscriptions={preview.subscriptions} />
+                )}
+
+                {preview.channels.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.subduxImportChannels")}</h4>
+                    <div className="space-y-1.5">
+                      {preview.channels.map((channel) => (
+                        <div key={`${channel.type}-${channel.config}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>{channel.type}</span>
+                          <Badge variant={channel.is_new ? "default" : "secondary"} className="text-xs">
+                            {channel.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {preview.templates.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.subduxImportTemplates")}</h4>
+                    <div className="space-y-1.5">
+                      {preview.templates.map((template, index) => (
+                        <div key={`${template.channel_type}-${template.format}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>
+                            {template.channel_type ? `${template.channel_type} / ` : ""}
+                            {template.format}
+                          </span>
+                          <Badge variant={template.is_new ? "default" : "secondary"} className="text-xs">
+                            {template.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+          </div>
 
-              {(preview.preference || preview.policy) && (
-                <div className="space-y-2">
-                  {preview.preference && (
-                    <PreviewUpdateRow
-                      label={t("settings.account.subduxImportPreference")}
-                      changed={preview.preference.will_create || preview.preference.will_update}
-                    />
-                  )}
-                  {preview.policy && (
-                    <PreviewUpdateRow
-                      label={t("settings.account.subduxImportPolicy")}
-                      changed={preview.policy.will_create || preview.policy.will_update}
-                    />
-                  )}
-                </div>
-              )}
+          <PreviewDialogFooter
+            loading={loading}
+            loadingLabel={t("settings.account.subduxImporting")}
+            onConfirm={() => setReauthOpen(true)}
+            onReset={onReset}
+            confirmLabel={t("settings.account.subduxImportPreviewConfirm")}
+          />
+        </DialogContent>
+      </Dialog>
 
-              {preview.subscriptions.length > 0 && (
-                <SubscriptionPreviewList subscriptions={preview.subscriptions} />
-              )}
-
-              {preview.channels.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">{t("settings.account.subduxImportChannels")}</h4>
-                  <div className="space-y-1.5">
-                    {preview.channels.map((channel) => (
-                      <div key={`${channel.type}-${channel.config}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                        <span>{channel.type}</span>
-                        <Badge variant={channel.is_new ? "default" : "secondary"} className="text-xs">
-                          {channel.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {preview.templates.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">{t("settings.account.subduxImportTemplates")}</h4>
-                  <div className="space-y-1.5">
-                    {preview.templates.map((template, index) => (
-                      <div key={`${template.channel_type}-${template.format}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                        <span>
-                          {template.channel_type ? `${template.channel_type} / ` : ""}
-                          {template.format}
-                        </span>
-                        <Badge variant={template.is_new ? "default" : "secondary"} className="text-xs">
-                          {template.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <PreviewDialogFooter
-          loading={loading}
-          loadingLabel={t("settings.account.subduxImporting")}
-          onConfirm={onConfirm}
-          onReset={onReset}
-          confirmLabel={t("settings.account.subduxImportPreviewConfirm")}
-        />
-      </DialogContent>
-    </Dialog>
+      <ReauthDialog
+        operation="import_subdux"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={onConfirm}
+        layer="stacked"
+        title={t("settings.account.subduxImportReauthTitle")}
+        description={t("settings.account.subduxImportReauthDescription")}
+      />
+    </>
   )
 }
 

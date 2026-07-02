@@ -166,6 +166,8 @@ const settings = {
     "subduxImportPreviewTitle": "Subdux インポートプレビュー",
     "subduxImportPreviewDescription": "確定前にインポート内容を確認してください",
     "subduxImportPreviewConfirm": "インポートを確定",
+    "subduxImportReauthTitle": "インポート前に再認証",
+    "subduxImportReauthDescription": "Subdux のエクスポートからデータをインポートする前に本人確認を行ってください。",
     "subduxImportPreference": "設定",
     "subduxImportPolicy": "通知ポリシー",
     "subduxImportChannels": "通知チャンネル",
