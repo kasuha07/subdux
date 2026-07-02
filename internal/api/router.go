@@ -291,6 +291,7 @@ func SetupRoutes(
 	protected.GET("/reports/analytics", subHandler.AnalyticsReport)
 
 	protected.GET("/auth/me", authHandler.Me)
+	humanProtected.POST("/auth/logout-all", authHandler.LogoutAll)
 	humanProtected.PUT("/auth/password", authHandler.ChangePassword)
 	humanProtected.POST("/auth/email/change/send-code", authHandler.SendEmailChangeVerificationCode)
 	humanProtected.POST("/auth/email/change/confirm", authHandler.ConfirmEmailChange)

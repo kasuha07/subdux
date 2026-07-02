@@ -237,6 +237,19 @@ async function performLogout(): Promise<void> {
   }
 }
 
+async function performLogoutAll(): Promise<void> {
+  const res = await requestRaw("/auth/logout-all", { method: "POST" })
+
+  if (res.status === 204) {
+    return
+  }
+
+  const data = await parseJSON<{ error?: unknown }>(res)
+  if (!res.ok) {
+    throw new Error(localizeBackendError(data?.error))
+  }
+}
+
 async function refreshSession(): Promise<boolean> {
   if (!refreshRequest) {
     refreshRequest = performRefresh().finally(() => {
@@ -304,6 +317,11 @@ export async function logout(): Promise<void> {
   } finally {
     clearToken()
   }
+}
+
+export async function logoutAll(): Promise<void> {
+  await performLogoutAll()
+  clearToken()
 }
 
 export const api = {

@@ -63,3 +63,48 @@ func TestRefreshSessionRejectsLoggedOutToken(t *testing.T) {
 		t.Fatalf("RefreshSession() error = %v, want %v", err, ErrInvalidRefreshToken)
 	}
 }
+
+func TestLogoutAllRevokesAllRefreshTokens(t *testing.T) {
+	t.Setenv("JWT_SECRET", "0123456789abcdef0123456789abcdef")
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.RefreshToken{}); err != nil {
+		t.Fatalf("failed to migrate refresh tokens: %v", err)
+	}
+
+	user := createTestUser(t, db)
+	service := NewAuthService(db)
+
+	first, err := service.CreateSession(user.ID)
+	if err != nil {
+		t.Fatalf("CreateSession() first error = %v, want nil", err)
+	}
+	second, err := service.CreateSession(user.ID)
+	if err != nil {
+		t.Fatalf("CreateSession() second error = %v, want nil", err)
+	}
+
+	if err := service.LogoutAll(user.ID); err != nil {
+		t.Fatalf("LogoutAll() error = %v, want nil", err)
+	}
+
+	var stored []model.RefreshToken
+	if err := db.Where("user_id = ?", user.ID).Find(&stored).Error; err != nil {
+		t.Fatalf("failed to load refresh tokens: %v", err)
+	}
+	if len(stored) != 2 {
+		t.Fatalf("refresh token count = %d, want 2", len(stored))
+	}
+	for _, token := range stored {
+		if token.RevokedAt == nil {
+			t.Fatal("LogoutAll() left an active refresh token")
+		}
+	}
+
+	if _, err := service.RefreshSession(first.RefreshToken); !errors.Is(err, ErrInvalidRefreshToken) {
+		t.Fatalf("RefreshSession() first error = %v, want %v", err, ErrInvalidRefreshToken)
+	}
+	if _, err := service.RefreshSession(second.RefreshToken); !errors.Is(err, ErrInvalidRefreshToken) {
+		t.Fatalf("RefreshSession() second error = %v, want %v", err, ErrInvalidRefreshToken)
+	}
+}

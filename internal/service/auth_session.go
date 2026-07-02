@@ -151,6 +151,10 @@ func (s *AuthService) Logout(rawRefreshToken string) error {
 		}).Error
 }
 
+func (s *AuthService) LogoutAll(userID uint) error {
+	return revokeAllRefreshTokens(s.DB, userID)
+}
+
 func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
 	now := pkg.NowUTC()
 	return tx.Model(&model.RefreshToken{}).

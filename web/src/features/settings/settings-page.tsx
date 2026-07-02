@@ -288,6 +288,7 @@ export default function SettingsPage() {
                 onConfirmPasswordChange={account.setConfirmPassword}
                 onChangePassword={account.handleChangePassword}
                 onLogout={account.handleLogout}
+                onLogoutAll={account.handleLogoutAll}
               />
             </Suspense>
           )}

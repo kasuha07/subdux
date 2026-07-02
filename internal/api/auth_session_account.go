@@ -140,3 +140,12 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 	clearRefreshTokenCookie(c)
 	return c.NoContent(http.StatusNoContent)
 }
+
+func (h *AuthHandler) LogoutAll(c echo.Context) error {
+	if err := h.Service.WithContext(c.Request().Context()).LogoutAll(getUserID(c)); err != nil {
+		return writeInternalServerError(c, err)
+	}
+
+	clearRefreshTokenCookie(c)
+	return c.NoContent(http.StatusNoContent)
+}
