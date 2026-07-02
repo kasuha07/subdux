@@ -36,7 +36,7 @@ const (
 
 const (
 	reauthTicketTTL   = 5 * time.Minute
-	maxReauthTickets  = 1024
+	maxReauthTickets  = 256
 	reauthTicketBytes = 32
 )
 

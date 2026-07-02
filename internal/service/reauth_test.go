@@ -156,6 +156,34 @@ func TestReauthTicketExpiry(t *testing.T) {
 	}
 }
 
+func TestReauthTicketLimitEvictsOldest(t *testing.T) {
+	svc, user, _ := newReauthTestService(t)
+
+	clock := &mutableClock{now: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)}
+	restore := pkg.SetClockForTest(clock)
+	defer restore()
+
+	tickets := make([]string, 0, maxReauthTickets+1)
+	for i := 0; i < maxReauthTickets+1; i++ {
+		ticket, err := svc.mintTicket(user.ID, ReauthOperationBackup)
+		if err != nil {
+			t.Fatalf("mintTicket() error = %v, want nil", err)
+		}
+		tickets = append(tickets, ticket)
+		clock.advance(time.Millisecond)
+	}
+
+	if got := len(svc.tickets); got != maxReauthTickets {
+		t.Fatalf("ticket count = %d, want %d", got, maxReauthTickets)
+	}
+	if err := svc.Consume(user.ID, ReauthOperationBackup, tickets[0]); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("oldest Consume() error = %v, want ErrReauthRequired", err)
+	}
+	if err := svc.Consume(user.ID, ReauthOperationBackup, tickets[len(tickets)-1]); err != nil {
+		t.Fatalf("newest Consume() error = %v, want nil", err)
+	}
+}
+
 func TestReauthAvailableMethods(t *testing.T) {
 	svc, user, _ := newReauthTestService(t)
 
