@@ -53,7 +53,7 @@ interface AdminBackupTabProps {
   onRestoreFileChange: (file: File | null) => void
   onRestorePasswordChange: (value: string) => void
   onRunBackupNow: () => void | Promise<void>
-  onSaveSettings: () => void | Promise<void>
+  onSaveSettings: (reauthTicket: string) => void | Promise<void>
   restoreConfirmOpen: boolean
   restoreEncrypted: boolean
   restoreFile: File | null
@@ -139,7 +139,7 @@ export default function AdminBackupTab({
   const { t, i18n } = useTranslation()
   const [editingEncryptionPassword, setEditingEncryptionPassword] = useState(false)
   // Which flow, if any, is awaiting step-up re-authentication.
-  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | null>(null)
+  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "schedule" | null>(null)
 
   const configuredMaskValue = "••••••••"
   const encryptionPasswordDisplayValue = editingEncryptionPassword
@@ -377,7 +377,7 @@ export default function AdminBackupTab({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void onSaveSettings()}>{t("admin.backup.saveSchedule")}</Button>
+          <Button onClick={() => setReauthPrompt("schedule")}>{t("admin.backup.saveSchedule")}</Button>
           <Button variant="outline" disabled={runningBackup} onClick={() => void onRunBackupNow()}>
             <PlayCircle className="size-4" />
             {t("admin.backup.runNow")}
@@ -454,7 +454,13 @@ export default function AdminBackupTab({
       </div>
 
       <ReauthDialog
-        operation={reauthPrompt === "restore" ? "restore" : "backup"}
+        operation={
+          reauthPrompt === "restore"
+            ? "restore"
+            : reauthPrompt === "schedule"
+              ? "backup_schedule"
+              : "backup"
+        }
         open={reauthPrompt !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -466,6 +472,8 @@ export default function AdminBackupTab({
             await onDownloadBackup(ticket)
           } else if (reauthPrompt === "restore") {
             await onRestore(ticket)
+          } else if (reauthPrompt === "schedule") {
+            await onSaveSettings(ticket)
           }
           setReauthPrompt(null)
         }}
@@ -473,6 +481,8 @@ export default function AdminBackupTab({
         description={
           reauthPrompt === "restore"
             ? t("admin.backup.reauth.restoreDescription")
+            : reauthPrompt === "schedule"
+              ? t("admin.backup.reauth.scheduleDescription")
             : t("admin.backup.reauth.downloadDescription")
         }
         confirmVariant={reauthPrompt === "restore" ? "destructive" : "default"}

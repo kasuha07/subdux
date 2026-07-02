@@ -146,6 +146,11 @@ export interface UpdateSettingsInput {
   backup_retention_count?: number
 }
 
+export interface SaveSettingsOptions {
+  includeBackupSettings?: boolean
+  reauthTicket?: string
+}
+
 export interface LocalBackupInfo {
   name: string
   size: number

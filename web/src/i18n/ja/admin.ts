@@ -246,6 +246,7 @@ const admin = {
       "title": "本人確認",
       "downloadDescription": "セキュリティのため、バックアップをダウンロードするには再認証してください。",
       "restoreDescription": "セキュリティのため、このバックアップから復元するには再認証してください。",
+      "scheduleDescription": "セキュリティのため、定期バックアップ設定を変更するには再認証してください。",
       "passwordLabel": "アカウントのパスワード",
       "confirm": "確認",
       "or": "または",

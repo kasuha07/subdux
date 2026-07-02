@@ -246,6 +246,7 @@ const admin = {
       "title": "确认您的身份",
       "downloadDescription": "出于安全考虑，请重新验证身份以下载备份。",
       "restoreDescription": "出于安全考虑，请重新验证身份以从该备份恢复。",
+      "scheduleDescription": "出于安全考虑，请重新验证身份以修改定时备份设置。",
       "passwordLabel": "账户密码",
       "confirm": "确认",
       "or": "或",

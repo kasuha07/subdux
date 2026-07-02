@@ -31,6 +31,7 @@ import (
 // minted for one operation cannot authorize another.
 const (
 	ReauthOperationBackup         = "backup"
+	ReauthOperationBackupSchedule = "backup_schedule"
 	ReauthOperationRestore        = "restore"
 	ReauthOperationChangeEmail    = "change_email"
 	ReauthOperationAddPasskey     = "add_passkey"
@@ -114,6 +115,7 @@ func (s *ReauthService) WithContext(ctx context.Context) *ReauthService {
 func IsValidReauthOperation(operation string) bool {
 	switch operation {
 	case ReauthOperationBackup,
+		ReauthOperationBackupSchedule,
 		ReauthOperationRestore,
 		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,

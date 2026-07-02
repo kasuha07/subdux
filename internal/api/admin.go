@@ -232,6 +232,19 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
+	if updateTouchesBackupSchedule(input) {
+		if h.Reauth == nil {
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "reauthentication service is not configured"})
+		}
+		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+			getUserID(c),
+			service.ReauthOperationBackupSchedule,
+			c.Request().Header.Get(reauthTicketHeader),
+		); err != nil {
+			return writeReauthError(c, err)
+		}
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input); err != nil {
 		if errors.Is(err, service.ErrInvalidEmailDomainWhitelist) ||
 			errors.Is(err, service.ErrEmailDomainWhitelistTooLong) ||
@@ -255,6 +268,16 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})
+}
+
+func updateTouchesBackupSchedule(input service.UpdateSettingsInput) bool {
+	return input.BackupScheduleEnabled != nil ||
+		input.BackupTimeOfDay != nil ||
+		input.BackupIncludeAssets != nil ||
+		input.BackupEncryptEnabled != nil ||
+		input.BackupEncryptionPassword != nil ||
+		input.BackupLocalDir != nil ||
+		input.BackupRetentionCount != nil
 }
 
 func (h *AdminHandler) TestSSRF(c echo.Context) error {

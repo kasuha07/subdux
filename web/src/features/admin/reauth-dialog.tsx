@@ -26,6 +26,7 @@ import type { OIDCConfig, OIDCStartResponse, PasskeyBeginResult, ReauthMethods }
 
 type ReauthOperation =
   | "backup"
+  | "backup_schedule"
   | "restore"
   | "change_email"
   | "add_passkey"

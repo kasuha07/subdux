@@ -246,6 +246,7 @@ const admin = {
       "title": "Confirm it's you",
       "downloadDescription": "For security, re-authenticate to download the backup.",
       "restoreDescription": "For security, re-authenticate to restore from this backup.",
+      "scheduleDescription": "For security, re-authenticate to change the scheduled backup settings.",
       "passwordLabel": "Account password",
       "confirm": "Confirm",
       "or": "or",

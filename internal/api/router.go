@@ -262,9 +262,9 @@ func SetupRoutes(
 
 	// Reauth ("step-up") is a generic capability, not admin-only: any human
 	// session can prove presence and mint an operation-scoped ticket. Which
-	// operations exist and which endpoints consume tickets is decided elsewhere
-	// (today only the admin backup/restore endpoints do). It therefore lives on a
-	// human-session-only group mirroring humanProtected, not under /admin.
+	// operations exist and which endpoints consume tickets is decided elsewhere.
+	// It therefore lives on a human-session-only group mirroring humanProtected,
+	// not under /admin.
 	reauth := api.Group("/reauth")
 	reauth.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
 	reauth.Use(HumanSessionOnlyMiddleware)

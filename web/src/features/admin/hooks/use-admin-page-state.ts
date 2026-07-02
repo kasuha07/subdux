@@ -14,6 +14,7 @@ import type {
   ExchangeRateStatus,
   LocalBackupInfo,
   LocalBackupList,
+  SaveSettingsOptions,
   SSRFTestResult,
   SystemSettings,
   UpdateSettingsInput,
@@ -126,7 +127,7 @@ interface UseAdminPageStateResult {
   handleRestore: (reauthTicket: string) => Promise<boolean>
   handleValidateRestoreInputs: () => Promise<boolean>
   handleRunBackupNow: () => Promise<void>
-  handleSaveSettings: () => Promise<void>
+  handleSaveSettings: (options?: SaveSettingsOptions) => Promise<void>
   handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
   handleToggleRole: (user: AdminUser) => Promise<void>
@@ -434,7 +435,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleSaveSettings() {
+  async function handleSaveSettings(options: SaveSettingsOptions = {}) {
     try {
       const payload: UpdateSettingsInput = {
         registration_enabled: settingsForm.registrationEnabled,
@@ -483,12 +484,15 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         oidc_audience: settingsForm.oidcAudience,
         oidc_resource: settingsForm.oidcResource,
         oidc_extra_auth_params: settingsForm.oidcExtraAuthParams,
-        backup_schedule_enabled: settingsForm.backupScheduleEnabled,
-        backup_time_of_day: settingsForm.backupTimeOfDay,
-        backup_include_assets: settingsForm.backupIncludeAssets,
-        backup_encrypt_enabled: settingsForm.backupEncryptEnabled,
-        backup_local_dir: settingsForm.backupLocalDir,
-        backup_retention_count: settingsForm.backupRetentionCount,
+      }
+
+      if (options.includeBackupSettings) {
+        payload.backup_schedule_enabled = settingsForm.backupScheduleEnabled
+        payload.backup_time_of_day = settingsForm.backupTimeOfDay
+        payload.backup_include_assets = settingsForm.backupIncludeAssets
+        payload.backup_encrypt_enabled = settingsForm.backupEncryptEnabled
+        payload.backup_local_dir = settingsForm.backupLocalDir
+        payload.backup_retention_count = settingsForm.backupRetentionCount
       }
 
       if (settingsForm.oidcClientSecret.trim()) {
@@ -503,11 +507,23 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       if (settingsForm.currencyApiKey.trim()) {
         payload.currencyapi_key = settingsForm.currencyApiKey.trim()
       }
-      if (settingsForm.backupEncryptionPassword.trim()) {
+      if (options.includeBackupSettings && settingsForm.backupEncryptionPassword.trim()) {
         payload.backup_encryption_password = settingsForm.backupEncryptionPassword.trim()
       }
 
-      await api.put("/admin/settings", payload)
+      const headers = options.reauthTicket
+        ? { "X-Reauth-Ticket": options.reauthTicket }
+        : undefined
+      const res = await api.fetch("/admin/settings", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const message = await readErrorMessage(res)
+        toast.error(message ?? t("common.requestFailed"))
+        return
+      }
       const fresh = await api.get<SystemSettings>("/admin/settings")
       setSettingsForm(createSettingsForm(fresh))
       setBackupStatus(createBackupStatus(fresh))

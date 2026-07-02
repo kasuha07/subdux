@@ -402,7 +402,9 @@ export default function AdminPage() {
                   onBackupRetentionCountChange={(value) =>
                     admin.setSettingsField("backupRetentionCount", value)
                   }
-                  onSaveSettings={admin.handleSaveSettings}
+                  onSaveSettings={(reauthTicket) =>
+                    admin.handleSaveSettings({ includeBackupSettings: true, reauthTicket })
+                  }
                   onRunBackupNow={admin.handleRunBackupNow}
                   runningBackup={admin.runningBackup}
                   localBackups={admin.localBackups}
