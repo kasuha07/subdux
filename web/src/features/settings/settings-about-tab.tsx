@@ -44,7 +44,7 @@ export default function SettingsAboutTab({ versionInfo }: SettingsAboutTabProps)
       {/* Version Info */}
       <div className="space-y-3">
         <div>
-          <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight select-none">
             <Info className="size-4" />
             {t("settings.about.currentVersion")}
           </h2>
@@ -116,7 +116,7 @@ export default function SettingsAboutTab({ versionInfo }: SettingsAboutTabProps)
       {/* Feedback & Source */}
       <div className="space-y-3">
         <div>
-          <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight select-none">
             <GitCommitHorizontal className="size-4" />
             {t("settings.about.feedback")}
           </h2>
@@ -149,7 +149,7 @@ export default function SettingsAboutTab({ versionInfo }: SettingsAboutTabProps)
       {/* Acknowledgments */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">{t("settings.about.acknowledgments")}</h2>
+          <h2 className="text-base font-semibold tracking-tight select-none">{t("settings.about.acknowledgments")}</h2>
           <p className="text-sm text-muted-foreground">{t("settings.about.acknowledgmentsDescription")}</p>
         </div>
         <div>

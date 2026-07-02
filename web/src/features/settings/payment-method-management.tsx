@@ -172,7 +172,7 @@ export default function PaymentMethodManagement() {
 
   return (
     <div>
-      <h2 className="text-base font-semibold tracking-tight">
+      <h2 className="text-base font-semibold tracking-tight select-none">
         {t("settings.paymentMethodManagement.title")}
       </h2>
       <p className="text-sm text-muted-foreground mt-0.5">

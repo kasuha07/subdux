@@ -33,7 +33,7 @@ export function NotificationChannelList({
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">{t("settings.notifications.channels.title")}</h2>
+          <h2 className="text-base font-semibold tracking-tight select-none">{t("settings.notifications.channels.title")}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {t("settings.notifications.channels.description")}
           </p>

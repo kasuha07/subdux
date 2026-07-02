@@ -64,7 +64,7 @@ export function SettingsAccountTransferSection({
   return (
     <>
       <div>
-        <h3 className="text-base font-semibold tracking-tight">{t("settings.account.exportTitle")}</h3>
+        <h3 className="text-base font-semibold tracking-tight select-none">{t("settings.account.exportTitle")}</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.account.exportDescription")}
         </p>
@@ -124,7 +124,7 @@ export function SettingsAccountTransferSection({
       </div>
 
       <div className="mt-3">
-        <h3 className="text-base font-semibold tracking-tight">{t("settings.account.subduxImportTitle")}</h3>
+        <h3 className="text-base font-semibold tracking-tight select-none">{t("settings.account.subduxImportTitle")}</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.account.subduxImportDescription")}
         </p>
@@ -149,7 +149,7 @@ export function SettingsAccountTransferSection({
       </div>
 
       <div className="mt-3">
-        <h3 className="text-base font-semibold tracking-tight">{t("settings.account.importTitle")}</h3>
+        <h3 className="text-base font-semibold tracking-tight select-none">{t("settings.account.importTitle")}</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {t("settings.account.importDescription")}
         </p>

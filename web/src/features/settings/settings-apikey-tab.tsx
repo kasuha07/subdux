@@ -156,7 +156,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">
+            <h2 className="text-base font-semibold tracking-tight select-none">
               {t("settings.apiKeys.title")}
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">

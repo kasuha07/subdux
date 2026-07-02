@@ -48,7 +48,7 @@ export default function SettingsAuditTab({ active }: SettingsAuditTabProps) {
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">{t("settings.audit.title")}</h2>
+            <h2 className="text-base font-semibold tracking-tight select-none">{t("settings.audit.title")}</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">{t("settings.audit.description")}</p>
           </div>
           <Button size="sm" variant="outline" onClick={loadEvents} disabled={loading}>
