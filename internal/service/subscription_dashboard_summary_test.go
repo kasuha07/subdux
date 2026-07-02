@@ -218,3 +218,42 @@ func TestGetDashboardSummaryExcludesCancelAtPeriodEndFromSpend(t *testing.T) {
 		t.Fatalf("upcoming_renewal_count = %d, want %d", got, want)
 	}
 }
+
+func TestGetDashboardSummaryCountsCancelAtPeriodEndAsExpiring(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewSubscriptionService(db)
+
+	intervalCount := 1
+	sub, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Ending soon",
+		Amount:          99,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeCancelAtPeriodEnd,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-03-05",
+	})
+	if err != nil {
+		t.Fatalf("create cancel-at-period-end subscription failed: %v", err)
+	}
+
+	endsAt := mustDate(t, "2026-03-05")
+	if err := db.Model(&model.Subscription{}).Where("id = ?", sub.ID).Update("ends_at", endsAt).Error; err != nil {
+		t.Fatalf("set ends_at failed: %v", err)
+	}
+
+	summary, err := service.GetDashboardSummary(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary() error = %v", err)
+	}
+
+	if got, want := summary.UpcomingRenewalCount, int64(1); got != want {
+		t.Fatalf("upcoming_renewal_count = %d, want %d", got, want)
+	}
+}

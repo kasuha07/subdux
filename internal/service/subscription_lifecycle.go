@@ -24,6 +24,18 @@ func normalizeRenewalMode(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
+// cancelAtPeriodEndBoundary returns the effective termination date for a
+// cancel-at-period-end subscription: its explicit EndsAt when set, otherwise
+// the next billing date it will lapse on. It is the single semantic source for
+// "when does this subscription end" and is shared by notifications, the
+// lifecycle sweep, and the dashboard.
+func cancelAtPeriodEndBoundary(sub model.Subscription) *time.Time {
+	if sub.EndsAt != nil {
+		return sub.EndsAt
+	}
+	return sub.NextBillingDate
+}
+
 func isValidSubscriptionStatus(value string) bool {
 	switch value {
 	case subscriptionStatusActive, subscriptionStatusEnded:

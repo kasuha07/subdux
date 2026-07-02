@@ -323,13 +323,6 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 	return nil
 }
 
-func cancelAtPeriodEndBoundary(sub model.Subscription) *time.Time {
-	if sub.EndsAt != nil {
-		return sub.EndsAt
-	}
-	return sub.NextBillingDate
-}
-
 func (s *NotificationService) manualRenewEndedNotificationCandidates(userID uint, referenceDate time.Time) ([]model.Subscription, error) {
 	today := normalizeDateUTC(referenceDate)
 	var subs []model.Subscription

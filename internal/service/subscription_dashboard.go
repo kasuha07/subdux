@@ -108,12 +108,11 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 	sevenDays := today.AddDate(0, 0, 7)
 	var upcomingRenewalCount int64
 	for _, sub := range subs {
-		if !subscriptionHasFutureCharge(sub) || sub.NextBillingDate == nil {
+		dueDate, ok := subscriptionUpcomingDashboardEventDate(sub)
+		if !ok {
 			continue
 		}
-
-		nextBillingDate := normalizeDateUTC(*sub.NextBillingDate)
-		if nextBillingDate.Before(today) || nextBillingDate.After(sevenDays) {
+		if dueDate.Before(today) || dueDate.After(sevenDays) {
 			continue
 		}
 		upcomingRenewalCount++
@@ -141,6 +140,31 @@ func subscriptionHasFutureCharge(sub model.Subscription) bool {
 	return normalizeStatus(sub.Status) == subscriptionStatusActive &&
 		sub.BillingType == billingTypeRecurring &&
 		normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd
+}
+
+// subscriptionUpcomingDashboardEventDate returns the date that drives the
+// "expiring soon" dashboard stat and whether the subscription has one. It is
+// deliberately scoped to the dashboard count and must not be reused for real
+// charges, calendar entries, or notifications. Auto-renew and manual-renew
+// subscriptions surface their next charge; cancel-at-period-end subscriptions
+// surface their termination boundary, so a subscription set to end is still
+// counted as expiring rather than being silently dropped for having no future
+// charge.
+func subscriptionUpcomingDashboardEventDate(sub model.Subscription) (time.Time, bool) {
+	if normalizeStatus(sub.Status) != subscriptionStatusActive {
+		return time.Time{}, false
+	}
+	if normalizeRenewalMode(sub.RenewalMode) == renewalModeCancelAtPeriodEnd {
+		boundary := cancelAtPeriodEndBoundary(sub)
+		if boundary == nil {
+			return time.Time{}, false
+		}
+		return normalizeDateUTC(*boundary), true
+	}
+	if !subscriptionHasFutureCharge(sub) || sub.NextBillingDate == nil {
+		return time.Time{}, false
+	}
+	return normalizeDateUTC(*sub.NextBillingDate), true
 }
 
 func subscriptionChargeDatesInRange(sub model.Subscription, startInclusive, endExclusive time.Time) []time.Time {
