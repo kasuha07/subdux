@@ -213,7 +213,7 @@ export default function AdminPage() {
                   systemProxyUrl={settingsForm.systemProxyUrl}
                   systemProxyUrlConfigured={settingsForm.systemProxyUrlConfigured}
                   onSystemProxyUrlChange={(value) => admin.setSettingsField("systemProxyUrl", value)}
-                  onSave={admin.handleSaveSettings}
+                  onSave={admin.handleSaveGeneralSettings}
                 />
               </Suspense>
             )}
@@ -258,7 +258,7 @@ export default function AdminPage() {
                   }
                   smtpTesting={admin.smtpTesting}
                   onSMTPTest={admin.handleTestSMTP}
-                  onSave={admin.handleSaveSettings}
+                  onSave={admin.handleSaveSMTPSettings}
                 />
               </Suspense>
             )}
@@ -315,7 +315,7 @@ export default function AdminPage() {
                   onOIDCExtraAuthParamsChange={(value) =>
                     admin.setSettingsField("oidcExtraAuthParams", value)
                   }
-                  onSave={admin.handleSaveSettings}
+                  onSave={admin.handleSaveAuthSettings}
                 />
               </Suspense>
             )}
@@ -333,7 +333,7 @@ export default function AdminPage() {
                   rateStatus={admin.rateStatus}
                   refreshing={admin.refreshing}
                   onRefresh={admin.handleRefreshRates}
-                  onSave={admin.handleSaveSettings}
+                  onSave={admin.handleSaveExchangeRateSettings}
                 />
               </Suspense>
             )}
@@ -402,9 +402,7 @@ export default function AdminPage() {
                   onBackupRetentionCountChange={(value) =>
                     admin.setSettingsField("backupRetentionCount", value)
                   }
-                  onSaveSettings={(reauthTicket) =>
-                    admin.handleSaveSettings({ includeBackupSettings: true, reauthTicket })
-                  }
+                  onSaveSettings={admin.handleSaveBackupSettings}
                   onRunBackupNow={admin.handleRunBackupNow}
                   runningBackup={admin.runningBackup}
                   localBackups={admin.localBackups}

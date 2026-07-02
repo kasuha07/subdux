@@ -14,11 +14,16 @@ import type {
   ExchangeRateStatus,
   LocalBackupInfo,
   LocalBackupList,
-  SaveSettingsOptions,
   SSRFTestResult,
   SystemSettings,
-  UpdateSettingsInput,
 } from "@/types"
+import {
+  buildAdminSettingsPayload,
+  createAdminSettingsForm,
+  mergeAdminSettingsFormScope,
+  type AdminSettingsFormState,
+  type AdminSettingsSaveScope,
+} from "./admin-settings-form"
 
 // Best-effort extraction of a JSON `{ "error": string }` message from a raw
 // Response returned by api.fetch. Returns undefined when the body is absent,
@@ -34,71 +39,6 @@ async function readErrorMessage(res: Response): Promise<string | undefined> {
     void 0
   }
   return undefined
-}
-
-interface AdminSettingsFormState {
-  allowImageUpload: boolean
-  backupScheduleEnabled: boolean
-  backupTimeOfDay: string
-  backupIncludeAssets: boolean
-  backupEncryptEnabled: boolean
-  backupEncryptionPassword: string
-  backupEncryptionPasswordConfigured: boolean
-  backupLocalDir: string
-  backupRetentionCount: number
-  currencyApiKey: string
-  currencyApiKeyConfigured: boolean
-  emailDomainWhitelist: string
-  exchangeRateSource: string
-  iconProxyDomainWhitelist: string
-  iconProxyEnabled: boolean
-  maxIconFileSize: number
-  mcpEnabled: boolean
-  auditEnabled: boolean
-  oidcAudience: string
-  oidcAuthorizationEndpoint: string
-  oidcAutoCreateUser: boolean
-  oidcClientID: string
-  oidcClientSecret: string
-  oidcClientSecretConfigured: boolean
-  oidcEnabled: boolean
-  oidcExtraAuthParams: string
-  oidcIssuerURL: string
-  oidcProviderName: string
-  oidcRedirectURL: string
-  oidcResource: string
-  oidcScopes: string
-  oidcTokenEndpoint: string
-  oidcUserinfoEndpoint: string
-  registrationEmailVerificationEnabled: boolean
-  registrationEnabled: boolean
-  siteName: string
-  siteUrl: string
-  smtpAuthMethod: string
-  smtpEnabled: boolean
-  smtpEncryption: string
-  smtpFromEmail: string
-  smtpFromName: string
-  smtpHeloName: string
-  smtpHost: string
-  smtpPassword: string
-  smtpPasswordConfigured: boolean
-  smtpPort: number
-  smtpRateLimitSeconds: number
-  smtpSkipTLSVerify: boolean
-  smtpTimeoutSeconds: number
-  smtpUsername: string
-  ssrfAllowPrivateIP: boolean
-  ssrfDomainFilterList: string
-  ssrfDomainFilterMode: string
-  ssrfFilterResolvedIPs: boolean
-  ssrfIPFilterList: string
-  ssrfIPFilterMode: string
-  ssrfProtectionEnabled: boolean
-  systemProxyEnabled: boolean
-  systemProxyType: string
-  systemProxyUrl: string
-  systemProxyUrlConfigured: boolean
 }
 
 interface UseAdminPageStateOptions {
@@ -127,7 +67,11 @@ interface UseAdminPageStateResult {
   handleRestore: (reauthTicket: string) => Promise<boolean>
   handleValidateRestoreInputs: () => Promise<boolean>
   handleRunBackupNow: () => Promise<void>
-  handleSaveSettings: (options?: SaveSettingsOptions) => Promise<void>
+  handleSaveAuthSettings: () => Promise<void>
+  handleSaveBackupSettings: (reauthTicket: string) => Promise<void>
+  handleSaveExchangeRateSettings: () => Promise<void>
+  handleSaveGeneralSettings: () => Promise<void>
+  handleSaveSMTPSettings: () => Promise<void>
   handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
   handleToggleRole: (user: AdminUser) => Promise<void>
@@ -171,76 +115,6 @@ interface UseAdminPageStateResult {
   ssrfTestTarget: string
   ssrfTesting: boolean
   users: AdminUser[]
-}
-
-function createSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
-  return {
-    allowImageUpload: settings?.allow_image_upload ?? true,
-    backupScheduleEnabled: settings?.backup_schedule_enabled ?? false,
-    backupTimeOfDay: settings?.backup_time_of_day || "03:00",
-    backupIncludeAssets: settings?.backup_include_assets ?? false,
-    backupEncryptEnabled: settings?.backup_encrypt_enabled ?? false,
-    backupEncryptionPassword: "",
-    backupEncryptionPasswordConfigured: settings?.backup_encryption_password_configured ?? false,
-    backupLocalDir: settings?.backup_local_dir || "",
-    backupRetentionCount: settings?.backup_retention_count ?? 7,
-    currencyApiKey: "",
-    currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
-    emailDomainWhitelist: settings?.email_domain_whitelist || "",
-    exchangeRateSource: settings?.exchange_rate_source || "auto",
-    iconProxyDomainWhitelist: settings?.icon_proxy_domain_whitelist || "",
-    iconProxyEnabled: settings?.icon_proxy_enabled ?? true,
-    maxIconFileSize: settings?.max_icon_file_size
-      ? Math.round(settings.max_icon_file_size / 1024)
-      : 64,
-    mcpEnabled: settings?.mcp_enabled ?? false,
-    auditEnabled: settings?.audit_enabled ?? true,
-    oidcAudience: settings?.oidc_audience || "",
-    oidcAuthorizationEndpoint: settings?.oidc_authorization_endpoint || "",
-    oidcAutoCreateUser: settings?.oidc_auto_create_user ?? false,
-    oidcClientID: settings?.oidc_client_id || "",
-    oidcClientSecret: "",
-    oidcClientSecretConfigured: settings?.oidc_client_secret_configured ?? false,
-    oidcEnabled: settings?.oidc_enabled ?? false,
-    oidcExtraAuthParams: settings?.oidc_extra_auth_params || "",
-    oidcIssuerURL: settings?.oidc_issuer_url || "",
-    oidcProviderName: settings?.oidc_provider_name || "OIDC",
-    oidcRedirectURL: settings?.oidc_redirect_url || "",
-    oidcResource: settings?.oidc_resource || "",
-    oidcScopes: settings?.oidc_scopes || "openid profile email",
-    oidcTokenEndpoint: settings?.oidc_token_endpoint || "",
-    oidcUserinfoEndpoint: settings?.oidc_userinfo_endpoint || "",
-    registrationEmailVerificationEnabled:
-      settings?.registration_email_verification_enabled ?? false,
-    registrationEnabled: settings?.registration_enabled ?? false,
-    siteName: settings?.site_name || "Subdux",
-    siteUrl: settings?.site_url || "",
-    smtpAuthMethod: settings?.smtp_auth_method || "auto",
-    smtpEnabled: settings?.smtp_enabled ?? false,
-    smtpEncryption: settings?.smtp_encryption || "starttls",
-    smtpFromEmail: settings?.smtp_from_email || "",
-    smtpFromName: settings?.smtp_from_name || "",
-    smtpHeloName: settings?.smtp_helo_name || "",
-    smtpHost: settings?.smtp_host || "",
-    smtpPassword: "",
-    smtpPasswordConfigured: settings?.smtp_password_configured ?? false,
-    smtpPort: settings?.smtp_port || 587,
-    smtpRateLimitSeconds: settings?.smtp_rate_limit_seconds ?? 0,
-    smtpSkipTLSVerify: settings?.smtp_skip_tls_verify ?? false,
-    smtpTimeoutSeconds: settings?.smtp_timeout_seconds || 10,
-    smtpUsername: settings?.smtp_username || "",
-    ssrfAllowPrivateIP: settings?.ssrf_allow_private_ip ?? false,
-    ssrfDomainFilterList: settings?.ssrf_domain_filter_list || "",
-    ssrfDomainFilterMode: settings?.ssrf_domain_filter_mode || "blacklist",
-    ssrfFilterResolvedIPs: settings?.ssrf_filter_resolved_ips ?? true,
-    ssrfIPFilterList: settings?.ssrf_ip_filter_list || "",
-    ssrfIPFilterMode: settings?.ssrf_ip_filter_mode || "blacklist",
-    ssrfProtectionEnabled: settings?.ssrf_protection_enabled ?? true,
-    systemProxyEnabled: settings?.system_proxy_enabled ?? false,
-    systemProxyType: settings?.system_proxy_type || "http",
-    systemProxyUrl: "",
-    systemProxyUrlConfigured: settings?.system_proxy_url_configured ?? false,
-  }
 }
 
 function parseFilenameFromContentDisposition(contentDisposition: string | null): string | null {
@@ -297,7 +171,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsForm, setSettingsForm] = useState<AdminSettingsFormState>(() =>
-    createSettingsForm()
+    createAdminSettingsForm()
+  )
+  const [savedSettingsForm, setSavedSettingsForm] = useState<AdminSettingsFormState>(() =>
+    createAdminSettingsForm()
   )
 
   const [includeAssetsInBackup, setIncludeAssetsInBackup] = useState(false)
@@ -350,7 +227,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     ])
       .then(([usersData, settingsData, rateStatusData, backgroundTasksData]) => {
         setUsers(usersData || [])
-        setSettingsForm(createSettingsForm(settingsData))
+        const form = createAdminSettingsForm(settingsData)
+        setSettingsForm(form)
+        setSavedSettingsForm(form)
         setBackupStatus(createBackupStatus(settingsData))
         setRateStatus(rateStatusData)
         setBackgroundTasks(backgroundTasksData || [])
@@ -435,85 +314,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleSaveSettings(options: SaveSettingsOptions = {}) {
+  async function saveSettingsScope(scope: AdminSettingsSaveScope, reauthTicket?: string) {
     try {
-      const payload: UpdateSettingsInput = {
-        registration_enabled: settingsForm.registrationEnabled,
-        registration_email_verification_enabled: settingsForm.registrationEmailVerificationEnabled,
-        email_domain_whitelist: settingsForm.emailDomainWhitelist,
-        site_name: settingsForm.siteName,
-        site_url: settingsForm.siteUrl,
-        icon_proxy_enabled: settingsForm.iconProxyEnabled,
-        icon_proxy_domain_whitelist: settingsForm.iconProxyDomainWhitelist,
-        exchange_rate_source: settingsForm.exchangeRateSource,
-        allow_image_upload: settingsForm.allowImageUpload,
-        max_icon_file_size: settingsForm.maxIconFileSize * 1024,
-        mcp_enabled: settingsForm.mcpEnabled,
-        audit_enabled: settingsForm.auditEnabled,
-        smtp_enabled: settingsForm.smtpEnabled,
-        smtp_host: settingsForm.smtpHost,
-        smtp_port: settingsForm.smtpPort,
-        smtp_username: settingsForm.smtpUsername,
-        smtp_from_email: settingsForm.smtpFromEmail,
-        smtp_from_name: settingsForm.smtpFromName,
-        smtp_encryption: settingsForm.smtpEncryption,
-        smtp_auth_method: settingsForm.smtpAuthMethod,
-        smtp_helo_name: settingsForm.smtpHeloName,
-        smtp_timeout_seconds: settingsForm.smtpTimeoutSeconds,
-        smtp_rate_limit_seconds: settingsForm.smtpRateLimitSeconds,
-        smtp_skip_tls_verify: settingsForm.smtpSkipTLSVerify,
-        ssrf_protection_enabled: settingsForm.ssrfProtectionEnabled,
-        ssrf_allow_private_ip: settingsForm.ssrfAllowPrivateIP,
-        ssrf_domain_filter_mode: settingsForm.ssrfDomainFilterMode,
-        ssrf_domain_filter_list: settingsForm.ssrfDomainFilterList,
-        ssrf_ip_filter_mode: settingsForm.ssrfIPFilterMode,
-        ssrf_ip_filter_list: settingsForm.ssrfIPFilterList,
-        ssrf_filter_resolved_ips: settingsForm.ssrfFilterResolvedIPs,
-        system_proxy_enabled: settingsForm.systemProxyEnabled,
-        system_proxy_type: settingsForm.systemProxyType,
-        oidc_enabled: settingsForm.oidcEnabled,
-        oidc_provider_name: settingsForm.oidcProviderName,
-        oidc_issuer_url: settingsForm.oidcIssuerURL,
-        oidc_client_id: settingsForm.oidcClientID,
-        oidc_redirect_url: settingsForm.oidcRedirectURL,
-        oidc_scopes: settingsForm.oidcScopes,
-        oidc_auto_create_user: settingsForm.oidcAutoCreateUser,
-        oidc_authorization_endpoint: settingsForm.oidcAuthorizationEndpoint,
-        oidc_token_endpoint: settingsForm.oidcTokenEndpoint,
-        oidc_userinfo_endpoint: settingsForm.oidcUserinfoEndpoint,
-        oidc_audience: settingsForm.oidcAudience,
-        oidc_resource: settingsForm.oidcResource,
-        oidc_extra_auth_params: settingsForm.oidcExtraAuthParams,
-      }
-
-      if (options.includeBackupSettings) {
-        payload.backup_schedule_enabled = settingsForm.backupScheduleEnabled
-        payload.backup_time_of_day = settingsForm.backupTimeOfDay
-        payload.backup_include_assets = settingsForm.backupIncludeAssets
-        payload.backup_encrypt_enabled = settingsForm.backupEncryptEnabled
-        payload.backup_local_dir = settingsForm.backupLocalDir
-        payload.backup_retention_count = settingsForm.backupRetentionCount
-      }
-
-      if (settingsForm.oidcClientSecret.trim()) {
-        payload.oidc_client_secret = settingsForm.oidcClientSecret.trim()
-      }
-      if (settingsForm.smtpPassword.trim()) {
-        payload.smtp_password = settingsForm.smtpPassword.trim()
-      }
-      if (settingsForm.systemProxyUrl.trim()) {
-        payload.system_proxy_url = settingsForm.systemProxyUrl.trim()
-      }
-      if (settingsForm.currencyApiKey.trim()) {
-        payload.currencyapi_key = settingsForm.currencyApiKey.trim()
-      }
-      if (options.includeBackupSettings && settingsForm.backupEncryptionPassword.trim()) {
-        payload.backup_encryption_password = settingsForm.backupEncryptionPassword.trim()
-      }
-
-      const headers = options.reauthTicket
-        ? { "X-Reauth-Ticket": options.reauthTicket }
-        : undefined
+      const payload = buildAdminSettingsPayload(settingsForm, scope)
+      const headers = reauthTicket ? { "X-Reauth-Ticket": reauthTicket } : undefined
       const res = await api.fetch("/admin/settings", {
         method: "PUT",
         headers,
@@ -525,13 +329,36 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         return
       }
       const fresh = await api.get<SystemSettings>("/admin/settings")
-      setSettingsForm(createSettingsForm(fresh))
+      setSavedSettingsForm(createAdminSettingsForm(fresh))
+      setSettingsForm((current) => mergeAdminSettingsFormScope(current, fresh, scope))
       setBackupStatus(createBackupStatus(fresh))
-      updateSiteTitle(fresh.site_name)
+      if (scope === "general") {
+        updateSiteTitle(fresh.site_name)
+      }
       toast.success(t("admin.settings.saveSuccess"))
     } catch {
       void 0
     }
+  }
+
+  function handleSaveGeneralSettings() {
+    return saveSettingsScope("general")
+  }
+
+  function handleSaveSMTPSettings() {
+    return saveSettingsScope("smtp")
+  }
+
+  function handleSaveAuthSettings() {
+    return saveSettingsScope("auth")
+  }
+
+  function handleSaveExchangeRateSettings() {
+    return saveSettingsScope("exchange-rates")
+  }
+
+  function handleSaveBackupSettings(reauthTicket: string) {
+    return saveSettingsScope("backup", reauthTicket)
   }
 
   function handleRegistrationEmailVerificationChange(enabled: boolean) {
@@ -540,7 +367,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       return
     }
 
-    if (!hasSMTPConfigForRegistrationVerification(settingsForm)) {
+    if (!hasSMTPConfigForRegistrationVerification(savedSettingsForm)) {
       toast.error(t("admin.settings.registrationEmailVerificationSmtpWarning"))
       return
     }
@@ -796,7 +623,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleRestore,
     handleValidateRestoreInputs: validateRestoreInputs,
     handleRunBackupNow,
-    handleSaveSettings,
+    handleSaveAuthSettings,
+    handleSaveBackupSettings,
+    handleSaveExchangeRateSettings,
+    handleSaveGeneralSettings,
+    handleSaveSMTPSettings,
     handleTestSSRF,
     handleTestSMTP,
     handleToggleRole,
