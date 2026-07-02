@@ -8,7 +8,8 @@ const common = {
     "maxNotificationChannels": "You can enable at most 3 notification channels",
     "smtpRateLimited": "SMTP send rate limit reached. Please wait before trying again.",
     "reauthRequired": "Re-authentication failed. Please try again.",
-    "noPasskeyRegistered": "No passkey is registered for your account. Add one in Settings, or use your password."
+    "noPasskeyRegistered": "No passkey is registered for your account. Add one in Settings, or use your password.",
+    "accountRateLimited": "Too many attempts for this account. Please try again later."
   },
   "passkeyErrors": {
     "notAllowed": "Passkey request was cancelled or timed out",

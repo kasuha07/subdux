@@ -17,6 +17,7 @@ const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
   "smtp send rate limit exceeded, please wait before trying again": "common.backendErrors.smtpRateLimited",
   "re-authentication required": "common.backendErrors.reauthRequired",
   "no passkey registered for this account": "common.backendErrors.noPasskeyRegistered",
+  "too many attempts for this account, please try again later": "common.backendErrors.accountRateLimited",
 }
 
 function readLocalStorage(key: string): string | null {
