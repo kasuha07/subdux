@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/shiroha/subdux/internal/pkg"
 	"github.com/shiroha/subdux/internal/service"
 )
 
@@ -30,6 +31,18 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{"error": "import file is too large"})
 		}
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON"})
+	}
+	if req.Confirm {
+		if getAuthType(c) == pkg.AuthTypeAPIKey {
+			return c.JSON(http.StatusForbidden, echo.Map{"error": "human session required"})
+		}
+		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+			userID,
+			service.ReauthOperationImportWallos,
+			c.Request().Header.Get(reauthTicketHeader),
+		); err != nil {
+			return writeReauthError(c, err)
+		}
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).ImportFromWallos(userID, req.Data, req.Confirm)

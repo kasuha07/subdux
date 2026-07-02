@@ -32,7 +32,7 @@ interface SettingsAccountTransferSectionProps {
 
 interface ImportPreviewDialogProps {
   loading: boolean
-  onConfirm: () => void | Promise<void>
+  onConfirm: (reauthTicket: string) => void | Promise<void>
   onOpenChange: (open: boolean) => void
   onReset: () => void
   open: boolean
@@ -330,112 +330,126 @@ export function ImportPreviewDialog({
   preview,
 }: ImportPreviewDialogProps) {
   const { t } = useTranslation()
+  const [reauthOpen, setReauthOpen] = useState(false)
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      if (nextOpen) {
-        onOpenChange(true)
-        return
-      }
-      if (!loading) {
-        onReset()
-      }
-    }}>
-      <DialogContent
-        className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh] sm:max-w-2xl"
-        onInteractOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => { if (loading) event.preventDefault() }}
-        showCloseButton={false}
-      >
-        <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
-          <DialogTitle>{t("settings.account.importPreviewTitle")}</DialogTitle>
-          <DialogDescription>{t("settings.account.importPreviewDescription")}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          onOpenChange(true)
+          return
+        }
+        if (!loading) {
+          setReauthOpen(false)
+          onReset()
+        }
+      }}>
+        <DialogContent
+          className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh] sm:max-w-2xl"
+          onInteractOutside={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => { if (loading) event.preventDefault() }}
+          showCloseButton={false}
+        >
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>{t("settings.account.importPreviewTitle")}</DialogTitle>
+            <DialogDescription>{t("settings.account.importPreviewDescription")}</DialogDescription>
+          </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
-          {preview && (
-            <div className="space-y-5">
-              {preview.currencies.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewCurrencies")}</h4>
-                  <div className="space-y-1.5">
-                    {preview.currencies.map((currency) => (
-                      <div key={currency.code} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                        <span>{currency.code}{currency.symbol ? ` (${currency.symbol})` : ""}</span>
-                        <Badge variant={currency.is_new ? "default" : "secondary"} className="text-xs">
-                          {currency.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {preview.payment_methods.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewPaymentMethods")}</h4>
-                  <div className="space-y-1.5">
-                    {preview.payment_methods.map((paymentMethod) => (
-                      <div key={paymentMethod.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                        <div>
-                          <span>{paymentMethod.name}</span>
-                          {paymentMethod.matched && (
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              {t("settings.account.importPreviewMatchedAs", { name: paymentMethod.matched })}
-                            </span>
-                          )}
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            {preview && (
+              <div className="space-y-5">
+                {preview.currencies.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewCurrencies")}</h4>
+                    <div className="space-y-1.5">
+                      {preview.currencies.map((currency) => (
+                        <div key={currency.code} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>{currency.code}{currency.symbol ? ` (${currency.symbol})` : ""}</span>
+                          <Badge variant={currency.is_new ? "default" : "secondary"} className="text-xs">
+                            {currency.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
                         </div>
-                        <Badge variant={paymentMethod.is_new ? "default" : "secondary"} className="text-xs">
-                          {paymentMethod.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
-                        </Badge>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {preview.categories.length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewCategories")}</h4>
-                  <div className="space-y-1.5">
-                    {preview.categories.map((category) => (
-                      <div key={category.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                        <span>{category.name}</span>
-                        <Badge variant={category.is_new ? "default" : "secondary"} className="text-xs">
-                          {category.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {preview.subscriptions.length > 0 && (
-                <SubscriptionPreviewList subscriptions={preview.subscriptions} showCategory />
-              )}
-
-              {preview.currencies.length === 0 &&
-                preview.payment_methods.length === 0 &&
-                preview.categories.length === 0 &&
-                preview.subscriptions.length === 0 && (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    {t("settings.account.importPreviewEmpty")}
-                  </p>
                 )}
-            </div>
-          )}
-        </div>
 
-        <PreviewDialogFooter
-          confirmDisabled={preview?.subscriptions.every((subscription) => subscription.skipped) ?? false}
-          loading={loading}
-          loadingLabel={t("settings.account.importing")}
-          onConfirm={onConfirm}
-          onReset={onReset}
-          confirmLabel={t("settings.account.importPreviewConfirm")}
-        />
-      </DialogContent>
-    </Dialog>
+                {preview.payment_methods.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewPaymentMethods")}</h4>
+                    <div className="space-y-1.5">
+                      {preview.payment_methods.map((paymentMethod) => (
+                        <div key={paymentMethod.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <div>
+                            <span>{paymentMethod.name}</span>
+                            {paymentMethod.matched && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {t("settings.account.importPreviewMatchedAs", { name: paymentMethod.matched })}
+                              </span>
+                            )}
+                          </div>
+                          <Badge variant={paymentMethod.is_new ? "default" : "secondary"} className="text-xs">
+                            {paymentMethod.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {preview.categories.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium">{t("settings.account.importPreviewCategories")}</h4>
+                    <div className="space-y-1.5">
+                      {preview.categories.map((category) => (
+                        <div key={category.name} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <span>{category.name}</span>
+                          <Badge variant={category.is_new ? "default" : "secondary"} className="text-xs">
+                            {category.is_new ? t("settings.account.importPreviewNew") : t("settings.account.importPreviewExists")}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {preview.subscriptions.length > 0 && (
+                  <SubscriptionPreviewList subscriptions={preview.subscriptions} showCategory />
+                )}
+
+                {preview.currencies.length === 0 &&
+                  preview.payment_methods.length === 0 &&
+                  preview.categories.length === 0 &&
+                  preview.subscriptions.length === 0 && (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      {t("settings.account.importPreviewEmpty")}
+                    </p>
+                  )}
+              </div>
+            )}
+          </div>
+
+          <PreviewDialogFooter
+            confirmDisabled={preview?.subscriptions.every((subscription) => subscription.skipped) ?? false}
+            loading={loading}
+            loadingLabel={t("settings.account.importing")}
+            onConfirm={() => setReauthOpen(true)}
+            onReset={onReset}
+            confirmLabel={t("settings.account.importPreviewConfirm")}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <ReauthDialog
+        operation="import_wallos"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={onConfirm}
+        layer="stacked"
+        title={t("settings.account.importReauthTitle")}
+        description={t("settings.account.importReauthDescription")}
+      />
+    </>
   )
 }
 

@@ -133,6 +133,36 @@ func postSubduxImport(t *testing.T, e *echo.Echo, token string, confirm bool, ti
 	return rec
 }
 
+func postWallosImport(t *testing.T, e *echo.Echo, token string, confirm bool, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"data":[],"confirm":%t}`, confirm)
+	req := httptest.NewRequest(http.MethodPost, "/api/import/wallos", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func postWallosImportWithAPIKey(t *testing.T, e *echo.Echo, apiKey string, confirm bool, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"data":[],"confirm":%t}`, confirm)
+	req := httptest.NewRequest(http.MethodPost, "/api/import/wallos", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-API-Key", apiKey)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
@@ -175,6 +205,83 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 		}
 		if !strings.Contains(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("preview does not require reauth", func(t *testing.T) {
+		rec := postWallosImport(t, e, token, false, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+
+	t.Run("missing ticket is refused on confirm", func(t *testing.T) {
+		rec := postWallosImport(t, e, token, true, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused on confirm", func(t *testing.T) {
+		subduxTicket := mintReauthTicket(t, e, token, service.ReauthOperationImportSubdux)
+		rec := postWallosImport(t, e, token, true, subduxTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationImportWallos)
+
+		rec := postWallosImport(t, e, token, true, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		rec = postWallosImport(t, e, token, true, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("api key can preview but cannot confirm", func(t *testing.T) {
+		apiKeyResp, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+			Name:    "Integration",
+			KeyKind: service.APIKeyKindAPIIntegration,
+			Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		})
+		if err != nil {
+			t.Fatalf("failed to create api key: %v", err)
+		}
+
+		rec := postWallosImportWithAPIKey(t, e, apiKeyResp.Key, false, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("preview status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationImportWallos)
+		rec = postWallosImportWithAPIKey(t, e, apiKeyResp.Key, true, ticket)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("confirm status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "human session required") {
+			t.Fatalf("body = %s, want human session required", rec.Body.String())
 		}
 	})
 }

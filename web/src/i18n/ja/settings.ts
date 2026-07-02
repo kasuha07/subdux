@@ -181,6 +181,8 @@ const settings = {
     "importSuccess": "{{imported}} 件のサブスクリプションをインポートしました（{{skipped}} 件スキップ）",
     "importFailed": "データのインポートに失敗しました",
     "importInvalidFormat": "ファイル形式が無効です。有効な Wallos JSON エクスポートファイルを選択してください",
+    "importReauthTitle": "インポート前に再認証",
+    "importReauthDescription": "Wallos のデータをインポートする前に本人確認を行ってください。",
     "importPreviewTitle": "インポートプレビュー",
     "importPreviewDescription": "インポート前に変更内容を確認してください",
     "importPreviewCurrencies": "通貨",

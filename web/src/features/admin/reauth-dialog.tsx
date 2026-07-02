@@ -32,6 +32,7 @@ type ReauthOperation =
   | "export_redacted"
   | "export_secrets"
   | "import_subdux"
+  | "import_wallos"
 
 // Base path for the step-up re-authentication API. The endpoints live in a
 // shared (human-session, not admin-only) group, so this dialog is not coupled

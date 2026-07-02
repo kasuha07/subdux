@@ -11,7 +11,7 @@ import type {
 interface UseSettingsAccountTransferResult {
   exportLoading: boolean
   exportSecretsConfirmOpen: boolean
-  handleConfirmImport: () => Promise<void>
+  handleConfirmImport: (reauthTicket: string) => Promise<void>
   handleConfirmSubduxImport: (reauthTicket: string) => Promise<void>
   handleExport: (includeSecrets: boolean, reauthTicket: string) => Promise<void>
   handleImportSubdux: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
@@ -151,13 +151,14 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
     }
   }
 
-  async function handleConfirmImport() {
+  async function handleConfirmImport(reauthTicket: string) {
     if (!importRawData) return
 
     setImportLoading(true)
     try {
       const res = await api.fetch("/import/wallos", {
         method: "POST",
+        headers: { "X-Reauth-Ticket": reauthTicket },
         body: JSON.stringify({ data: importRawData, confirm: true }),
       })
 

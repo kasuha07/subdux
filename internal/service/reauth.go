@@ -37,6 +37,7 @@ const (
 	ReauthOperationExportRedacted = "export_redacted"
 	ReauthOperationExportSecrets  = "export_secrets"
 	ReauthOperationImportSubdux   = "import_subdux"
+	ReauthOperationImportWallos   = "import_wallos"
 )
 
 const (
@@ -116,7 +117,8 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationConnectOIDC,
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,
-		ReauthOperationImportSubdux:
+		ReauthOperationImportSubdux,
+		ReauthOperationImportWallos:
 		return true
 	default:
 		return false

@@ -181,6 +181,8 @@ const settings = {
     "importSuccess": "成功导入 {{imported}} 个订阅（跳过 {{skipped}} 个）",
     "importFailed": "导入数据失败",
     "importInvalidFormat": "文件格式无效，请选择有效的 Wallos JSON 导出文件",
+    "importReauthTitle": "确认身份后导入",
+    "importReauthDescription": "请重新验证身份后再导入 Wallos 数据。",
     "importPreviewTitle": "导入预览",
     "importPreviewDescription": "在导入前确认即将进行的变更",
     "importPreviewCurrencies": "货币",

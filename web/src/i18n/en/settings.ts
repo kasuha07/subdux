@@ -181,6 +181,8 @@ const settings = {
     "importSuccess": "Successfully imported {{imported}} subscriptions ({{skipped}} skipped)",
     "importFailed": "Failed to import data",
     "importInvalidFormat": "Invalid file format. Please select a valid Wallos JSON export file",
+    "importReauthTitle": "Re-authenticate to import",
+    "importReauthDescription": "Verify your identity before importing data from Wallos.",
     "importPreviewTitle": "Import Preview",
     "importPreviewDescription": "Review the changes that will be made before importing",
     "importPreviewCurrencies": "Currencies",
