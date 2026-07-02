@@ -9,7 +9,9 @@ const common = {
     "smtpRateLimited": "SMTP send rate limit reached. Please wait before trying again.",
     "reauthRequired": "Re-authentication failed. Please try again.",
     "noPasskeyRegistered": "No passkey is registered for your account. Add one in Settings, or use your password.",
-    "accountRateLimited": "Too many attempts for this account. Please try again later."
+    "accountRateLimited": "Too many attempts for this account. Please try again later.",
+    "totpSetupExpired": "Two-factor setup expired. Start again.",
+    "totpAlreadyEnabled": "Two-factor authentication is already enabled."
   },
   "passkeyErrors": {
     "notAllowed": "Passkey request was cancelled or timed out",

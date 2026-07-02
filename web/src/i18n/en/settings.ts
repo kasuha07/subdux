@@ -242,7 +242,11 @@ const settings = {
     "disableButton": "Disable 2FA",
     "enableSuccess": "Two-factor authentication enabled",
     "disableSuccess": "Two-factor authentication disabled",
-    "verifyError": "Invalid code. Please try again."
+    "verifyError": "Invalid code. Please try again.",
+    "reauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before showing the TOTP secret."
+    }
   },
   "passkeys": {
     "title": "Passkeys",

@@ -12,9 +12,19 @@ import (
 
 func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 	userID := getUserID(c)
-	result, err := h.TOTPService.WithContext(c.Request().Context()).GenerateSetup(userID)
+	var input struct {
+		ReauthTicket string `json:"reauth_ticket"`
+	}
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	}
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationEnableTOTP, input.ReauthTicket); err != nil {
+		return writeReauthError(c, err)
+	}
+
+	result, err := h.TOTPService.WithContext(c.Request().Context()).BeginSetup(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return writeTOTPServiceError(c, err)
 	}
 	return c.JSON(http.StatusOK, result)
 }
@@ -22,18 +32,19 @@ func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 	userID := getUserID(c)
 	var input struct {
-		Code string `json:"code"`
+		SessionID string `json:"session_id"`
+		Code      string `json:"code"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
-	if input.Code == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Code is required"})
+	if input.SessionID == "" || input.Code == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "session_id and code are required"})
 	}
 
-	backupCodes, err := h.TOTPService.WithContext(c.Request().Context()).ConfirmSetup(userID, input.Code)
+	backupCodes, err := h.TOTPService.WithContext(c.Request().Context()).ConfirmSetup(userID, input.SessionID, input.Code)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeTOTPServiceError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"backup_codes": backupCodes})
 }
@@ -52,9 +63,24 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 	}
 
 	if err := h.TOTPService.WithContext(c.Request().Context()).Disable(userID, input.Password, input.Code); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeTOTPServiceError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "2FA disabled successfully"})
+}
+
+func writeTOTPServiceError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, service.ErrTOTPAlreadyEnabled),
+		errors.Is(err, service.ErrTOTPSetupExpired),
+		errors.Is(err, service.ErrTOTPInvalidCode),
+		errors.Is(err, service.ErrTOTPInvalidPassword),
+		errors.Is(err, service.ErrTOTPInvalidAuthCode):
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	case errors.Is(err, service.ErrUserNotFound):
+		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+	default:
+		return writeInternalServerError(c, err)
+	}
 }
 
 type verifyTOTPLoginInput struct {

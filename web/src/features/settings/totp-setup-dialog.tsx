@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { api } from "@/lib/api"
-import { toast } from "sonner"
 import type { TotpConfirmResponse, TotpSetupResponse } from "@/types"
 
 type Step = "qr" | "verify" | "backup"
@@ -20,10 +19,11 @@ type Step = "qr" | "verify" | "backup"
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  reauthTicket: string
   onEnabled: (backupCodes: string[]) => void
 }
 
-export default function TotpSetupDialog({ open, onOpenChange, onEnabled }: Props) {
+export default function TotpSetupDialog({ open, onOpenChange, reauthTicket, onEnabled }: Props) {
   const { t } = useTranslation()
   const [step, setStep] = useState<Step>("qr")
   const [setup, setSetup] = useState<TotpSetupResponse | null>(null)
@@ -37,6 +37,10 @@ export default function TotpSetupDialog({ open, onOpenChange, onEnabled }: Props
 
   useEffect(() => {
     if (!open) return
+    if (!reauthTicket) {
+      handleClose(false)
+      return
+    }
     setStep("qr")
     setCode("")
     setVerifyError("")
@@ -44,22 +48,35 @@ export default function TotpSetupDialog({ open, onOpenChange, onEnabled }: Props
     setCopied(false)
     setSetup(null)
 
-    api.get<TotpSetupResponse>("/auth/totp/setup").then(setSetup).catch(() => {
-      toast.error(t("common.requestFailed"))
+    api.post<TotpSetupResponse>("/auth/totp/setup", { reauth_ticket: reauthTicket }).then(setSetup).catch(() => {
       handleClose(false)
     })
-  }, [open, handleClose, t])
+  }, [open, handleClose, reauthTicket, t])
 
   async function handleVerify() {
     if (!code.trim()) return
     setVerifyError("")
     setVerifying(true)
     try {
-      const resp = await api.post<TotpConfirmResponse>("/auth/totp/confirm", { code: code.trim() })
+      if (!setup) {
+        return
+      }
+      const resp = await api.post<TotpConfirmResponse>("/auth/totp/confirm", {
+        session_id: setup.session_id,
+        code: code.trim(),
+      })
       setBackupCodes(resp.backup_codes)
       setStep("backup")
     } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : t("settings.twoFactor.verifyError"))
+      const message = err instanceof Error ? err.message : t("settings.twoFactor.verifyError")
+      if (
+        message === t("common.backendErrors.totpSetupExpired") ||
+        message === t("common.backendErrors.totpAlreadyEnabled")
+      ) {
+        handleClose(false)
+        return
+      }
+      setVerifyError(message)
     } finally {
       setVerifying(false)
     }

@@ -169,16 +169,6 @@ func TestReadRequestBodyAndRestoreSkipsLargeUnknownLengthBody(t *testing.T) {
 	}
 }
 
-func TestRequiredAPIKeyScopeUsesWriteForStateChangingGetRoute(t *testing.T) {
-	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/auth/totp/setup", "", "")
-	c.SetPath("/api/auth/totp/setup")
-
-	got := requiredAPIKeyScope(c)
-	if got != service.APIKeyScopeWrite {
-		t.Fatalf("requiredAPIKeyScope() = %q, want %q", got, service.APIKeyScopeWrite)
-	}
-}
-
 func TestRequiredAPIKeyScopeUsesReadForRegularGetRoute(t *testing.T) {
 	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/subscriptions", "", "")
 	c.SetPath("/api/subscriptions")
@@ -303,7 +293,7 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 		},
 		{
 			name:   "setup totp",
-			method: http.MethodGet,
+			method: http.MethodPost,
 			target: "/api/auth/totp/setup",
 		},
 		{
@@ -681,7 +671,7 @@ func TestAPIKeyScopeMiddlewareBlocksAuthNamespaceRoot(t *testing.T) {
 }
 
 func TestAPIKeyScopeMiddlewareBlocksRestrictedAuthRoutes(t *testing.T) {
-	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/auth/totp/setup", "", "")
+	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/auth/totp/setup", "", "")
 	c.SetPath("/api/auth/totp/setup")
 	c.Set("user", &jwt.Token{
 		Claims: &pkg.JWTClaims{

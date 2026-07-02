@@ -28,6 +28,7 @@ type ReauthOperation =
   | "backup"
   | "restore"
   | "add_passkey"
+  | "enable_totp"
   | "connect_oidc"
   | "export_redacted"
   | "export_secrets"

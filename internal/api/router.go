@@ -295,7 +295,7 @@ func SetupRoutes(
 	humanProtected.PUT("/auth/password", authHandler.ChangePassword)
 	humanProtected.POST("/auth/email/change/send-code", authHandler.SendEmailChangeVerificationCode)
 	humanProtected.POST("/auth/email/change/confirm", authHandler.ConfirmEmailChange)
-	humanProtected.GET("/auth/totp/setup", authHandler.SetupTOTP)
+	humanProtected.POST("/auth/totp/setup", authHandler.SetupTOTP)
 	humanProtected.POST("/auth/totp/confirm", authHandler.ConfirmTOTP)
 	humanProtected.POST("/auth/totp/disable", authHandler.DisableTOTP)
 	humanProtected.GET("/auth/passkeys", authHandler.ListPasskeys)

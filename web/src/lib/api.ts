@@ -18,6 +18,8 @@ const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
   "re-authentication required": "common.backendErrors.reauthRequired",
   "no passkey registered for this account": "common.backendErrors.noPasskeyRegistered",
   "too many attempts for this account, please try again later": "common.backendErrors.accountRateLimited",
+  "two-factor setup expired, start again": "common.backendErrors.totpSetupExpired",
+  "two-factor authentication is already enabled": "common.backendErrors.totpAlreadyEnabled",
 }
 
 function readLocalStorage(key: string): string | null {

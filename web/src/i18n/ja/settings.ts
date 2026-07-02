@@ -242,7 +242,11 @@ const settings = {
     "disableButton": "二段階認証を無効にする",
     "enableSuccess": "二段階認証を有効にしました",
     "disableSuccess": "二段階認証を無効にしました",
-    "verifyError": "コードが無効です。もう一度お試しください。"
+    "verifyError": "コードが無効です。もう一度お試しください。",
+    "reauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、TOTP シークレットを表示する前に再認証してください。"
+    }
   },
   "passkeys": {
     "title": "Passkeys",

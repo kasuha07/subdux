@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import type { User } from "@/types"
+import ReauthDialog from "@/features/admin/reauth-dialog"
 import TotpSetupDialog from "./totp-setup-dialog"
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
 export default function TotpSection({ user, onUserChange }: Props) {
   const { t } = useTranslation()
   const [setupOpen, setSetupOpen] = useState(false)
+  const [setupReauthTicket, setSetupReauthTicket] = useState("")
+  const [reauthOpen, setReauthOpen] = useState(false)
   const [showDisableForm, setShowDisableForm] = useState(false)
   const [disablePassword, setDisablePassword] = useState("")
   const [disableCode, setDisableCode] = useState("")
@@ -28,6 +31,7 @@ export default function TotpSection({ user, onUserChange }: Props) {
 
   function handleEnabled() {
     setSetupOpen(false)
+    setSetupReauthTicket("")
     toast.success(t("settings.twoFactor.enableSuccess"))
     api.get<User>("/auth/me").then(onUserChange).catch(() => void 0)
   }
@@ -54,8 +58,25 @@ export default function TotpSection({ user, onUserChange }: Props) {
     <>
       <TotpSetupDialog
         open={setupOpen}
-        onOpenChange={setSetupOpen}
+        onOpenChange={(open) => {
+          setSetupOpen(open)
+          if (!open) {
+            setSetupReauthTicket("")
+          }
+        }}
+        reauthTicket={setupReauthTicket}
         onEnabled={handleEnabled}
+      />
+      <ReauthDialog
+        operation="enable_totp"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={(ticket) => {
+          setSetupReauthTicket(ticket)
+          setSetupOpen(true)
+        }}
+        title={t("settings.twoFactor.reauth.title")}
+        description={t("settings.twoFactor.reauth.description")}
       />
 
       <div className="space-y-3">
@@ -72,7 +93,7 @@ export default function TotpSection({ user, onUserChange }: Props) {
         </div>
 
         {!totpEnabled && (
-          <Button size="sm" variant="outline" onClick={() => setSetupOpen(true)}>
+          <Button size="sm" variant="outline" onClick={() => setReauthOpen(true)}>
             {t("settings.twoFactor.enable")}
           </Button>
         )}

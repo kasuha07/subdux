@@ -65,6 +65,7 @@ export interface PasskeyBeginResult<TOptions = unknown> {
 }
 
 export interface TotpSetupResponse {
+  session_id: string
   otpauth_uri: string
   secret: string
 }

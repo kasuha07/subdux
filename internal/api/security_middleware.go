@@ -328,18 +328,10 @@ func isAPIKeyRouteAllowed(path string) bool {
 	return true
 }
 
-var writeScopeRoutes = map[string]struct{}{
-	"/api/auth/totp/setup": {},
-}
-
 func requiredAPIKeyScope(c echo.Context) string {
 	path := c.Path()
 	if path == "" {
 		path = c.Request().URL.Path
-	}
-
-	if _, ok := writeScopeRoutes[path]; ok {
-		return service.APIKeyScopeWrite
 	}
 
 	if isReadOnlyMethod(c.Request().Method) {

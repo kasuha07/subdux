@@ -17,8 +17,8 @@ import (
 // synchronization primitives; transactions and free helper functions that take
 // a *gorm.DB inherit the bound context automatically from the session they are
 // handed. Services that own in-memory caches or session stores (AuthService,
-// ExchangeRateService, NotificationService) define WithContext alongside their
-// own declarations so the shared state is preserved.
+// TOTPService, ExchangeRateService, NotificationService) define WithContext
+// alongside their own declarations so the shared state is preserved.
 
 // withContext binds db to ctx, tolerating a nil handle so context-less unit
 // tests that construct services without a database keep working.
@@ -84,12 +84,6 @@ func (s *ExportService) WithContext(ctx context.Context) *ExportService {
 }
 
 func (s *ImportService) WithContext(ctx context.Context) *ImportService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
-func (s *TOTPService) WithContext(ctx context.Context) *TOTPService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)
 	return &clone

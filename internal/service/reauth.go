@@ -33,6 +33,7 @@ const (
 	ReauthOperationBackup         = "backup"
 	ReauthOperationRestore        = "restore"
 	ReauthOperationAddPasskey     = "add_passkey"
+	ReauthOperationEnableTOTP     = "enable_totp"
 	ReauthOperationConnectOIDC    = "connect_oidc"
 	ReauthOperationExportRedacted = "export_redacted"
 	ReauthOperationExportSecrets  = "export_secrets"
@@ -114,6 +115,7 @@ func IsValidReauthOperation(operation string) bool {
 	case ReauthOperationBackup,
 		ReauthOperationRestore,
 		ReauthOperationAddPasskey,
+		ReauthOperationEnableTOTP,
 		ReauthOperationConnectOIDC,
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,

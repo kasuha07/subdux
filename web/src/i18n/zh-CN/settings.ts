@@ -242,7 +242,11 @@ const settings = {
     "disableButton": "禁用两步验证",
     "enableSuccess": "两步验证启用成功",
     "disableSuccess": "两步验证已禁用",
-    "verifyError": "验证码无效，请重试。"
+    "verifyError": "验证码无效，请重试。",
+    "reauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，在显示 TOTP 密钥前请重新验证身份。"
+    }
   },
   "passkeys": {
     "title": "Passkey",

@@ -1,0 +1,190 @@
+package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service"
+	"github.com/labstack/echo/v4"
+	"github.com/pquerna/otp/totp"
+)
+
+type totpSetupGateResponse struct {
+	SessionID  string `json:"session_id"`
+	OtpauthURI string `json:"otpauth_uri"`
+	Secret     string `json:"secret"`
+}
+
+func postTOTPSetup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func postTOTPConfirm(t *testing.T, e *echo.Echo, token, sessionID, code string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"session_id":%q,"code":%q}`, sessionID, code)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/confirm", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func decodeTOTPSetupResponse(t *testing.T, rec *httptest.ResponseRecorder) totpSetupGateResponse {
+	t.Helper()
+
+	var resp totpSetupGateResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode setup response: %v; body = %s", err, rec.Body.String())
+	}
+	return resp
+}
+
+func TestTOTPSetupRequiresEnableTOTPReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, user)
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := postTOTPSetup(t, e, token, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, "backup")
+		rec := postTOTPSetup(t, e, token, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket returns a setup session and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, "enable_totp")
+
+		rec := postTOTPSetup(t, e, token, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		resp := decodeTOTPSetupResponse(t, rec)
+		if resp.SessionID == "" || resp.Secret == "" || resp.OtpauthURI == "" {
+			t.Fatalf("setup response = %+v, want session_id/secret/otpauth_uri", resp)
+		}
+
+		rec = postTOTPSetup(t, e, token, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestTOTPConfirmIsBoundToCurrentSetupSession(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, user)
+
+	first := decodeTOTPSetupResponse(t, postTOTPSetup(t, e, token, mintReauthTicket(t, e, token, "enable_totp")))
+	second := decodeTOTPSetupResponse(t, postTOTPSetup(t, e, token, mintReauthTicket(t, e, token, "enable_totp")))
+
+	firstCode, err := totp.GenerateCode(first.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("GenerateCode(first) error = %v, want nil", err)
+	}
+	rec := postTOTPConfirm(t, e, token, first.SessionID, firstCode)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("stale session status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "setup expired") {
+		t.Fatalf("stale session body = %s, want setup expired", rec.Body.String())
+	}
+
+	secondCode, err := totp.GenerateCode(second.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("GenerateCode(second) error = %v, want nil", err)
+	}
+	rec = postTOTPConfirm(t, e, token, second.SessionID, secondCode)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "backup_codes") {
+		t.Fatalf("body = %s, want backup_codes", rec.Body.String())
+	}
+}
+
+func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
+	reauthDB := newHumanOnlyRouteTestDB(t)
+	user := createReauthGateTestAdmin(t, reauthDB)
+	reauthSvc := service.NewReauthService(reauthDB, service.NewAuthService(reauthDB))
+
+	ticket, err := reauthSvc.VerifyPassword(user.ID, service.ReauthOperationEnableTOTP, reauthGateTestPassword)
+	if err != nil {
+		t.Fatalf("VerifyPassword() error = %v, want nil", err)
+	}
+
+	brokenDB := newHumanOnlyRouteTestDB(t)
+	sqlDB, err := brokenDB.DB()
+	if err != nil {
+		t.Fatalf("brokenDB.DB() error = %v, want nil", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatalf("close broken sql DB error = %v, want nil", err)
+	}
+
+	handler := NewAuthHandler(service.NewAuthService(reauthDB), service.NewTOTPService(brokenDB), reauthSvc)
+	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+	c.Set("user", &jwt.Token{
+		Claims: &pkg.JWTClaims{
+			UserID:   user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			Role:     user.Role,
+			AuthType: pkg.AuthTypeUser,
+		},
+	})
+
+	if err := handler.SetupTOTP(c); err != nil {
+		t.Fatalf("SetupTOTP() error = %v, want nil", err)
+	}
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusInternalServerError, rec.Body.String())
+	}
+	if strings.Contains(strings.ToLower(rec.Body.String()), "closed") {
+		t.Fatalf("body = %s, should not expose underlying db error", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "internal server error") {
+		t.Fatalf("body = %s, want generic internal server error", rec.Body.String())
+	}
+}
