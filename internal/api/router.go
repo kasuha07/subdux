@@ -188,7 +188,8 @@ func SetupRoutes(
 	refreshTokenLimiter := authAccountRateLimit(20, time.Minute, refreshTokenAccountKey)
 	iconProxyLimiter := authIPRateLimit(600, time.Minute)
 	reauthIPLimiter := authIPRateLimit(30, time.Minute)
-	reauthUserLimiter := authAccountRateLimit(6, 10*time.Minute, reauthUserAccountKey)
+	reauthUserLimiter := authAccountRateLimit(6, 10*time.Minute, authenticatedUserAccountKey)
+	emailChangeUserLimiter := authAccountRateLimit(6, 10*time.Minute, authenticatedUserAccountKey)
 
 	api.GET("/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, version.Get())
@@ -293,7 +294,7 @@ func SetupRoutes(
 	protected.GET("/auth/me", authHandler.Me)
 	humanProtected.POST("/auth/logout-all", authHandler.LogoutAll)
 	humanProtected.PUT("/auth/password", authHandler.ChangePassword)
-	humanProtected.POST("/auth/email/change/send-code", authHandler.SendEmailChangeVerificationCode)
+	humanProtected.POST("/auth/email/change/send-code", authHandler.SendEmailChangeVerificationCode, emailChangeUserLimiter)
 	humanProtected.POST("/auth/email/change/confirm", authHandler.ConfirmEmailChange)
 	humanProtected.POST("/auth/totp/setup", authHandler.SetupTOTP)
 	humanProtected.POST("/auth/totp/confirm", authHandler.ConfirmTOTP)

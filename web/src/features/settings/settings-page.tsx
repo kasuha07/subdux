@@ -267,8 +267,6 @@ export default function SettingsPage() {
                 onUserChange={account.setUser}
                 newEmail={account.newEmail}
                 onNewEmailChange={account.setNewEmail}
-                emailChangePassword={account.emailChangePassword}
-                onEmailChangePasswordChange={account.setEmailChangePassword}
                 emailVerificationCode={account.emailVerificationCode}
                 onEmailVerificationCodeChange={account.setEmailVerificationCode}
                 emailCodeLoading={account.emailCodeLoading}
@@ -276,6 +274,7 @@ export default function SettingsPage() {
                 emailCodeSent={account.emailCodeSent}
                 emailChangeError={account.emailChangeError}
                 onSendEmailChangeCode={account.handleSendEmailChangeCode}
+                onValidateEmailChangeCodeRequest={account.validateEmailChangeCodeRequest}
                 onConfirmEmailChange={account.handleConfirmEmailChange}
                 passwordError={account.passwordError}
                 passwordSuccess={account.passwordSuccess}

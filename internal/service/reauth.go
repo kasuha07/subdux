@@ -32,6 +32,7 @@ import (
 const (
 	ReauthOperationBackup         = "backup"
 	ReauthOperationRestore        = "restore"
+	ReauthOperationChangeEmail    = "change_email"
 	ReauthOperationAddPasskey     = "add_passkey"
 	ReauthOperationEnableTOTP     = "enable_totp"
 	ReauthOperationConnectOIDC    = "connect_oidc"
@@ -114,6 +115,7 @@ func IsValidReauthOperation(operation string) bool {
 	switch operation {
 	case ReauthOperationBackup,
 		ReauthOperationRestore,
+		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,
 		ReauthOperationEnableTOTP,
 		ReauthOperationConnectOIDC,

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
+import ReauthDialog from "@/features/admin/reauth-dialog"
 import { useSettingsAccountTransfer } from "@/features/settings/hooks/use-settings-account-transfer"
 import { cn } from "@/lib/utils"
 import type { User } from "@/types"
@@ -72,15 +73,13 @@ interface SettingsAccountTabProps {
   currentPassword: string
   emailChangeError: string
   emailChangeLoading: boolean
-  emailChangePassword: string
   emailCodeLoading: boolean
   emailCodeSent: boolean
   emailVerificationCode: string
   newEmail: string
   newPassword: string
-  onConfirmEmailChange: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onConfirmEmailChange: () => void | Promise<void>
   onChangePassword: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
-  onEmailChangePasswordChange: (value: string) => void
   onEmailVerificationCodeChange: (value: string) => void
   onConfirmPasswordChange: (value: string) => void
   onCurrentPasswordChange: (value: string) => void
@@ -88,7 +87,8 @@ interface SettingsAccountTabProps {
   onLogoutAll: () => void | Promise<void>
   onNewEmailChange: (value: string) => void
   onNewPasswordChange: (value: string) => void
-  onSendEmailChangeCode: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onSendEmailChangeCode: (reauthTicket: string) => void | Promise<void>
+  onValidateEmailChangeCodeRequest: () => boolean
   onUserChange: (user: User) => void
   passwordError: string
   passwordLoading: boolean
@@ -101,7 +101,6 @@ export default function SettingsAccountTab({
   currentPassword,
   emailChangeError,
   emailChangeLoading,
-  emailChangePassword,
   emailCodeLoading,
   emailCodeSent,
   emailVerificationCode,
@@ -109,7 +108,6 @@ export default function SettingsAccountTab({
   newPassword,
   onConfirmEmailChange,
   onChangePassword,
-  onEmailChangePasswordChange,
   onEmailVerificationCodeChange,
   onConfirmPasswordChange,
   onCurrentPasswordChange,
@@ -118,6 +116,7 @@ export default function SettingsAccountTab({
   onNewEmailChange,
   onNewPasswordChange,
   onSendEmailChangeCode,
+  onValidateEmailChangeCodeRequest,
   onUserChange,
   passwordError,
   passwordLoading,
@@ -154,17 +153,16 @@ export default function SettingsAccountTab({
             <EmailChangeDialog
               confirmLoading={emailChangeLoading}
               emailChangeError={emailChangeError}
-              emailChangePassword={emailChangePassword}
               emailCodeLoading={emailCodeLoading}
               emailCodeSent={emailCodeSent}
               emailVerificationCode={emailVerificationCode}
               newEmail={newEmail}
               onConfirmEmailChange={onConfirmEmailChange}
-              onEmailChangePasswordChange={onEmailChangePasswordChange}
               onEmailVerificationCodeChange={onEmailVerificationCodeChange}
               onNewEmailChange={onNewEmailChange}
               onOpenChange={setEmailDialogOpen}
               onSendEmailChangeCode={onSendEmailChangeCode}
+              onValidateEmailChangeCodeRequest={onValidateEmailChangeCodeRequest}
               open={emailDialogOpen}
             />
           </div>
@@ -251,144 +249,164 @@ export default function SettingsAccountTab({
 function EmailChangeDialog({
   confirmLoading,
   emailChangeError,
-  emailChangePassword,
   emailCodeLoading,
   emailCodeSent,
   emailVerificationCode,
   newEmail,
   onConfirmEmailChange,
-  onEmailChangePasswordChange,
-  onEmailVerificationCodeChange,
-  onNewEmailChange,
-  onOpenChange,
-  onSendEmailChangeCode,
-  open,
+	onEmailVerificationCodeChange,
+	onNewEmailChange,
+	onOpenChange,
+	onSendEmailChangeCode,
+	onValidateEmailChangeCodeRequest,
+	open,
 }: {
   confirmLoading: boolean
   emailChangeError: string
-  emailChangePassword: string
   emailCodeLoading: boolean
   emailCodeSent: boolean
   emailVerificationCode: string
   newEmail: string
-  onConfirmEmailChange: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
-  onEmailChangePasswordChange: (value: string) => void
+  onConfirmEmailChange: () => void | Promise<void>
   onEmailVerificationCodeChange: (value: string) => void
   onNewEmailChange: (value: string) => void
   onOpenChange: (open: boolean) => void
-  onSendEmailChangeCode: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onSendEmailChangeCode: (reauthTicket: string) => void | Promise<void>
+  onValidateEmailChangeCodeRequest: () => boolean
   open: boolean
 }) {
   const { t } = useTranslation()
+  const [reauthOpen, setReauthOpen] = useState(false)
+
+  function handleSendCodeSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!onValidateEmailChangeCodeRequest()) {
+      return
+    }
+    setReauthOpen(true)
+  }
+
+  function handleConfirmSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void onConfirmEmailChange()
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="xs" variant="outline">
-          {t("settings.account.changeEmail")}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
-        <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
-          <DialogTitle>{t("settings.account.changeEmail")}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t("settings.account.changeEmailDescription")}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
-            <form
-              id="send-email-change-code-form"
-              onSubmit={(event) => void onSendEmailChangeCode(event)}
-              className="grid gap-3"
-            >
-              {emailChangeError && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {emailChangeError}
-                </div>
-              )}
-              {emailCodeSent && (
-                <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-                  {t("settings.account.emailCodeSent")}
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="new-email">{t("settings.account.newEmail")}</Label>
-                <Input
-                  id="new-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder={t("auth.register.emailPlaceholder")}
-                  value={newEmail}
-                  onChange={(event) => onNewEmailChange(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email-change-password">{t("settings.account.currentPassword")}</Label>
-                <Input
-                  id="email-change-password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={emailChangePassword}
-                  onChange={(event) => onEmailChangePasswordChange(event.target.value)}
-                  required
-                />
-              </div>
-            </form>
-
-            <form
-              id="confirm-email-change-form"
-              onSubmit={(event) => void onConfirmEmailChange(event)}
-              className="grid gap-3"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="email-verification-code">{t("settings.account.emailVerificationCode")}</Label>
-                <div className="flex gap-2">
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setReauthOpen(false)
+          }
+          onOpenChange(nextOpen)
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button size="xs" variant="outline">
+            {t("settings.account.changeEmail")}
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>{t("settings.account.changeEmail")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("settings.account.changeEmailDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+              <form
+                id="send-email-change-code-form"
+                onSubmit={handleSendCodeSubmit}
+                className="grid gap-3"
+              >
+                {emailChangeError && (
+                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {emailChangeError}
+                  </div>
+                )}
+                {emailCodeSent && (
+                  <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+                    {t("settings.account.emailCodeSent")}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="new-email">{t("settings.account.newEmail")}</Label>
                   <Input
-                    id="email-verification-code"
-                    type="text"
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder={t("auth.register.verificationCodePlaceholder")}
-                    value={emailVerificationCode}
-                    onChange={(event) => onEmailVerificationCodeChange(event.target.value)}
+                    id="new-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t("auth.register.emailPlaceholder")}
+                    value={newEmail}
+                    onChange={(event) => onNewEmailChange(event.target.value)}
                     required
                   />
-                  <Button
-                    size="sm"
-                    type="submit"
-                    form="send-email-change-code-form"
-                    variant="outline"
-                    className="shrink-0"
-                    disabled={emailCodeLoading}
-                  >
-                    {emailCodeLoading
-                      ? t("settings.account.sendingEmailCode")
-                      : t("settings.account.sendEmailCode")}
-                  </Button>
                 </div>
-              </div>
-            </form>
-          </div>
+              </form>
 
-          <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
-            <Button
-              size="sm"
-              type="submit"
-              form="confirm-email-change-form"
-              disabled={confirmLoading}
-            >
-              {confirmLoading
-                ? t("settings.account.confirmingEmailChange")
-                : t("settings.account.confirmEmailChange")}
-            </Button>
+              <form
+                id="confirm-email-change-form"
+                onSubmit={handleConfirmSubmit}
+                className="grid gap-3"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="email-verification-code">{t("settings.account.emailVerificationCode")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="email-verification-code"
+                      type="text"
+                      autoComplete="one-time-code"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder={t("auth.register.verificationCodePlaceholder")}
+                      value={emailVerificationCode}
+                      onChange={(event) => onEmailVerificationCodeChange(event.target.value)}
+                      required
+                    />
+                    <Button
+                      size="sm"
+                      type="submit"
+                      form="send-email-change-code-form"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={emailCodeLoading}
+                    >
+                      {emailCodeLoading
+                        ? t("settings.account.sendingEmailCode")
+                        : t("settings.account.sendEmailCode")}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+              <Button
+                size="sm"
+                type="submit"
+                form="confirm-email-change-form"
+                disabled={confirmLoading}
+              >
+                {confirmLoading
+                  ? t("settings.account.confirmingEmailChange")
+                  : t("settings.account.confirmEmailChange")}
+              </Button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <ReauthDialog
+        operation="change_email"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={onSendEmailChangeCode}
+        layer="stacked"
+        title={t("settings.account.emailChangeReauthTitle")}
+        description={t("settings.account.emailChangeReauthDescription")}
+      />
+    </>
   )
 }
 

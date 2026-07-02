@@ -24,21 +24,28 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 	userID := getUserID(c)
 	var input struct {
 		NewEmail string `json:"new_email"`
-		Password string `json:"password"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
 
 	input.NewEmail = strings.TrimSpace(input.NewEmail)
-	if input.NewEmail == "" || input.Password == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New email and password are required"})
+	if input.NewEmail == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New email is required"})
 	}
 	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
 	}
 
-	if err := h.Service.WithContext(c.Request().Context()).SendEmailChangeVerificationCode(userID, input.NewEmail, input.Password); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		service.ReauthOperationChangeEmail,
+		c.Request().Header.Get(reauthTicketHeader),
+	); err != nil {
+		return writeReauthError(c, err)
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).SendEmailChangeVerificationCode(userID, input.NewEmail); err != nil {
 		return writeAuthServiceError(c, err)
 	}
 

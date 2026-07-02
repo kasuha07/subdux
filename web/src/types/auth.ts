@@ -108,7 +108,6 @@ export interface ResetPasswordInput {
 
 export interface SendEmailChangeCodeInput {
   new_email: string
-  password: string
 }
 
 export interface ConfirmEmailChangeInput {

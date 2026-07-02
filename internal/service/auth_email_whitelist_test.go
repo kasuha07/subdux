@@ -58,7 +58,7 @@ func TestSendEmailChangeVerificationCodeBlockedByEmailDomainWhitelist(t *testing
 	}
 
 	svc := NewAuthService(db)
-	err = svc.SendEmailChangeVerificationCode(user.ID, "new@blocked.net", password)
+	err = svc.SendEmailChangeVerificationCode(user.ID, "new@blocked.net")
 	if !errors.Is(err, ErrEmailDomainNotAllowed) {
 		t.Fatalf("SendEmailChangeVerificationCode() error = %v, want %v", err, ErrEmailDomainNotAllowed)
 	}

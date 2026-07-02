@@ -27,6 +27,7 @@ import type { OIDCConfig, OIDCStartResponse, PasskeyBeginResult, ReauthMethods }
 type ReauthOperation =
   | "backup"
   | "restore"
+  | "change_email"
   | "add_passkey"
   | "enable_totp"
   | "connect_oidc"

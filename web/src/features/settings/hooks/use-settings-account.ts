@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 
-import { api, logout, logoutAll, setAuth } from "@/lib/api"
+import { api, localizeBackendError, logout, logoutAll, setAuth } from "@/lib/api"
 import { toast } from "sonner"
 import type {
   AuthResponse,
@@ -20,15 +20,15 @@ interface UseSettingsAccountResult {
   currentPassword: string
   emailChangeError: string
   emailChangeLoading: boolean
-  emailChangePassword: string
   emailCodeLoading: boolean
   emailCodeSent: boolean
   emailVerificationCode: string
   handleChangePassword: (event: FormEvent<HTMLFormElement>) => Promise<void>
-  handleConfirmEmailChange: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  handleConfirmEmailChange: () => Promise<void>
   handleLogout: () => Promise<void>
   handleLogoutAll: () => Promise<void>
-  handleSendEmailChangeCode: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  handleSendEmailChangeCode: (reauthTicket: string) => Promise<void>
+  validateEmailChangeCodeRequest: () => boolean
   newEmail: string
   newPassword: string
   passwordError: string
@@ -36,7 +36,6 @@ interface UseSettingsAccountResult {
   passwordSuccess: string
   setConfirmPassword: (value: string) => void
   setCurrentPassword: (value: string) => void
-  setEmailChangePassword: (value: string) => void
   setEmailVerificationCode: (value: string) => void
   setNewEmail: (value: string) => void
   setNewPassword: (value: string) => void
@@ -50,7 +49,6 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
 
   const [user, setUserState] = useState<User | null>(null)
   const [newEmail, setNewEmail] = useState("")
-  const [emailChangePassword, setEmailChangePassword] = useState("")
   const [emailVerificationCode, setEmailVerificationCode] = useState("")
   const [emailCodeSent, setEmailCodeSent] = useState(false)
   const [emailCodeLoading, setEmailCodeLoading] = useState(false)
@@ -104,21 +102,28 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     }
   }
 
-  async function handleSendEmailChangeCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  function validateEmailChangeTarget(): boolean {
     setEmailChangeError("")
-    setEmailCodeSent(false)
 
     if (!newEmail.trim()) {
       setEmailChangeError(t("settings.account.newEmailRequired"))
-      return
-    }
-    if (!emailChangePassword) {
-      setEmailChangeError(t("settings.account.emailChangePasswordRequired"))
-      return
+      return false
     }
     if (user?.email && newEmail.trim().toLowerCase() === user.email.toLowerCase()) {
       setEmailChangeError(t("settings.account.newEmailMustBeDifferent"))
+      return false
+    }
+
+    return true
+  }
+
+  function validateEmailChangeCodeRequest(): boolean {
+    setEmailCodeSent(false)
+    return validateEmailChangeTarget()
+  }
+
+  async function handleSendEmailChangeCode(reauthTicket: string) {
+    if (!validateEmailChangeCodeRequest()) {
       return
     }
 
@@ -126,9 +131,17 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     try {
       const payload: SendEmailChangeCodeInput = {
         new_email: newEmail.trim(),
-        password: emailChangePassword,
       }
-      await api.post<{ message: string }>("/auth/email/change/send-code", payload)
+      await api.fetch("/auth/email/change/send-code", {
+        method: "POST",
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        body: JSON.stringify(payload),
+      }).then(async (res) => {
+        const body = await res.json().catch(() => null) as { error?: unknown } | null
+        if (!res.ok) {
+          throw new Error(localizeBackendError(body?.error))
+        }
+      })
       setEmailCodeSent(true)
       toast.success(t("settings.account.emailCodeSent"))
     } catch (err) {
@@ -138,12 +151,8 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     }
   }
 
-  async function handleConfirmEmailChange(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setEmailChangeError("")
-
-    if (!newEmail.trim()) {
-      setEmailChangeError(t("settings.account.newEmailRequired"))
+  async function handleConfirmEmailChange() {
+    if (!validateEmailChangeTarget()) {
       return
     }
     if (!emailVerificationCode.trim()) {
@@ -157,11 +166,24 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
         new_email: newEmail.trim(),
         verification_code: emailVerificationCode.trim(),
       }
-      const authData = await api.post<AuthResponse>("/auth/email/change/confirm", payload)
+      const res = await api.fetch("/auth/email/change/confirm", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => null) as AuthResponse | { error?: unknown } | null
+      if (!res.ok) {
+        const errorMessage = localizeBackendError(body && "error" in body ? body.error : undefined)
+        setEmailChangeError(errorMessage)
+        return
+      }
+      if (!body || !("user" in body)) {
+        setEmailChangeError(t("settings.account.emailChangeError"))
+        return
+      }
+      const authData = body
       setAuth(authData.access_token ?? authData.token, authData.user)
       setUserState(authData.user)
       setNewEmail("")
-      setEmailChangePassword("")
       setEmailVerificationCode("")
       setEmailCodeSent(false)
       toast.success(t("settings.account.emailChangeSuccess"))
@@ -197,7 +219,6 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     currentPassword,
     emailChangeError,
     emailChangeLoading,
-    emailChangePassword,
     emailCodeLoading,
     emailCodeSent,
     emailVerificationCode,
@@ -206,6 +227,7 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     handleLogout,
     handleLogoutAll,
     handleSendEmailChangeCode,
+    validateEmailChangeCodeRequest,
     newEmail,
     newPassword,
     passwordError,
@@ -213,7 +235,6 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
     passwordSuccess,
     setConfirmPassword,
     setCurrentPassword,
-    setEmailChangePassword,
     setEmailVerificationCode,
     setNewEmail,
     setNewPassword,

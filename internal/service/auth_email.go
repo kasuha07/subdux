@@ -153,7 +153,7 @@ func (s *AuthService) ResetPassword(email string, verificationCode string, newPa
 	return nil
 }
 
-func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail string, currentPassword string) error {
+func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail string) error {
 	normalizedEmail, err := sanitizeAndValidateEmail(newEmail)
 	if err != nil {
 		return err
@@ -168,10 +168,6 @@ func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail stri
 			return ErrUserNotFound
 		}
 		return err
-	}
-
-	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)) != nil {
-		return ErrCurrentPasswordIncorrect
 	}
 
 	if normalizeEmail(user.Email) == normalizedEmail {

@@ -249,13 +249,11 @@ func totpAccountKey(c echo.Context) string {
 	return "totp:" + hex.EncodeToString(hash[:8])
 }
 
-// reauthUserAccountKey keys the step-up re-auth limiter on the authenticated
-// principal. Unlike the login/reset extractors, the reauth routes sit behind
-// JWT auth, so the identity comes from the verified token rather than the
-// request body — this bounds password-guessing by an attacker who holds an
-// admin session but not the password. Returns "" (skip) if the token is
-// somehow absent, which cannot happen behind the reauth group's JWT middleware.
-func reauthUserAccountKey(c echo.Context) string {
+// authenticatedUserAccountKey keys authenticated human-session limiters on the
+// verified JWT principal instead of request-body fields. This bounds abuse by
+// an attacker who already holds a live session. Returns "" (skip) if the token
+// is somehow absent, which cannot happen behind the authenticated route groups.
+func authenticatedUserAccountKey(c echo.Context) string {
 	token, ok := c.Get("user").(*jwt.Token)
 	if !ok || token == nil {
 		return ""
@@ -264,7 +262,7 @@ func reauthUserAccountKey(c echo.Context) string {
 	if !ok || claims == nil || claims.UserID == 0 {
 		return ""
 	}
-	return "reauth-user:" + strconv.FormatUint(uint64(claims.UserID), 10)
+	return "user:" + strconv.FormatUint(uint64(claims.UserID), 10)
 }
 
 func refreshTokenAccountKey(c echo.Context) string {
