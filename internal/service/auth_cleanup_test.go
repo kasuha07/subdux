@@ -19,6 +19,7 @@ func TestStartSessionCleanupLoopRemovesExpiredSessions(t *testing.T) {
 	authService.oidcMu.Lock()
 	authService.oidcStateSessions["expired-state"] = oidcStateSession{ExpiresAt: now.Add(-time.Minute)}
 	authService.oidcResultSessions["expired-result"] = oidcResultSession{ExpiresAt: now.Add(-time.Minute)}
+	authService.oidcProviderCache["expired-provider"] = oidcProviderCacheEntry{ExpiresAt: now.Add(-time.Minute)}
 	authService.oidcMu.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -35,9 +36,10 @@ func TestStartSessionCleanupLoopRemovesExpiredSessions(t *testing.T) {
 		authService.oidcMu.Lock()
 		stateCount := len(authService.oidcStateSessions)
 		resultCount := len(authService.oidcResultSessions)
+		providerCount := len(authService.oidcProviderCache)
 		authService.oidcMu.Unlock()
 
-		if passkeyCount == 0 && stateCount == 0 && resultCount == 0 {
+		if passkeyCount == 0 && stateCount == 0 && resultCount == 0 && providerCount == 0 {
 			return
 		}
 
@@ -50,9 +52,10 @@ func TestStartSessionCleanupLoopRemovesExpiredSessions(t *testing.T) {
 	defer authService.oidcMu.Unlock()
 
 	t.Fatalf(
-		"expired sessions were not fully cleaned up: passkeys=%d oidc_state=%d oidc_result=%d",
+		"expired sessions were not fully cleaned up: passkeys=%d oidc_state=%d oidc_result=%d oidc_provider=%d",
 		len(authService.passkeySessions),
 		len(authService.oidcStateSessions),
 		len(authService.oidcResultSessions),
+		len(authService.oidcProviderCache),
 	)
 }

@@ -22,6 +22,7 @@ type AuthService struct {
 	oidcMu             *sync.Mutex
 	oidcStateSessions  map[string]oidcStateSession
 	oidcResultSessions map[string]oidcResultSession
+	oidcProviderCache  map[string]oidcProviderCacheEntry
 
 	sessionCleanupInterval time.Duration
 	sessionCleanupOnce     *sync.Once
@@ -40,6 +41,7 @@ func NewAuthService(db *gorm.DB) *AuthService {
 		oidcMu:                 &sync.Mutex{},
 		oidcStateSessions:      make(map[string]oidcStateSession),
 		oidcResultSessions:     make(map[string]oidcResultSession),
+		oidcProviderCache:      make(map[string]oidcProviderCacheEntry),
 		sessionCleanupInterval: minDuration(passkeySessionCleanupInterval, oidcSessionCleanupInterval),
 		sessionCleanupOnce:     &sync.Once{},
 	}
@@ -281,6 +283,7 @@ func (s *AuthService) runSessionCleanup() {
 
 	s.oidcMu.Lock()
 	s.cleanupOIDCSessionsLocked()
+	s.cleanupOIDCProviderCacheLocked(pkg.NowUTC())
 	s.oidcMu.Unlock()
 }
 

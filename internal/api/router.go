@@ -237,10 +237,10 @@ func SetupRoutes(
 	auth.POST("/totp/verify-login", authHandler.VerifyTOTPLogin, authIPLimiter, totpAccountLimiter)
 	auth.POST("/refresh", authHandler.RefreshSession, authIPLimiter, refreshTokenLimiter)
 	auth.POST("/refresh/logout", authHandler.Logout, authIPLimiter, refreshTokenLimiter)
-	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin)
+	auth.POST("/passkeys/login/start", authHandler.BeginPasskeyLogin, authIPLimiter)
 	auth.POST("/passkeys/login/finish", authHandler.FinishPasskeyLogin)
 	auth.GET("/oidc/config", authHandler.GetOIDCConfig)
-	auth.POST("/oidc/login/start", authHandler.BeginOIDCLogin)
+	auth.POST("/oidc/login/start", authHandler.BeginOIDCLogin, authIPLimiter)
 	auth.GET("/oidc/callback", authHandler.OIDCCallback)
 	auth.GET("/oidc/session", authHandler.GetOIDCSession)
 

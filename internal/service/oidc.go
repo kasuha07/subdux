@@ -31,6 +31,7 @@ const (
 	defaultOIDCScopes    = "openid profile email"
 	oidcStateSessionTTL  = 10 * time.Minute
 	oidcResultSessionTTL = 3 * time.Minute
+	oidcProviderCacheTTL = 2 * time.Minute
 	maxOIDCStateSessions = 1024
 	maxOIDCResultSession = 1024
 )
@@ -92,6 +93,11 @@ type oidcStateSession struct {
 type oidcResultSession struct {
 	Result    OIDCSessionResult
 	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+type oidcProviderCacheEntry struct {
+	Provider  *oidc.Provider
 	ExpiresAt time.Time
 }
 
@@ -315,7 +321,7 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 	defer cancel()
 	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
 
-	provider, err := oidc.NewProvider(ctx, settings.IssuerURL)
+	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
 		return "", errors.New("failed to initialize oidc provider")
 	}
@@ -380,7 +386,7 @@ func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, co
 	defer cancel()
 	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
 
-	provider, err := oidc.NewProvider(ctx, settings.IssuerURL)
+	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
 		return nil, errors.New("failed to initialize oidc provider")
 	}
@@ -770,6 +776,48 @@ func (s *AuthService) getOIDCSettings() oidcSettings {
 		Audience:       strings.TrimSpace(s.getSetting("oidc_audience")),
 		Resource:       strings.TrimSpace(s.getSetting("oidc_resource")),
 		ExtraAuth:      parseOIDCExtraAuthParams(s.getSetting("oidc_extra_auth_params")),
+	}
+}
+
+func (s *AuthService) getOIDCProvider(ctx context.Context, issuerURL string) (*oidc.Provider, error) {
+	issuerURL = strings.TrimSpace(issuerURL)
+	if issuerURL == "" {
+		return nil, errors.New("oidc issuer url is required")
+	}
+
+	now := pkg.NowUTC()
+	s.oidcMu.Lock()
+	if s.oidcProviderCache == nil {
+		s.oidcProviderCache = make(map[string]oidcProviderCacheEntry)
+	}
+	if entry, ok := s.oidcProviderCache[issuerURL]; ok && entry.Provider != nil && now.Before(entry.ExpiresAt) {
+		provider := entry.Provider
+		s.oidcMu.Unlock()
+		return provider, nil
+	}
+	s.oidcMu.Unlock()
+
+	provider, err := oidc.NewProvider(ctx, issuerURL)
+	if err != nil {
+		return nil, err
+	}
+
+	s.oidcMu.Lock()
+	defer s.oidcMu.Unlock()
+	now = pkg.NowUTC()
+	s.cleanupOIDCProviderCacheLocked(now)
+	s.oidcProviderCache[issuerURL] = oidcProviderCacheEntry{
+		Provider:  provider,
+		ExpiresAt: now.Add(oidcProviderCacheTTL),
+	}
+	return provider, nil
+}
+
+func (s *AuthService) cleanupOIDCProviderCacheLocked(now time.Time) {
+	for issuerURL, entry := range s.oidcProviderCache {
+		if entry.Provider == nil || !now.Before(entry.ExpiresAt) {
+			delete(s.oidcProviderCache, issuerURL)
+		}
 	}
 }
 
