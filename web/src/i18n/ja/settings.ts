@@ -133,6 +133,15 @@ const settings = {
     "currentPassword": "現在のパスワード",
     "newPassword": "新しいパスワード",
     "confirmPassword": "新しいパスワードを確認",
+    "passwordStrength": "パスワード強度",
+    "passwordStrengthLevels": {
+      "weak": "弱い",
+      "fair": "普通",
+      "good": "良い",
+      "strong": "強い"
+    },
+    "passwordsMatch": "パスワードが一致しています",
+    "passwordsDoNotMatch": "パスワードが一致しません",
     "passwordMismatch": "パスワードが一致しません",
     "passwordTooShort": "パスワードは8文字以上必要です",
     "passwordChanged": "パスワードを変更しました",

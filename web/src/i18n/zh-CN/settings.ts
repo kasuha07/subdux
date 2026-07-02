@@ -133,6 +133,15 @@ const settings = {
     "currentPassword": "当前密码",
     "newPassword": "新密码",
     "confirmPassword": "确认新密码",
+    "passwordStrength": "密码强度",
+    "passwordStrengthLevels": {
+      "weak": "弱",
+      "fair": "一般",
+      "good": "较强",
+      "strong": "强"
+    },
+    "passwordsMatch": "两次输入一致",
+    "passwordsDoNotMatch": "两次输入不一致",
     "passwordMismatch": "两次密码输入不一致",
     "passwordTooShort": "密码至少需要8个字符",
     "passwordChanged": "密码修改成功",

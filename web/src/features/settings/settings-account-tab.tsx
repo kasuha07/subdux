@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
+import { CheckCircle2, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
 import { useSettingsAccountTransfer } from "@/features/settings/hooks/use-settings-account-transfer"
+import { cn } from "@/lib/utils"
 import type { User } from "@/types"
 
 import OIDCSection from "./oidc-section"
@@ -25,6 +27,45 @@ import {
   SubduxImportPreviewDialog,
 } from "./settings-account-transfer-section"
 import TotpSection from "./totp-section"
+
+type PasswordStrengthLevel = "weak" | "fair" | "good" | "strong"
+
+interface PasswordStrength {
+  level: PasswordStrengthLevel
+  score: number
+}
+
+const passwordStrengthStyles: Record<PasswordStrengthLevel, string> = {
+  weak: "bg-destructive",
+  fair: "bg-amber-500",
+  good: "bg-sky-500",
+  strong: "bg-emerald-500",
+}
+
+function getPasswordStrength(password: string): PasswordStrength {
+  const hasLower = /[a-z]/.test(password)
+  const hasUpper = /[A-Z]/.test(password)
+  const hasNumber = /\d/.test(password)
+  const hasSymbol = /[^A-Za-z0-9]/.test(password)
+  const lengthScore = password.length >= 12 ? 2 : password.length >= 8 ? 1 : 0
+  const varietyScore = [
+    hasLower && hasUpper,
+    hasNumber,
+    hasSymbol,
+  ].filter(Boolean).length
+  const score = Math.min(4, lengthScore + varietyScore)
+
+  if (score >= 4) {
+    return { level: "strong", score: 4 }
+  }
+  if (score === 3) {
+    return { level: "good", score: 3 }
+  }
+  if (score === 2) {
+    return { level: "fair", score: 2 }
+  }
+  return { level: "weak", score: 1 }
+}
 
 interface SettingsAccountTabProps {
   confirmPassword: string
@@ -406,6 +447,7 @@ function PasswordSection({
             onChange={(event) => onNewPasswordChange(event.target.value)}
             required
           />
+          <PasswordStrengthIndicator password={newPassword} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirm-password">{t("settings.account.confirmPassword")}</Label>
@@ -418,6 +460,10 @@ function PasswordSection({
             onChange={(event) => onConfirmPasswordChange(event.target.value)}
             required
           />
+          <PasswordMatchIndicator
+            confirmPassword={confirmPassword}
+            newPassword={newPassword}
+          />
         </div>
         <div>
           <Button size="sm" type="submit" disabled={passwordLoading}>
@@ -427,6 +473,93 @@ function PasswordSection({
           </Button>
         </div>
       </form>
+    </div>
+  )
+}
+
+function PasswordStrengthIndicator({ password }: { password: string }) {
+  const { t } = useTranslation()
+
+  if (!password) {
+    return null
+  }
+
+  const strength = getPasswordStrength(password)
+
+  return (
+    <div className="space-y-1" aria-live="polite">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="text-muted-foreground">
+          {t("settings.account.passwordStrength")}
+        </span>
+        <span className={cn(
+          "font-medium",
+          strength.level === "weak" && "text-destructive",
+          strength.level === "fair" && "text-amber-700 dark:text-amber-400",
+          strength.level === "good" && "text-sky-700 dark:text-sky-400",
+          strength.level === "strong" && "text-emerald-700 dark:text-emerald-400"
+        )}>
+          {t(`settings.account.passwordStrengthLevels.${strength.level}`)}
+        </span>
+      </div>
+      <div
+        className="grid h-1.5 grid-cols-4 gap-1"
+        role="meter"
+        aria-label={t("settings.account.passwordStrength")}
+        aria-valuemin={0}
+        aria-valuemax={4}
+        aria-valuenow={strength.score}
+        aria-valuetext={t(`settings.account.passwordStrengthLevels.${strength.level}`)}
+      >
+        {Array.from({ length: 4 }, (_, index) => (
+          <span
+            key={index}
+            className={cn(
+              "rounded-full bg-muted transition-colors",
+              index < strength.score && passwordStrengthStyles[strength.level]
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PasswordMatchIndicator({
+  confirmPassword,
+  newPassword,
+}: {
+  confirmPassword: string
+  newPassword: string
+}) {
+  const { t } = useTranslation()
+
+  if (!confirmPassword) {
+    return null
+  }
+
+  const matches = newPassword === confirmPassword
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 text-xs",
+        matches
+          ? "text-emerald-700 dark:text-emerald-400"
+          : "text-destructive"
+      )}
+      aria-live="polite"
+    >
+      {matches ? (
+        <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
+      ) : (
+        <XCircle className="size-3.5 shrink-0" aria-hidden="true" />
+      )}
+      <span>
+        {matches
+          ? t("settings.account.passwordsMatch")
+          : t("settings.account.passwordsDoNotMatch")}
+      </span>
     </div>
   )
 }
