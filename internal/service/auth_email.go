@@ -4,13 +4,13 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"math/big"
 	"net/mail"
 	"strings"
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )

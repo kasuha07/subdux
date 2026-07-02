@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/yeka/zip"
 	"gorm.io/gorm"
 )

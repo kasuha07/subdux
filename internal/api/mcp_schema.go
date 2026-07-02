@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/kasuha07/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/version"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/shiroha/subdux/internal/service"
-	"github.com/shiroha/subdux/internal/version"
 )
 
 type mcpToolHandler func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError)

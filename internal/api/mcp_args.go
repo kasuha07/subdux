@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shiroha/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service"
 )
 
 func createSubscriptionInputFromMCPArgs(args map[string]interface{}) service.CreateSubscriptionInput {

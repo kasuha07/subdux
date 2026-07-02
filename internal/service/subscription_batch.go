@@ -3,7 +3,7 @@ package service
 import (
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 )
 
 // loadSubscriptionsByIDs loads the given user's subscriptions keyed by ID,

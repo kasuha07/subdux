@@ -3,8 +3,8 @@ package service
 import (
 	"errors"
 
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 	"golang.org/x/crypto/bcrypt"
 )
 

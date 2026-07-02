@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 // DashboardBootstrapHandler serves the dashboard's first-screen payload in a

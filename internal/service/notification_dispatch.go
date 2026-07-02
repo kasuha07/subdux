@@ -4,7 +4,7 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 )
 
 func (s *NotificationService) dispatchNotificationChannel(channel model.NotificationChannel, targetEmail, message, subscriptionURL string) error {

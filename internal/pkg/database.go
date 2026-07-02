@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/glebarez/sqlite"
-	"github.com/shiroha/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

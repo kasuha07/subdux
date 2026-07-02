@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 )
 
 type notificationTestRoundTripper func(req *http.Request) (*http.Response, error)

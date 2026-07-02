@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 )
 
 // BackupDB produces an on-demand backup and returns the path of the file to

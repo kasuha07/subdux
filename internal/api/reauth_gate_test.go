@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
-	"github.com/shiroha/subdux/internal/service"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )

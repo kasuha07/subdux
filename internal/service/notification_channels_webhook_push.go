@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"io"
 	"net/http"
 	"net/url"
@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 )
 
 func (s *NotificationService) sendWebhook(channel model.NotificationChannel, message string) error {

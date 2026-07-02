@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 )
 
 func TestCreateSubscriptionRejectsCategoryOwnedByAnotherUser(t *testing.T) {

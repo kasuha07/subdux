@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 )
 
 const bcryptMaxPasswordBytes = 72

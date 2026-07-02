@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 type APIKeyHandler struct {

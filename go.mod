@@ -1,4 +1,4 @@
-module github.com/shiroha/subdux
+module github.com/kasuha07/subdux
 
 go 1.26.4
 

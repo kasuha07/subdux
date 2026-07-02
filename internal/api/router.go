@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/version"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/pkg"
-	"github.com/shiroha/subdux/internal/pkg/logging"
-	"github.com/shiroha/subdux/internal/service"
-	"github.com/shiroha/subdux/internal/version"
 	"gorm.io/gorm"
 )
 

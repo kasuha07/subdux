@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shiroha/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service"
 )
 
 func TestAuthServiceErrorStatusEmailDomainNotAllowed(t *testing.T) {

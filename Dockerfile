@@ -22,7 +22,7 @@ COPY . .
 COPY --from=frontend /app/web/dist ./web/dist
 RUN mkdir -p /runtime-data && chown 65532:65532 /runtime-data && chmod 0755 /runtime-data
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-$(go env GOARCH)} go build \
-    -ldflags="-s -w -X github.com/shiroha/subdux/internal/version.Version=${VERSION} -X github.com/shiroha/subdux/internal/version.Commit=${COMMIT} -X github.com/shiroha/subdux/internal/version.BuildDate=${BUILD_DATE}" \
+    -ldflags="-s -w -X github.com/kasuha07/subdux/internal/version.Version=${VERSION} -X github.com/kasuha07/subdux/internal/version.Commit=${COMMIT} -X github.com/kasuha07/subdux/internal/version.BuildDate=${BUILD_DATE}" \
     -o /subdux ./cmd/server
 
 # Stage 3: Minimal runtime

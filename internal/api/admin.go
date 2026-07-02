@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/pkg"
-	"github.com/shiroha/subdux/internal/service"
 	"github.com/yeka/zip"
 )
 

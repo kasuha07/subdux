@@ -2,7 +2,7 @@ VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev
 COMMIT   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-MODULE   = github.com/shiroha/subdux/internal/version
+MODULE   = github.com/kasuha07/subdux/internal/version
 LDFLAGS  = -s -w \
            -X $(MODULE).Version=$(VERSION) \
            -X $(MODULE).Commit=$(COMMIT) \

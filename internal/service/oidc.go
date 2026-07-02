@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"

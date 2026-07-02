@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"gorm.io/gorm"
 )
 

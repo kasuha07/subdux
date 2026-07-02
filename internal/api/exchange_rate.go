@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 type ExchangeRateHandler struct {

@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 	"gorm.io/gorm"
 )
 

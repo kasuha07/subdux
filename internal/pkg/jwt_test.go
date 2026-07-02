@@ -8,7 +8,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 	"gorm.io/gorm"
 )
 

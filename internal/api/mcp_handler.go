@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 const (

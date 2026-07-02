@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 // reauthTicketHeader carries the single-use step-up ticket. It lives in a

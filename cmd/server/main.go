@@ -19,14 +19,14 @@ import (
 	"syscall"
 	"time"
 
+	subdux "github.com/kasuha07/subdux"
+	"github.com/kasuha07/subdux/internal/api"
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	subdux "github.com/shiroha/subdux"
-	"github.com/shiroha/subdux/internal/api"
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
-	"github.com/shiroha/subdux/internal/pkg/logging"
-	"github.com/shiroha/subdux/internal/service"
 	"gorm.io/gorm"
 )
 

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service"
 )
 
 func TestMapAuthResponseOmitsRefreshToken(t *testing.T) {

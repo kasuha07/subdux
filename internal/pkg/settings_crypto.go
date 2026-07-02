@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shiroha/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/pkg/logging"
 )
 
 const settingsEncryptedPrefix = "enc:v1:"

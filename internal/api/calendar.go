@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 type CalendarHandler struct {

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/pkg"
 )
 
 func TestRegisterRejectsPasswordOver72Bytes(t *testing.T) {

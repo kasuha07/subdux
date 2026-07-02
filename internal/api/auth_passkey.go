@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 type passkeyBeginRegistrationInput struct {

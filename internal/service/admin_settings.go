@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 	"gorm.io/gorm"
 )
 

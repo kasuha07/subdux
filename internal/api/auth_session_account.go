@@ -7,8 +7,8 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/service"
 )
 
 func (h *AuthHandler) Me(c echo.Context) error {

@@ -3,7 +3,7 @@ package api
 import (
 	"errors"
 
-	"github.com/shiroha/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service"
 )
 
 func isIconUploadBadRequestError(err error) bool {

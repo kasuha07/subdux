@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/model"
 )
 
 func TestMapSubscriptionResponseFormatsDateOnly(t *testing.T) {

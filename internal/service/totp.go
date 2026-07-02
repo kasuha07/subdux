@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/kasuha07/subdux/internal/model"
 	"github.com/pquerna/otp/totp"
-	"github.com/shiroha/subdux/internal/model"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )

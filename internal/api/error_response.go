@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/labstack/echo/v4"
-	"github.com/shiroha/subdux/internal/pkg/logging"
 )
 
 const (

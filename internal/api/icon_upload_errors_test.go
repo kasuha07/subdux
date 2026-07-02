@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/shiroha/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service"
 )
 
 func TestIsIconUploadBadRequestError(t *testing.T) {

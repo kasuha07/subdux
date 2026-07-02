@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shiroha/subdux/internal/model"
-	"github.com/shiroha/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
 )
 
 func TestGetActionCenterAggregatesRenewalRepairAndHistoryItems(t *testing.T) {
