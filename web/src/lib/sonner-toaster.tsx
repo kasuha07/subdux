@@ -1,5 +1,7 @@
+import { Branch as DismissableLayerBranch } from "@radix-ui/react-dismissable-layer"
 import { XIcon } from "lucide-react"
 import { useSyncExternalStore } from "react"
+import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
 
@@ -40,13 +42,13 @@ function getToastTypeClassName(type: ToastRecord["type"], richColors: boolean): 
 
   switch (type) {
     case "success":
-      return "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900/70 dark:bg-emerald-950/60 dark:text-emerald-100"
+      return "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
     case "error":
-      return "border-destructive/30 bg-destructive/10 text-destructive dark:border-destructive/40 dark:bg-destructive/20"
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
     case "warning":
-      return "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/60 dark:text-amber-100"
+      return "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
     case "info":
-      return "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900/70 dark:bg-sky-950/60 dark:text-sky-100"
+      return "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100"
     case "loading":
       return "border-border bg-background text-foreground"
     default:
@@ -63,72 +65,78 @@ export function Toaster({
 }: ToasterProps) {
   const currentToasts = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
-  return (
-    <section
-      aria-atomic="false"
-      aria-live="polite"
-      aria-relevant="additions text"
-      className={cn(
-        "toaster pointer-events-none fixed z-[100] flex max-h-screen w-full max-w-sm flex-col gap-2 px-4 sm:px-0",
-        POSITION_CLASS_NAMES[position]
-      )}
-      data-app-toaster="true"
-      data-sonner-toaster="true"
-      data-theme={theme}
-    >
-      {currentToasts.map((item) => {
-        const dismissible = item.dismissible ?? true
+  // Portal to <body> so the live region stays outside #root and remains an
+  // aria-live target that Radix Dialog's hideOthers() keeps available.
+  // Branch prevents toast clicks from being treated as outside dialog input.
+  return createPortal(
+    <DismissableLayerBranch asChild>
+      <section
+        aria-atomic="false"
+        aria-live="polite"
+        aria-relevant="additions text"
+        className={cn(
+          "toaster pointer-events-none fixed z-[2147483647] flex max-h-screen w-full max-w-sm flex-col gap-2 px-4 sm:px-0",
+          POSITION_CLASS_NAMES[position]
+        )}
+        data-app-toaster="true"
+        data-sonner-toaster="true"
+        data-theme={theme}
+      >
+        {currentToasts.map((item) => {
+          const dismissible = item.dismissible ?? true
 
-        return (
-          <div
-            key={item.id}
-            className={cn(
-              "ulw-toast pointer-events-auto w-full rounded-lg border shadow-lg",
-              "transition-[opacity,transform,filter]",
-              toastOptions?.className,
-              toastOptions?.classNames?.toast,
-              item.className,
-              item.classNames?.toast,
-              getToastTypeClassName(item.type, richColors)
-            )}
-            data-mounted={item.visible}
-            data-removed={!item.visible}
-            data-rich-colors={richColors}
-            data-sonner-toast=""
-            data-swipe-out="false"
-            data-type={item.type}
-            role="status"
-          >
-            <div className="flex items-start gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium leading-5">{item.title}</p>
-                {item.description && (
-                  <p
-                    className={cn(
-                      "mt-1 text-sm text-muted-foreground",
-                      toastOptions?.classNames?.description,
-                      item.classNames?.description
-                    )}
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                "ulw-toast pointer-events-auto w-full rounded-lg border shadow-lg",
+                "transition-[opacity,transform]",
+                toastOptions?.className,
+                toastOptions?.classNames?.toast,
+                item.className,
+                item.classNames?.toast,
+                getToastTypeClassName(item.type, richColors)
+              )}
+              data-mounted={item.visible}
+              data-removed={!item.visible}
+              data-rich-colors={richColors}
+              data-sonner-toast=""
+              data-swipe-out="false"
+              data-type={item.type}
+              role="status"
+            >
+              <div className="flex items-start gap-3 p-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-5">{item.title}</p>
+                  {item.description && (
+                    <p
+                      className={cn(
+                        "mt-1 text-sm text-muted-foreground",
+                        toastOptions?.classNames?.description,
+                        item.classNames?.description
+                      )}
+                    >
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+
+                {closeButton && dismissible && (
+                  <button
+                    aria-label="Close notification"
+                    className="rounded-sm p-1 text-foreground/60 transition-colors hover:bg-black/5 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:hover:bg-white/10"
+                    onClick={() => dismissToast(item.id)}
+                    type="button"
                   >
-                    {item.description}
-                  </p>
+                    <XIcon className="size-4" />
+                  </button>
                 )}
               </div>
-
-              {closeButton && dismissible && (
-                <button
-                  aria-label="Close notification"
-                  className="rounded-sm p-1 text-foreground/60 transition-colors hover:bg-black/5 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:hover:bg-white/10"
-                  onClick={() => dismissToast(item.id)}
-                  type="button"
-                >
-                  <XIcon className="size-4" />
-                </button>
-              )}
             </div>
-          </div>
-        )
-      })}
-    </section>
+          )
+        })}
+      </section>
+    </DismissableLayerBranch>,
+    document.body
   )
 }
