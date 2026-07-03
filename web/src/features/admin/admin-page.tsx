@@ -141,6 +141,8 @@ export default function AdminPage() {
                   onCreateUser={admin.handleCreateUser}
                   onToggleRole={admin.handleToggleRole}
                   onToggleStatus={admin.handleToggleStatus}
+                  onDisableUserTOTP={admin.handleDisableUserTOTP}
+                  onDisableUserPasskeys={admin.handleDisableUserPasskeys}
                   onDeleteUser={admin.handleDeleteUser}
                 />
               </Suspense>

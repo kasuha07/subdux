@@ -315,6 +315,8 @@ func SetupRoutes(
 	admin.POST("/users", adminHandler.CreateUser)
 	admin.PUT("/users/:id/role", adminHandler.ChangeUserRole)
 	admin.PUT("/users/:id/status", adminHandler.ChangeUserStatus)
+	admin.POST("/users/:id/disable-totp", adminHandler.DisableUserTOTP)
+	admin.POST("/users/:id/disable-passkeys", adminHandler.DisableUserPasskeys)
 	admin.DELETE("/users/:id", adminHandler.DeleteUser)
 	admin.GET("/background-tasks", adminHandler.ListBackgroundTasks)
 	admin.GET("/audit-events", auditHandler.ListAdminEvents)

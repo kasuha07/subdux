@@ -110,6 +110,116 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 	}
 }
 
+func TestAdminCanDisableRegularUserCredentialFactors(t *testing.T) {
+	db := newTestDB(t)
+	migrateUserLifecycleSecurityTables(t, db)
+
+	target := createLifecycleSecurityUser(t, db, "credential-user", "credential-user@example.com")
+	secret := "JBSWY3DPEHPK3PXP"
+	if err := db.Model(&model.User{}).Where("id = ?", target.ID).Updates(map[string]interface{}{
+		"totp_enabled":     true,
+		"totp_secret":      secret,
+		"totp_temp_secret": "temp",
+	}).Error; err != nil {
+		t.Fatalf("failed to enable target totp: %v", err)
+	}
+	backupCode := model.UserBackupCode{UserID: target.ID, CodeHash: "backup-hash"}
+	if err := db.Create(&backupCode).Error; err != nil {
+		t.Fatalf("failed to create backup code: %v", err)
+	}
+	passkey := model.PasskeyCredential{UserID: target.ID, Name: "Laptop", CredentialID: "cred-disable-passkeys", Credential: []byte("credential")}
+	if err := db.Create(&passkey).Error; err != nil {
+		t.Fatalf("failed to create passkey: %v", err)
+	}
+
+	adminService := NewAdminService(db)
+	if err := adminService.DisableUserTOTP(target.ID); err != nil {
+		t.Fatalf("DisableUserTOTP() error = %v", err)
+	}
+	if err := adminService.DisableUserPasskeys(target.ID); err != nil {
+		t.Fatalf("DisableUserPasskeys() error = %v", err)
+	}
+
+	var updated model.User
+	if err := db.Select("id", "totp_enabled", "totp_secret", "totp_temp_secret").First(&updated, target.ID).Error; err != nil {
+		t.Fatalf("failed to load updated user: %v", err)
+	}
+	if updated.TotpEnabled || updated.TotpSecret != nil || updated.TotpTempSecret != nil {
+		t.Fatalf("user TOTP state = enabled:%t secret:%v temp:%v, want disabled and cleared", updated.TotpEnabled, updated.TotpSecret, updated.TotpTempSecret)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		model interface{}
+	}{
+		{name: "user_backup_codes", model: &model.UserBackupCode{}},
+		{name: "passkey_credentials", model: &model.PasskeyCredential{}},
+	} {
+		var count int64
+		if err := db.Model(tc.model).Where("user_id = ?", target.ID).Count(&count).Error; err != nil {
+			t.Fatalf("count %s error = %v", tc.name, err)
+		}
+		if count != 0 {
+			t.Fatalf("%s count = %d, want 0", tc.name, count)
+		}
+	}
+}
+
+func TestAdminCannotDisableAdminCredentialFactors(t *testing.T) {
+	db := newTestDB(t)
+	migrateUserLifecycleSecurityTables(t, db)
+
+	target := createLifecycleSecurityUser(t, db, "peer-admin", "peer-admin@example.com")
+	if err := db.Model(&model.User{}).Where("id = ?", target.ID).Updates(map[string]interface{}{
+		"role":             "admin",
+		"totp_enabled":     true,
+		"totp_secret":      "JBSWY3DPEHPK3PXP",
+		"totp_temp_secret": "temp",
+	}).Error; err != nil {
+		t.Fatalf("failed to prepare admin target: %v", err)
+	}
+	backupCode := model.UserBackupCode{UserID: target.ID, CodeHash: "backup-hash"}
+	if err := db.Create(&backupCode).Error; err != nil {
+		t.Fatalf("failed to create backup code: %v", err)
+	}
+	passkey := model.PasskeyCredential{UserID: target.ID, Name: "Laptop", CredentialID: "cred-admin-passkey", Credential: []byte("credential")}
+	if err := db.Create(&passkey).Error; err != nil {
+		t.Fatalf("failed to create passkey: %v", err)
+	}
+
+	adminService := NewAdminService(db)
+	if err := adminService.DisableUserTOTP(target.ID); !errors.Is(err, ErrAdminCredentialResetForbidden) {
+		t.Fatalf("DisableUserTOTP() error = %v, want %v", err, ErrAdminCredentialResetForbidden)
+	}
+	if err := adminService.DisableUserPasskeys(target.ID); !errors.Is(err, ErrAdminCredentialResetForbidden) {
+		t.Fatalf("DisableUserPasskeys() error = %v, want %v", err, ErrAdminCredentialResetForbidden)
+	}
+
+	var stored model.User
+	if err := db.Select("id", "totp_enabled", "totp_secret", "totp_temp_secret").First(&stored, target.ID).Error; err != nil {
+		t.Fatalf("failed to load admin target: %v", err)
+	}
+	if !stored.TotpEnabled || stored.TotpSecret == nil || stored.TotpTempSecret == nil {
+		t.Fatalf("admin TOTP state was changed: enabled:%t secret:%v temp:%v", stored.TotpEnabled, stored.TotpSecret, stored.TotpTempSecret)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		model interface{}
+	}{
+		{name: "user_backup_codes", model: &model.UserBackupCode{}},
+		{name: "passkey_credentials", model: &model.PasskeyCredential{}},
+	} {
+		var count int64
+		if err := db.Model(tc.model).Where("user_id = ?", target.ID).Count(&count).Error; err != nil {
+			t.Fatalf("count %s error = %v", tc.name, err)
+		}
+		if count != 1 {
+			t.Fatalf("%s count = %d, want 1", tc.name, count)
+		}
+	}
+}
+
 func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.T) {
 	t.Setenv("JWT_SECRET", "0123456789abcdef0123456789abcdef")
 

@@ -9,20 +9,63 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrAdminCredentialResetForbidden = errors.New("cannot disable credentials for an admin user")
+
 type AdminUserListItem struct {
 	model.User
 	SubscriptionCount int64 `gorm:"column:subscription_count"`
+	PasskeyCount      int64 `gorm:"column:passkey_count"`
 }
 
 func (s *AdminService) ListUsers() ([]AdminUserListItem, error) {
 	var users []AdminUserListItem
 	err := s.DB.Model(&model.User{}).
-		Select("users.id, users.email, users.role, users.status, users.created_at, COUNT(subscriptions.id) AS subscription_count").
+		Select("users.id, users.email, users.role, users.status, users.totp_enabled, users.created_at, COUNT(DISTINCT subscriptions.id) AS subscription_count, COUNT(DISTINCT passkey_credentials.id) AS passkey_count").
 		Joins("LEFT JOIN subscriptions ON subscriptions.user_id = users.id").
-		Group("users.id").
+		Joins("LEFT JOIN passkey_credentials ON passkey_credentials.user_id = users.id").
+		Group("users.id, users.email, users.role, users.status, users.totp_enabled, users.created_at").
 		Order("users.id ASC").
 		Find(&users).Error
 	return users, err
+}
+
+func (s *AdminService) DisableUserTOTP(userID uint) error {
+	var user model.User
+	if err := s.DB.Select("id", "role").First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+	if user.Role == "admin" {
+		return ErrAdminCredentialResetForbidden
+	}
+
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+			"totp_secret":      nil,
+			"totp_enabled":     false,
+			"totp_temp_secret": nil,
+		}).Error; err != nil {
+			return err
+		}
+		return tx.Where("user_id = ?", userID).Delete(&model.UserBackupCode{}).Error
+	})
+}
+
+func (s *AdminService) DisableUserPasskeys(userID uint) error {
+	var user model.User
+	if err := s.DB.Select("id", "role").First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+	if user.Role == "admin" {
+		return ErrAdminCredentialResetForbidden
+	}
+
+	return s.DB.Where("user_id = ?", userID).Delete(&model.PasskeyCredential{}).Error
 }
 
 func (s *AdminService) ChangeUserRole(userID uint, role string) error {

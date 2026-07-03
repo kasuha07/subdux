@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { MoreHorizontal, Plus } from "lucide-react"
+import { KeyRound, MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils"
@@ -41,6 +41,8 @@ interface AdminUsersTabProps {
   onCreateDialogOpenChange: (open: boolean) => void
   onCreateUser: () => void | Promise<void>
   onDeleteUser: (id: number) => void | Promise<void>
+  onDisableUserPasskeys: (user: AdminUser) => void | Promise<void>
+  onDisableUserTOTP: (user: AdminUser) => void | Promise<void>
   onNewEmailChange: (value: string) => void
   onNewPasswordChange: (value: string) => void
   onNewRoleChange: (role: "user" | "admin") => void
@@ -59,6 +61,8 @@ export default function AdminUsersTab({
   onCreateDialogOpenChange,
   onCreateUser,
   onDeleteUser,
+  onDisableUserPasskeys,
+  onDisableUserTOTP,
   onNewEmailChange,
   onNewPasswordChange,
   onNewRoleChange,
@@ -155,6 +159,7 @@ export default function AdminUsersTab({
               <TableHead>{t("admin.users.email")}</TableHead>
               <TableHead>{t("admin.users.role")}</TableHead>
               <TableHead>{t("admin.users.status")}</TableHead>
+              <TableHead>{t("admin.users.security")}</TableHead>
               <TableHead>{t("admin.users.subscriptions")}</TableHead>
               <TableHead>{t("admin.users.created")}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
@@ -173,6 +178,20 @@ export default function AdminUsersTab({
                   <Badge variant={user.status === "active" ? "outline" : "destructive"}>
                     {user.status}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant={user.totp_enabled ? "default" : "outline"} className="gap-1">
+                      <ShieldCheck className="size-3" />
+                      {user.totp_enabled
+                        ? t("admin.users.twoFactorEnabled")
+                        : t("admin.users.twoFactorDisabled")}
+                    </Badge>
+                    <Badge variant={user.passkey_count > 0 ? "secondary" : "outline"} className="gap-1">
+                      <KeyRound className="size-3" />
+                      {t("admin.users.passkeyCount", { count: user.passkey_count })}
+                    </Badge>
+                  </div>
                 </TableCell>
                 <TableCell className="tabular-nums">{user.subscription_count}</TableCell>
                 <TableCell>{formatDate(user.created_at, i18n.language)}</TableCell>
@@ -194,6 +213,23 @@ export default function AdminUsersTab({
                           ? t("admin.users.disable")
                           : t("admin.users.enable")}
                       </DropdownMenuItem>
+                      {user.role !== "admin" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            disabled={!user.totp_enabled}
+                            onClick={() => void onDisableUserTOTP(user)}
+                          >
+                            {t("admin.users.disable2FA")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={user.passkey_count <= 0}
+                            onClick={() => void onDisableUserPasskeys(user)}
+                          >
+                            {t("admin.users.disablePasskeys")}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"

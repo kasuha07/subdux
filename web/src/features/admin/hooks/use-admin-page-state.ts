@@ -61,6 +61,8 @@ interface UseAdminPageStateResult {
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
   handleDeleteUser: (id: number) => Promise<void>
+  handleDisableUserPasskeys: (user: AdminUser) => Promise<void>
+  handleDisableUserTOTP: (user: AdminUser) => Promise<void>
   handleDownloadBackup: (reauthTicket: string) => Promise<boolean>
   handleRefreshRates: () => Promise<void>
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
@@ -281,6 +283,44 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       await api.delete(`/admin/users/${id}`)
       setUsers((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("admin.users.deleteSuccess"))
+    } catch {
+      void 0
+    }
+  }
+
+  async function handleDisableUserTOTP(user: AdminUser) {
+    if (user.role === "admin" || !user.totp_enabled) {
+      return
+    }
+    if (!confirm(t("admin.users.disable2FAConfirm"))) {
+      return
+    }
+
+    try {
+      await api.post(`/admin/users/${user.id}/disable-totp`, {})
+      setUsers((prev) =>
+        prev.map((item) => (item.id === user.id ? { ...item, totp_enabled: false } : item))
+      )
+      toast.success(t("admin.users.disable2FASuccess"))
+    } catch {
+      void 0
+    }
+  }
+
+  async function handleDisableUserPasskeys(user: AdminUser) {
+    if (user.role === "admin" || user.passkey_count <= 0) {
+      return
+    }
+    if (!confirm(t("admin.users.disablePasskeysConfirm"))) {
+      return
+    }
+
+    try {
+      await api.post(`/admin/users/${user.id}/disable-passkeys`, {})
+      setUsers((prev) =>
+        prev.map((item) => (item.id === user.id ? { ...item, passkey_count: 0 } : item))
+      )
+      toast.success(t("admin.users.disablePasskeysSuccess"))
     } catch {
       void 0
     }
@@ -617,6 +657,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleRefreshBackgroundTasks,
     handleRefreshLocalBackups,
     handleDeleteUser,
+    handleDisableUserPasskeys,
+    handleDisableUserTOTP,
     handleDownloadBackup,
     handleRefreshRates,
     handleRegistrationEmailVerificationChange,

@@ -104,6 +104,8 @@ type adminUserResponse struct {
 	Email             string    `json:"email"`
 	Role              string    `json:"role"`
 	Status            string    `json:"status"`
+	TotpEnabled       bool      `json:"totp_enabled"`
+	PasskeyCount      int64     `json:"passkey_count"`
 	CreatedAt         time.Time `json:"created_at"`
 	SubscriptionCount int64     `json:"subscription_count"`
 }
@@ -114,6 +116,8 @@ func mapAdminUserResponse(user service.AdminUserListItem) adminUserResponse {
 		Email:             user.Email,
 		Role:              user.Role,
 		Status:            user.Status,
+		TotpEnabled:       user.TotpEnabled,
+		PasskeyCount:      user.PasskeyCount,
 		CreatedAt:         user.CreatedAt,
 		SubscriptionCount: user.SubscriptionCount,
 	}
@@ -194,6 +198,40 @@ func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "status updated"})
+}
+
+func (h *AdminHandler) DisableUserTOTP(c echo.Context) error {
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).DisableUserTOTP(uint(userID)); err != nil {
+		return writeAdminCredentialResetError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "two-factor authentication disabled"})
+}
+
+func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).DisableUserPasskeys(uint(userID)); err != nil {
+		return writeAdminCredentialResetError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"message": "passkeys disabled"})
+}
+
+func writeAdminCredentialResetError(c echo.Context, err error) error {
+	if errors.Is(err, service.ErrUserNotFound) ||
+		errors.Is(err, service.ErrAdminCredentialResetForbidden) {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+	return writeInternalServerError(c, err)
 }
 
 func (h *AdminHandler) DeleteUser(c echo.Context) error {

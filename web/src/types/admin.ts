@@ -3,6 +3,8 @@ export interface AdminUser {
   email: string
   role: "admin" | "user"
   status: "active" | "disabled"
+  totp_enabled: boolean
+  passkey_count: number
   created_at: string
   subscription_count: number
 }
