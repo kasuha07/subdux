@@ -124,33 +124,35 @@ export async function getExchangeRatesToTarget(
     return rates
   }
 
-  let primaryBaseRates: ExchangeRateInfo[]
+  let usdBaseRates: ExchangeRateInfo[]
   try {
-    // Use the primary currency as base, then invert to get source -> primary conversion.
-    primaryBaseRates = await api.get<ExchangeRateInfo[]>(
-      `/exchange-rates?base=${encodeURIComponent(normalizedTarget)}`
-    )
+    usdBaseRates = await api.get<ExchangeRateInfo[]>("/exchange-rates")
   } catch {
     return rates
   }
 
-  const sourcePerPrimaryMap = new Map(
-    (primaryBaseRates ?? []).map((item) => [item.target_currency.toUpperCase(), item.rate] as const)
+  const usdBaseRateMap = new Map(
+    (usdBaseRates ?? []).map((item) => [item.target_currency.toUpperCase(), item.rate] as const)
   )
+  usdBaseRateMap.set("USD", 1)
+  const targetPerUSD = usdBaseRateMap.get(normalizedTarget)
+  if (!targetPerUSD || targetPerUSD <= 0) {
+    return rates
+  }
 
   const cacheEntries: Array<{ baseCurrency: string; targetCurrency: string; rate: number }> = []
   for (const sourceCurrency of missingSources) {
-    const sourcePerPrimary = sourcePerPrimaryMap.get(sourceCurrency)
-    if (!sourcePerPrimary || sourcePerPrimary <= 0) {
+    const sourcePerUSD = usdBaseRateMap.get(sourceCurrency)
+    if (!sourcePerUSD || sourcePerUSD <= 0) {
       continue
     }
 
-    const primaryPerSource = 1 / sourcePerPrimary
-    rates[sourceCurrency] = primaryPerSource
+    const targetPerSource = targetPerUSD / sourcePerUSD
+    rates[sourceCurrency] = targetPerSource
     cacheEntries.push({
       baseCurrency: sourceCurrency,
       targetCurrency: normalizedTarget,
-      rate: primaryPerSource,
+      rate: targetPerSource,
     })
   }
 

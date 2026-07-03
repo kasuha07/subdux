@@ -250,3 +250,69 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		t.Fatalf("deleted user lookup error = %v, want %v", err, gorm.ErrRecordNotFound)
 	}
 }
+
+func TestRunSchemaMigrationsConvertsExchangeRatesToUSDBase(t *testing.T) {
+	db := openRawSQLiteTestDB(t)
+	if err := configureSQLiteDatabase(db); err != nil {
+		t.Fatalf("configureSQLiteDatabase() error = %v", err)
+	}
+
+	if err := db.Exec(`CREATE TABLE exchange_rates (
+		id integer primary key autoincrement,
+		base_currency text not null,
+		target_currency text not null,
+		rate real not null,
+		source text not null,
+		fetched_at datetime not null,
+		created_at datetime,
+		updated_at datetime
+	)`).Error; err != nil {
+		t.Fatalf("create legacy exchange_rates error = %v", err)
+	}
+
+	now := time.Date(2026, time.July, 3, 0, 0, 0, 0, time.UTC)
+	legacyRates := []map[string]interface{}{
+		{"base_currency": "usd", "target_currency": "eur", "rate": 0.8, "source": "legacy", "fetched_at": now, "created_at": now, "updated_at": now},
+		{"base_currency": "eur", "target_currency": "cny", "rate": 9.0, "source": "legacy", "fetched_at": now.Add(2 * time.Minute), "created_at": now, "updated_at": now},
+	}
+	for _, rate := range legacyRates {
+		if err := db.Table("exchange_rates").Create(rate).Error; err != nil {
+			t.Fatalf("seed legacy exchange rate error = %v", err)
+		}
+	}
+
+	if err := runSchemaMigrations(db); err != nil {
+		t.Fatalf("runSchemaMigrations() error = %v", err)
+	}
+
+	var migrated []model.ExchangeRate
+	if err := db.Order("target_currency ASC").Find(&migrated).Error; err != nil {
+		t.Fatalf("load migrated exchange rates error = %v", err)
+	}
+
+	if len(migrated) != 2 {
+		t.Fatalf("migrated exchange rate rows = %d, want 2", len(migrated))
+	}
+	rates := make(map[string]float64)
+	for _, rate := range migrated {
+		rates[rate.TargetCurrency] = rate.Rate
+	}
+	if rates["eur"] != 0.8 {
+		t.Fatalf("USD->EUR migrated rate = %v, want 0.8", rates["eur"])
+	}
+	if rates["cny"] != 7.2 {
+		t.Fatalf("USD->CNY migrated rate = %v, want 7.2", rates["cny"])
+	}
+
+	var baseCurrencyColumnCount int
+	if err := db.Raw(
+		"SELECT COUNT(1) FROM pragma_table_info(?) WHERE name = ?",
+		"exchange_rates",
+		"base_currency",
+	).Scan(&baseCurrencyColumnCount).Error; err != nil {
+		t.Fatalf("inspect migrated exchange_rates columns error = %v", err)
+	}
+	if baseCurrencyColumnCount != 0 {
+		t.Fatalf("base_currency column count = %d, want 0", baseCurrencyColumnCount)
+	}
+}

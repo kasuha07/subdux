@@ -111,7 +111,7 @@ func TestWithContextSharesStatefulCache(t *testing.T) {
 
 	// A write through the clone's cache is visible through the parent.
 	clone.cache.mu.Lock()
-	clone.cache.rates[cacheKey("USD", "EUR")] = 0.9
+	clone.cache.rates[rateCacheKey("EUR")] = 0.9
 	clone.cache.mu.Unlock()
 
 	if got := parent.Convert(100, "USD", "EUR"); got != 90 {

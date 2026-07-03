@@ -25,6 +25,9 @@ type rateCache struct {
 	rates map[string]float64
 }
 
+const usdCurrencyCode = "USD"
+const usdCurrencyCodeLower = "usd"
+
 func newRateCache() *rateCache {
 	return &rateCache{rates: make(map[string]float64)}
 }
@@ -55,8 +58,8 @@ func (s *ExchangeRateService) WithContext(ctx context.Context) *ExchangeRateServ
 	return &clone
 }
 
-func cacheKey(base, target string) string {
-	return strings.ToLower(base) + ":" + strings.ToLower(target)
+func rateCacheKey(target string) string {
+	return strings.ToLower(target)
 }
 
 func (s *ExchangeRateService) loadCacheFromDB() {
@@ -65,7 +68,10 @@ func (s *ExchangeRateService) loadCacheFromDB() {
 	s.cache.mu.Lock()
 	defer s.cache.mu.Unlock()
 	for _, r := range rates {
-		s.cache.rates[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
+		if strings.EqualFold(r.TargetCurrency, usdCurrencyCode) || r.Rate <= 0 {
+			continue
+		}
+		s.cache.rates[rateCacheKey(r.TargetCurrency)] = r.Rate
 	}
 }
 
@@ -108,49 +114,57 @@ func (s *ExchangeRateService) UpdateUserPreference(userID uint, input UpdatePref
 }
 
 func (s *ExchangeRateService) Convert(amount float64, from, to string) float64 {
-	from = strings.ToUpper(from)
-	to = strings.ToUpper(to)
+	from = normalizeCurrencyCode(from)
+	to = normalizeCurrencyCode(to)
 	if from == to {
 		return amount
 	}
 
-	s.cache.mu.RLock()
-	rate, ok := s.cache.rates[cacheKey(from, to)]
-	s.cache.mu.RUnlock()
-
-	if ok {
-		return amount * rate
+	rate, ok := s.GetRate(from, to)
+	if !ok {
+		return amount
 	}
-
-	var er model.ExchangeRate
-	if err := s.DB.Where("base_currency = ? AND target_currency = ?",
-		strings.ToLower(from), strings.ToLower(to)).First(&er).Error; err == nil {
-		s.cache.mu.Lock()
-		s.cache.rates[cacheKey(from, to)] = er.Rate
-		s.cache.mu.Unlock()
-		return amount * er.Rate
-	}
-
-	return amount
+	return amount * rate
 }
 
 func (s *ExchangeRateService) GetRate(base, target string) (float64, bool) {
-	base = strings.ToUpper(base)
-	target = strings.ToUpper(target)
+	base = normalizeCurrencyCode(base)
+	target = normalizeCurrencyCode(target)
 	if base == target {
 		return 1.0, true
 	}
 
+	basePerUSD, ok := s.getUSDBaseRate(base)
+	if !ok {
+		return 0, false
+	}
+	targetPerUSD, ok := s.getUSDBaseRate(target)
+	if !ok {
+		return 0, false
+	}
+
+	return targetPerUSD / basePerUSD, true
+}
+
+func (s *ExchangeRateService) getUSDBaseRate(currency string) (float64, bool) {
+	currency = normalizeCurrencyCode(currency)
+	if currency == usdCurrencyCode {
+		return 1.0, true
+	}
+
 	s.cache.mu.RLock()
-	rate, ok := s.cache.rates[cacheKey(base, target)]
+	rate, ok := s.cache.rates[rateCacheKey(currency)]
 	s.cache.mu.RUnlock()
-	if ok {
+	if ok && rate > 0 {
 		return rate, true
 	}
 
 	var er model.ExchangeRate
-	if err := s.DB.Where("base_currency = ? AND target_currency = ?",
-		strings.ToLower(base), strings.ToLower(target)).First(&er).Error; err == nil {
+	if err := s.DB.Where("LOWER(target_currency) = ?",
+		strings.ToLower(currency)).First(&er).Error; err == nil && er.Rate > 0 {
+		s.cache.mu.Lock()
+		s.cache.rates[rateCacheKey(currency)] = er.Rate
+		s.cache.mu.Unlock()
 		return er.Rate, true
 	}
 
@@ -158,32 +172,31 @@ func (s *ExchangeRateService) GetRate(base, target string) (float64, bool) {
 }
 
 type ExchangeRateInfo struct {
-	BaseCurrency   string    `json:"base_currency"`
 	TargetCurrency string    `json:"target_currency"`
 	Rate           float64   `json:"rate"`
 	Source         string    `json:"source"`
 	FetchedAt      time.Time `json:"fetched_at"`
 }
 
-func (s *ExchangeRateService) ListRates(baseCurrency string) ([]ExchangeRateInfo, error) {
+func (s *ExchangeRateService) ListRates() ([]ExchangeRateInfo, error) {
 	var rates []model.ExchangeRate
-	query := s.DB.Order("base_currency ASC, target_currency ASC")
-	if baseCurrency != "" {
-		query = query.Where("base_currency = ?", strings.ToLower(baseCurrency))
-	}
+	query := s.DB.Where("LOWER(target_currency) <> ?", usdCurrencyCodeLower).Order("target_currency ASC")
 	if err := query.Find(&rates).Error; err != nil {
 		return nil, err
 	}
 
-	result := make([]ExchangeRateInfo, len(rates))
-	for i, r := range rates {
-		result[i] = ExchangeRateInfo{
-			BaseCurrency:   strings.ToUpper(r.BaseCurrency),
-			TargetCurrency: strings.ToUpper(r.TargetCurrency),
+	result := make([]ExchangeRateInfo, 0, len(rates))
+	for _, r := range rates {
+		target := normalizeCurrencyCode(r.TargetCurrency)
+		if target == "" || target == usdCurrencyCode || r.Rate <= 0 {
+			continue
+		}
+		result = append(result, ExchangeRateInfo{
+			TargetCurrency: target,
 			Rate:           r.Rate,
 			Source:         r.Source,
 			FetchedAt:      r.FetchedAt,
-		}
+		})
 	}
 	return result, nil
 }
@@ -196,10 +209,15 @@ type RateStatus struct {
 
 func (s *ExchangeRateService) GetStatus() (*RateStatus, error) {
 	var count int64
-	s.DB.Model(&model.ExchangeRate{}).Count(&count)
+	s.DB.Model(&model.ExchangeRate{}).
+		Where("LOWER(target_currency) <> ?", usdCurrencyCodeLower).
+		Count(&count)
 
 	var latest model.ExchangeRate
-	err := s.DB.Order("fetched_at DESC").First(&latest).Error
+	err := s.DB.
+		Where("LOWER(target_currency) <> ?", usdCurrencyCodeLower).
+		Order("fetched_at DESC").
+		First(&latest).Error
 
 	status := &RateStatus{RateCount: count}
 	if err == nil {
@@ -261,30 +279,25 @@ func (s *ExchangeRateService) RefreshRates() error {
 var commonCurrencies = []string{"usd", "eur", "gbp", "jpy", "cny", "cad", "aud", "chf", "hkd", "sgd", "krw", "inr", "brl", "mxn", "rub", "twd", "thb", "try", "nzd", "sek", "nok", "dkk", "pln", "czk", "huf", "ils", "php", "myr", "idr", "vnd", "zar"}
 
 func (s *ExchangeRateService) fetchFromFree() error {
-	bases := s.getActiveCurrencies()
+	base := usdCurrencyCodeLower
 	now := pkg.NowUTC()
 	var allRates []model.ExchangeRate
 
-	for _, base := range bases {
-		rates, err := s.fetchFreeBase(base)
-		if err != nil {
-			logging.Warn("failed to fetch free exchange rates for base currency",
-				slog.String("base", base), slog.Any("error", err))
+	rates, err := s.fetchFreeBase(base)
+	if err != nil {
+		return fmt.Errorf("fetch free USD exchange rates: %w", err)
+	}
+
+	for target, rate := range rates {
+		if target == base || rate <= 0 {
 			continue
 		}
-
-		for target, rate := range rates {
-			if target == base {
-				continue
-			}
-			allRates = append(allRates, model.ExchangeRate{
-				BaseCurrency:   base,
-				TargetCurrency: target,
-				Rate:           rate,
-				Source:         "free",
-				FetchedAt:      now,
-			})
-		}
+		allRates = append(allRates, model.ExchangeRate{
+			TargetCurrency: target,
+			Rate:           rate,
+			Source:         "free",
+			FetchedAt:      now,
+		})
 	}
 
 	if len(allRates) == 0 {
@@ -333,65 +346,56 @@ func (s *ExchangeRateService) fetchFreeBase(base string) (map[string]float64, er
 }
 
 func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
-	bases := s.getActiveCurrencies()
+	base := usdCurrencyCodeLower
 	now := pkg.NowUTC()
 	var allRates []model.ExchangeRate
 
-	targets := make(map[string]bool)
-	for _, c := range commonCurrencies {
-		targets[strings.ToUpper(c)] = true
+	targets := s.getTargetCurrencies(base)
+	targetList := make([]string, 0, len(targets))
+	for _, target := range targets {
+		targetList = append(targetList, strings.ToUpper(target))
 	}
 
-	for _, base := range bases {
-		targetList := make([]string, 0)
-		for t := range targets {
-			if strings.ToLower(t) != base {
-				targetList = append(targetList, t)
-			}
-		}
+	url := fmt.Sprintf("https://api.currencyapi.com/v3/latest?base_currency=%s&currencies=%s",
+		usdCurrencyCode, strings.Join(targetList, ","))
 
-		url := fmt.Sprintf("https://api.currencyapi.com/v3/latest?base_currency=%s&currencies=%s",
-			strings.ToUpper(base), strings.Join(targetList, ","))
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("apikey", apiKey)
 
-		req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
-		if err != nil {
-			return fmt.Errorf("create request: %w", err)
-		}
-		req.Header.Set("apikey", apiKey)
+	resp, err := s.outboundHTTPClient().Do(req)
+	if err != nil {
+		return fmt.Errorf("premium API request: %w", err)
+	}
+	defer resp.Body.Close()
 
-		resp, err := s.outboundHTTPClient().Do(req)
-		if err != nil {
-			return fmt.Errorf("premium API request: %w", err)
-		}
-		defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("premium API returned status %d", resp.StatusCode)
+	}
 
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("premium API returned status %d", resp.StatusCode)
-		}
+	var result struct {
+		Data map[string]struct {
+			Code  string  `json:"code"`
+			Value float64 `json:"value"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("decode premium response: %w", err)
+	}
 
-		var result struct {
-			Data map[string]struct {
-				Code  string  `json:"code"`
-				Value float64 `json:"value"`
-			} `json:"data"`
+	for _, item := range result.Data {
+		target := strings.ToLower(item.Code)
+		if target == base || item.Value <= 0 {
+			continue
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return fmt.Errorf("decode premium response: %w", err)
-		}
-
-		for _, item := range result.Data {
-			target := strings.ToLower(item.Code)
-			if target == base {
-				continue
-			}
-			allRates = append(allRates, model.ExchangeRate{
-				BaseCurrency:   base,
-				TargetCurrency: target,
-				Rate:           item.Value,
-				Source:         "premium",
-				FetchedAt:      now,
-			})
-		}
+		allRates = append(allRates, model.ExchangeRate{
+			TargetCurrency: target,
+			Rate:           item.Value,
+			Source:         "premium",
+			FetchedAt:      now,
+		})
 	}
 
 	if len(allRates) == 0 {
@@ -399,31 +403,6 @@ func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
 	}
 
 	return s.saveRates(allRates)
-}
-
-func (s *ExchangeRateService) getActiveCurrencies() []string {
-	currencySet := make(map[string]bool)
-	for _, c := range commonCurrencies {
-		currencySet[c] = true
-	}
-
-	var subs []model.Subscription
-	s.DB.Select("DISTINCT currency").Where("status = ?", subscriptionStatusActive).Find(&subs)
-	for _, sub := range subs {
-		currencySet[strings.ToLower(sub.Currency)] = true
-	}
-
-	var prefs []model.UserPreference
-	s.DB.Find(&prefs)
-	for _, p := range prefs {
-		currencySet[strings.ToLower(p.PreferredCurrency)] = true
-	}
-
-	result := make([]string, 0, len(currencySet))
-	for c := range currencySet {
-		result = append(result, c)
-	}
-	return result
 }
 
 func (s *ExchangeRateService) getTargetCurrencies(base string) []string {
@@ -460,10 +439,28 @@ func (s *ExchangeRateService) getTargetCurrencies(base string) []string {
 }
 
 func (s *ExchangeRateService) saveRates(rates []model.ExchangeRate) error {
+	usdRates := make([]model.ExchangeRate, 0, len(rates))
+	for _, r := range rates {
+		target := strings.ToLower(strings.TrimSpace(r.TargetCurrency))
+		if target == "" || target == usdCurrencyCodeLower || r.Rate <= 0 {
+			continue
+		}
+		r.TargetCurrency = target
+		usdRates = append(usdRates, r)
+	}
+
+	if len(usdRates) == 0 {
+		return fmt.Errorf("no USD-based exchange rates to save")
+	}
+
 	err := s.DB.Transaction(func(tx *gorm.DB) error {
-		for _, r := range rates {
+		if err := tx.Where("LOWER(target_currency) = ?", usdCurrencyCodeLower).
+			Delete(&model.ExchangeRate{}).Error; err != nil {
+			return err
+		}
+		for _, r := range usdRates {
 			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "base_currency"}, {Name: "target_currency"}},
+				Columns:   []clause.Column{{Name: "target_currency"}},
 				DoUpdates: clause.AssignmentColumns([]string{"rate", "source", "fetched_at", "updated_at"}),
 			}).Create(&r).Error; err != nil {
 				return err
@@ -478,11 +475,18 @@ func (s *ExchangeRateService) saveRates(rates []model.ExchangeRate) error {
 
 	s.cache.mu.Lock()
 	defer s.cache.mu.Unlock()
-	for _, r := range rates {
-		s.cache.rates[cacheKey(r.BaseCurrency, r.TargetCurrency)] = r.Rate
+	for key := range s.cache.rates {
+		delete(s.cache.rates, key)
+	}
+	for _, r := range usdRates {
+		s.cache.rates[rateCacheKey(r.TargetCurrency)] = r.Rate
 	}
 
 	return nil
+}
+
+func normalizeCurrencyCode(currency string) string {
+	return strings.ToUpper(strings.TrimSpace(currency))
 }
 
 func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {

@@ -3,7 +3,6 @@ export interface UserPreference {
 }
 
 export interface ExchangeRateInfo {
-  base_currency: string
   target_currency: string
   rate: number
   source: string

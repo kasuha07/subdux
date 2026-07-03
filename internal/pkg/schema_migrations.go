@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
@@ -29,7 +30,6 @@ var applicationModels = []interface{}{
 	&model.EmailVerificationCode{},
 	&model.Subscription{},
 	&model.SystemSetting{},
-	&model.ExchangeRate{},
 	&model.UserPreference{},
 	&model.UserCurrency{},
 	&model.UserBackupCode{},
@@ -65,6 +65,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260628_01_manual_renew_daily_notifications", Run: migrateManualRenewDailyNotificationPolicy},
 	{Name: "20260628_02_mcp_idempotency_keys", Run: migrateMCPIdempotencyKeys},
 	{Name: "20260628_03_performance_composite_indexes", Run: migratePerformanceCompositeIndexes},
+	{Name: "20260703_01_usd_base_exchange_rates", Run: migrateUSDBaseExchangeRates},
 }
 
 func autoMigrateLatestSchema(db *gorm.DB) error {
@@ -142,6 +143,124 @@ func migratePerformanceCompositeIndexes(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+func migrateUSDBaseExchangeRates(db *gorm.DB) error {
+	if !db.Migrator().HasTable(&model.ExchangeRate{}) {
+		return db.AutoMigrate(&model.ExchangeRate{})
+	}
+
+	var hasBaseCurrencyColumn int
+	if err := db.Raw(
+		"SELECT COUNT(1) FROM pragma_table_info(?) WHERE name = ?",
+		"exchange_rates",
+		"base_currency",
+	).Scan(&hasBaseCurrencyColumn).Error; err != nil {
+		return err
+	}
+	if hasBaseCurrencyColumn == 0 {
+		return db.AutoMigrate(&model.ExchangeRate{})
+	}
+
+	type legacyExchangeRate struct {
+		ID             uint
+		BaseCurrency   string
+		TargetCurrency string
+		Rate           float64
+		Source         string
+		FetchedAt      time.Time
+		CreatedAt      time.Time
+		UpdatedAt      time.Time
+	}
+
+	var existing []legacyExchangeRate
+	if err := db.Raw(`
+		SELECT id, base_currency, target_currency, rate, source, fetched_at, created_at, updated_at
+		FROM exchange_rates
+	`).Scan(&existing).Error; err != nil {
+		return err
+	}
+
+	type selectedRate struct {
+		rate      legacyExchangeRate
+		fetchedAt time.Time
+	}
+	usdRates := make(map[string]selectedRate)
+	for _, rate := range existing {
+		base := normalizeMigrationCurrency(rate.BaseCurrency)
+		target := normalizeMigrationCurrency(rate.TargetCurrency)
+		if rate.Rate <= 0 || base == "" || target == "" || base == target {
+			continue
+		}
+
+		usdRate := rate
+		switch {
+		case base == "USD":
+			usdRate.TargetCurrency = strings.ToLower(target)
+		case target == "USD":
+			usdRate.TargetCurrency = strings.ToLower(base)
+			usdRate.Rate = 1 / rate.Rate
+		default:
+			continue
+		}
+
+		key := usdRate.TargetCurrency
+		selected, exists := usdRates[key]
+		if !exists || rate.FetchedAt.After(selected.fetchedAt) {
+			usdRate.ID = 0
+			usdRates[key] = selectedRate{rate: usdRate, fetchedAt: rate.FetchedAt}
+		}
+	}
+
+	for _, rate := range existing {
+		base := normalizeMigrationCurrency(rate.BaseCurrency)
+		target := normalizeMigrationCurrency(rate.TargetCurrency)
+		if rate.Rate <= 0 || base == "" || target == "" || base == target || base == "USD" || target == "USD" {
+			continue
+		}
+		baseRate, ok := usdRates[strings.ToLower(base)]
+		if !ok || baseRate.rate.Rate <= 0 {
+			continue
+		}
+
+		usdRate := rate
+		usdRate.ID = 0
+		usdRate.TargetCurrency = strings.ToLower(target)
+		usdRate.Rate = baseRate.rate.Rate * rate.Rate
+
+		key := usdRate.TargetCurrency
+		selected, exists := usdRates[key]
+		if !exists || rate.FetchedAt.After(selected.fetchedAt) {
+			usdRates[key] = selectedRate{rate: usdRate, fetchedAt: rate.FetchedAt}
+		}
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Migrator().DropTable(&model.ExchangeRate{}); err != nil {
+			return err
+		}
+		if err := tx.AutoMigrate(&model.ExchangeRate{}); err != nil {
+			return err
+		}
+		for _, selected := range usdRates {
+			rate := model.ExchangeRate{
+				TargetCurrency: selected.rate.TargetCurrency,
+				Rate:           selected.rate.Rate,
+				Source:         selected.rate.Source,
+				FetchedAt:      selected.rate.FetchedAt,
+				CreatedAt:      selected.rate.CreatedAt,
+				UpdatedAt:      selected.rate.UpdatedAt,
+			}
+			if err := tx.Create(&rate).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func normalizeMigrationCurrency(currency string) string {
+	return strings.ToUpper(strings.TrimSpace(currency))
 }
 
 func runSchemaMigrations(db *gorm.DB) error {

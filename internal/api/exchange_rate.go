@@ -27,8 +27,7 @@ func NewExchangeRateHandler(s *service.ExchangeRateService) *ExchangeRateHandler
 }
 
 func (h *ExchangeRateHandler) ListRates(c echo.Context) error {
-	base := c.QueryParam("base")
-	rates, err := h.Service.WithContext(c.Request().Context()).ListRates(base)
+	rates, err := h.Service.WithContext(c.Request().Context()).ListRates()
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -49,9 +48,7 @@ func (h *ExchangeRateHandler) GetRate(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
-		"base_currency":   base,
-		"target_currency": target,
-		"rate":            rate,
+		"rate": rate,
 	})
 }
 

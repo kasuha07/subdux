@@ -18,8 +18,7 @@ type BackgroundTaskLease struct {
 
 type ExchangeRate struct {
 	ID             uint      `gorm:"primaryKey" json:"id"`
-	BaseCurrency   string    `gorm:"not null;size:10;uniqueIndex:idx_base_target" json:"base_currency"`
-	TargetCurrency string    `gorm:"not null;size:10;uniqueIndex:idx_base_target" json:"target_currency"`
+	TargetCurrency string    `gorm:"not null;size:10;uniqueIndex:idx_exchange_rates_target_currency" json:"target_currency"`
 	Rate           float64   `gorm:"not null" json:"rate"`
 	Source         string    `gorm:"not null;size:50" json:"source"`
 	FetchedAt      time.Time `gorm:"not null" json:"fetched_at"`
