@@ -32,6 +32,7 @@ type ReauthOperation =
   | "add_passkey"
   | "enable_totp"
   | "connect_oidc"
+  | "create_api_key"
   | "export_redacted"
   | "export_secrets"
   | "import_subdux"

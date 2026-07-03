@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
+import ReauthDialog from "@/features/admin/reauth-dialog"
 import { api } from "@/lib/api"
 import type { APIKey, CreateAPIKeyResponse } from "@/types"
 
@@ -35,6 +36,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   const [keys, setKeys] = useState<APIKey[]>([])
   const [loading, setLoading] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [reauthOpen, setReauthOpen] = useState(false)
   const [name, setName] = useState("")
   const [keyKind, setKeyKind] = useState<"mcp_client" | "api_integration">("mcp_client")
   const [scopeMode, setScopeMode] = useState<"read" | "read_write">("read")
@@ -63,15 +65,24 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     }
   }, [active, loadKeys])
 
-  async function handleCreate() {
+  function handleCreate() {
+    if (!name.trim() || reauthOpen) return
+    setReauthOpen(true)
+  }
+
+  async function createWithTicket(reauthTicket: string) {
     if (!name.trim()) return
     setCreating(true)
     try {
-      const resp = await api.post<CreateAPIKeyResponse>("/api-keys", {
-        name: name.trim(),
-        key_kind: keyKind,
-        scopes: scopeMode === "read_write" ? ["read", "write"] : ["read"],
-      })
+      const resp = await api.post<CreateAPIKeyResponse>(
+        "/api-keys",
+        {
+          name: name.trim(),
+          key_kind: keyKind,
+          scopes: scopeMode === "read_write" ? ["read", "write"] : ["read"],
+        },
+        { headers: { "X-Reauth-Ticket": reauthTicket } }
+      )
       setNewKey(resp.key)
       setNewKeyKind(resp.api_key.key_kind)
       setKeys((prev) => [resp.api_key, ...prev])
@@ -105,6 +116,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   function handleDialogClose(open: boolean) {
     setCreateOpen(open)
     if (!open) {
+      setReauthOpen(false)
       setNewKey(null)
       setName("")
       setKeyKind("mcp_client")
@@ -241,7 +253,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault()
-                    void handleCreate()
+                    handleCreate()
                   }}
                   className="space-y-4"
                 >
@@ -288,7 +300,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                       </Select>
                     </div>
                   </div>
-                  <Button size="sm" type="submit" disabled={creating || !name.trim()}>
+                  <Button size="sm" type="submit" disabled={creating || reauthOpen || !name.trim()}>
                     {creating ? t("settings.apiKeys.creating") : t("settings.apiKeys.create")}
                   </Button>
                 </form>
@@ -296,6 +308,16 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
             </DialogContent>
           </Dialog>
         </div>
+
+        <ReauthDialog
+          operation="create_api_key"
+          open={reauthOpen}
+          onOpenChange={setReauthOpen}
+          onVerified={createWithTicket}
+          title={t("settings.apiKeys.reauth.title")}
+          description={t("settings.apiKeys.reauth.description")}
+          layer="stacked"
+        />
 
         <Separator />
 

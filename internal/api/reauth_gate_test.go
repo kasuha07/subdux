@@ -177,6 +177,21 @@ func postWallosImportWithAPIKey(t *testing.T, e *echo.Echo, apiKey string, confi
 	return rec
 }
 
+func postCreateAPIKey(t *testing.T, e *echo.Echo, token, name, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"name":%q,"key_kind":"api_integration","scopes":["read"]}`, name)
+	req := httptest.NewRequest(http.MethodPost, "/api/api-keys", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
@@ -221,6 +236,83 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
+}
+
+func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := postCreateAPIKey(t, e, token, "Script", "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		rec := postCreateAPIKey(t, e, token, "Script", backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationCreateAPIKey)
+
+		rec := postCreateAPIKey(t, e, token, "Script", ticket)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+
+		rec = postCreateAPIKey(t, e, token, "Second Script", ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestAPIKeyListAndDeleteDoNotRequireReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	apiKeyResp, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+		Name:    "Integration",
+		KeyKind: service.APIKeyKindAPIIntegration,
+		Scopes:  []string{service.APIKeyScopeRead},
+	})
+	if err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/api-keys", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/api-keys/%d", apiKeyResp.APIKey.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
 }
 
 func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T) {

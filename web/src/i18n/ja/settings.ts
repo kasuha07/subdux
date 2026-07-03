@@ -340,6 +340,10 @@ const settings = {
     "copyWarning": "APIキーを今すぐコピーしてください。再度表示することはできません。",
     "dialogDescriptionCreate": "外部プログラムがサブスクリプションデータにアクセスできるように API キーを作成します。",
     "dialogDescriptionCreated": "生成された API キーは一度しか表示されないため、今すぐコピーしてください。",
+    "reauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、APIキーを作成する前に再認証してください。"
+    },
     "copied": "クリップボードにコピーしました",
     "usage": "使用方法",
     "usageDescription": "リクエスト時にX-API-KeyヘッダーにAPIキーを設定してください。",

@@ -329,8 +329,8 @@ export async function logoutAll(): Promise<void> {
 export const api = {
   fetch: (path: string, options?: RequestInit) => requestRaw(path, options),
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  post: <T>(path: string, body: unknown, options: RequestInit = {}) =>
+    request<T>(path, { ...options, method: "POST", body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),

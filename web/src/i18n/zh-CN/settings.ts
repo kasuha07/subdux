@@ -340,6 +340,10 @@ const settings = {
     "copyWarning": "请立即复制 API 密钥，之后将无法再次查看。",
     "dialogDescriptionCreate": "创建一个 API 密钥，供外部程序访问你的订阅数据。",
     "dialogDescriptionCreated": "生成的 API 密钥只会显示一次，请立即复制。",
+    "reauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，创建 API 密钥前请重新验证身份。"
+    },
     "copied": "已复制到剪贴板",
     "usage": "使用方法",
     "usageDescription": "在请求时将 API 密钥放入 X-API-Key 请求头中。",

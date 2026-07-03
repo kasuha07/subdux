@@ -157,7 +157,7 @@ func SetupRoutes(
 	dashboardBootstrapHandler := NewDashboardBootstrapHandler(subService, erService, currencyService, categoryService, paymentMethodService)
 	notificationHandler := NewNotificationHandler(notificationService)
 	templateHandler := NewNotificationTemplateHandler(templateService)
-	apiKeyHandler := NewAPIKeyHandler(apiKeyService)
+	apiKeyHandler := NewAPIKeyHandler(apiKeyService, reauthService)
 	auditHandler := NewAuditHandler(auditService)
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService, reauthService)

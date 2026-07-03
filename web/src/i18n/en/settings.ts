@@ -340,6 +340,10 @@ const settings = {
     "copyWarning": "Make sure to copy the API key now. You won't be able to see it again.",
     "dialogDescriptionCreate": "Create an API key for external programs to access your subscription data.",
     "dialogDescriptionCreated": "Copy the generated API key now because it will only be shown once.",
+    "reauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before creating an API key."
+    },
     "copied": "Copied to clipboard",
     "usage": "Usage",
     "usageDescription": "Use the API key in the X-API-Key header when making requests.",

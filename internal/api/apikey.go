@@ -13,10 +13,11 @@ import (
 
 type APIKeyHandler struct {
 	Service *service.APIKeyService
+	Reauth  *service.ReauthService
 }
 
-func NewAPIKeyHandler(s *service.APIKeyService) *APIKeyHandler {
-	return &APIKeyHandler{Service: s}
+func NewAPIKeyHandler(s *service.APIKeyService, reauth *service.ReauthService) *APIKeyHandler {
+	return &APIKeyHandler{Service: s, Reauth: reauth}
 }
 
 type apiKeyResponse struct {
@@ -58,6 +59,14 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name is required"})
+	}
+
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		service.ReauthOperationCreateAPIKey,
+		c.Request().Header.Get(reauthTicketHeader),
+	); err != nil {
+		return writeReauthError(c, err)
 	}
 
 	role := getUserRole(c)

@@ -37,6 +37,7 @@ const (
 	ReauthOperationAddPasskey     = "add_passkey"
 	ReauthOperationEnableTOTP     = "enable_totp"
 	ReauthOperationConnectOIDC    = "connect_oidc"
+	ReauthOperationCreateAPIKey   = "create_api_key"
 	ReauthOperationExportRedacted = "export_redacted"
 	ReauthOperationExportSecrets  = "export_secrets"
 	ReauthOperationImportSubdux   = "import_subdux"
@@ -121,6 +122,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationAddPasskey,
 		ReauthOperationEnableTOTP,
 		ReauthOperationConnectOIDC,
+		ReauthOperationCreateAPIKey,
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,
 		ReauthOperationImportSubdux,
