@@ -102,6 +102,7 @@ docker compose up --build -d
 - 启用邮箱验证、密码重置或邮件通知前，先完成 SMTP 配置。
 - 如果启用 OIDC，确保 Subdux 中的回调地址与身份提供方配置完全一致。
 - Passkey 和 OIDC 通常要求正确的公网 URL 与 HTTPS 配置。
+- 如果启用应用内的系统代理，请在代理侧配置出站 ACL。对于用户可配置的出站请求，Subdux 会在代理前应用主机名策略；但代理 DNS 解析和私网地址阻断由代理负责。管理员配置的出站目标视为管理员策略并被信任。
 - 在反向代理层开启响应压缩（gzip/zstd/brotli）。Subdux 已为带内容 hash 的 `/assets/*` 产物发送长效 `immutable` 缓存头，但自身不压缩响应——把压缩放在边缘（Caddy `encode zstd gzip`、Nginx `gzip on`）既能避开 SSE/流式路径，又能最大程度减小首屏传输体积。
 
 ## 架构说明

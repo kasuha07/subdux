@@ -73,6 +73,9 @@ export default function AdminSettingsProxySection({
           <p className="text-xs text-muted-foreground">
             {t("admin.settings.systemProxyUrlDescription")}
           </p>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.settings.systemProxyEgressACLDescription")}
+          </p>
         </div>
       </div>
     </>

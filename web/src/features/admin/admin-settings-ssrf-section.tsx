@@ -136,6 +136,9 @@ export default function AdminSettingsSSRFSection({
           <p className="text-sm text-muted-foreground">
             {t("admin.settings.ssrfFilterResolvedIPsDescription")}
           </p>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.settings.ssrfFilterResolvedIPsProxyDescription")}
+          </p>
         </div>
         <Switch
           id="ssrf-filter-resolved-ips"
