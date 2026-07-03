@@ -1,4 +1,4 @@
-package pkg
+package migrations
 
 import (
 	"database/sql"
@@ -16,7 +16,7 @@ func withSQLiteForeignKeysDisabled(db *gorm.DB, fn func(tx *gorm.DB) error) erro
 		_ = db.Exec("PRAGMA foreign_keys = ON").Error
 	}()
 
-	if err := db.Transaction(fn); err != nil {
+	if err := fn(db); err != nil {
 		return err
 	}
 

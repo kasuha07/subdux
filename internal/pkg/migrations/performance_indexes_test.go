@@ -1,4 +1,4 @@
-package pkg
+package migrations
 
 import (
 	"strings"
@@ -50,8 +50,8 @@ func TestHotQueriesUseCompositeIndexes(t *testing.T) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		t.Fatalf("configureSQLiteDatabase() error = %v", err)
 	}
-	if err := runSchemaMigrations(db); err != nil {
-		t.Fatalf("runSchemaMigrations() error = %v", err)
+	if err := Run(db); err != nil {
+		t.Fatalf("Run() error = %v", err)
 	}
 
 	cases := []struct {
@@ -109,8 +109,8 @@ func TestSubscriptionNextBillingIndexExists(t *testing.T) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		t.Fatalf("configureSQLiteDatabase() error = %v", err)
 	}
-	if err := runSchemaMigrations(db); err != nil {
-		t.Fatalf("runSchemaMigrations() error = %v", err)
+	if err := Run(db); err != nil {
+		t.Fatalf("Run() error = %v", err)
 	}
 
 	if !db.Migrator().HasIndex(&model.Subscription{}, "idx_subscriptions_user_next_billing") {

@@ -1,4 +1,4 @@
-package pkg
+package migrations
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 )
 
 func createMissingTables(db *gorm.DB) error {
-	for _, value := range applicationModels {
+	for _, value := range migration20260512ApplicationModels() {
 		if db.Migrator().HasTable(value) {
 			continue
 		}

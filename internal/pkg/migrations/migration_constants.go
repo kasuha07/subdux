@@ -1,4 +1,4 @@
-package pkg
+package migrations
 
 const (
 	subscriptionStatusActive           = "active"

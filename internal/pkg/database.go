@@ -10,6 +10,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/pkg/migrations"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -64,7 +65,7 @@ func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		return nil, err
 	}
-	if err := runSchemaMigrations(db); err != nil {
+	if err := migrations.Run(db); err != nil {
 		return nil, err
 	}
 
