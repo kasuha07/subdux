@@ -1,12 +1,7 @@
 package service
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/kasuha07/subdux/internal/pkg"
+	svcbackup "github.com/kasuha07/subdux/internal/service/backup"
 )
 
 // BackupDB produces an on-demand backup and returns the path of the file to
@@ -17,27 +12,5 @@ import (
 // includeAssets. The password is trimmed before deciding, so all-whitespace is
 // treated as empty.
 func (s *AdminService) BackupDB(includeAssets bool, password string) (string, error) {
-	password = strings.TrimSpace(password)
-
-	timestamp := pkg.Now().Format("20060102-150405")
-	backupPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
-
-	if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
-		return "", err
-	}
-
-	if !includeAssets && password == "" {
-		return backupPath, nil
-	}
-
-	archivePath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.zip", timestamp))
-	if err := writeBackupZipFromDB(archivePath, backupPath, includeAssets, password); err != nil {
-		_ = os.Remove(backupPath)
-		_ = os.Remove(archivePath)
-		return "", err
-	}
-
-	_ = os.Remove(backupPath)
-
-	return archivePath, nil
+	return svcbackup.NewService(s.DB).BackupDB(includeAssets, password)
 }

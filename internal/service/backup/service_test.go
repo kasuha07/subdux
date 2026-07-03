@@ -1,4 +1,4 @@
-package service
+package backup
 
 import (
 	"archive/zip"
@@ -9,31 +9,34 @@ import (
 	"testing"
 	"time"
 
-	yekazip "github.com/yeka/zip"
-
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/servicetest"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
+	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
+	yekazip "github.com/yeka/zip"
+	"gorm.io/gorm"
 )
 
-// newBackupTestDB provisions an AdminService backed by a temp SQLite database
-// with the system settings table migrated and DATA_PATH pointed at a temp dir.
-func newBackupTestDB(t *testing.T) (*AdminService, string) {
+// newBackupTestDB provisions a Service backed by a temp SQLite database with
+// the system settings table migrated and DATA_PATH pointed at a temp dir.
+func newBackupTestDB(t *testing.T) (*Service, string) {
 	t.Helper()
 
 	dataDir := t.TempDir()
 	t.Setenv("DATA_PATH", dataDir)
 	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-backup-settings-key")
 
-	db := newTestDB(t)
+	db := servicetest.NewDB(t)
 	if err := db.AutoMigrate(&model.BackgroundTaskLease{}); err != nil {
 		t.Fatalf("failed to migrate background task leases: %v", err)
 	}
-	return NewAdminService(db), dataDir
+	return NewService(db), dataDir
 }
 
 // makeBackupDBFile produces a valid SQLite file at a temp path using VACUUM INTO
 // so archive builders have a real database to embed.
-func makeBackupDBFile(t *testing.T, svc *AdminService) string {
+func makeBackupDBFile(t *testing.T, svc *Service) string {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "source.db")
@@ -41,6 +44,14 @@ func makeBackupDBFile(t *testing.T, svc *AdminService) string {
 		t.Fatalf("VACUUM INTO failed: %v", err)
 	}
 	return dbPath
+}
+
+func applySettings(t *testing.T, svc *Service, input UpdateSettingsInput) error {
+	t.Helper()
+
+	return svc.DB.Transaction(func(tx *gorm.DB) error {
+		return ApplySettings(tx, input)
+	})
 }
 
 func TestWriteBackupZipEncryptedRoundTrip(t *testing.T) {
@@ -121,7 +132,6 @@ func TestWriteBackupZipEncryptedRoundTrip(t *testing.T) {
 				entry.SetPassword("wrong-password")
 				rc, openErr := entry.Open()
 				if openErr != nil {
-					// Some implementations fail at Open; that is an acceptable failure.
 					break
 				}
 				if _, readErr := io.ReadAll(rc); readErr == nil {
@@ -164,13 +174,13 @@ func TestWriteBackupZipPlainRestoreCompatible(t *testing.T) {
 		if openErr != nil {
 			t.Fatalf("open plain entry: %v", openErr)
 		}
-		header := make([]byte, len(sqliteFileHeaderBytes))
+		header := make([]byte, len(sqliteFileHeader))
 		if _, readErr := io.ReadFull(rc, header); readErr != nil {
 			rc.Close()
 			t.Fatalf("read plain entry header: %v", readErr)
 		}
 		rc.Close()
-		if string(header) != string(sqliteFileHeaderBytes) {
+		if string(header) != string(sqliteFileHeader) {
 			t.Fatalf("subdux.db does not start with SQLite header: %q", header)
 		}
 	}
@@ -179,13 +189,10 @@ func TestWriteBackupZipPlainRestoreCompatible(t *testing.T) {
 	}
 }
 
-var sqliteFileHeaderBytes = []byte("SQLite format 3\x00")
-
 func TestApplyLocalBackupRetention(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 	dir := t.TempDir()
 
-	// Matching backup files with distinct, increasing modification times.
 	matching := []string{
 		"subdux-backup-20260101-000000.zip",
 		"subdux-backup-20260102-000000.zip",
@@ -205,7 +212,6 @@ func TestApplyLocalBackupRetention(t *testing.T) {
 		}
 	}
 
-	// Non-matching files that must never be touched.
 	nonMatching := []string{"other.txt", "subdux.db", "backup-notzip.zip.bak", "subdux-backup.txt"}
 	for _, name := range nonMatching {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("keep"), 0o600); err != nil {
@@ -217,7 +223,6 @@ func TestApplyLocalBackupRetention(t *testing.T) {
 		t.Fatalf("applyLocalBackupRetention() error = %v", err)
 	}
 
-	// The two newest matching files (by modtime) must remain.
 	wantKept := map[string]bool{
 		"subdux-backup-20260105-000000.zip": true,
 		"subdux-backup-20260104-000000.zip": true,
@@ -233,7 +238,6 @@ func TestApplyLocalBackupRetention(t *testing.T) {
 		}
 	}
 
-	// Non-matching files must be untouched.
 	for _, name := range nonMatching {
 		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
 			t.Fatalf("non-matching file %s should be untouched, got %v", name, err)
@@ -306,7 +310,7 @@ func TestBackupDue(t *testing.T) {
 		},
 		{
 			name:      "shanghai time reached",
-			now:       time.Date(2026, 5, 20, 20, 30, 0, 0, utc), // 04:30 next day in +08:00
+			now:       time.Date(2026, 5, 20, 20, 30, 0, 0, utc),
 			timeOfDay: "03:00",
 			lastRunAt: time.Time{},
 			loc:       shanghai,
@@ -314,9 +318,9 @@ func TestBackupDue(t *testing.T) {
 		},
 		{
 			name:      "shanghai already ran same local day",
-			now:       time.Date(2026, 5, 20, 20, 30, 0, 0, utc), // 2026-05-21 04:30 +08:00
+			now:       time.Date(2026, 5, 20, 20, 30, 0, 0, utc),
 			timeOfDay: "03:00",
-			lastRunAt: time.Date(2026, 5, 20, 19, 5, 0, 0, utc), // 2026-05-21 03:05 +08:00
+			lastRunAt: time.Date(2026, 5, 20, 19, 5, 0, 0, utc),
 			loc:       shanghai,
 			want:      false,
 		},
@@ -331,7 +335,7 @@ func TestBackupDue(t *testing.T) {
 	}
 }
 
-func TestUpdateSettingsBackupHappyPath(t *testing.T) {
+func TestApplySettingsHappyPath(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
 	enabled := true
@@ -340,41 +344,43 @@ func TestUpdateSettingsBackupHappyPath(t *testing.T) {
 	retention := int64(14)
 	localDir := filepath.Join(t.TempDir(), "backups")
 
-	if err := svc.UpdateSettings(UpdateSettingsInput{
-		BackupScheduleEnabled: &enabled,
-		BackupTimeOfDay:       &timeOfDay,
-		BackupIncludeAssets:   &includeAssets,
-		BackupRetentionCount:  &retention,
-		BackupLocalDir:        &localDir,
+	if err := applySettings(t, svc, UpdateSettingsInput{
+		ScheduleEnabled: &enabled,
+		TimeOfDay:       &timeOfDay,
+		IncludeAssets:   &includeAssets,
+		RetentionCount:  &retention,
+		LocalDir:        &localDir,
 	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
+		t.Fatalf("ApplySettings() error = %v", err)
 	}
 
-	settings, err := svc.GetSettings()
-	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
+	gotEnabled, err := backupsettings.GetBool(nil, svc.DB, KeyScheduleEnabled, false)
+	if err != nil || !gotEnabled {
+		t.Fatalf("backup schedule = %v, err = %v, want true/nil", gotEnabled, err)
 	}
-	if !settings.BackupScheduleEnabled {
-		t.Fatal("BackupScheduleEnabled = false, want true")
+	gotTime, err := backupsettings.GetString(nil, svc.DB, KeyTimeOfDay, "")
+	if err != nil || gotTime != timeOfDay {
+		t.Fatalf("backup time = %q, err = %v, want %q/nil", gotTime, err, timeOfDay)
 	}
-	if settings.BackupTimeOfDay != timeOfDay {
-		t.Fatalf("BackupTimeOfDay = %q, want %q", settings.BackupTimeOfDay, timeOfDay)
+	gotIncludeAssets, err := backupsettings.GetBool(nil, svc.DB, KeyIncludeAssets, false)
+	if err != nil || !gotIncludeAssets {
+		t.Fatalf("backup include_assets = %v, err = %v, want true/nil", gotIncludeAssets, err)
 	}
-	if !settings.BackupIncludeAssets {
-		t.Fatal("BackupIncludeAssets = false, want true")
+	gotRetention, err := backupsettings.GetInt(nil, svc.DB, KeyRetentionCount, 0)
+	if err != nil || gotRetention != int(retention) {
+		t.Fatalf("backup retention = %d, err = %v, want %d/nil", gotRetention, err, retention)
 	}
-	if settings.BackupRetentionCount != retention {
-		t.Fatalf("BackupRetentionCount = %d, want %d", settings.BackupRetentionCount, retention)
+	gotLocalDir, err := backupsettings.GetString(nil, svc.DB, KeyLocalDir, "")
+	if err != nil || gotLocalDir != filepath.Clean(localDir) {
+		t.Fatalf("backup local_dir = %q, err = %v, want %q/nil", gotLocalDir, err, filepath.Clean(localDir))
 	}
-	if settings.BackupLocalDir != filepath.Clean(localDir) {
-		t.Fatalf("BackupLocalDir = %q, want %q", settings.BackupLocalDir, filepath.Clean(localDir))
-	}
-	if settings.BackupEncryptionPasswordSet {
-		t.Fatal("BackupEncryptionPasswordSet = true, want false")
+	gotPassword, err := backupsettings.GetString(nil, svc.DB, KeyEncryptionPassword, "")
+	if err != nil || gotPassword != "" {
+		t.Fatalf("backup password = %q, err = %v, want empty/nil", gotPassword, err)
 	}
 }
 
-func TestUpdateSettingsBackupValidation(t *testing.T) {
+func TestApplySettingsValidation(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   UpdateSettingsInput
@@ -382,27 +388,27 @@ func TestUpdateSettingsBackupValidation(t *testing.T) {
 	}{
 		{
 			name:    "invalid time of day",
-			input:   UpdateSettingsInput{BackupTimeOfDay: strPtr("24:00")},
+			input:   UpdateSettingsInput{TimeOfDay: strPtr("24:00")},
 			wantErr: ErrInvalidBackupTimeOfDay,
 		},
 		{
 			name:    "retention too low",
-			input:   UpdateSettingsInput{BackupRetentionCount: int64Ptr(0)},
+			input:   UpdateSettingsInput{RetentionCount: int64Ptr(0)},
 			wantErr: ErrInvalidBackupRetentionCount,
 		},
 		{
 			name:    "retention too high",
-			input:   UpdateSettingsInput{BackupRetentionCount: int64Ptr(1001)},
+			input:   UpdateSettingsInput{RetentionCount: int64Ptr(1001)},
 			wantErr: ErrInvalidBackupRetentionCount,
 		},
 		{
 			name:    "relative dir with parent segment",
-			input:   UpdateSettingsInput{BackupLocalDir: strPtr("../evil")},
+			input:   UpdateSettingsInput{LocalDir: strPtr("../evil")},
 			wantErr: ErrInvalidBackupLocalDir,
 		},
 		{
 			name:    "encrypt enabled without password",
-			input:   UpdateSettingsInput{BackupEncryptEnabled: boolPtr(true)},
+			input:   UpdateSettingsInput{EncryptEnabled: boolPtr(true)},
 			wantErr: ErrBackupEncryptionPasswordRequired,
 		},
 	}
@@ -410,56 +416,46 @@ func TestUpdateSettingsBackupValidation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, _ := newBackupTestDB(t)
-			err := svc.UpdateSettings(tc.input)
+			err := applySettings(t, svc, tc.input)
 			if !errors.Is(err, tc.wantErr) {
-				t.Fatalf("UpdateSettings() error = %v, want %v", err, tc.wantErr)
+				t.Fatalf("ApplySettings() error = %v, want %v", err, tc.wantErr)
 			}
 		})
 	}
 }
 
-func TestUpdateSettingsBackupEncryptionPasswordFlow(t *testing.T) {
+func TestApplySettingsEncryptionPasswordFlow(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	// Provide a password and enable encryption in a single request.
 	password := "s3cr3t-backup"
 	enable := true
-	if err := svc.UpdateSettings(UpdateSettingsInput{
-		BackupEncryptEnabled:     &enable,
-		BackupEncryptionPassword: &password,
+	if err := applySettings(t, svc, UpdateSettingsInput{
+		EncryptEnabled:     &enable,
+		EncryptionPassword: &password,
 	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
+		t.Fatalf("ApplySettings() error = %v", err)
 	}
 
-	settings, err := svc.GetSettings()
-	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
-	}
-	if !settings.BackupEncryptEnabled {
-		t.Fatal("BackupEncryptEnabled = false, want true")
-	}
-	if !settings.BackupEncryptionPasswordSet {
-		t.Fatal("BackupEncryptionPasswordSet = false, want true")
+	gotEnabled, err := backupsettings.GetBool(nil, svc.DB, KeyEncryptEnabled, false)
+	if err != nil || !gotEnabled {
+		t.Fatalf("backup encrypt_enabled = %v, err = %v, want true/nil", gotEnabled, err)
 	}
 
-	// The stored password must be encrypted at rest, never plaintext.
 	var stored model.SystemSetting
-	if err := svc.DB.Where("key = ?", backupEncryptionPasswordKey).First(&stored).Error; err != nil {
+	if err := svc.DB.Where("key = ?", KeyEncryptionPassword).First(&stored).Error; err != nil {
 		t.Fatalf("read stored password: %v", err)
 	}
 	if stored.Value == password {
 		t.Fatal("backup encryption password stored in plaintext")
 	}
 
-	// Re-enabling with an empty password must succeed because one is stored.
-	if err := svc.UpdateSettings(UpdateSettingsInput{BackupEncryptEnabled: &enable}); err != nil {
+	if err := applySettings(t, svc, UpdateSettingsInput{EncryptEnabled: &enable}); err != nil {
 		t.Fatalf("re-enable with stored password error = %v", err)
 	}
 
-	// The runtime config must decrypt the stored password.
-	cfg, err := svc.loadBackupRuntimeConfig()
+	cfg, err := svc.loadRuntimeConfig()
 	if err != nil {
-		t.Fatalf("loadBackupRuntimeConfig() error = %v", err)
+		t.Fatalf("loadRuntimeConfig() error = %v", err)
 	}
 	if cfg.EncryptPassword != password {
 		t.Fatalf("decrypted password = %q, want %q", cfg.EncryptPassword, password)
@@ -509,38 +505,35 @@ func TestRunScheduledBackupWritesStatus(t *testing.T) {
 
 	enabled := true
 	timeOfDay := "03:00"
-	if err := svc.UpdateSettings(UpdateSettingsInput{
-		BackupScheduleEnabled: &enabled,
-		BackupTimeOfDay:       &timeOfDay,
+	if err := applySettings(t, svc, UpdateSettingsInput{
+		ScheduleEnabled: &enabled,
+		TimeOfDay:       &timeOfDay,
 	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
+		t.Fatalf("ApplySettings() error = %v", err)
 	}
 
 	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
 	restore := pkg.SetNowForTest(fixedNow)
 	t.Cleanup(restore)
 
-	ownerID := NewBackgroundTaskOwnerID()
+	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("RunScheduledBackup() error = %v", err)
 	}
 
-	settings, err := svc.GetSettings()
-	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
+	lastStatus, err := backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
+	if err != nil || lastStatus != StatusOK {
+		t.Fatalf("backup last_status = %q, err = %v, want %q/nil", lastStatus, err, StatusOK)
 	}
-	if settings.BackupLastStatus != backupStatusOK {
-		t.Fatalf("BackupLastStatus = %q, want %q", settings.BackupLastStatus, backupStatusOK)
+	lastError, err := backupsettings.GetString(nil, svc.DB, KeyLastError, "")
+	if err != nil || lastError != "" {
+		t.Fatalf("backup last_error = %q, err = %v, want empty/nil", lastError, err)
 	}
-	if settings.BackupLastError != "" {
-		t.Fatalf("BackupLastError = %q, want empty", settings.BackupLastError)
-	}
-	if settings.BackupLastRunAt == "" {
-		t.Fatal("BackupLastRunAt should be set after a run")
+	lastRunAt, err := backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
+	if err != nil || lastRunAt == "" {
+		t.Fatalf("backup last_run_at = %q, err = %v, want set/nil", lastRunAt, err)
 	}
 
-	// A second immediate run on the same day must be a no-op (still success, no
-	// new failure), because the daily guard prevents re-running.
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("second RunScheduledBackup() error = %v", err)
 	}
@@ -559,71 +552,62 @@ func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
 	enabled := true
 	timeOfDay := "03:00"
 
-	// Point the backup directory at a path whose parent is a regular file so
-	// MkdirAll fails: a transient, self-clearing failure condition.
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
 	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
 		t.Fatalf("failed to create blocking file: %v", err)
 	}
 	badDir := filepath.Join(blockingFile, "backups")
-	if err := svc.UpdateSettings(UpdateSettingsInput{
-		BackupScheduleEnabled: &enabled,
-		BackupTimeOfDay:       &timeOfDay,
-		BackupLocalDir:        &badDir,
+	if err := applySettings(t, svc, UpdateSettingsInput{
+		ScheduleEnabled: &enabled,
+		TimeOfDay:       &timeOfDay,
+		LocalDir:        &badDir,
 	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
+		t.Fatalf("ApplySettings() error = %v", err)
 	}
 
 	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
 	restore := pkg.SetNowForTest(fixedNow)
 	t.Cleanup(restore)
 
-	ownerID := NewBackgroundTaskOwnerID()
+	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 
-	// First tick: the backup fails transiently.
 	if err := svc.RunScheduledBackup(ownerID); err == nil {
 		t.Fatal("expected RunScheduledBackup() to fail with an unwritable directory")
 	}
 
-	settings, err := svc.GetSettings()
-	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
+	lastStatus, err := backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
+	if err != nil || lastStatus != StatusFailed {
+		t.Fatalf("backup last_status = %q, err = %v, want %q/nil", lastStatus, err, StatusFailed)
 	}
-	if settings.BackupLastStatus != backupStatusFailed {
-		t.Fatalf("BackupLastStatus = %q, want %q", settings.BackupLastStatus, backupStatusFailed)
+	lastError, err := backupsettings.GetString(nil, svc.DB, KeyLastError, "")
+	if err != nil || lastError == "" {
+		t.Fatalf("backup last_error = %q, err = %v, want non-empty/nil", lastError, err)
 	}
-	if settings.BackupLastError == "" {
-		t.Fatal("BackupLastError should be set after a failed run")
-	}
-	// The failure must NOT stamp the last-run timestamp, otherwise the daily
-	// guard would suppress retries for the rest of the day.
-	if settings.BackupLastRunAt != "" {
-		t.Fatalf("BackupLastRunAt = %q, want empty after a failed run", settings.BackupLastRunAt)
+	lastRunAt, err := backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
+	if err != nil || lastRunAt != "" {
+		t.Fatalf("backup last_run_at = %q, err = %v, want empty/nil", lastRunAt, err)
 	}
 
-	// The failure condition clears (a writable directory is configured). A
-	// subsequent tick on the same day must still run the backup.
 	goodDir := filepath.Join(t.TempDir(), "backups")
-	if err := svc.UpdateSettings(UpdateSettingsInput{BackupLocalDir: &goodDir}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
+	if err := applySettings(t, svc, UpdateSettingsInput{LocalDir: &goodDir}); err != nil {
+		t.Fatalf("ApplySettings() error = %v", err)
 	}
 
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("retry RunScheduledBackup() error = %v", err)
 	}
 
-	settings, err = svc.GetSettings()
-	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
+	lastStatus, err = backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
+	if err != nil || lastStatus != StatusOK {
+		t.Fatalf("backup last_status = %q, err = %v, want %q/nil after retry", lastStatus, err, StatusOK)
 	}
-	if settings.BackupLastStatus != backupStatusOK {
-		t.Fatalf("BackupLastStatus = %q, want %q after retry", settings.BackupLastStatus, backupStatusOK)
+	lastError, err = backupsettings.GetString(nil, svc.DB, KeyLastError, "")
+	if err != nil || lastError != "" {
+		t.Fatalf("backup last_error = %q, err = %v, want empty/nil after retry", lastError, err)
 	}
-	if settings.BackupLastError != "" {
-		t.Fatalf("BackupLastError = %q, want empty after successful retry", settings.BackupLastError)
-	}
-	if settings.BackupLastRunAt == "" {
-		t.Fatal("BackupLastRunAt should be set after a successful retry")
+	lastRunAt, err = backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
+	if err != nil || lastRunAt == "" {
+		t.Fatalf("backup last_run_at = %q, err = %v, want set/nil after retry", lastRunAt, err)
 	}
 
 	_, items, err := svc.ListLocalBackups()
@@ -660,8 +644,6 @@ func TestBackupDBPasswordProducesEncryptedZip(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = os.Remove(path) })
 
-			// A non-empty password always forces the zip container even when
-			// assets are excluded.
 			if filepath.Ext(path) != ".zip" {
 				t.Fatalf("BackupDB() path = %q, want a .zip archive", path)
 			}
@@ -669,8 +651,6 @@ func TestBackupDBPasswordProducesEncryptedZip(t *testing.T) {
 				t.Fatal("BackupDB() with password produced an unencrypted archive")
 			}
 
-			// The database entry must decrypt with the correct password and be a
-			// valid SQLite file.
 			reader, err := yekazip.OpenReader(path)
 			if err != nil {
 				t.Fatalf("yekazip.OpenReader() error = %v", err)
@@ -690,13 +670,13 @@ func TestBackupDBPasswordProducesEncryptedZip(t *testing.T) {
 				if openErr != nil {
 					t.Fatalf("open encrypted db entry: %v", openErr)
 				}
-				header := make([]byte, len(sqliteFileHeaderBytes))
+				header := make([]byte, len(sqliteFileHeader))
 				if _, readErr := io.ReadFull(rc, header); readErr != nil {
 					rc.Close()
 					t.Fatalf("read decrypted db header: %v", readErr)
 				}
 				rc.Close()
-				if string(header) != string(sqliteFileHeaderBytes) {
+				if string(header) != string(sqliteFileHeader) {
 					t.Fatalf("decrypted db header = %q, want SQLite header", header)
 				}
 			}
@@ -710,7 +690,6 @@ func TestBackupDBPasswordProducesEncryptedZip(t *testing.T) {
 func TestBackupDBWhitespacePasswordKeepsPlainBehavior(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	// An all-whitespace password is treated as empty: db-only stays a raw .db.
 	path, err := svc.BackupDB(false, "   ")
 	if err != nil {
 		t.Fatalf("BackupDB() error = %v", err)
@@ -749,9 +728,9 @@ func isSQLiteFile(t *testing.T, path string) bool {
 		t.Fatalf("open %q: %v", path, err)
 	}
 	defer f.Close()
-	header := make([]byte, len(sqliteFileHeaderBytes))
+	header := make([]byte, len(sqliteFileHeader))
 	if _, err := io.ReadFull(f, header); err != nil {
 		return false
 	}
-	return string(header) == string(sqliteFileHeaderBytes)
+	return string(header) == string(sqliteFileHeader)
 }

@@ -1,4 +1,4 @@
-package service
+package backup
 
 import (
 	"context"
@@ -16,28 +16,31 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
+	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/yeka/zip"
 	"gorm.io/gorm"
 )
 
 const (
-	backupScheduleEnabledKey    = "backup_schedule_enabled"
-	backupTimeOfDayKey          = "backup_time_of_day"
-	backupIncludeAssetsKey      = "backup_include_assets"
-	backupEncryptEnabledKey     = "backup_encrypt_enabled"
-	backupEncryptionPasswordKey = "backup_encryption_password"
-	backupLocalDirKey           = "backup_local_dir"
-	backupRetentionCountKey     = "backup_retention_count"
-	backupLastRunAtKey          = "backup_last_run_at"
-	backupLastStatusKey         = "backup_last_status"
-	backupLastErrorKey          = "backup_last_error"
+	KeyScheduleEnabled    = "backup_schedule_enabled"
+	KeyTimeOfDay          = "backup_time_of_day"
+	KeyIncludeAssets      = "backup_include_assets"
+	KeyEncryptEnabled     = "backup_encrypt_enabled"
+	KeyEncryptionPassword = "backup_encryption_password"
+	KeyLocalDir           = "backup_local_dir"
+	KeyRetentionCount     = "backup_retention_count"
+	KeyLastRunAt          = "backup_last_run_at"
+	KeyLastStatus         = "backup_last_status"
+	KeyLastError          = "backup_last_error"
 )
 
 const (
+	StatusOK     = "success"
+	StatusFailed = "failed"
+
 	backupTaskKey      = "scheduled_backup"
 	backupLeaseTTL     = 30 * time.Minute
-	backupStatusOK     = "success"
-	backupStatusFailed = "failed"
 	minBackupRetention = 1
 	maxBackupRetention = 1000
 )
@@ -62,6 +65,24 @@ type LocalBackupInfo struct {
 	Size       int64  `json:"size"`
 	ModifiedAt string `json:"modified_at"`
 	Encrypted  bool   `json:"encrypted"`
+}
+
+type UpdateSettingsInput struct {
+	ScheduleEnabled    *bool
+	TimeOfDay          *string
+	IncludeAssets      *bool
+	EncryptEnabled     *bool
+	EncryptionPassword *string
+	LocalDir           *string
+	RetentionCount     *int64
+}
+
+type Service struct {
+	DB *gorm.DB
+}
+
+func NewService(db *gorm.DB) *Service {
+	return &Service{DB: db}
 }
 
 // writeBackupZipFromDB writes a backup archive at archivePath containing the
@@ -168,8 +189,7 @@ func addDirectoryToBackupZip(zipWriter *zip.Writer, archivePath string) error {
 	return err
 }
 
-// backupRuntimeConfig captures the persisted local-backup configuration.
-type backupRuntimeConfig struct {
+type runtimeConfig struct {
 	ScheduleEnabled bool
 	TimeOfDay       string
 	IncludeAssets   bool
@@ -179,19 +199,19 @@ type backupRuntimeConfig struct {
 	RetentionCount  int64
 }
 
-func (s *AdminService) loadBackupRuntimeConfig() (backupRuntimeConfig, error) {
-	cfg := backupRuntimeConfig{
+func (s *Service) loadRuntimeConfig() (runtimeConfig, error) {
+	cfg := runtimeConfig{
 		TimeOfDay:      "03:00",
 		RetentionCount: 7,
 	}
 
-	scheduleEnabled, err := getSystemSettingBool(context.Background(), s.DB, backupScheduleEnabledKey, false)
+	scheduleEnabled, err := backupsettings.GetBool(context.Background(), s.DB, KeyScheduleEnabled, false)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.ScheduleEnabled = scheduleEnabled
 
-	timeOfDay, err := getSystemSettingString(context.Background(), s.DB, backupTimeOfDayKey, "03:00")
+	timeOfDay, err := backupsettings.GetString(context.Background(), s.DB, KeyTimeOfDay, "03:00")
 	if err != nil {
 		return cfg, err
 	}
@@ -199,25 +219,25 @@ func (s *AdminService) loadBackupRuntimeConfig() (backupRuntimeConfig, error) {
 		cfg.TimeOfDay = timeOfDay
 	}
 
-	includeAssets, err := getSystemSettingBool(context.Background(), s.DB, backupIncludeAssetsKey, false)
+	includeAssets, err := backupsettings.GetBool(context.Background(), s.DB, KeyIncludeAssets, false)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.IncludeAssets = includeAssets
 
-	encryptEnabled, err := getSystemSettingBool(context.Background(), s.DB, backupEncryptEnabledKey, false)
+	encryptEnabled, err := backupsettings.GetBool(context.Background(), s.DB, KeyEncryptEnabled, false)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.EncryptEnabled = encryptEnabled
 
-	localDir, err := getSystemSettingString(context.Background(), s.DB, backupLocalDirKey, "")
+	localDir, err := backupsettings.GetString(context.Background(), s.DB, KeyLocalDir, "")
 	if err != nil {
 		return cfg, err
 	}
 	cfg.LocalDir = strings.TrimSpace(localDir)
 
-	retentionCount, err := getSystemSettingInt(context.Background(), s.DB, backupRetentionCountKey, 7)
+	retentionCount, err := backupsettings.GetInt(context.Background(), s.DB, KeyRetentionCount, 7)
 	if err != nil {
 		return cfg, err
 	}
@@ -226,7 +246,7 @@ func (s *AdminService) loadBackupRuntimeConfig() (backupRuntimeConfig, error) {
 	}
 
 	if encryptEnabled {
-		storedPassword, err := getSystemSettingString(context.Background(), s.DB, backupEncryptionPasswordKey, "")
+		storedPassword, err := backupsettings.GetString(context.Background(), s.DB, KeyEncryptionPassword, "")
 		if err != nil {
 			return cfg, err
 		}
@@ -261,11 +281,44 @@ func newBackupToken() (string, error) {
 	return hex.EncodeToString(buf[:]), nil
 }
 
+// BackupDB produces an on-demand backup and returns the path of the file to
+// serve. When password is empty the historical behavior is preserved: a raw
+// SQLite .db file when includeAssets is false, or a plain .zip when true.
+// When password is non-empty encryption requires a zip container, so the DB is
+// always bundled into a WinZip AES-256 .zip (with assets honored) regardless of
+// includeAssets. The password is trimmed before deciding, so all-whitespace is
+// treated as empty.
+func (s *Service) BackupDB(includeAssets bool, password string) (string, error) {
+	password = strings.TrimSpace(password)
+
+	timestamp := pkg.Now().Format("20060102-150405")
+	backupPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
+
+	if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
+		return "", err
+	}
+
+	if !includeAssets && password == "" {
+		return backupPath, nil
+	}
+
+	archivePath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.zip", timestamp))
+	if err := writeBackupZipFromDB(archivePath, backupPath, includeAssets, password); err != nil {
+		_ = os.Remove(backupPath)
+		_ = os.Remove(archivePath)
+		return "", err
+	}
+
+	_ = os.Remove(backupPath)
+
+	return archivePath, nil
+}
+
 // CreateLocalBackup builds a local backup archive using the saved configuration
 // and returns the absolute path of the created file. Retention is applied after
 // a successful write.
-func (s *AdminService) CreateLocalBackup() (string, error) {
-	cfg, err := s.loadBackupRuntimeConfig()
+func (s *Service) CreateLocalBackup() (string, error) {
+	cfg, err := s.loadRuntimeConfig()
 	if err != nil {
 		return "", err
 	}
@@ -319,7 +372,7 @@ func (s *AdminService) CreateLocalBackup() (string, error) {
 // applyLocalBackupRetention deletes local backup files beyond the newest keep
 // files. It only ever considers non-recursive entries in dir whose basename
 // matches backupFileNamePattern, so unrelated files are never removed.
-func (s *AdminService) applyLocalBackupRetention(dir string, keep int64) error {
+func (s *Service) applyLocalBackupRetention(dir string, keep int64) error {
 	if keep < minBackupRetention {
 		keep = minBackupRetention
 	}
@@ -371,8 +424,8 @@ func (s *AdminService) applyLocalBackupRetention(dir string, keep int64) error {
 // ListLocalBackups returns the resolved backup directory and the local backup
 // files it contains, newest first. A single unreadable file does not fail the
 // whole listing.
-func (s *AdminService) ListLocalBackups() (string, []LocalBackupInfo, error) {
-	localDir, err := getSystemSettingString(context.Background(), s.DB, backupLocalDirKey, "")
+func (s *Service) ListLocalBackups() (string, []LocalBackupInfo, error) {
+	localDir, err := backupsettings.GetString(context.Background(), s.DB, KeyLocalDir, "")
 	if err != nil {
 		return "", nil, err
 	}
@@ -440,9 +493,9 @@ func backupArchiveIsEncrypted(archivePath string) bool {
 // on a short timer: it only performs work when the schedule is enabled and a
 // backup is due for the current day, and it records the run status regardless
 // of outcome.
-func (s *AdminService) RunScheduledBackup(ownerID string) error {
-	return withBackgroundTaskLease(s.DB, ownerID, backupTaskKey, backupLeaseTTL, func() error {
-		cfg, err := s.loadBackupRuntimeConfig()
+func (s *Service) RunScheduledBackup(ownerID string) error {
+	return serviceutil.WithBackgroundTaskLease(s.DB, ownerID, backupTaskKey, backupLeaseTTL, func() error {
+		cfg, err := s.loadRuntimeConfig()
 		if err != nil {
 			return err
 		}
@@ -453,7 +506,7 @@ func (s *AdminService) RunScheduledBackup(ownerID string) error {
 		loc := pkg.GetSystemTimezone()
 		now := pkg.NowInSystemTimezone()
 
-		lastRunRaw, err := getSystemSettingString(context.Background(), s.DB, backupLastRunAtKey, "")
+		lastRunRaw, err := backupsettings.GetString(context.Background(), s.DB, KeyLastRunAt, "")
 		if err != nil {
 			return err
 		}
@@ -527,89 +580,89 @@ func backupDue(now time.Time, timeOfDay string, lastRunAt time.Time, loc *time.L
 // scheduled run, stamping the last-run timestamp that backupDue uses to gate
 // the once-per-day schedule. These keys are runtime-written status fields and
 // are intentionally not part of UpdateSettingsInput.
-func (s *AdminService) recordBackupRunSuccess(runAt time.Time) error {
+func (s *Service) recordBackupRunSuccess(runAt time.Time) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := saveStringSystemSetting(tx, backupLastRunAtKey, runAt.Format(time.RFC3339)); err != nil {
+		if err := backupsettings.SaveString(tx, KeyLastRunAt, runAt.Format(time.RFC3339)); err != nil {
 			return err
 		}
-		if err := saveStringSystemSetting(tx, backupLastStatusKey, backupStatusOK); err != nil {
+		if err := backupsettings.SaveString(tx, KeyLastStatus, StatusOK); err != nil {
 			return err
 		}
-		return saveStringSystemSetting(tx, backupLastErrorKey, "")
+		return backupsettings.SaveString(tx, KeyLastError, "")
 	})
 }
 
 // recordBackupRunFailure persists the failure status and error for a scheduled
-// run without touching backupLastRunAtKey. Because backupDue gates on the last
+// run without touching KeyLastRunAt. Because backupDue gates on the last
 // successful run, leaving the timestamp untouched allows retries to proceed on
 // subsequent ticks the same day once the failure condition clears.
-func (s *AdminService) recordBackupRunFailure(runErr string) error {
+func (s *Service) recordBackupRunFailure(runErr string) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := saveStringSystemSetting(tx, backupLastStatusKey, backupStatusFailed); err != nil {
+		if err := backupsettings.SaveString(tx, KeyLastStatus, StatusFailed); err != nil {
 			return err
 		}
-		return saveStringSystemSetting(tx, backupLastErrorKey, runErr)
+		return backupsettings.SaveString(tx, KeyLastError, runErr)
 	})
 }
 
-// applyBackupSettings validates and persists the user-editable backup settings
-// carried by an UpdateSettingsInput within the caller's transaction.
-func applyBackupSettings(tx *gorm.DB, input UpdateSettingsInput) error {
-	if input.BackupTimeOfDay != nil {
-		trimmed := strings.TrimSpace(*input.BackupTimeOfDay)
+// ApplySettings validates and persists the user-editable backup settings within
+// the caller's transaction.
+func ApplySettings(tx *gorm.DB, input UpdateSettingsInput) error {
+	if input.TimeOfDay != nil {
+		trimmed := strings.TrimSpace(*input.TimeOfDay)
 		if !backupTimeOfDayPattern.MatchString(trimmed) {
 			return ErrInvalidBackupTimeOfDay
 		}
-		if err := saveStringSystemSetting(tx, backupTimeOfDayKey, trimmed); err != nil {
+		if err := backupsettings.SaveString(tx, KeyTimeOfDay, trimmed); err != nil {
 			return err
 		}
 	}
 
-	if input.BackupRetentionCount != nil {
-		count := *input.BackupRetentionCount
+	if input.RetentionCount != nil {
+		count := *input.RetentionCount
 		if count < minBackupRetention || count > maxBackupRetention {
 			return ErrInvalidBackupRetentionCount
 		}
-		if err := saveStringSystemSetting(tx, backupRetentionCountKey, strconv.FormatInt(count, 10)); err != nil {
+		if err := backupsettings.SaveString(tx, KeyRetentionCount, strconv.FormatInt(count, 10)); err != nil {
 			return err
 		}
 	}
 
-	if input.BackupLocalDir != nil {
-		normalized, err := normalizeBackupLocalDir(*input.BackupLocalDir)
+	if input.LocalDir != nil {
+		normalized, err := normalizeBackupLocalDir(*input.LocalDir)
 		if err != nil {
 			return err
 		}
-		if err := saveStringSystemSetting(tx, backupLocalDirKey, normalized); err != nil {
+		if err := backupsettings.SaveString(tx, KeyLocalDir, normalized); err != nil {
 			return err
 		}
 	}
 
-	if input.BackupIncludeAssets != nil {
-		if err := saveBoolSystemSetting(tx, backupIncludeAssetsKey, *input.BackupIncludeAssets); err != nil {
+	if input.IncludeAssets != nil {
+		if err := backupsettings.SaveBool(tx, KeyIncludeAssets, *input.IncludeAssets); err != nil {
 			return err
 		}
 	}
 
-	if input.BackupScheduleEnabled != nil {
-		if err := saveBoolSystemSetting(tx, backupScheduleEnabledKey, *input.BackupScheduleEnabled); err != nil {
+	if input.ScheduleEnabled != nil {
+		if err := backupsettings.SaveBool(tx, KeyScheduleEnabled, *input.ScheduleEnabled); err != nil {
 			return err
 		}
 	}
 
-	if input.BackupEncryptionPassword != nil {
-		if err := saveEncryptedSystemSetting(tx, backupEncryptionPasswordKey, *input.BackupEncryptionPassword); err != nil {
+	if input.EncryptionPassword != nil {
+		if err := backupsettings.SaveEncrypted(tx, KeyEncryptionPassword, *input.EncryptionPassword); err != nil {
 			return err
 		}
 	}
 
-	if input.BackupEncryptEnabled != nil {
-		if *input.BackupEncryptEnabled {
+	if input.EncryptEnabled != nil {
+		if *input.EncryptEnabled {
 			if err := ensureBackupEncryptionPasswordAvailable(tx, input); err != nil {
 				return err
 			}
 		}
-		if err := saveBoolSystemSetting(tx, backupEncryptEnabledKey, *input.BackupEncryptEnabled); err != nil {
+		if err := backupsettings.SaveBool(tx, KeyEncryptEnabled, *input.EncryptEnabled); err != nil {
 			return err
 		}
 	}
@@ -620,11 +673,11 @@ func applyBackupSettings(tx *gorm.DB, input UpdateSettingsInput) error {
 // ensureBackupEncryptionPasswordAvailable confirms a password is available when
 // enabling encryption: either provided in this request or already stored.
 func ensureBackupEncryptionPasswordAvailable(tx *gorm.DB, input UpdateSettingsInput) error {
-	if input.BackupEncryptionPassword != nil && strings.TrimSpace(*input.BackupEncryptionPassword) != "" {
+	if input.EncryptionPassword != nil && strings.TrimSpace(*input.EncryptionPassword) != "" {
 		return nil
 	}
 
-	stored, err := getSystemSettingString(context.Background(), tx, backupEncryptionPasswordKey, "")
+	stored, err := backupsettings.GetString(context.Background(), tx, KeyEncryptionPassword, "")
 	if err != nil {
 		return err
 	}
