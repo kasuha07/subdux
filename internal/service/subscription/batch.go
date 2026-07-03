@@ -1,0 +1,32 @@
+package subscription
+
+import (
+	"time"
+
+	"github.com/kasuha07/subdux/internal/model"
+)
+
+// loadSubscriptionsByIDs loads the given user's subscriptions keyed by ID,
+// advancing each one's lifecycle in memory as of referenceDate (a pure-read
+// presentation, no writes) and normalizing legacy fields. It collapses what
+// would otherwise be a per-row lookup (an N+1 pattern) into a single IN query.
+// IDs with no matching row — for example a subscription deleted after the
+// referencing event was recorded — are simply absent from the returned map, so
+// callers should test for presence.
+func (s *Service) loadSubscriptionsByIDs(userID uint, ids []uint, referenceDate time.Time) (map[uint]model.Subscription, error) {
+	result := make(map[uint]model.Subscription, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	var subs []model.Subscription
+	if err := s.DB.Where("user_id = ? AND id IN ?", userID, ids).Find(&subs).Error; err != nil {
+		return nil, err
+	}
+
+	for i := range subs {
+		presentSubscriptionForResponse(&subs[i], referenceDate)
+		result[subs[i].ID] = subs[i]
+	}
+	return result, nil
+}

@@ -29,12 +29,6 @@ func withContext(db *gorm.DB, ctx context.Context) *gorm.DB {
 	return db.WithContext(ctx)
 }
 
-func (s *SubscriptionService) WithContext(ctx context.Context) *SubscriptionService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
 func (s *CategoryService) WithContext(ctx context.Context) *CategoryService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)
@@ -96,12 +90,6 @@ func (s *SystemSettingsService) WithContext(ctx context.Context) *SystemSettings
 }
 
 func (s *IconProxyService) WithContext(ctx context.Context) *IconProxyService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
-func (s *NotificationTemplateService) WithContext(ctx context.Context) *NotificationTemplateService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)
 	return &clone

@@ -174,25 +174,3 @@ func ssrfTestAllowedReason(cfg outboundPolicy) string {
 func stringifyIPs(ips []net.IP) []string {
 	return outbound.StringifyIPs(ips)
 }
-
-func (s *NotificationService) newNotificationHTTPClient(timeout time.Duration) *http.Client {
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
-	client, err := outbound.BuildHTTPClientWithTimeout(context.Background(), s.DB, outbound.PurposeNotification, timeout)
-	if err != nil {
-		return outbound.NewSafeOutboundHTTPClient(s.DB, timeout)
-	}
-	return client
-}
-
-func (s *NotificationService) newFixedNotificationHTTPClient(timeout time.Duration) *http.Client {
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
-	client, err := outbound.BuildHTTPClientWithTimeout(context.Background(), s.DB, outbound.PurposeFixedNotification, timeout)
-	if err != nil {
-		return outbound.NewOutboundHTTPClient(s.DB, timeout)
-	}
-	return client
-}
