@@ -888,8 +888,16 @@ func (s *AuthService) createOIDCCallbackErrorResult(purpose string, message stri
 // are stored as free-form separated strings; splitReauthACRList tolerates
 // newline, comma, and semicolon separators to match the other settings lists.
 func (s *AuthService) getReauthACRLists() (mfa []string, phishingResistant []string) {
-	return splitReauthACRList(s.getSetting("oidc_reauth_acr_mfa")),
-		splitReauthACRList(s.getSetting("oidc_reauth_acr_phishing_resistant"))
+	readSetting := func(key string) string {
+		value, err := getSystemSettingString(context.Background(), s.DB, key, "")
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(value)
+	}
+
+	return splitReauthACRList(readSetting("oidc_reauth_acr_mfa")),
+		splitReauthACRList(readSetting("oidc_reauth_acr_phishing_resistant"))
 }
 
 func splitReauthACRList(raw string) []string {
@@ -907,31 +915,39 @@ func splitReauthACRList(raw string) []string {
 }
 
 func (s *AuthService) getOIDCSettings() oidcSettings {
-	scopes := parseOIDCScopes(s.getSetting("oidc_scopes"))
+	readSetting := func(key string) string {
+		value, err := getSystemSettingString(context.Background(), s.DB, key, "")
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(value)
+	}
+
+	scopes := parseOIDCScopes(readSetting("oidc_scopes"))
 	if len(scopes) == 0 {
 		scopes = parseOIDCScopes(defaultOIDCScopes)
 	}
 
-	providerName := strings.TrimSpace(s.getSetting("oidc_provider_name"))
+	providerName := readSetting("oidc_provider_name")
 	if providerName == "" {
 		providerName = "OIDC"
 	}
 
 	return oidcSettings{
-		Enabled:        parseBoolSetting(s.getSetting("oidc_enabled")),
+		Enabled:        parseBoolSetting(readSetting("oidc_enabled")),
 		ProviderName:   providerName,
-		IssuerURL:      strings.TrimSpace(s.getSetting("oidc_issuer_url")),
-		ClientID:       strings.TrimSpace(s.getSetting("oidc_client_id")),
-		ClientSecret:   strings.TrimSpace(s.getSetting("oidc_client_secret")),
-		RedirectURL:    strings.TrimSpace(s.getSetting("oidc_redirect_url")),
+		IssuerURL:      readSetting("oidc_issuer_url"),
+		ClientID:       readSetting("oidc_client_id"),
+		ClientSecret:   readSetting("oidc_client_secret"),
+		RedirectURL:    readSetting("oidc_redirect_url"),
 		Scopes:         scopes,
-		AutoCreateUser: parseBoolSetting(s.getSetting("oidc_auto_create_user")),
-		AuthURL:        strings.TrimSpace(s.getSetting("oidc_authorization_endpoint")),
-		TokenURL:       strings.TrimSpace(s.getSetting("oidc_token_endpoint")),
-		UserinfoURL:    strings.TrimSpace(s.getSetting("oidc_userinfo_endpoint")),
-		Audience:       strings.TrimSpace(s.getSetting("oidc_audience")),
-		Resource:       strings.TrimSpace(s.getSetting("oidc_resource")),
-		ExtraAuth:      parseOIDCExtraAuthParams(s.getSetting("oidc_extra_auth_params")),
+		AutoCreateUser: parseBoolSetting(readSetting("oidc_auto_create_user")),
+		AuthURL:        readSetting("oidc_authorization_endpoint"),
+		TokenURL:       readSetting("oidc_token_endpoint"),
+		UserinfoURL:    readSetting("oidc_userinfo_endpoint"),
+		Audience:       readSetting("oidc_audience"),
+		Resource:       readSetting("oidc_resource"),
+		ExtraAuth:      parseOIDCExtraAuthParams(readSetting("oidc_extra_auth_params")),
 	}
 }
 

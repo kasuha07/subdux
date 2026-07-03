@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -449,12 +450,19 @@ func (s *AuthService) getPasskeyRecords(userID uint) ([]model.PasskeyCredential,
 }
 
 func (s *AuthService) buildWebAuthn(origin string, host string, scheme string) (*webauthn.WebAuthn, error) {
-	siteName := s.getSetting("site_name")
+	siteName, err := getSystemSettingString(context.Background(), s.DB, "site_name", "")
+	if err != nil {
+		siteName = ""
+	}
 	if siteName == "" {
 		siteName = "Subdux"
 	}
 
-	siteURL := normalizeSiteURL(s.getSetting("site_url"))
+	siteURLRaw, err := getSystemSettingString(context.Background(), s.DB, "site_url", "")
+	if err != nil {
+		siteURLRaw = ""
+	}
+	siteURL := normalizeSiteURL(siteURLRaw)
 	if siteURL == "" {
 		return nil, errors.New("site_url must be configured before passkeys can be used")
 	}
@@ -474,26 +482,6 @@ func (s *AuthService) buildWebAuthn(origin string, host string, scheme string) (
 	}
 
 	return webauthn.New(config)
-}
-
-func (s *AuthService) getSetting(key string) string {
-	var setting model.SystemSetting
-	if err := s.DB.Where("key = ?", key).First(&setting).Error; err != nil {
-		return ""
-	}
-
-	value, err := decryptSystemSettingValueIfNeeded(key, setting.Value)
-	if err != nil {
-		return ""
-	}
-
-	if !pkg.IsSystemSettingEncrypted(setting.Value) && value != "" && isEncryptedSystemSettingKey(key) {
-		if encryptedValue, encryptErr := encryptSystemSettingValueIfNeeded(key, value); encryptErr == nil {
-			_ = s.DB.Model(&model.SystemSetting{}).Where("key = ?", key).Update("value", encryptedValue).Error
-		}
-	}
-
-	return strings.TrimSpace(value)
 }
 
 func normalizeSiteURL(raw string) string {

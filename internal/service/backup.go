@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -184,13 +185,13 @@ func (s *AdminService) loadBackupRuntimeConfig() (backupRuntimeConfig, error) {
 		RetentionCount: 7,
 	}
 
-	scheduleEnabled, err := getBoolSystemSettingValue(s.DB, backupScheduleEnabledKey, false)
+	scheduleEnabled, err := getSystemSettingBool(context.Background(), s.DB, backupScheduleEnabledKey, false)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.ScheduleEnabled = scheduleEnabled
 
-	timeOfDay, err := getSystemSettingValue(s.DB, backupTimeOfDayKey, "03:00")
+	timeOfDay, err := getSystemSettingString(context.Background(), s.DB, backupTimeOfDayKey, "03:00")
 	if err != nil {
 		return cfg, err
 	}
@@ -198,42 +199,38 @@ func (s *AdminService) loadBackupRuntimeConfig() (backupRuntimeConfig, error) {
 		cfg.TimeOfDay = timeOfDay
 	}
 
-	includeAssets, err := getBoolSystemSettingValue(s.DB, backupIncludeAssetsKey, false)
+	includeAssets, err := getSystemSettingBool(context.Background(), s.DB, backupIncludeAssetsKey, false)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.IncludeAssets = includeAssets
 
-	encryptEnabled, err := getBoolSystemSettingValue(s.DB, backupEncryptEnabledKey, false)
+	encryptEnabled, err := getSystemSettingBool(context.Background(), s.DB, backupEncryptEnabledKey, false)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.EncryptEnabled = encryptEnabled
 
-	localDir, err := getSystemSettingValue(s.DB, backupLocalDirKey, "")
+	localDir, err := getSystemSettingString(context.Background(), s.DB, backupLocalDirKey, "")
 	if err != nil {
 		return cfg, err
 	}
 	cfg.LocalDir = strings.TrimSpace(localDir)
 
-	retentionRaw, err := getSystemSettingValue(s.DB, backupRetentionCountKey, "7")
+	retentionCount, err := getSystemSettingInt(context.Background(), s.DB, backupRetentionCountKey, 7)
 	if err != nil {
 		return cfg, err
 	}
-	if v, parseErr := strconv.ParseInt(strings.TrimSpace(retentionRaw), 10, 64); parseErr == nil && v >= minBackupRetention {
-		cfg.RetentionCount = v
+	if retentionCount >= minBackupRetention {
+		cfg.RetentionCount = int64(retentionCount)
 	}
 
 	if encryptEnabled {
-		storedPassword, err := getSystemSettingValue(s.DB, backupEncryptionPasswordKey, "")
+		storedPassword, err := getSystemSettingString(context.Background(), s.DB, backupEncryptionPasswordKey, "")
 		if err != nil {
 			return cfg, err
 		}
-		decrypted, decryptErr := decryptSystemSettingValueIfNeeded(backupEncryptionPasswordKey, storedPassword)
-		if decryptErr != nil {
-			return cfg, decryptErr
-		}
-		cfg.EncryptPassword = decrypted
+		cfg.EncryptPassword = storedPassword
 	}
 
 	return cfg, nil
@@ -375,7 +372,7 @@ func (s *AdminService) applyLocalBackupRetention(dir string, keep int64) error {
 // files it contains, newest first. A single unreadable file does not fail the
 // whole listing.
 func (s *AdminService) ListLocalBackups() (string, []LocalBackupInfo, error) {
-	localDir, err := getSystemSettingValue(s.DB, backupLocalDirKey, "")
+	localDir, err := getSystemSettingString(context.Background(), s.DB, backupLocalDirKey, "")
 	if err != nil {
 		return "", nil, err
 	}
@@ -456,7 +453,7 @@ func (s *AdminService) RunScheduledBackup(ownerID string) error {
 		loc := pkg.GetSystemTimezone()
 		now := pkg.NowInSystemTimezone()
 
-		lastRunRaw, err := getSystemSettingValue(s.DB, backupLastRunAtKey, "")
+		lastRunRaw, err := getSystemSettingString(context.Background(), s.DB, backupLastRunAtKey, "")
 		if err != nil {
 			return err
 		}
@@ -627,7 +624,7 @@ func ensureBackupEncryptionPasswordAvailable(tx *gorm.DB, input UpdateSettingsIn
 		return nil
 	}
 
-	stored, err := getSystemSettingValue(tx, backupEncryptionPasswordKey, "")
+	stored, err := getSystemSettingString(context.Background(), tx, backupEncryptionPasswordKey, "")
 	if err != nil {
 		return err
 	}

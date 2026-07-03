@@ -1,9 +1,13 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -101,7 +105,7 @@ func (s *SystemSettingsService) SeedDefaults() error {
 }
 
 func (s *SystemSettingsService) GetSiteInfo() (*SiteInfo, error) {
-	siteName, err := getSystemSettingValue(s.DB, "site_name", "Subdux")
+	siteName, err := getSystemSettingString(context.Background(), s.DB, "site_name", "Subdux")
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +113,7 @@ func (s *SystemSettingsService) GetSiteInfo() (*SiteInfo, error) {
 		siteName = "Subdux"
 	}
 
-	mcpEnabled, err := getBoolSystemSettingValue(s.DB, "mcp_enabled", false)
+	mcpEnabled, err := getSystemSettingBool(context.Background(), s.DB, "mcp_enabled", false)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +125,7 @@ func (s *SystemSettingsService) GetSiteInfo() (*SiteInfo, error) {
 }
 
 func (s *SystemSettingsService) IsMCPEnabled() (bool, error) {
-	return getBoolSystemSettingValue(s.DB, "mcp_enabled", false)
+	return getSystemSettingBool(context.Background(), s.DB, "mcp_enabled", false)
 }
 
 var defaultSystemSettings = []model.SystemSetting{
@@ -187,23 +191,95 @@ var defaultSystemSettings = []model.SystemSetting{
 	{Key: backupLastErrorKey, Value: ""},
 }
 
-func getSystemSettingValue(db *gorm.DB, key string, defaultValue string) (string, error) {
-	var setting model.SystemSetting
-	if err := db.Where("key = ?", key).First(&setting).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return defaultValue, nil
-		}
+func getSystemSettingString(ctx context.Context, db *gorm.DB, key string, defaultValue string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	value, storedValue, found, err := getRawSystemSettingString(ctx, db, key, defaultValue)
+	if err != nil || !found {
+		return value, err
+	}
+
+	value, err = decryptSystemSettingValueIfNeeded(key, storedValue)
+	if err != nil {
 		return defaultValue, err
 	}
-	return setting.Value, nil
+
+	if !pkg.IsSystemSettingEncrypted(storedValue) && value != "" && isEncryptedSystemSettingKey(key) {
+		if encryptedValue, encryptErr := encryptSystemSettingValueIfNeeded(key, value); encryptErr == nil {
+			_ = db.WithContext(ctx).Model(&model.SystemSetting{}).
+				Where("key = ?", key).
+				Update("value", encryptedValue).Error
+		}
+	}
+
+	return value, nil
 }
 
-func getBoolSystemSettingValue(db *gorm.DB, key string, defaultValue bool) (bool, error) {
-	value, err := getSystemSettingValue(db, key, boolSystemSettingValue(defaultValue))
+func getRawSystemSettingString(ctx context.Context, db *gorm.DB, key string, defaultValue string) (value string, storedValue string, found bool, err error) {
+	if db == nil {
+		return defaultValue, "", false, errors.New("system settings database is not configured")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var setting model.SystemSetting
+	if err := db.WithContext(ctx).Where("key = ?", key).First(&setting).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return defaultValue, "", false, nil
+		}
+		return defaultValue, "", false, err
+	}
+
+	return setting.Value, setting.Value, true, nil
+}
+
+func getSystemSettingBool(ctx context.Context, db *gorm.DB, key string, defaultValue bool) (bool, error) {
+	value, err := getSystemSettingString(ctx, db, key, boolSystemSettingValue(defaultValue))
 	if err != nil {
 		return defaultValue, err
 	}
 	return value == "true", nil
+}
+
+func getSystemSettingInt(ctx context.Context, db *gorm.DB, key string, defaultValue int) (int, error) {
+	value, err := getSystemSettingString(ctx, db, key, strconv.Itoa(defaultValue))
+	if err != nil {
+		return defaultValue, err
+	}
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return defaultValue, nil
+	}
+	return parsed, nil
+}
+
+func loadRawSystemSettingStrings(ctx context.Context, db *gorm.DB, defaults map[string]string) (map[string]string, error) {
+	if db == nil {
+		return nil, errors.New("system settings database is not configured")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	keys := make([]string, 0, len(defaults))
+	values := make(map[string]string, len(defaults))
+	for key, defaultValue := range defaults {
+		keys = append(keys, key)
+		values[key] = defaultValue
+	}
+
+	var items []model.SystemSetting
+	if err := db.WithContext(ctx).Where("key IN ?", keys).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		values[item.Key] = item.Value
+	}
+
+	return values, nil
 }
 
 func boolSystemSettingValue(value bool) string {

@@ -105,6 +105,8 @@ func TestUpdateSettingsEncryptsCurrencyAPIKey(t *testing.T) {
 }
 
 func TestLoadSMTPRuntimeConfigSupportsLegacyPlaintextPassword(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
 		t.Fatalf("failed to migrate system settings table: %v", err)
@@ -130,6 +132,45 @@ func TestLoadSMTPRuntimeConfigSupportsLegacyPlaintextPassword(t *testing.T) {
 	}
 	if cfg.Password != "legacy-password" {
 		t.Fatalf("smtp password = %q, want %q", cfg.Password, "legacy-password")
+	}
+
+	var stored model.SystemSetting
+	if err := db.Where("key = ?", "smtp_password").First(&stored).Error; err != nil {
+		t.Fatalf("failed to read stored smtp_password: %v", err)
+	}
+	if !strings.HasPrefix(stored.Value, "enc:v1:") {
+		t.Fatalf("stored smtp_password = %q, want encrypted prefix", stored.Value)
+	}
+}
+
+func TestLoadSMTPRuntimeConfigReturnsDecryptErrorForInvalidEncryptedPassword(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+
+	entries := []model.SystemSetting{
+		{Key: "smtp_enabled", Value: "true"},
+		{Key: "smtp_host", Value: "smtp.example.com"},
+		{Key: "smtp_port", Value: "587"},
+		{Key: "smtp_username", Value: "mailer"},
+		{Key: "smtp_password", Value: "enc:v1:not-valid-base64"},
+		{Key: "smtp_from_email", Value: "noreply@example.com"},
+	}
+	for _, entry := range entries {
+		if err := db.Where("key = ?", entry.Key).Assign(model.SystemSetting{Value: entry.Value}).FirstOrCreate(&model.SystemSetting{Key: entry.Key}).Error; err != nil {
+			t.Fatalf("failed to seed setting %q: %v", entry.Key, err)
+		}
+	}
+
+	_, err := loadSMTPRuntimeConfig(db)
+	if err == nil {
+		t.Fatal("loadSMTPRuntimeConfig() error = nil, want decrypt error")
+	}
+	if err.Error() != "failed to decrypt smtp settings" {
+		t.Fatalf("loadSMTPRuntimeConfig() error = %q, want %q", err.Error(), "failed to decrypt smtp settings")
 	}
 }
 

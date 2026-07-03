@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -105,5 +107,60 @@ func TestSystemSettingsServiceGetSiteInfo(t *testing.T) {
 	}
 	if !siteInfo.MCPEnabled {
 		t.Fatal("MCPEnabled = false, want true")
+	}
+}
+
+func TestSystemSettingRuntimeHelpers(t *testing.T) {
+	db := newSystemSettingsTestDB(t)
+	ctx := context.Background()
+
+	if err := db.Create(&model.SystemSetting{Key: "mcp_enabled", Value: "true"}).Error; err != nil {
+		t.Fatalf("failed to seed mcp_enabled: %v", err)
+	}
+	if err := db.Create(&model.SystemSetting{Key: "max_icon_file_size", Value: "8192"}).Error; err != nil {
+		t.Fatalf("failed to seed max_icon_file_size: %v", err)
+	}
+	if err := db.Create(&model.SystemSetting{Key: "smtp_password", Value: "legacy-password"}).Error; err != nil {
+		t.Fatalf("failed to seed smtp_password: %v", err)
+	}
+
+	missing, err := getSystemSettingString(ctx, db, "missing_setting", "fallback")
+	if err != nil {
+		t.Fatalf("getSystemSettingString() missing error = %v", err)
+	}
+	if missing != "fallback" {
+		t.Fatalf("missing setting = %q, want fallback", missing)
+	}
+
+	enabled, err := getSystemSettingBool(ctx, db, "mcp_enabled", false)
+	if err != nil {
+		t.Fatalf("getSystemSettingBool() error = %v", err)
+	}
+	if !enabled {
+		t.Fatal("mcp_enabled = false, want true")
+	}
+
+	maxIconFileSize, err := getSystemSettingInt(ctx, db, "max_icon_file_size", 0)
+	if err != nil {
+		t.Fatalf("getSystemSettingInt() error = %v", err)
+	}
+	if maxIconFileSize != 8192 {
+		t.Fatalf("max_icon_file_size = %d, want 8192", maxIconFileSize)
+	}
+
+	password, err := getSystemSettingString(ctx, db, "smtp_password", "")
+	if err != nil {
+		t.Fatalf("getSystemSettingString() smtp_password error = %v", err)
+	}
+	if password != "legacy-password" {
+		t.Fatalf("smtp_password runtime value = %q, want legacy-password", password)
+	}
+
+	var stored model.SystemSetting
+	if err := db.Where("key = ?", "smtp_password").First(&stored).Error; err != nil {
+		t.Fatalf("failed to load stored smtp_password: %v", err)
+	}
+	if !strings.HasPrefix(stored.Value, "enc:v1:") {
+		t.Fatalf("stored smtp_password = %q, want encrypted prefix", stored.Value)
 	}
 }

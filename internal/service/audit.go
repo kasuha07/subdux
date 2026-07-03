@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -62,7 +63,7 @@ type AuditEventFilter struct {
 }
 
 func (s *AuditService) IsEnabled() (bool, error) {
-	return getBoolSystemSettingValue(s.DB, "audit_enabled", true)
+	return getSystemSettingBool(context.Background(), s.DB, "audit_enabled", true)
 }
 
 func (s *AuditService) Create(input CreateAuditEventInput) (*model.AuditEvent, error) {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -572,7 +573,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 }
 
 func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, error) {
-	return getBoolSystemSettingValue(tx, key, defaultValue)
+	return getSystemSettingBool(context.Background(), tx, key, defaultValue)
 }
 
 func saveBoolSystemSetting(tx *gorm.DB, key string, enabled bool) error {

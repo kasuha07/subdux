@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -234,19 +235,19 @@ func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificat
 }
 
 func (s *AuthService) isRegistrationEnabled() bool {
-	return s.getBoolSystemSetting("registration_enabled", false)
+	enabled, err := getSystemSettingBool(context.Background(), s.DB, "registration_enabled", false)
+	if err != nil {
+		return false
+	}
+	return enabled
 }
 
 func (s *AuthService) isRegistrationEmailVerificationEnabled() bool {
-	return s.getBoolSystemSetting("registration_email_verification_enabled", false)
-}
-
-func (s *AuthService) getBoolSystemSetting(key string, defaultValue bool) bool {
-	var setting model.SystemSetting
-	if err := s.DB.Where("key = ?", key).First(&setting).Error; err != nil {
-		return defaultValue
+	enabled, err := getSystemSettingBool(context.Background(), s.DB, "registration_email_verification_enabled", false)
+	if err != nil {
+		return false
 	}
-	return setting.Value == "true"
+	return enabled
 }
 
 func sanitizeAndValidateEmail(email string) (string, error) {
