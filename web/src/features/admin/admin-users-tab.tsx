@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { KeyRound, MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
 
@@ -40,7 +41,7 @@ interface AdminUsersTabProps {
   newRole: "user" | "admin"
   newUsername: string
   onCreateDialogOpenChange: (open: boolean) => void
-  onCreateUser: () => void | Promise<void>
+  onCreateUser: (reauthTicket?: string) => void | Promise<void>
   onConfirmToggleRole: (reauthTicket: string) => void | Promise<void>
   onDeleteUser: (id: number) => void | Promise<void>
   onDisableUserPasskeys: (user: AdminUser) => void | Promise<void>
@@ -79,6 +80,15 @@ export default function AdminUsersTab({
   users,
 }: AdminUsersTabProps) {
   const { t, i18n } = useTranslation()
+  const [createAdminReauthOpen, setCreateAdminReauthOpen] = useState(false)
+
+  function handleCreateClick() {
+    if (newRole === "admin") {
+      setCreateAdminReauthOpen(true)
+      return
+    }
+    void onCreateUser()
+  }
 
   return (
     <TabsContent value="users">
@@ -148,7 +158,7 @@ export default function AdminUsersTab({
                 <div className="flex justify-end">
                   <Button
                     type="submit"
-                    onClick={() => void onCreateUser()}
+                    onClick={handleCreateClick}
                     disabled={!newUsername || !newEmail || !newPassword || newPassword.length < 8}
                   >
                     {t("admin.users.create")}
@@ -266,6 +276,18 @@ export default function AdminUsersTab({
         }}
         title={t("admin.users.roleReauthTitle")}
         description={t("admin.users.roleReauthDescription")}
+      />
+
+      <ReauthDialog
+        operation="create_admin_user"
+        open={createAdminReauthOpen}
+        onOpenChange={setCreateAdminReauthOpen}
+        onVerified={async (ticket) => {
+          await onCreateUser(ticket)
+        }}
+        title={t("admin.users.createAdminReauthTitle")}
+        description={t("admin.users.createAdminReauthDescription")}
+        layer="stacked"
       />
     </TabsContent>
   )

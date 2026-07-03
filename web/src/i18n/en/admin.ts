@@ -47,6 +47,9 @@ const admin = {
     statusUpdated: "User status updated",
     deleteSuccess: "User deleted",
     createSuccess: "User created",
+    createAdminReauthTitle: "Confirm admin creation",
+    createAdminReauthDescription:
+      "For security, re-authenticate before creating a user with admin privileges.",
     roleReauthTitle: "Confirm role change",
     roleReauthDescription:
       "For security, re-authenticate before changing this user's role.",

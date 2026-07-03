@@ -156,6 +156,16 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must not exceed 72 bytes"})
 	}
 
+	if input.Role == "admin" {
+		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+			getUserID(c),
+			service.ReauthOperationCreateAdminUser,
+			strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
+		); err != nil {
+			return writeReauthError(c, err)
+		}
+	}
+
 	user, err := h.Service.WithContext(c.Request().Context()).CreateUser(input)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})

@@ -57,7 +57,7 @@ interface UseAdminPageStateResult {
   backupStatus: BackupStatus
   createDialogOpen: boolean
   downloadPassword: string
-  handleCreateUser: () => Promise<void>
+  handleCreateUser: (reauthTicket?: string) => Promise<void>
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
   handleDeleteUser: (id: number) => Promise<void>
@@ -346,7 +346,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleCreateUser() {
+  async function handleCreateUser(reauthTicket?: string) {
     if (!newUsername || !newEmail || !newPassword) {
       return
     }
@@ -356,12 +356,18 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
 
     try {
-      const user = await api.post<AdminUser>("/admin/users", {
-        username: newUsername,
-        email: newEmail,
-        password: newPassword,
-        role: newRole,
-      })
+      const headers =
+        newRole === "admin" && reauthTicket ? { "X-Reauth-Ticket": reauthTicket } : undefined
+      const user = await api.post<AdminUser>(
+        "/admin/users",
+        {
+          username: newUsername,
+          email: newEmail,
+          password: newPassword,
+          role: newRole,
+        },
+        { headers }
+      )
       setUsers((prev) => [...prev, user])
       setCreateDialogOpen(false)
       setNewUsername("")

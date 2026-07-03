@@ -32,21 +32,22 @@ import (
 // Operation identifiers scope a ticket to a single sensitive action so a ticket
 // minted for one operation cannot authorize another.
 const (
-	ReauthOperationBackup         = "backup"
-	ReauthOperationBackupSchedule = "backup_schedule"
-	ReauthOperationRestore        = "restore"
-	ReauthOperationChangeEmail    = "change_email"
-	ReauthOperationAddPasskey     = "add_passkey"
-	ReauthOperationDeletePasskey  = "delete_passkey"
-	ReauthOperationEnableTOTP     = "enable_totp"
-	ReauthOperationDisableTOTP    = "disable_totp"
-	ReauthOperationConnectOIDC    = "connect_oidc"
-	ReauthOperationCreateAPIKey   = "create_api_key"
-	ReauthOperationChangeUserRole = "change_user_role"
-	ReauthOperationExportRedacted = "export_redacted"
-	ReauthOperationExportSecrets  = "export_secrets"
-	ReauthOperationImportSubdux   = "import_subdux"
-	ReauthOperationImportWallos   = "import_wallos"
+	ReauthOperationBackup          = "backup"
+	ReauthOperationBackupSchedule  = "backup_schedule"
+	ReauthOperationRestore         = "restore"
+	ReauthOperationChangeEmail     = "change_email"
+	ReauthOperationAddPasskey      = "add_passkey"
+	ReauthOperationDeletePasskey   = "delete_passkey"
+	ReauthOperationEnableTOTP      = "enable_totp"
+	ReauthOperationDisableTOTP     = "disable_totp"
+	ReauthOperationConnectOIDC     = "connect_oidc"
+	ReauthOperationCreateAPIKey    = "create_api_key"
+	ReauthOperationCreateAdminUser = "create_admin_user"
+	ReauthOperationChangeUserRole  = "change_user_role"
+	ReauthOperationExportRedacted  = "export_redacted"
+	ReauthOperationExportSecrets   = "export_secrets"
+	ReauthOperationImportSubdux    = "import_subdux"
+	ReauthOperationImportWallos    = "import_wallos"
 )
 
 const (
@@ -195,6 +196,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationDisableTOTP,
 		ReauthOperationConnectOIDC,
 		ReauthOperationCreateAPIKey,
+		ReauthOperationCreateAdminUser,
 		ReauthOperationChangeUserRole,
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,

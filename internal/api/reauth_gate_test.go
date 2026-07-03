@@ -209,6 +209,21 @@ func postCreateAPIKey(t *testing.T, e *echo.Echo, token, name, ticket string) *h
 	return rec
 }
 
+func postAdminUser(t *testing.T, e *echo.Echo, token, username, email, role, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"username":%q,"email":%q,"password":%q,"role":%q}`, username, email, "new-user-passphrase", role)
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/users", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func putAdminUserRole(t *testing.T, e *echo.Echo, token string, userID uint, role, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -323,6 +338,65 @@ func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
 		}
 
 		rec = putAdminUserRole(t, e, token, target.ID, "user", ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("regular user creation does not require ticket", func(t *testing.T) {
+		rec := postAdminUser(t, e, token, "create-regular", "create-regular@example.com", "user", "")
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+	})
+
+	t.Run("missing ticket is refused for admin role", func(t *testing.T) {
+		rec := postAdminUser(t, e, token, "create-admin-missing", "create-admin-missing@example.com", "admin", "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		rec := postAdminUser(t, e, token, "create-admin-wrong", "create-admin-wrong@example.com", "admin", backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationCreateAdminUser)
+
+		rec := postAdminUser(t, e, token, "create-admin-valid", "create-admin-valid@example.com", "admin", ticket)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+		var created model.User
+		if err := db.Select("id", "role").Where("email = ?", "create-admin-valid@example.com").First(&created).Error; err != nil {
+			t.Fatalf("failed to reload created user: %v", err)
+		}
+		if created.Role != "admin" {
+			t.Fatalf("created role = %q, want admin", created.Role)
+		}
+
+		rec = postAdminUser(t, e, token, "create-admin-reuse", "create-admin-reuse@example.com", "admin", ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
