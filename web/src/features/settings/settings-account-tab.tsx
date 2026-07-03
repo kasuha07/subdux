@@ -307,7 +307,10 @@ function EmailChangeDialog({
             {t("settings.account.changeEmail")}
           </Button>
         </DialogTrigger>
-        <DialogContent className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]">
+        <DialogContent
+          className="flex max-h-[calc(100vh-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
             <DialogTitle>{t("settings.account.changeEmail")}</DialogTitle>
             <DialogDescription className="sr-only">
