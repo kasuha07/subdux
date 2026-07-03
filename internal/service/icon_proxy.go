@@ -39,9 +39,13 @@ type IconProxyResolution struct {
 }
 
 func NewIconProxyService(db *gorm.DB) *IconProxyService {
+	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), db, outboundPurposeIconProxy, 10*time.Second)
+	if err != nil {
+		client = NewOutboundHTTPClient(db, 10*time.Second)
+	}
 	return &IconProxyService{
 		DB:         db,
-		httpClient: NewOutboundHTTPClient(db, 10*time.Second),
+		httpClient: client,
 	}
 }
 
@@ -121,7 +125,11 @@ func (s *IconProxyService) outboundHTTPClient() *http.Client {
 	if s.httpClient != nil {
 		return s.httpClient
 	}
-	return NewOutboundHTTPClient(s.DB, 10*time.Second)
+	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeIconProxy, 10*time.Second)
+	if err != nil {
+		return NewOutboundHTTPClient(s.DB, 10*time.Second)
+	}
+	return client
 }
 
 func (s *IconProxyService) getBoolSetting(key string, defaultValue bool) bool {

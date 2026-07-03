@@ -415,7 +415,11 @@ func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error
 func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
+	client, err := buildOutboundHTTPClientWithTimeout(ctx, s.DB, outboundPurposeOIDC, 10*time.Second)
+	if err != nil {
+		return "", errors.New("failed to initialize oidc provider")
+	}
+	ctx = oidc.ClientContext(ctx, client)
 
 	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
@@ -486,7 +490,11 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	ctx = oidc.ClientContext(ctx, NewOutboundHTTPClient(s.DB, 10*time.Second))
+	client, err := buildOutboundHTTPClientWithTimeout(ctx, s.DB, outboundPurposeOIDC, 10*time.Second)
+	if err != nil {
+		return nil, errors.New("failed to initialize oidc provider")
+	}
+	ctx = oidc.ClientContext(ctx, client)
 
 	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
@@ -556,7 +564,7 @@ func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, co
 		strings.TrimSpace(claims.PreferredUsername) == "" ||
 		strings.TrimSpace(claims.Name) == ""
 	if needsUserInfo {
-		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, NewOutboundHTTPClient(s.DB, 10*time.Second))
+		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, client)
 		if userInfoErr == nil && userInfoClaims != nil {
 			if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
 				return nil, errors.New("oidc subject mismatch")
@@ -1253,7 +1261,11 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 	req.Header.Set("Accept", "application/json")
 
 	if client == nil {
-		client = NewOutboundHTTPClient(nil, 10*time.Second)
+		var err error
+		client, err = buildOutboundHTTPClientWithTimeout(ctx, nil, outboundPurposeOIDC, 10*time.Second)
+		if err != nil {
+			return nil, err
+		}
 	}
 	resp, err := client.Do(req)
 	if err != nil {

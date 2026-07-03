@@ -24,7 +24,7 @@ service/
 ├── category.go, currency.go         # User-scoped settings/reference data
 ├── payment_method.go                # Payment methods and icons
 ├── calendar.go                      # Calendar feed tokens and event generation
-├── outbound_http.go                 # Safe outbound HTTP policy/client
+├── outbound_*.go                    # Outbound policy, settings, clients, proxy, validators
 ├── system_settings.go               # Global runtime settings
 └── *_test.go                        # Focused service behavior and security tests
 ```
@@ -42,7 +42,7 @@ service/
 | Notifications | `notification*.go` | Validate config, render templates, enqueue, dispatch, log policy outcomes |
 | Imports/exports | `import_subdux.go`, `import_wallos.go`, `export.go` | Keep dedup, mapping, and size/security behavior tested |
 | Admin settings | `admin_settings.go`, `system_settings.go`, `security_settings.go` | Handle configured-secret flags carefully |
-| Outbound network | `outbound_http.go` | Use safe client rules for OIDC, webhooks, icon proxy, release checks |
+| Outbound network | `outbound_*.go` | Use central outbound policy/settings/client/validator helpers for OIDC, webhooks, icon proxy, release checks |
 
 ## CONVENTIONS
 

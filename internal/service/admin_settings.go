@@ -608,34 +608,3 @@ func saveEncryptedSystemSetting(tx *gorm.DB, key string, value string) error {
 	}
 	return saveStringSystemSetting(tx, key, encrypted)
 }
-
-func validateIncomingSystemProxySettings(tx *gorm.DB, input UpdateSettingsInput) error {
-	cfg, err := loadSystemProxyConfig(tx)
-	if err != nil {
-		return err
-	}
-
-	proxyType := cfg.Type
-	if input.SystemProxyType != nil {
-		proxyType, err = normalizeSystemProxyType(*input.SystemProxyType)
-		if err != nil {
-			return err
-		}
-	}
-
-	proxyURL := cfg.URL
-	if input.SystemProxyURL != nil {
-		proxyURL = *input.SystemProxyURL
-	}
-
-	enabled := cfg.Enabled
-	if input.SystemProxyEnabled != nil {
-		enabled = *input.SystemProxyEnabled
-	}
-
-	if input.SystemProxyURL == nil && !enabled {
-		return nil
-	}
-
-	return validateSystemProxySettings(proxyType, proxyURL, enabled)
-}

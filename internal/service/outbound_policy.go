@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -45,6 +46,8 @@ type ssrfProtectionConfig struct {
 	IPFilters        []netip.Prefix
 	FilterResolvedIP bool
 }
+
+type outboundPolicy = ssrfProtectionConfig
 
 func defaultSSRFProtectionConfig() ssrfProtectionConfig {
 	return ssrfProtectionConfig{
@@ -114,6 +117,14 @@ func ssrfProtectionConfigForDB(db *gorm.DB) ssrfProtectionConfig {
 		return defaultSSRFProtectionConfig()
 	}
 	return cfg
+}
+
+func loadOutboundPolicy(_ context.Context, db *gorm.DB) (outboundPolicy, error) {
+	return loadSSRFProtectionConfig(db)
+}
+
+func outboundPolicyForDB(db *gorm.DB) outboundPolicy {
+	return ssrfProtectionConfigForDB(db)
 }
 
 func normalizeSSRFFilterMode(mode string) (string, error) {

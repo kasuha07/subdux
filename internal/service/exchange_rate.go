@@ -39,9 +39,13 @@ type ExchangeRateService struct {
 }
 
 func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
+	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), db, outboundPurposeExchangeRate, 30*time.Second)
+	if err != nil {
+		client = NewOutboundHTTPClient(db, 30*time.Second)
+	}
 	s := &ExchangeRateService{
 		DB:         db,
-		httpClient: NewOutboundHTTPClient(db, 30*time.Second),
+		httpClient: client,
 		cache:      newRateCache(),
 	}
 	s.loadCacheFromDB()
@@ -527,7 +531,11 @@ func (s *ExchangeRateService) outboundHTTPClient() *http.Client {
 	if s.httpClient != nil {
 		return s.httpClient
 	}
-	return NewOutboundHTTPClient(s.DB, 30*time.Second)
+	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeExchangeRate, 30*time.Second)
+	if err != nil {
+		return NewOutboundHTTPClient(s.DB, 30*time.Second)
+	}
+	return client
 }
 
 func (s *ExchangeRateService) StartBackgroundRefresh(

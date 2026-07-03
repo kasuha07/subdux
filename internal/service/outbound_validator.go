@@ -59,15 +59,27 @@ func validateHTTPURL(rawURL string, fieldLabel string, requireHTTPS bool) (*url.
 }
 
 func validateOutboundChannelURL(rawURL string, fieldLabel string, requireHTTPS bool, db *gorm.DB) error {
+	return validateOutboundURLWithOptions(context.Background(), db, rawURL, fieldLabel, requireHTTPS, outboundPurposeNotification)
+}
+
+func validateOutboundURL(ctx context.Context, db *gorm.DB, rawURL string, purpose outboundPurpose) error {
+	return validateOutboundURLWithOptions(ctx, db, rawURL, "outbound request url", false, purpose)
+}
+
+func validateOutboundURLWithOptions(_ context.Context, db *gorm.DB, rawURL string, fieldLabel string, requireHTTPS bool, purpose outboundPurpose) error {
 	parsed, err := validateHTTPURL(rawURL, fieldLabel, requireHTTPS)
 	if err != nil {
 		return err
 	}
-	return validateOutboundHost(parsed.Hostname(), fieldLabel, db)
+	return validateOutboundHostForPurpose(parsed.Hostname(), fieldLabel, db, purpose)
 }
 
 func validateOutboundHost(hostname string, fieldLabel string, db *gorm.DB) error {
-	cfg := ssrfProtectionConfigForDB(db)
+	return validateOutboundHostForPurpose(hostname, fieldLabel, db, "")
+}
+
+func validateOutboundHostForPurpose(hostname string, fieldLabel string, db *gorm.DB, _ outboundPurpose) error {
+	cfg := outboundPolicyForDB(db)
 	return validateOutboundHostWithConfig(hostname, fieldLabel, cfg)
 }
 
@@ -169,7 +181,7 @@ func validateResolvedOutboundHost(hostname string, db *gorm.DB) error {
 }
 
 func resolveSafeOutboundHostIPs(ctx context.Context, network string, hostname string, fieldLabel string, db *gorm.DB) ([]net.IP, error) {
-	cfg := ssrfProtectionConfigForDB(db)
+	cfg := outboundPolicyForDB(db)
 	if err := validateOutboundHostWithConfig(hostname, fieldLabel, cfg); err != nil {
 		return nil, err
 	}
@@ -216,12 +228,20 @@ func lookupIPNetwork(network string) string {
 }
 
 func doNotificationRequest(client *http.Client, req *http.Request, db *gorm.DB) (*http.Response, error) {
+	return doOutboundRequest(client, req, db, outboundPurposeNotification)
+}
+
+func doOutboundRequest(client *http.Client, req *http.Request, db *gorm.DB, purpose outboundPurpose) (*http.Response, error) {
 	if req == nil || req.URL == nil {
 		return nil, errors.New("invalid outbound request")
 	}
 
 	if client == nil {
-		client = NewSafeOutboundHTTPClient(db, 15*time.Second)
+		var err error
+		client, err = buildOutboundHTTPClientWithTimeout(req.Context(), db, purpose, 15*time.Second)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	proxyMediated := clientUsesOutboundProxy(client)
@@ -261,12 +281,20 @@ func (s *NotificationService) newNotificationHTTPClient(timeout time.Duration) *
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
-	return NewSafeOutboundHTTPClient(s.DB, timeout)
+	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeNotification, timeout)
+	if err != nil {
+		return NewSafeOutboundHTTPClient(s.DB, timeout)
+	}
+	return client
 }
 
 func (s *NotificationService) newFixedNotificationHTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
-	return NewOutboundHTTPClient(s.DB, timeout)
+	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeFixedNotification, timeout)
+	if err != nil {
+		return NewOutboundHTTPClient(s.DB, timeout)
+	}
+	return client
 }
