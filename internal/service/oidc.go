@@ -32,6 +32,7 @@ const (
 	oidcStateSessionTTL  = 10 * time.Minute
 	oidcResultSessionTTL = 3 * time.Minute
 	oidcProviderCacheTTL = 2 * time.Minute
+	oidcReauthAuthSkew   = 1 * time.Minute
 	maxOIDCStateSessions = 1024
 	maxOIDCResultSession = 1024
 )
@@ -129,6 +130,7 @@ type oidcIdentityClaims struct {
 	PreferredUsername string `json:"preferred_username"`
 	Name              string `json:"name"`
 	Nonce             string `json:"nonce"`
+	AuthTime          int64  `json:"auth_time"`
 }
 
 func (s *AuthService) GetOIDCPublicConfig() *OIDCPublicConfig {
@@ -232,7 +234,7 @@ func (s *AuthService) HandleOIDCCallback(state string, code string, providerErro
 		result, err = s.finishOIDCConnect(session.UserID, claims)
 	} else if purpose == oidcPurposeReauth {
 		operation = session.Operation
-		result, err = s.finishOIDCReauth(session.UserID, session.Operation, claims)
+		result, err = s.finishOIDCReauth(session.UserID, session.Operation, claims, session.CreatedAt)
 	} else {
 		result, err = s.finishOIDCLogin(settings, claims)
 	}
@@ -371,6 +373,12 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 	}
 	for key, value := range settings.ExtraAuth {
 		authOptions = append(authOptions, oauth2.SetAuthURLParam(key, value))
+	}
+	if purpose == oidcPurposeReauth {
+		authOptions = append(authOptions,
+			oauth2.SetAuthURLParam("prompt", "login"),
+			oauth2.SetAuthURLParam("max_age", "0"),
+		)
 	}
 
 	authorizationURL := oauthConfig.AuthCodeURL(
@@ -590,10 +598,15 @@ func (s *AuthService) finishOIDCConnect(userID uint, claims *oidcIdentityClaims)
 // connections: the returned result is a short-lived, single-use session that
 // VerifyOIDC later spends to mint a reauth ticket. Requiring an existing
 // connection owned by userID means an admin can only step up with their own
-// linked identity, never by authenticating as a different OIDC account.
-func (s *AuthService) finishOIDCReauth(userID uint, operation string, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
+// linked identity, never by authenticating as a different OIDC account. Reauth
+// also requires a fresh provider login: the OIDC request uses prompt=login and
+// max_age=0, and this callback path rejects ID tokens without a recent auth_time.
+func (s *AuthService) finishOIDCReauth(userID uint, operation string, claims *oidcIdentityClaims, startedAt time.Time) (OIDCSessionResult, error) {
 	if userID == 0 {
 		return OIDCSessionResult{}, errors.New("invalid oidc reauth session")
+	}
+	if err := validateOIDCReauthFreshLogin(claims, startedAt); err != nil {
+		return OIDCSessionResult{}, err
 	}
 
 	user, err := s.GetUser(userID)
@@ -620,6 +633,28 @@ func (s *AuthService) finishOIDCReauth(userID uint, operation string, claims *oi
 		UserID:    userID,
 		Operation: operation,
 	}, nil
+}
+
+func validateOIDCReauthFreshLogin(claims *oidcIdentityClaims, startedAt time.Time) error {
+	if claims == nil || claims.AuthTime == 0 {
+		return errors.New("oidc reauth requires a fresh login")
+	}
+	if startedAt.IsZero() {
+		return errors.New("oidc reauth requires a fresh login")
+	}
+
+	authTime := time.Unix(claims.AuthTime, 0).UTC()
+	freshAfter := startedAt.UTC().Add(-oidcReauthAuthSkew)
+	if authTime.Before(freshAfter) {
+		return errors.New("oidc reauth requires a fresh login")
+	}
+
+	now := pkg.NowUTC()
+	if authTime.After(now.Add(oidcReauthAuthSkew)) {
+		return errors.New("oidc reauth requires a fresh login")
+	}
+
+	return nil
 }
 
 func (s *AuthService) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error) {

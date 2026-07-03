@@ -349,6 +349,10 @@ func TestFinishOIDCReauthOwnership(t *testing.T) {
 		t.Fatalf("failed to migrate oidc connection: %v", err)
 	}
 	auth := svc.auth
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	restoreClock := pkg.SetNowForTest(now)
+	defer restoreClock()
+	startedAt := now.Add(-30 * time.Second)
 
 	// A connection linked to a DIFFERENT user, but the same OIDC subject the
 	// callback resolves. The admin must not be able to step up with it.
@@ -362,8 +366,8 @@ func TestFinishOIDCReauthOwnership(t *testing.T) {
 		t.Fatalf("failed to create connection: %v", err)
 	}
 
-	claims := &oidcIdentityClaims{Subject: "shared-subject", Email: other.Email}
-	if _, err := auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims); err == nil {
+	claims := &oidcIdentityClaims{Subject: "shared-subject", Email: other.Email, AuthTime: now.Unix()}
+	if _, err := auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err == nil {
 		t.Fatal("finishOIDCReauth() error = nil for another user's identity, want non-nil")
 	}
 
@@ -373,12 +377,59 @@ func TestFinishOIDCReauthOwnership(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("failed to create own connection: %v", err)
 	}
-	ownClaims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email}
-	result, err := auth.finishOIDCReauth(user.ID, ReauthOperationBackup, ownClaims)
+	ownClaims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email, AuthTime: now.Unix()}
+	result, err := auth.finishOIDCReauth(user.ID, ReauthOperationBackup, ownClaims, startedAt)
 	if err != nil {
 		t.Fatalf("finishOIDCReauth() error = %v, want nil", err)
 	}
 	if result.Purpose != oidcPurposeReauth || result.UserID != user.ID || result.Operation != ReauthOperationBackup {
 		t.Fatalf("finishOIDCReauth() result = %+v, want reauth/%d/%s", result, user.ID, ReauthOperationBackup)
 	}
+}
+
+func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
+	svc, user, _ := newReauthTestService(t)
+	if err := svc.db.AutoMigrate(&model.OIDCConnection{}); err != nil {
+		t.Fatalf("failed to migrate oidc connection: %v", err)
+	}
+
+	if err := svc.db.Create(&model.OIDCConnection{
+		UserID: user.ID, Provider: oidcProviderKey, Subject: "own-subject", Email: user.Email,
+	}).Error; err != nil {
+		t.Fatalf("failed to create own connection: %v", err)
+	}
+
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	restoreClock := pkg.SetNowForTest(now)
+	defer restoreClock()
+	startedAt := now.Add(-30 * time.Second)
+
+	t.Run("missing auth_time is rejected", func(t *testing.T) {
+		claims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email}
+		if _, err := svc.auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err == nil {
+			t.Fatal("finishOIDCReauth() error = nil, want missing auth_time rejection")
+		}
+	})
+
+	t.Run("stale auth_time is rejected", func(t *testing.T) {
+		claims := &oidcIdentityClaims{
+			Subject:  "own-subject",
+			Email:    user.Email,
+			AuthTime: startedAt.Add(-oidcReauthAuthSkew - time.Second).Unix(),
+		}
+		if _, err := svc.auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err == nil {
+			t.Fatal("finishOIDCReauth() error = nil, want stale auth_time rejection")
+		}
+	})
+
+	t.Run("fresh auth_time is accepted", func(t *testing.T) {
+		claims := &oidcIdentityClaims{
+			Subject:  "own-subject",
+			Email:    user.Email,
+			AuthTime: now.Unix(),
+		}
+		if _, err := svc.auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err != nil {
+			t.Fatalf("finishOIDCReauth() error = %v, want nil", err)
+		}
+	})
 }
