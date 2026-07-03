@@ -68,6 +68,9 @@ func TestAdminListUsersReportsCredentialFactorState(t *testing.T) {
 	if len(users) != 1 {
 		t.Fatalf("ListUsers() count = %d, want 1", len(users))
 	}
+	if users[0].Username != "factor-user" {
+		t.Fatalf("ListUsers()[0].Username = %q, want factor-user", users[0].Username)
+	}
 	if !users[0].TotpEnabled {
 		t.Fatal("ListUsers()[0].TotpEnabled = false, want true")
 	}

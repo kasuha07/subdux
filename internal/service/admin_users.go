@@ -20,10 +20,10 @@ type AdminUserListItem struct {
 func (s *AdminService) ListUsers() ([]AdminUserListItem, error) {
 	var users []AdminUserListItem
 	err := s.DB.Model(&model.User{}).
-		Select("users.id, users.email, users.role, users.status, users.totp_enabled, users.created_at, COUNT(DISTINCT subscriptions.id) AS subscription_count, COUNT(DISTINCT passkey_credentials.id) AS passkey_count").
+		Select("users.id, users.username, users.email, users.role, users.status, users.totp_enabled, users.created_at, COUNT(DISTINCT subscriptions.id) AS subscription_count, COUNT(DISTINCT passkey_credentials.id) AS passkey_count").
 		Joins("LEFT JOIN subscriptions ON subscriptions.user_id = users.id").
 		Joins("LEFT JOIN passkey_credentials ON passkey_credentials.user_id = users.id").
-		Group("users.id, users.email, users.role, users.status, users.totp_enabled, users.created_at").
+		Group("users.id, users.username, users.email, users.role, users.status, users.totp_enabled, users.created_at").
 		Order("users.id ASC").
 		Find(&users).Error
 	return users, err

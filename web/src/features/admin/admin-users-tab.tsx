@@ -174,6 +174,7 @@ export default function AdminUsersTab({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>{t("admin.users.username")}</TableHead>
               <TableHead>{t("admin.users.email")}</TableHead>
               <TableHead>{t("admin.users.role")}</TableHead>
               <TableHead>{t("admin.users.status")}</TableHead>
@@ -186,6 +187,7 @@ export default function AdminUsersTab({
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
+                <TableCell className="font-medium">{user.username}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <Badge variant={user.role === "admin" ? "default" : "secondary"}>

@@ -101,6 +101,7 @@ func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTas
 
 type adminUserResponse struct {
 	ID                uint      `json:"id"`
+	Username          string    `json:"username"`
 	Email             string    `json:"email"`
 	Role              string    `json:"role"`
 	Status            string    `json:"status"`
@@ -113,6 +114,7 @@ type adminUserResponse struct {
 func mapAdminUserResponse(user service.AdminUserListItem) adminUserResponse {
 	return adminUserResponse{
 		ID:                user.ID,
+		Username:          user.Username,
 		Email:             user.Email,
 		Role:              user.Role,
 		Status:            user.Status,
