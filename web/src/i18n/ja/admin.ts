@@ -46,6 +46,9 @@ const admin = {
     statusUpdated: "ユーザーのステータスを更新しました",
     deleteSuccess: "ユーザーを削除しました",
     createSuccess: "ユーザーを作成しました",
+    roleReauthTitle: "ロール変更の確認",
+    roleReauthDescription:
+      "セキュリティのため、ユーザーのロールを変更する前に再認証してください。",
   },
   settings: {
     siteName: "サイト名",

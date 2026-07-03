@@ -175,6 +175,18 @@ func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
+	if input.Role != "admin" && input.Role != "user" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid role"})
+	}
+
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		getUserID(c),
+		service.ReauthOperationChangeUserRole,
+		strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
+	); err != nil {
+		return writeReauthError(c, err)
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).ChangeUserRole(uint(userID), input.Role); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}

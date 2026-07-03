@@ -44,6 +44,8 @@ const admin = {
     statusUpdated: "用户状态已更新",
     deleteSuccess: "用户已删除",
     createSuccess: "用户已创建",
+    roleReauthTitle: "确认角色修改",
+    roleReauthDescription: "出于安全考虑，修改用户角色前请重新验证身份。",
   },
   settings: {
     siteName: "站点名称",

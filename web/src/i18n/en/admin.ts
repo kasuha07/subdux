@@ -47,6 +47,9 @@ const admin = {
     statusUpdated: "User status updated",
     deleteSuccess: "User deleted",
     createSuccess: "User created",
+    roleReauthTitle: "Confirm role change",
+    roleReauthDescription:
+      "For security, re-authenticate before changing this user's role.",
   },
   settings: {
     siteName: "Site name",

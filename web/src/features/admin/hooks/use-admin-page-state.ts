@@ -74,6 +74,7 @@ interface UseAdminPageStateResult {
   handleSaveExchangeRateSettings: () => Promise<void>
   handleSaveGeneralSettings: () => Promise<void>
   handleSaveSMTPSettings: () => Promise<void>
+  handleConfirmToggleRole: (reauthTicket: string) => Promise<void>
   handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
   handleToggleRole: (user: AdminUser) => Promise<void>
@@ -94,6 +95,7 @@ interface UseAdminPageStateResult {
   restoreFile: File | null
   restorePassword: string
   runningBackup: boolean
+  roleReauthUser: AdminUser | null
   setCreateDialogOpen: (open: boolean) => void
   setDownloadPassword: (value: string) => void
   setIncludeAssetsInBackup: (value: boolean) => void
@@ -101,6 +103,7 @@ interface UseAdminPageStateResult {
   setNewPassword: (value: string) => void
   setNewRole: (value: "user" | "admin") => void
   setNewUsername: (value: string) => void
+  setRoleReauthUser: (user: AdminUser | null) => void
   setRestoreConfirmOpen: (value: boolean) => void
   setRestoreFile: (file: File | null) => void
   setRestorePassword: (value: string) => void
@@ -205,6 +208,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   const [ssrfTesting, setSSRFTesting] = useState(false)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [roleReauthUser, setRoleReauthUser] = useState<AdminUser | null>(null)
   const [newUsername, setNewUsername] = useState("")
   const [newEmail, setNewEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -251,10 +255,26 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   }, [])
 
   async function handleToggleRole(user: AdminUser) {
-    const nextRole = user.role === "admin" ? "user" : "admin"
+    setRoleReauthUser(user)
+  }
+
+  async function handleConfirmToggleRole(reauthTicket: string) {
+    if (!roleReauthUser) {
+      return
+    }
+
+    const target = users.find((user) => user.id === roleReauthUser.id) ?? roleReauthUser
+    const nextRole = target.role === "admin" ? "user" : "admin"
     try {
-      await api.put(`/admin/users/${user.id}/role`, { role: nextRole })
-      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, role: nextRole } : item)))
+      await api.put(
+        `/admin/users/${target.id}/role`,
+        { role: nextRole },
+        { headers: { "X-Reauth-Ticket": reauthTicket } }
+      )
+      setUsers((prev) =>
+        prev.map((item) => (item.id === target.id ? { ...item, role: nextRole } : item))
+      )
+      setRoleReauthUser(null)
       toast.success(t("admin.users.roleUpdated"))
     } catch {
       void 0
@@ -670,6 +690,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleSaveExchangeRateSettings,
     handleSaveGeneralSettings,
     handleSaveSMTPSettings,
+    handleConfirmToggleRole,
     handleTestSSRF,
     handleTestSMTP,
     handleToggleRole,
@@ -690,6 +711,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     restoreFile,
     restorePassword,
     runningBackup,
+    roleReauthUser,
     setCreateDialogOpen,
     setDownloadPassword,
     setIncludeAssetsInBackup,
@@ -697,6 +719,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     setNewPassword,
     setNewRole,
     setNewUsername,
+    setRoleReauthUser,
     setRestoreConfirmOpen,
     setRestoreFile: handleRestoreFileChange,
     setRestorePassword,

@@ -209,6 +209,21 @@ func postCreateAPIKey(t *testing.T, e *echo.Echo, token, name, ticket string) *h
 	return rec
 }
 
+func putAdminUserRole(t *testing.T, e *echo.Echo, token string, userID uint, role, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"role":%q}`, role)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/admin/users/%d/role", userID), strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
@@ -246,6 +261,68 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 
 		// The same ticket must not authorize a second backup.
 		rec = postBackup(t, e, token, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	target := model.User{
+		Username: "role-target",
+		Email:    "role-target@example.com",
+		Password: "x",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&target).Error; err != nil {
+		t.Fatalf("failed to create target user: %v", err)
+	}
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := putAdminUserRole(t, e, token, target.ID, "admin", "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		rec := putAdminUserRole(t, e, token, target.ID, "admin", backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationChangeUserRole)
+
+		rec := putAdminUserRole(t, e, token, target.ID, "admin", ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var updated model.User
+		if err := db.Select("id", "role").First(&updated, target.ID).Error; err != nil {
+			t.Fatalf("failed to reload target user: %v", err)
+		}
+		if updated.Role != "admin" {
+			t.Fatalf("target role = %q, want admin", updated.Role)
+		}
+
+		rec = putAdminUserRole(t, e, token, target.ID, "user", ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}

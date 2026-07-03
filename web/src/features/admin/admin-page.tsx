@@ -139,6 +139,9 @@ export default function AdminPage() {
                   newRole={admin.newRole}
                   onNewRoleChange={admin.setNewRole}
                   onCreateUser={admin.handleCreateUser}
+                  roleReauthUser={admin.roleReauthUser}
+                  onRoleReauthUserChange={admin.setRoleReauthUser}
+                  onConfirmToggleRole={admin.handleConfirmToggleRole}
                   onToggleRole={admin.handleToggleRole}
                   onToggleStatus={admin.handleToggleStatus}
                   onDisableUserTOTP={admin.handleDisableUserTOTP}

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table"
 import { TabsContent } from "@/components/ui/tabs"
 import type { AdminUser } from "@/types"
+import ReauthDialog from "./reauth-dialog"
 
 interface AdminUsersTabProps {
   createDialogOpen: boolean
@@ -40,6 +41,7 @@ interface AdminUsersTabProps {
   newUsername: string
   onCreateDialogOpenChange: (open: boolean) => void
   onCreateUser: () => void | Promise<void>
+  onConfirmToggleRole: (reauthTicket: string) => void | Promise<void>
   onDeleteUser: (id: number) => void | Promise<void>
   onDisableUserPasskeys: (user: AdminUser) => void | Promise<void>
   onDisableUserTOTP: (user: AdminUser) => void | Promise<void>
@@ -47,8 +49,10 @@ interface AdminUsersTabProps {
   onNewPasswordChange: (value: string) => void
   onNewRoleChange: (role: "user" | "admin") => void
   onNewUsernameChange: (value: string) => void
+  onRoleReauthUserChange: (user: AdminUser | null) => void
   onToggleRole: (user: AdminUser) => void | Promise<void>
   onToggleStatus: (user: AdminUser) => void | Promise<void>
+  roleReauthUser: AdminUser | null
   users: AdminUser[]
 }
 
@@ -60,6 +64,7 @@ export default function AdminUsersTab({
   newUsername,
   onCreateDialogOpenChange,
   onCreateUser,
+  onConfirmToggleRole,
   onDeleteUser,
   onDisableUserPasskeys,
   onDisableUserTOTP,
@@ -67,8 +72,10 @@ export default function AdminUsersTab({
   onNewPasswordChange,
   onNewRoleChange,
   onNewUsernameChange,
+  onRoleReauthUserChange,
   onToggleRole,
   onToggleStatus,
+  roleReauthUser,
   users,
 }: AdminUsersTabProps) {
   const { t, i18n } = useTranslation()
@@ -245,6 +252,21 @@ export default function AdminUsersTab({
           </TableBody>
         </Table>
       </div>
+
+      <ReauthDialog
+        operation="change_user_role"
+        open={roleReauthUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            onRoleReauthUserChange(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          await onConfirmToggleRole(ticket)
+        }}
+        title={t("admin.users.roleReauthTitle")}
+        description={t("admin.users.roleReauthDescription")}
+      />
     </TabsContent>
   )
 }
