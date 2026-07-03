@@ -7,6 +7,10 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 type DialogLayer = "base" | "stacked"
+type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content>
+type DialogPointerDownOutsideEvent = Parameters<
+  NonNullable<DialogContentProps["onPointerDownOutside"]>
+>[0]
 
 const DIALOG_LAYER_CLASSES: Record<DialogLayer, { overlay: string, content: string }> = {
   base: {
@@ -17,6 +21,25 @@ const DIALOG_LAYER_CLASSES: Record<DialogLayer, { overlay: string, content: stri
     overlay: "z-[60] bg-black/60",
     content: "z-[70]",
   },
+}
+
+function isPointerInsideElementRect(
+  event: DialogPointerDownOutsideEvent,
+  element: HTMLElement | null
+) {
+  if (!element) {
+    return false
+  }
+
+  const { clientX, clientY } = event.detail.originalEvent
+  const rect = element.getBoundingClientRect()
+
+  return (
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom
+  )
 }
 
 function Dialog({
@@ -62,22 +85,35 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  onPointerDownOutside,
   showCloseButton = true,
   layer = "base",
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+}: DialogContentProps & {
   showCloseButton?: boolean
   layer?: DialogLayer
 }) {
   const layerClasses = DIALOG_LAYER_CLASSES[layer]
+  const contentRef = React.useRef<HTMLDivElement>(null)
   const content = (
     <DialogPrimitive.Content
+      ref={contentRef}
       data-slot="dialog-content"
       className={cn(
         "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
         layerClasses.content,
         className
       )}
+      onPointerDownOutside={(event) => {
+        onPointerDownOutside?.(event)
+        if (event.defaultPrevented) {
+          return
+        }
+
+        if (isPointerInsideElementRect(event, contentRef.current)) {
+          event.preventDefault()
+        }
+      }}
       {...props}
     >
       {children}
