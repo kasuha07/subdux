@@ -188,21 +188,13 @@ func replaceBackupCodes(tx *gorm.DB, userID uint, backupCodes []model.UserBackup
 	return nil
 }
 
-func (s *TOTPService) Disable(userID uint, password string, code string) error {
+func (s *TOTPService) Disable(userID uint) error {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrUserNotFound
 		}
 		return err
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return ErrTOTPInvalidPassword
-	}
-
-	if !s.VerifyLogin(userID, code) && !s.VerifyBackupCode(userID, code) {
-		return ErrTOTPInvalidAuthCode
 	}
 
 	s.clearUserSetupSessions(userID)

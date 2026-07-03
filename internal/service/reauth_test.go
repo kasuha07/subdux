@@ -224,7 +224,7 @@ func TestReauthTicketLimitEvictsOldest(t *testing.T) {
 func TestReauthAvailableMethods(t *testing.T) {
 	svc, user, _ := newReauthTestService(t)
 
-	methods, err := svc.AvailableMethods(user.ID)
+	methods, err := svc.AvailableMethods(user.ID, ReauthOperationBackup)
 	if err != nil {
 		t.Fatalf("AvailableMethods() error = %v", err)
 	}
@@ -248,7 +248,7 @@ func TestReauthAvailableMethods(t *testing.T) {
 		t.Fatalf("failed to create passkey: %v", err)
 	}
 
-	methods, err = svc.AvailableMethods(user.ID)
+	methods, err = svc.AvailableMethods(user.ID, ReauthOperationBackup)
 	if err != nil {
 		t.Fatalf("AvailableMethods() error = %v", err)
 	}
@@ -259,7 +259,7 @@ func TestReauthAvailableMethods(t *testing.T) {
 	const secret = "JBSWY3DPEHPK3PXP"
 	enableReauthTestTOTP(t, svc, user.ID, secret)
 
-	methods, err = svc.AvailableMethods(user.ID)
+	methods, err = svc.AvailableMethods(user.ID, ReauthOperationBackup)
 	if err != nil {
 		t.Fatalf("AvailableMethods() after totp enable error = %v", err)
 	}
@@ -299,7 +299,7 @@ func TestReauthAvailableMethodsOIDC(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("failed to create connection: %v", err)
 	}
-	methods, err := svc.AvailableMethods(user.ID)
+	methods, err := svc.AvailableMethods(user.ID, ReauthOperationBackup)
 	if err != nil {
 		t.Fatalf("AvailableMethods() error = %v", err)
 	}
@@ -309,7 +309,7 @@ func TestReauthAvailableMethodsOIDC(t *testing.T) {
 
 	// Enabling and configuring the provider flips it on for a linked user.
 	seedOIDCEnabled(t, svc)
-	methods, err = svc.AvailableMethods(user.ID)
+	methods, err = svc.AvailableMethods(user.ID, ReauthOperationBackup)
 	if err != nil {
 		t.Fatalf("AvailableMethods() error = %v", err)
 	}
@@ -322,7 +322,7 @@ func TestReauthAvailableMethodsOIDC(t *testing.T) {
 	if err := svc.db.Create(&other).Error; err != nil {
 		t.Fatalf("failed to create other user: %v", err)
 	}
-	methods, err = svc.AvailableMethods(other.ID)
+	methods, err = svc.AvailableMethods(other.ID, ReauthOperationBackup)
 	if err != nil {
 		t.Fatalf("AvailableMethods() error = %v", err)
 	}
@@ -461,7 +461,7 @@ func TestReauthPasswordPolicy(t *testing.T) {
 		svc, user, password := newReauthTestService(t)
 		seedReauthTestPasskey(t, svc, user.ID, "cred-passkey-only")
 
-		methods, err := svc.AvailableMethods(user.ID)
+		methods, err := svc.AvailableMethods(user.ID, ReauthOperationBackup)
 		if err != nil {
 			t.Fatalf("AvailableMethods() error = %v", err)
 		}
@@ -483,7 +483,7 @@ func TestReauthPasswordPolicy(t *testing.T) {
 		const secret = "JBSWY3DPEHPK3PXP"
 		enableReauthTestTOTP(t, svc, user.ID, secret)
 
-		methods, err := svc.AvailableMethods(user.ID)
+		methods, err := svc.AvailableMethods(user.ID, ReauthOperationBackup)
 		if err != nil {
 			t.Fatalf("AvailableMethods() error = %v", err)
 		}
@@ -548,6 +548,22 @@ func TestReauthVerifyOIDCGrade(t *testing.T) {
 		pr := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradePhishingResistant)
 		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, pr); err != nil {
 			t.Fatalf("VerifyOIDC() OIDC-3 error = %v, want nil", err)
+		}
+	})
+
+	t.Run("disable totp accepts OIDC-2 when passkey and totp are enrolled", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-disable-totp-oidc-grade")
+		enableReauthTestTOTP(t, svc, user.ID, "JBSWY3DPEHPK3PXP")
+
+		backupMFA := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradeMFA)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, backupMFA); !errors.Is(err, ErrOIDCReauthInsufficient) {
+			t.Fatalf("VerifyOIDC() backup OIDC-2 error = %v, want ErrOIDCReauthInsufficient", err)
+		}
+
+		disableMFA := mintSession(svc, user.ID, ReauthOperationDisableTOTP, OIDCGradeMFA)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationDisableTOTP, disableMFA); err != nil {
+			t.Fatalf("VerifyOIDC() disable_totp OIDC-2 error = %v, want nil", err)
 		}
 	})
 

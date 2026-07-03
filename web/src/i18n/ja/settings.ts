@@ -236,7 +236,7 @@ const settings = {
     "copied": "コピーしました！",
     "done": "完了",
     "disableTitle": "二段階認証の無効化",
-    "disableDescription": "パスワードと有効な認証コードまたはバックアップコードを入力してください",
+    "disableDescription": "再認証して二段階認証を無効化します",
     "passwordLabel": "パスワード",
     "codeLabel": "認証コードまたはバックアップコード",
     "disabling": "無効化中...",
@@ -247,6 +247,10 @@ const settings = {
     "reauth": {
       "title": "本人確認",
       "description": "セキュリティのため、TOTP シークレットを表示する前に再認証してください。"
+    },
+    "disableReauth": {
+      "title": "二段階認証を無効化",
+      "description": "アカウントから認証アプリを削除する前に本人確認を行ってください。"
     }
   },
   "passkeys": {

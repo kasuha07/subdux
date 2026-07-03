@@ -52,17 +52,16 @@ func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 	userID := getUserID(c)
 	var input struct {
-		Password string `json:"password"`
-		Code     string `json:"code"`
+		ReauthTicket string `json:"reauth_ticket"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
-	if input.Password == "" || input.Code == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password and code are required"})
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationDisableTOTP, input.ReauthTicket); err != nil {
+		return writeReauthError(c, err)
 	}
 
-	if err := h.TOTPService.WithContext(c.Request().Context()).Disable(userID, input.Password, input.Code); err != nil {
+	if err := h.TOTPService.WithContext(c.Request().Context()).Disable(userID); err != nil {
 		return writeTOTPServiceError(c, err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "2FA disabled successfully"})

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
@@ -46,6 +47,18 @@ func postTOTPConfirm(t *testing.T, e *echo.Echo, token, sessionID, code string) 
 	return rec
 }
 
+func postTOTPDisable(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/disable", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func decodeTOTPSetupResponse(t *testing.T, rec *httptest.ResponseRecorder) totpSetupGateResponse {
 	t.Helper()
 
@@ -54,6 +67,74 @@ func decodeTOTPSetupResponse(t *testing.T, rec *httptest.ResponseRecorder) totpS
 		t.Fatalf("failed to decode setup response: %v; body = %s", err, rec.Body.String())
 	}
 	return resp
+}
+
+func TestTOTPDisableRequiresDisableTOTPReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	user := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, user)
+	const secret = "JBSWY3DPEHPK3PXP"
+	enableReauthGateTestTOTP(t, db, user.ID, secret)
+
+	currentCode := func() string {
+		t.Helper()
+		code, err := totp.GenerateCode(secret, time.Now().UTC())
+		if err != nil {
+			t.Fatalf("GenerateCode() error = %v", err)
+		}
+		return code
+	}
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := postTOTPDisable(t, e, token, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationBackup, currentCode())
+		rec := postTOTPDisable(t, e, token, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+
+		var stillEnabled model.User
+		if err := db.Select("id", "totp_enabled").First(&stillEnabled, user.ID).Error; err != nil {
+			t.Fatalf("load user after rejected disable error = %v", err)
+		}
+		if !stillEnabled.TotpEnabled {
+			t.Fatal("wrong-operation ticket disabled TOTP")
+		}
+	})
+
+	t.Run("valid ticket disables totp and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationDisableTOTP, currentCode())
+		rec := postTOTPDisable(t, e, token, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		var disabled model.User
+		if err := db.Select("id", "totp_enabled", "totp_secret").First(&disabled, user.ID).Error; err != nil {
+			t.Fatalf("load user after disable error = %v", err)
+		}
+		if disabled.TotpEnabled || disabled.TotpSecret != nil {
+			t.Fatalf("user TOTP = enabled:%t secret:%v, want disabled and nil secret", disabled.TotpEnabled, disabled.TotpSecret)
+		}
+
+		rec = postTOTPDisable(t, e, token, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+	})
 }
 
 func TestTOTPSetupRequiresEnableTOTPReauthTicket(t *testing.T) {

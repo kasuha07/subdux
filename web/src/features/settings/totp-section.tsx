@@ -1,10 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import type { User } from "@/types"
@@ -21,11 +18,8 @@ export default function TotpSection({ user, onUserChange }: Props) {
   const [setupOpen, setSetupOpen] = useState(false)
   const [setupReauthTicket, setSetupReauthTicket] = useState("")
   const [reauthOpen, setReauthOpen] = useState(false)
-  const [showDisableForm, setShowDisableForm] = useState(false)
-  const [disablePassword, setDisablePassword] = useState("")
-  const [disableCode, setDisableCode] = useState("")
+  const [disableReauthOpen, setDisableReauthOpen] = useState(false)
   const [disabling, setDisabling] = useState(false)
-  const [disableError, setDisableError] = useState("")
 
   const totpEnabled = user?.totp_enabled ?? false
 
@@ -36,19 +30,12 @@ export default function TotpSection({ user, onUserChange }: Props) {
     api.get<User>("/auth/me").then(onUserChange).catch(() => void 0)
   }
 
-  async function handleDisable() {
-    if (!disablePassword || !disableCode) return
-    setDisableError("")
+  async function handleDisable(reauthTicket: string) {
     setDisabling(true)
     try {
-      await api.post("/auth/totp/disable", { password: disablePassword, code: disableCode.trim() })
+      await api.post("/auth/totp/disable", { reauth_ticket: reauthTicket })
       toast.success(t("settings.twoFactor.disableSuccess"))
-      setShowDisableForm(false)
-      setDisablePassword("")
-      setDisableCode("")
       api.get<User>("/auth/me").then(onUserChange).catch(() => void 0)
-    } catch (err) {
-      setDisableError(err instanceof Error ? err.message : t("settings.twoFactor.verifyError"))
     } finally {
       setDisabling(false)
     }
@@ -78,6 +65,15 @@ export default function TotpSection({ user, onUserChange }: Props) {
         title={t("settings.twoFactor.reauth.title")}
         description={t("settings.twoFactor.reauth.description")}
       />
+      <ReauthDialog
+        operation="disable_totp"
+        open={disableReauthOpen}
+        onOpenChange={setDisableReauthOpen}
+        onVerified={(ticket) => handleDisable(ticket)}
+        title={t("settings.twoFactor.disableReauth.title")}
+        description={t("settings.twoFactor.disableReauth.description")}
+        confirmVariant="destructive"
+      />
 
       <div className="space-y-3">
         <div>
@@ -98,78 +94,16 @@ export default function TotpSection({ user, onUserChange }: Props) {
           </Button>
         )}
 
-        {totpEnabled && !showDisableForm && (
+        {totpEnabled && (
           <Button
             size="sm"
             variant="outline"
             className="text-destructive hover:text-destructive"
-            onClick={() => setShowDisableForm(true)}
+            disabled={disabling}
+            onClick={() => setDisableReauthOpen(true)}
           >
-            {t("settings.twoFactor.disable")}
+            {disabling ? t("settings.twoFactor.disabling") : t("settings.twoFactor.disable")}
           </Button>
-        )}
-
-        {totpEnabled && showDisableForm && (
-          <div className="space-y-3 max-w-sm">
-            <Separator />
-            <div>
-              <p className="text-sm font-medium">{t("settings.twoFactor.disableTitle")}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t("settings.twoFactor.disableDescription")}
-              </p>
-            </div>
-            {disableError && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {disableError}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="disable-totp-password">{t("settings.twoFactor.passwordLabel")}</Label>
-              <Input
-                id="disable-totp-password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={disablePassword}
-                onChange={(e) => setDisablePassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="disable-totp-code">{t("settings.twoFactor.codeLabel")}</Label>
-              <Input
-                id="disable-totp-code"
-                type="text"
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                placeholder={t("settings.twoFactor.codePlaceholder")}
-                value={disableCode}
-                onChange={(e) => setDisableCode(e.target.value)}
-                maxLength={8}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={disabling || !disablePassword || !disableCode}
-                onClick={() => void handleDisable()}
-              >
-                {disabling ? t("settings.twoFactor.disabling") : t("settings.twoFactor.disableButton")}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setShowDisableForm(false)
-                  setDisablePassword("")
-                  setDisableCode("")
-                  setDisableError("")
-                }}
-              >
-                {t("subscription.form.cancel")}
-              </Button>
-            </div>
-          </div>
         )}
       </div>
     </>

@@ -8,6 +8,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -202,6 +203,53 @@ func TestTOTPBeginSetupRejectsAlreadyEnabled(t *testing.T) {
 
 	if _, err := svc.BeginSetup(user.ID); !errors.Is(err, ErrTOTPAlreadyEnabled) {
 		t.Fatalf("BeginSetup() error = %v, want ErrTOTPAlreadyEnabled", err)
+	}
+}
+
+func TestTOTPDisableClearsFactorsAfterCallerReauthenticates(t *testing.T) {
+	svc, user := newTOTPTestService(t)
+
+	setup, err := svc.BeginSetup(user.ID)
+	if err != nil {
+		t.Fatalf("BeginSetup() error = %v, want nil", err)
+	}
+	const secret = "JBSWY3DPEHPK3PXP"
+	if err := svc.DB.Model(&model.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
+		"totp_enabled": true,
+		"totp_secret":  secret,
+	}).Error; err != nil {
+		t.Fatalf("failed to enable totp: %v", err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte("backup-code"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("failed to hash backup code: %v", err)
+	}
+	if err := svc.DB.Create(&model.UserBackupCode{UserID: user.ID, CodeHash: string(hash)}).Error; err != nil {
+		t.Fatalf("failed to create backup code: %v", err)
+	}
+
+	if err := svc.Disable(user.ID); err != nil {
+		t.Fatalf("Disable() error = %v, want nil", err)
+	}
+
+	var updated model.User
+	if err := svc.DB.Select("id", "totp_enabled", "totp_secret", "totp_temp_secret").First(&updated, user.ID).Error; err != nil {
+		t.Fatalf("failed to load user after disable: %v", err)
+	}
+	if updated.TotpEnabled || updated.TotpSecret != nil || updated.TotpTempSecret != nil {
+		t.Fatalf("user TOTP state = enabled:%t secret:%v temp:%v, want disabled and cleared", updated.TotpEnabled, updated.TotpSecret, updated.TotpTempSecret)
+	}
+
+	var backupCount int64
+	if err := svc.DB.Model(&model.UserBackupCode{}).Where("user_id = ?", user.ID).Count(&backupCount).Error; err != nil {
+		t.Fatalf("failed to count backup codes: %v", err)
+	}
+	if backupCount != 0 {
+		t.Fatalf("backup code count = %d, want 0", backupCount)
+	}
+	if _, err := svc.getSetupSession(setup.SessionID); !errors.Is(err, ErrTOTPSetupExpired) {
+		t.Fatalf("getSetupSession() error = %v, want ErrTOTPSetupExpired", err)
 	}
 }
 

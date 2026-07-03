@@ -47,11 +47,12 @@ func validateReauthOperation(operation string) (string, error) {
 }
 
 func (h *ReauthHandler) Methods(c echo.Context) error {
-	if _, err := validateReauthOperation(c.QueryParam("operation")); err != nil {
+	operation, err := validateReauthOperation(c.QueryParam("operation"))
+	if err != nil {
 		return writeReauthError(c, err)
 	}
 
-	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(getUserID(c))
+	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(getUserID(c), operation)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load re-authentication methods"})
 	}

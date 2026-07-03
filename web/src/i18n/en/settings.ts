@@ -236,7 +236,7 @@ const settings = {
     "copied": "Copied!",
     "done": "Done",
     "disableTitle": "Disable Two-Factor Authentication",
-    "disableDescription": "Enter your password and a valid authenticator code or backup code",
+    "disableDescription": "Re-authenticate to disable two-factor authentication",
     "passwordLabel": "Password",
     "codeLabel": "Authenticator code or backup code",
     "disabling": "Disabling...",
@@ -247,6 +247,10 @@ const settings = {
     "reauth": {
       "title": "Confirm it's you",
       "description": "For security, re-authenticate before showing the TOTP secret."
+    },
+    "disableReauth": {
+      "title": "Disable two-factor authentication",
+      "description": "Confirm it's you before removing the authenticator from your account."
     }
   },
   "passkeys": {

@@ -236,7 +236,7 @@ const settings = {
     "copied": "已复制！",
     "done": "完成",
     "disableTitle": "禁用两步验证",
-    "disableDescription": "请输入您的密码以及有效的验证码或备用恢复码",
+    "disableDescription": "请重新验证身份后禁用两步验证",
     "passwordLabel": "密码",
     "codeLabel": "验证码或备用恢复码",
     "disabling": "禁用中...",
@@ -247,6 +247,10 @@ const settings = {
     "reauth": {
       "title": "确认是你本人",
       "description": "出于安全考虑，在显示 TOTP 密钥前请重新验证身份。"
+    },
+    "disableReauth": {
+      "title": "禁用两步验证",
+      "description": "移除账户的身份验证器前，请先确认是你本人。"
     }
   },
   "passkeys": {

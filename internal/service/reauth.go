@@ -38,6 +38,7 @@ const (
 	ReauthOperationChangeEmail    = "change_email"
 	ReauthOperationAddPasskey     = "add_passkey"
 	ReauthOperationEnableTOTP     = "enable_totp"
+	ReauthOperationDisableTOTP    = "disable_totp"
 	ReauthOperationConnectOIDC    = "connect_oidc"
 	ReauthOperationCreateAPIKey   = "create_api_key"
 	ReauthOperationExportRedacted = "export_redacted"
@@ -91,8 +92,9 @@ type ReauthMethods struct {
 	OIDC                 bool `json:"oidc"`
 }
 
-// reauthPolicy captures the accepted step-up methods for an account given its
-// enrolled factors. It is the single source of truth for the reauth matrix:
+// reauthPolicy captures the accepted step-up methods for an account and
+// operation given its enrolled factors. It is the single source of truth for the
+// default reauth matrix:
 //
 //	enrolled factors            password        passkey   OIDC min grade
 //	password                    yes             -         OIDC-1
@@ -104,17 +106,25 @@ type ReauthMethods struct {
 // without TOTP: such an account must use its passkey (a stronger, phishing-
 // resistant factor) rather than a bare password. When TOTP is also enrolled the
 // password path returns as password+TOTP, matching the passkey's strength.
+//
+// Disabling TOTP has one operation-specific exception: when both TOTP and a
+// passkey are enrolled, OIDC-2 remains an accepted fallback even though OIDC-3 is
+// preferred. This lets a user remove the TOTP factor after proving either a
+// passkey/OIDC-3 path or the still-current MFA path (password+TOTP or OIDC-2).
 type reauthPolicy struct {
 	passwordAllowed      bool
 	passwordRequiresTOTP bool
 	requiredOIDCGrade    OIDCReauthGrade
 }
 
-func reauthPolicyFor(hasTOTP, hasPasskey bool) reauthPolicy {
+func reauthPolicyFor(operation string, hasTOTP, hasPasskey bool) reauthPolicy {
 	requiredGrade := OIDCGradeFresh
 	if hasPasskey {
 		requiredGrade = OIDCGradePhishingResistant
 	} else if hasTOTP {
+		requiredGrade = OIDCGradeMFA
+	}
+	if operation == ReauthOperationDisableTOTP && hasTOTP {
 		requiredGrade = OIDCGradeMFA
 	}
 	return reauthPolicy{
@@ -174,6 +184,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,
 		ReauthOperationEnableTOTP,
+		ReauthOperationDisableTOTP,
 		ReauthOperationConnectOIDC,
 		ReauthOperationCreateAPIKey,
 		ReauthOperationExportRedacted,
@@ -188,7 +199,11 @@ func IsValidReauthOperation(operation string) bool {
 
 // AvailableMethods reports the factors the user can present for reauth, after
 // applying the account's step-up policy.
-func (s *ReauthService) AvailableMethods(userID uint) (ReauthMethods, error) {
+func (s *ReauthService) AvailableMethods(userID uint, operation string) (ReauthMethods, error) {
+	if !IsValidReauthOperation(operation) {
+		return ReauthMethods{}, ErrInvalidReauthOperation
+	}
+
 	var user model.User
 	if err := s.db.Select("id", "totp_enabled").First(&user, userID).Error; err != nil {
 		return ReauthMethods{}, err
@@ -202,7 +217,7 @@ func (s *ReauthService) AvailableMethods(userID uint) (ReauthMethods, error) {
 		return ReauthMethods{}, err
 	}
 
-	policy := reauthPolicyFor(user.TotpEnabled, hasPasskey)
+	policy := reauthPolicyFor(operation, user.TotpEnabled, hasPasskey)
 	return ReauthMethods{
 		Password:             policy.passwordAllowed,
 		PasswordRequiresTOTP: policy.passwordAllowed && policy.passwordRequiresTOTP,
@@ -233,7 +248,7 @@ func (s *ReauthService) VerifyPassword(userID uint, operation string, password s
 	if err != nil {
 		return "", err
 	}
-	policy := reauthPolicyFor(user.TotpEnabled, hasPasskey)
+	policy := reauthPolicyFor(operation, user.TotpEnabled, hasPasskey)
 	if !policy.passwordAllowed {
 		return "", ErrPasswordReauthDisabled
 	}
@@ -304,7 +319,7 @@ func (s *ReauthService) VerifyOIDC(userID uint, operation string, sessionID stri
 	if err != nil {
 		return "", err
 	}
-	policy := reauthPolicyFor(user.TotpEnabled, hasPasskey)
+	policy := reauthPolicyFor(operation, user.TotpEnabled, hasPasskey)
 	if grade < policy.requiredOIDCGrade {
 		return "", ErrOIDCReauthInsufficient
 	}
