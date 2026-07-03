@@ -332,6 +332,101 @@ func TestRunSchemaMigrationsConvertsExchangeRatesToUSDBase(t *testing.T) {
 	}
 }
 
+func TestRunSchemaMigrationsClearsSubscriptionEventOrphans(t *testing.T) {
+	db := openRawSQLiteTestDB(t)
+	if err := configureSQLiteDatabase(db); err != nil {
+		t.Fatalf("configureSQLiteDatabase() error = %v", err)
+	}
+
+	legacySchema := []string{
+		`CREATE TABLE users (id integer primary key autoincrement, username text not null, email text not null, password text not null, role text default 'user', status text default 'active', totp_secret text, totp_enabled numeric default false, totp_temp_secret text, created_at datetime, updated_at datetime)`,
+		`CREATE TABLE subscriptions (id integer primary key autoincrement, user_id integer not null, name text not null, amount real not null, currency text default 'USD', enabled numeric default true, status text default 'active', renewal_mode text default 'auto_renew', ends_at datetime, billing_type text default 'recurring', recurrence_type text, interval_count integer, interval_unit text, monthly_day integer, yearly_month integer, yearly_day integer, next_billing_date datetime, category text, category_id integer, payment_method_id integer, notify_enabled numeric, notify_days_before integer, icon text, url text, notes text, created_at datetime, updated_at datetime)`,
+		`CREATE TABLE subscription_events (id integer primary key autoincrement, user_id integer not null, actor_user_id integer, subscription_id integer, subscription_name text not null, type text not null, changed_fields text not null default '[]', created_at datetime)`,
+	}
+	for _, stmt := range legacySchema {
+		if err := db.Exec(stmt).Error; err != nil {
+			t.Fatalf("seed legacy schema error = %v", err)
+		}
+	}
+
+	now := time.Date(2026, time.July, 3, 0, 0, 0, 0, time.UTC)
+	primaryUser := model.User{Username: "primary", Email: "primary@example.com", Password: "hash", Role: "user", Status: "active", CreatedAt: now, UpdatedAt: now}
+	otherUser := model.User{Username: "other", Email: "other@example.com", Password: "hash", Role: "user", Status: "active", CreatedAt: now, UpdatedAt: now}
+	if err := db.Create(&primaryUser).Error; err != nil {
+		t.Fatalf("create primary user error = %v", err)
+	}
+	if err := db.Create(&otherUser).Error; err != nil {
+		t.Fatalf("create other user error = %v", err)
+	}
+
+	subscription := model.Subscription{
+		UserID:      primaryUser.ID,
+		Name:        "Primary Subscription",
+		Amount:      9.99,
+		Currency:    "USD",
+		Enabled:     true,
+		Status:      subscriptionStatusActive,
+		RenewalMode: subscriptionRenewalModeAutoRenew,
+		BillingType: "recurring",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := db.Create(&subscription).Error; err != nil {
+		t.Fatalf("create subscription error = %v", err)
+	}
+	otherSubscription := model.Subscription{
+		UserID:      otherUser.ID,
+		Name:        "Other Subscription",
+		Amount:      19.99,
+		Currency:    "USD",
+		Enabled:     true,
+		Status:      subscriptionStatusActive,
+		RenewalMode: subscriptionRenewalModeAutoRenew,
+		BillingType: "recurring",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := db.Create(&otherSubscription).Error; err != nil {
+		t.Fatalf("create other subscription error = %v", err)
+	}
+
+	events := []map[string]interface{}{
+		{"user_id": primaryUser.ID, "subscription_id": subscription.ID, "subscription_name": "valid", "type": "created", "changed_fields": `["created"]`, "created_at": now},
+		{"user_id": primaryUser.ID, "subscription_id": 99999, "subscription_name": "missing subscription", "type": "deleted", "changed_fields": `["deleted"]`, "created_at": now},
+		{"user_id": primaryUser.ID, "subscription_id": otherSubscription.ID, "subscription_name": "cross user", "type": "updated", "changed_fields": `["amount"]`, "created_at": now},
+		{"user_id": 99999, "subscription_id": subscription.ID, "subscription_name": "missing user", "type": "updated", "changed_fields": `["amount"]`, "created_at": now},
+	}
+	for _, event := range events {
+		if err := db.Table("subscription_events").Create(event).Error; err != nil {
+			t.Fatalf("seed legacy subscription event error = %v", err)
+		}
+	}
+
+	if err := Run(db); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	var migrated []model.SubscriptionEvent
+	if err := db.Order("id ASC").Find(&migrated).Error; err != nil {
+		t.Fatalf("load migrated subscription events error = %v", err)
+	}
+	if len(migrated) != 3 {
+		t.Fatalf("migrated subscription events = %d, want 3", len(migrated))
+	}
+	if migrated[0].SubscriptionID == nil || *migrated[0].SubscriptionID != subscription.ID {
+		t.Fatalf("valid event subscription_id = %v, want %d", migrated[0].SubscriptionID, subscription.ID)
+	}
+	if migrated[1].SubscriptionID != nil {
+		t.Fatalf("missing-subscription event subscription_id = %v, want nil", *migrated[1].SubscriptionID)
+	}
+	if migrated[2].SubscriptionID != nil {
+		t.Fatalf("cross-user event subscription_id = %v, want nil", *migrated[2].SubscriptionID)
+	}
+	if err := validateSQLiteForeignKeys(db); err != nil {
+		t.Fatalf("validate foreign keys after orphan cleanup error = %v", err)
+	}
+}
+
 func TestSchemaMigrationTransactionRollsBackExecutionAndRecord(t *testing.T) {
 	db := openRawSQLiteTestDB(t)
 	if err := configureSQLiteDatabase(db); err != nil {
@@ -425,6 +520,61 @@ func TestSchemaMigrationBackfillsLegacyChecksum(t *testing.T) {
 	}
 	if record.Checksum != migration.Checksum || record.Dirty {
 		t.Fatalf("record after checksum backfill = (%q, dirty=%v), want (%q, dirty=false)", record.Checksum, record.Dirty, migration.Checksum)
+	}
+}
+
+func TestAppliedForeignKeyDisabledMigrationDoesNotValidateBeforeRepair(t *testing.T) {
+	db := openRawSQLiteTestDB(t)
+	if err := configureSQLiteDatabase(db); err != nil {
+		t.Fatalf("configureSQLiteDatabase() error = %v", err)
+	}
+	if err := ensureSchemaMigrationMetadata(db); err != nil {
+		t.Fatalf("ensureSchemaMigrationMetadata() error = %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE parents (id integer primary key)`).Error; err != nil {
+		t.Fatalf("create parents table error = %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE children (id integer primary key, parent_id integer references parents(id))`).Error; err != nil {
+		t.Fatalf("create children table error = %v", err)
+	}
+	if err := db.Exec(`PRAGMA foreign_keys = OFF`).Error; err != nil {
+		t.Fatalf("disable foreign keys error = %v", err)
+	}
+	if err := db.Exec(`INSERT INTO children (id, parent_id) VALUES (1, 404)`).Error; err != nil {
+		t.Fatalf("insert orphan child error = %v", err)
+	}
+	if err := db.Exec(`PRAGMA foreign_keys = ON`).Error; err != nil {
+		t.Fatalf("re-enable foreign keys error = %v", err)
+	}
+
+	appliedMigration := schemaMigration{
+		Name:                     "test_applied_fk_disabled",
+		Checksum:                 strings.Repeat("e", 64),
+		DisableSQLiteForeignKeys: true,
+		Run: func(tx *gorm.DB) error {
+			t.Fatal("already-applied migration should not run")
+			return nil
+		},
+	}
+	if err := db.Create(&schemaMigrationRecord{Name: appliedMigration.Name, Checksum: appliedMigration.Checksum, AppliedAt: nowUTC()}).Error; err != nil {
+		t.Fatalf("create applied migration record error = %v", err)
+	}
+	if err := runSchemaMigration(db, appliedMigration); err != nil {
+		t.Fatalf("run applied disabled migration error = %v", err)
+	}
+
+	repairMigration := schemaMigration{
+		Name:     "test_repair_orphan_child",
+		Checksum: strings.Repeat("f", 64),
+		Run: func(tx *gorm.DB) error {
+			return tx.Exec(`UPDATE children SET parent_id = NULL WHERE parent_id IS NOT NULL`).Error
+		},
+	}
+	if err := runSchemaMigration(db, repairMigration); err != nil {
+		t.Fatalf("run repair migration error = %v", err)
+	}
+	if err := validateSQLiteForeignKeys(db); err != nil {
+		t.Fatalf("validate foreign keys after repair error = %v", err)
 	}
 }
 
@@ -526,6 +676,12 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 		{Name: "20260512_02_subscription_lifecycle_backfill", Checksum: "5808302cc9f5c723cf7fdc0a57abc88e6655195ab37172c9d11ee9e2d1ee9ef8"},
 		{Name: "20260512_03_sqlite_integrity_hardening", Checksum: "3fc886fe568666161a3198031cb174a76f63aa5fc0537de256b24d3faa4a68cc", DisableSQLiteForeignKeys: true},
 		{Name: "20260512_04_auto_migrate_latest_schema", Checksum: "4eb2d348b78dc3c8216fb3d3e0d61754c48a231ea8effd23174f879399cba720"},
+		{
+			Name:          "20260525_00_subscription_event_orphans",
+			Checksum:      "c8be95386abc60e4a6c4a9e3debd55ca05f39ac9879bfec2e5e678be96f8a544",
+			Destructive:   true,
+			DiscardPolicy: "Preserve subscription event rows where possible. Delete events whose user_id has no parent user, and clear subscription_id for events that reference a missing or different-user subscription so SQLite foreign key constraints can be enforced.",
+		},
 		{Name: "20260525_01_subscription_events", Checksum: "b562049e926f70372b47f45cd680dc13fa21c78b9113741a1ab472ee537aeb74"},
 		{Name: "20260527_01_subscription_action_snoozes", Checksum: "21b028f8c331b01ccad0b0c9f8c90c913bbf6228fa9138afeb937b04aac8056c"},
 		{Name: "20260622_01_notification_outbox_leases", Checksum: "774a578619b78de5464eb0f0a2ba3a90b0a792b03f615f930f15cd8a57f325d0"},
@@ -552,7 +708,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260512_01_create_missing_tables.go":           "aca700b695e6769f6b5f2277d9278367ff8e3960f1a1ffda1492c0fe8bb0697b",
 		"migration_20260512_02_subscription_lifecycle_backfill.go": "ae5999e185f6a2457fa6ee42b7409ae03f6b770c501820a1e6a6a08ac6b7a64b",
 		"migration_20260512_03_sqlite_integrity_hardening.go":      "e5917afe801db4f076f4c48a0a0e4111159ece4bc436fa4944cc4e00c5b267b5",
-		"schema_migration_registry.go":                             "c1889dd866e3037e898d40fbc5798f235e1daba635f1434d07da9adb539b868a",
+		"migration_20260525_00_subscription_event_orphans.go":      "ca4a2f14fd18c67fbfb6c7a4e1b4b15aa77ea3779f2ff021f069fe0a5c20e10d",
+		"schema_migration_registry.go":                             "1cdac90f40e7584a5346400f9c547b0aa34dbde602a841d0b8b75e8cd1af659d",
 		"schema_migration_steps.go":                                "d24175ab071d227a95a5a0302200cf501fde129c12d45f4fcea7659ab6b00dfa",
 	}
 	for path, expected := range want {

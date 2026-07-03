@@ -69,6 +69,15 @@ func runSchemaMigration(db *gorm.DB, migration schemaMigration) error {
 		return runSchemaMigrationTransaction(session, migration)
 	}
 	if migration.DisableSQLiteForeignKeys {
+		_, applied, err := loadSchemaMigrationRecord(db, migration.Name)
+		if err != nil {
+			return err
+		}
+		if applied {
+			return run(db)
+		}
+	}
+	if migration.DisableSQLiteForeignKeys {
 		return withSQLiteForeignKeysDisabled(db, run)
 	}
 	return run(db)

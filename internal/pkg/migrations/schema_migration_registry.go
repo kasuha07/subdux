@@ -19,6 +19,13 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260512_02_subscription_lifecycle_backfill", Checksum: "5808302cc9f5c723cf7fdc0a57abc88e6655195ab37172c9d11ee9e2d1ee9ef8", Run: backfillSubscriptionLifecycleFields},
 	{Name: "20260512_03_sqlite_integrity_hardening", Checksum: "3fc886fe568666161a3198031cb174a76f63aa5fc0537de256b24d3faa4a68cc", Run: migrateSQLiteIntegrityHardening, DisableSQLiteForeignKeys: true},
 	{Name: "20260512_04_auto_migrate_latest_schema", Checksum: "4eb2d348b78dc3c8216fb3d3e0d61754c48a231ea8effd23174f879399cba720", Run: autoMigrate20260512ApplicationSchema},
+	{
+		Name:          "20260525_00_subscription_event_orphans",
+		Checksum:      "c8be95386abc60e4a6c4a9e3debd55ca05f39ac9879bfec2e5e678be96f8a544",
+		Run:           cleanupSubscriptionEventOrphans,
+		Destructive:   true,
+		DiscardPolicy: "Preserve subscription event rows where possible. Delete events whose user_id has no parent user, and clear subscription_id for events that reference a missing or different-user subscription so SQLite foreign key constraints can be enforced.",
+	},
 	{Name: "20260525_01_subscription_events", Checksum: "b562049e926f70372b47f45cd680dc13fa21c78b9113741a1ab472ee537aeb74", Run: migrateSubscriptionEventsSchema},
 	{Name: "20260527_01_subscription_action_snoozes", Checksum: "21b028f8c331b01ccad0b0c9f8c90c913bbf6228fa9138afeb937b04aac8056c", Run: migrateSubscriptionEventsSchema},
 	{Name: "20260622_01_notification_outbox_leases", Checksum: "774a578619b78de5464eb0f0a2ba3a90b0a792b03f615f930f15cd8a57f325d0", Run: migrateNotificationOutboxLeases},
