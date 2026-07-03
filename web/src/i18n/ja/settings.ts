@@ -276,6 +276,10 @@ const settings = {
     "reauth": {
       "title": "本人確認",
       "description": "セキュリティのため、Passkeyを追加する前に再認証してください。"
+    },
+    "deleteReauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、Passkeyを削除する前に再認証してください。"
     }
   },
   "oidc": {

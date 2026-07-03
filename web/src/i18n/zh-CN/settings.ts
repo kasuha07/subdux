@@ -276,6 +276,10 @@ const settings = {
     "reauth": {
       "title": "确认是你本人",
       "description": "出于安全考虑，添加 Passkey 前请重新验证身份。"
+    },
+    "deleteReauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，删除 Passkey 前请重新验证身份。"
     }
   },
   "oidc": {

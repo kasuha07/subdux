@@ -37,6 +37,7 @@ const (
 	ReauthOperationRestore        = "restore"
 	ReauthOperationChangeEmail    = "change_email"
 	ReauthOperationAddPasskey     = "add_passkey"
+	ReauthOperationDeletePasskey  = "delete_passkey"
 	ReauthOperationEnableTOTP     = "enable_totp"
 	ReauthOperationDisableTOTP    = "disable_totp"
 	ReauthOperationConnectOIDC    = "connect_oidc"
@@ -111,6 +112,11 @@ type ReauthMethods struct {
 // passkey are enrolled, OIDC-2 remains an accepted fallback even though OIDC-3 is
 // preferred. This lets a user remove the TOTP factor after proving either a
 // passkey/OIDC-3 path or the still-current MFA path (password+TOTP or OIDC-2).
+//
+// Deleting a passkey deliberately uses the normal passkey-account policy and is
+// scoped only to the user and delete_passkey operation, not to the credential
+// being deleted. The user may prove presence with any registered passkey; the
+// target passkey ID is authorized by the deletion endpoint's ownership check.
 type reauthPolicy struct {
 	passwordAllowed      bool
 	passwordRequiresTOTP bool
@@ -183,6 +189,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationRestore,
 		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,
+		ReauthOperationDeletePasskey,
 		ReauthOperationEnableTOTP,
 		ReauthOperationDisableTOTP,
 		ReauthOperationConnectOIDC,

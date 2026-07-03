@@ -35,6 +35,7 @@ type ReauthOperation =
   | "restore"
   | "change_email"
   | "add_passkey"
+  | "delete_passkey"
   | "enable_totp"
   | "disable_totp"
   | "connect_oidc"

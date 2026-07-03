@@ -276,6 +276,10 @@ const settings = {
     "reauth": {
       "title": "Confirm it's you",
       "description": "For security, re-authenticate before adding a passkey."
+    },
+    "deleteReauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before deleting a passkey."
     }
   },
   "oidc": {

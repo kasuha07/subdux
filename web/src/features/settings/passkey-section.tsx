@@ -20,6 +20,8 @@ export default function PasskeySection() {
   const [name, setName] = useState("")
   const [error, setError] = useState("")
   const [reauthOpen, setReauthOpen] = useState(false)
+  const [deleteReauthOpen, setDeleteReauthOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<PasskeyCredential | null>(null)
 
   const passkeySupported = isPasskeySupported()
   const dateFormatter = useMemo(
@@ -75,15 +77,29 @@ export default function PasskeySection() {
       return
     }
 
-    setDeletingID(passkey.id)
+    setError("")
+    setDeleteTarget(passkey)
+    setDeleteReauthOpen(true)
+  }
+
+  async function deleteWithTicket(reauthTicket: string) {
+    if (!deleteTarget) {
+      return
+    }
+
+    const target = deleteTarget
+    setDeletingID(target.id)
     try {
-      await api.delete(`/auth/passkeys/${passkey.id}`)
-      setPasskeys((prev) => prev.filter((item) => item.id !== passkey.id))
+      await api.delete(`/auth/passkeys/${target.id}`, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+      })
+      setPasskeys((prev) => prev.filter((item) => item.id !== target.id))
       toast.success(t("settings.passkeys.deleteSuccess"))
     } catch (err) {
       setError(getPasskeyErrorMessage(err, t, "settings.passkeys.deleteError"))
     } finally {
       setDeletingID(null)
+      setDeleteTarget(null)
     }
   }
 
@@ -147,6 +163,17 @@ export default function PasskeySection() {
         title={t("settings.passkeys.reauth.title")}
         description={t("settings.passkeys.reauth.description")}
       />
+      <ReauthDialog
+        operation="delete_passkey"
+        open={deleteReauthOpen}
+        onOpenChange={setDeleteReauthOpen}
+        onVerified={async (ticket) => {
+          await deleteWithTicket(ticket)
+        }}
+        title={t("settings.passkeys.deleteReauth.title")}
+        description={t("settings.passkeys.deleteReauth.description")}
+        confirmVariant="destructive"
+      />
 
       <div className="space-y-2">
         {loading && (
@@ -170,7 +197,7 @@ export default function PasskeySection() {
               size="sm"
               variant="ghost"
               className="text-destructive hover:text-destructive"
-              disabled={deletingID === passkey.id}
+              disabled={deletingID === passkey.id || deleteReauthOpen}
               onClick={() => void handleDelete(passkey)}
             >
               {deletingID === passkey.id ? t("settings.passkeys.deleting") : t("settings.passkeys.delete")}

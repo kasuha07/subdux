@@ -475,6 +475,20 @@ func TestReauthPasswordPolicy(t *testing.T) {
 		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, ""); !errors.Is(err, ErrPasswordReauthDisabled) {
 			t.Fatalf("VerifyPassword() error = %v, want ErrPasswordReauthDisabled", err)
 		}
+
+		methods, err = svc.AvailableMethods(user.ID, ReauthOperationDeletePasskey)
+		if err != nil {
+			t.Fatalf("AvailableMethods(delete_passkey) error = %v", err)
+		}
+		if methods.Password {
+			t.Fatal("AvailableMethods(delete_passkey).Password = true for passkey-only account, want false")
+		}
+		if !methods.Passkey {
+			t.Fatal("AvailableMethods(delete_passkey).Passkey = false, want true")
+		}
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationDeletePasskey, password, ""); !errors.Is(err, ErrPasswordReauthDisabled) {
+			t.Fatalf("VerifyPassword(delete_passkey) error = %v, want ErrPasswordReauthDisabled", err)
+		}
 	})
 
 	t.Run("passkey plus totp restores the password+totp path", func(t *testing.T) {
@@ -504,6 +518,9 @@ func TestReauthPasswordPolicy(t *testing.T) {
 		}
 		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, code); err != nil {
 			t.Fatalf("VerifyPassword() with code error = %v, want nil", err)
+		}
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationDeletePasskey, password, code); err != nil {
+			t.Fatalf("VerifyPassword(delete_passkey) with code error = %v, want nil", err)
 		}
 	})
 }
@@ -564,6 +581,22 @@ func TestReauthVerifyOIDCGrade(t *testing.T) {
 		disableMFA := mintSession(svc, user.ID, ReauthOperationDisableTOTP, OIDCGradeMFA)
 		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationDisableTOTP, disableMFA); err != nil {
 			t.Fatalf("VerifyOIDC() disable_totp OIDC-2 error = %v, want nil", err)
+		}
+	})
+
+	t.Run("delete passkey still requires OIDC-3 when passkey and totp are enrolled", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-delete-passkey-oidc-grade")
+		enableReauthTestTOTP(t, svc, user.ID, "JBSWY3DPEHPK3PXP")
+
+		mfa := mintSession(svc, user.ID, ReauthOperationDeletePasskey, OIDCGradeMFA)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationDeletePasskey, mfa); !errors.Is(err, ErrOIDCReauthInsufficient) {
+			t.Fatalf("VerifyOIDC(delete_passkey) OIDC-2 error = %v, want ErrOIDCReauthInsufficient", err)
+		}
+
+		pr := mintSession(svc, user.ID, ReauthOperationDeletePasskey, OIDCGradePhishingResistant)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationDeletePasskey, pr); err != nil {
+			t.Fatalf("VerifyOIDC(delete_passkey) OIDC-3 error = %v, want nil", err)
 		}
 	})
 
