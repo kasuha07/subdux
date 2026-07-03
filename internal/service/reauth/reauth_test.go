@@ -1,4 +1,4 @@
-package service
+package reauth
 
 import (
 	"errors"
@@ -30,7 +30,7 @@ func (c *mutableClock) advance(d time.Duration) {
 	c.now = c.now.Add(d)
 }
 
-func newReauthTestService(t *testing.T) (*ReauthService, model.User, string) {
+func newReauthTestService(t *testing.T) (*Service, model.User, string) {
 	t.Helper()
 	db := newTestDB(t)
 
@@ -50,10 +50,10 @@ func newReauthTestService(t *testing.T) (*ReauthService, model.User, string) {
 		t.Fatalf("failed to create user: %v", err)
 	}
 
-	return NewReauthService(db, NewAuthService(db)), user, password
+	return NewService(db, newTestAuthenticator(db)), user, password
 }
 
-func enableReauthTestTOTP(t *testing.T, svc *ReauthService, userID uint, secret string) {
+func enableReauthTestTOTP(t *testing.T, svc *Service, userID uint, secret string) {
 	t.Helper()
 	if err := svc.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
 		"totp_enabled": true,
@@ -270,7 +270,7 @@ func TestReauthAvailableMethods(t *testing.T) {
 
 // seedOIDCEnabled writes the minimum settings that make getOIDCSettings() report
 // enabled+configured, so OIDC step-up becomes available.
-func seedOIDCEnabled(t *testing.T, svc *ReauthService) {
+func seedOIDCEnabled(t *testing.T, svc *Service) {
 	t.Helper()
 	settings := map[string]string{
 		"oidc_enabled":       "true",
@@ -295,7 +295,7 @@ func TestReauthAvailableMethodsOIDC(t *testing.T) {
 	// With OIDC disabled/unconfigured, the factor is not offered even if a
 	// connection somehow exists.
 	if err := svc.db.Create(&model.OIDCConnection{
-		UserID: user.ID, Provider: oidcProviderKey, Subject: "sub-1", Email: user.Email,
+		UserID: user.ID, Provider: testOIDCProviderKey, Subject: "sub-1", Email: user.Email,
 	}).Error; err != nil {
 		t.Fatalf("failed to create connection: %v", err)
 	}
@@ -395,30 +395,29 @@ func TestReauthPolicyForMatrix(t *testing.T) {
 
 func TestReauthOperationSelectors(t *testing.T) {
 	t.Run("admin user creation only", func(t *testing.T) {
-		if op, ok := ReauthOperationForCreateUser(CreateUserInput{Role: "admin"}); !ok || op != ReauthOperationCreateAdminUser {
+		if op, ok := OperationForCreateUserRole("admin"); !ok || op != ReauthOperationCreateAdminUser {
 			t.Fatalf("ReauthOperationForCreateUser(admin) = %q/%v, want %q/true", op, ok, ReauthOperationCreateAdminUser)
 		}
-		if op, ok := ReauthOperationForCreateUser(CreateUserInput{Role: "user"}); ok || op != "" {
+		if op, ok := OperationForCreateUserRole("user"); ok || op != "" {
 			t.Fatalf("ReauthOperationForCreateUser(user) = %q/%v, want empty/false", op, ok)
 		}
 	})
 
 	t.Run("admin settings backup schedule only", func(t *testing.T) {
 		enabled := true
-		if op, ok := ReauthOperationForAdminSettingsUpdate(UpdateSettingsInput{BackupScheduleEnabled: &enabled}); !ok || op != ReauthOperationBackupSchedule {
+		if op, ok := OperationForAdminSettingsUpdate(AdminSettingsUpdateInput{BackupScheduleEnabled: &enabled}); !ok || op != ReauthOperationBackupSchedule {
 			t.Fatalf("ReauthOperationForAdminSettingsUpdate(backup) = %q/%v, want %q/true", op, ok, ReauthOperationBackupSchedule)
 		}
-		name := "Subdux"
-		if op, ok := ReauthOperationForAdminSettingsUpdate(UpdateSettingsInput{SiteName: &name}); ok || op != "" {
+		if op, ok := OperationForAdminSettingsUpdate(AdminSettingsUpdateInput{}); ok || op != "" {
 			t.Fatalf("ReauthOperationForAdminSettingsUpdate(site name) = %q/%v, want empty/false", op, ok)
 		}
 	})
 
 	t.Run("export mode", func(t *testing.T) {
-		if op := ReauthOperationForExport(false); op != ReauthOperationExportRedacted {
+		if op := OperationForExport(false); op != ReauthOperationExportRedacted {
 			t.Fatalf("ReauthOperationForExport(false) = %q, want %q", op, ReauthOperationExportRedacted)
 		}
-		if op := ReauthOperationForExport(true); op != ReauthOperationExportSecrets {
+		if op := OperationForExport(true); op != ReauthOperationExportSecrets {
 			t.Fatalf("ReauthOperationForExport(true) = %q, want %q", op, ReauthOperationExportSecrets)
 		}
 	})
@@ -446,7 +445,7 @@ func TestReauthConsumeOIDCConnectPolicy(t *testing.T) {
 	}
 
 	if err := svc.db.Create(&model.OIDCConnection{
-		UserID: user.ID, Provider: oidcProviderKey, Subject: "sub-linked", Email: user.Email,
+		UserID: user.ID, Provider: testOIDCProviderKey, Subject: "sub-linked", Email: user.Email,
 	}).Error; err != nil {
 		t.Fatalf("failed to create oidc connection: %v", err)
 	}
@@ -462,12 +461,7 @@ func TestReauthVerifyOIDC(t *testing.T) {
 	// A password-only account requires only OIDC-1, so a fresh-grade session is
 	// sufficient here; grade enforcement is covered by TestReauthVerifyOIDCGrade.
 	mintSession := func(userID uint, operation string) string {
-		return svc.auth.storeOIDCResultSession(OIDCSessionResult{
-			Purpose:   oidcPurposeReauth,
-			UserID:    userID,
-			Operation: operation,
-			Grade:     OIDCGradeFresh,
-		})
+		return svc.auth.(*testAuthenticator).mintOIDCSession(userID, operation, OIDCGradeFresh)
 	}
 
 	t.Run("valid session mints a usable, operation-scoped ticket", func(t *testing.T) {
@@ -521,51 +515,7 @@ func TestReauthVerifyOIDC(t *testing.T) {
 	})
 }
 
-func TestFinishOIDCReauthOwnership(t *testing.T) {
-	svc, user, _ := newReauthTestService(t)
-	if err := svc.db.AutoMigrate(&model.OIDCConnection{}); err != nil {
-		t.Fatalf("failed to migrate oidc connection: %v", err)
-	}
-	auth := svc.auth
-	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	restoreClock := pkg.SetNowForTest(now)
-	defer restoreClock()
-	startedAt := now.Add(-30 * time.Second)
-
-	// A connection linked to a DIFFERENT user, but the same OIDC subject the
-	// callback resolves. The admin must not be able to step up with it.
-	other := model.User{Username: "other", Email: "other@example.com", Password: "x", Role: "user", Status: "active"}
-	if err := svc.db.Create(&other).Error; err != nil {
-		t.Fatalf("failed to create other user: %v", err)
-	}
-	if err := svc.db.Create(&model.OIDCConnection{
-		UserID: other.ID, Provider: oidcProviderKey, Subject: "shared-subject", Email: other.Email,
-	}).Error; err != nil {
-		t.Fatalf("failed to create connection: %v", err)
-	}
-
-	claims := &oidcIdentityClaims{Subject: "shared-subject", Email: other.Email, AuthTime: now.Unix()}
-	if _, err := auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err == nil {
-		t.Fatal("finishOIDCReauth() error = nil for another user's identity, want non-nil")
-	}
-
-	// Linking the same subject to the requesting user makes step-up succeed.
-	if err := svc.db.Create(&model.OIDCConnection{
-		UserID: user.ID, Provider: oidcProviderKey, Subject: "own-subject", Email: user.Email,
-	}).Error; err != nil {
-		t.Fatalf("failed to create own connection: %v", err)
-	}
-	ownClaims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email, AuthTime: now.Unix()}
-	result, err := auth.finishOIDCReauth(user.ID, ReauthOperationBackup, ownClaims, startedAt)
-	if err != nil {
-		t.Fatalf("finishOIDCReauth() error = %v, want nil", err)
-	}
-	if result.Purpose != oidcPurposeReauth || result.UserID != user.ID || result.Operation != ReauthOperationBackup {
-		t.Fatalf("finishOIDCReauth() result = %+v, want reauth/%d/%s", result, user.ID, ReauthOperationBackup)
-	}
-}
-
-func seedReauthTestPasskey(t *testing.T, svc *ReauthService, userID uint, credID string) {
+func seedReauthTestPasskey(t *testing.T, svc *Service, userID uint, credID string) {
 	t.Helper()
 	if err := svc.db.Create(&model.PasskeyCredential{
 		UserID:       userID,
@@ -653,13 +603,8 @@ func TestReauthPasswordPolicy(t *testing.T) {
 // TOTP account needs OIDC-2, a passkey account needs OIDC-3, and a shortfall
 // yields ErrOIDCReauthInsufficient without minting a ticket.
 func TestReauthVerifyOIDCGrade(t *testing.T) {
-	mintSession := func(svc *ReauthService, userID uint, operation string, grade OIDCReauthGrade) string {
-		return svc.auth.storeOIDCResultSession(OIDCSessionResult{
-			Purpose:   oidcPurposeReauth,
-			UserID:    userID,
-			Operation: operation,
-			Grade:     grade,
-		})
+	mintSession := func(svc *Service, userID uint, operation string, grade OIDCReauthGrade) string {
+		return svc.auth.(*testAuthenticator).mintOIDCSession(userID, operation, grade)
 	}
 
 	t.Run("totp account rejects OIDC-1 but accepts OIDC-2", func(t *testing.T) {
@@ -729,85 +674,6 @@ func TestReauthVerifyOIDCGrade(t *testing.T) {
 		s := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradeFresh)
 		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, s); err != nil {
 			t.Fatalf("VerifyOIDC() OIDC-1 error = %v, want nil", err)
-		}
-	})
-}
-
-// TestGradeOIDCReauth covers the acr/amr classification table.
-func TestGradeOIDCReauth(t *testing.T) {
-	mfaACR := []string{"http://schemas.openid.net/pape/policies/2007/06/multi-factor", "mfa"}
-	prACR := []string{"phishing-resistant", "urn:acr:fido"}
-
-	cases := []struct {
-		name   string
-		claims *oidcIdentityClaims
-		want   OIDCReauthGrade
-	}{
-		{"no evidence stays fresh", &oidcIdentityClaims{}, OIDCGradeFresh},
-		{"amr otp is mfa", &oidcIdentityClaims{AMR: []string{"pwd", "otp"}}, OIDCGradeMFA},
-		{"amr mfa is mfa", &oidcIdentityClaims{AMR: []string{"mfa"}}, OIDCGradeMFA},
-		{"amr fido is phishing-resistant", &oidcIdentityClaims{AMR: []string{"pwd", "fido"}}, OIDCGradePhishingResistant},
-		{"amr hwk is phishing-resistant", &oidcIdentityClaims{AMR: []string{"hwk"}}, OIDCGradePhishingResistant},
-		{"amr webauthn is phishing-resistant", &oidcIdentityClaims{AMR: []string{"webauthn"}}, OIDCGradePhishingResistant},
-		{"configured mfa acr is mfa", &oidcIdentityClaims{ACR: "mfa"}, OIDCGradeMFA},
-		{"configured pr acr is phishing-resistant", &oidcIdentityClaims{ACR: "phishing-resistant"}, OIDCGradePhishingResistant},
-		{"pr amr beats mfa acr", &oidcIdentityClaims{ACR: "mfa", AMR: []string{"fido"}}, OIDCGradePhishingResistant},
-		{"space separated acr matches", &oidcIdentityClaims{ACR: "level1 urn:acr:fido"}, OIDCGradePhishingResistant},
-		{"case-insensitive amr", &oidcIdentityClaims{AMR: []string{"FIDO"}}, OIDCGradePhishingResistant},
-		{"unrelated acr stays fresh", &oidcIdentityClaims{ACR: "level0"}, OIDCGradeFresh},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := gradeOIDCReauth(tc.claims, mfaACR, prACR); got != tc.want {
-				t.Fatalf("gradeOIDCReauth() = %d, want %d", got, tc.want)
-			}
-		})
-	}
-}
-
-func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
-	svc, user, _ := newReauthTestService(t)
-	if err := svc.db.AutoMigrate(&model.OIDCConnection{}); err != nil {
-		t.Fatalf("failed to migrate oidc connection: %v", err)
-	}
-
-	if err := svc.db.Create(&model.OIDCConnection{
-		UserID: user.ID, Provider: oidcProviderKey, Subject: "own-subject", Email: user.Email,
-	}).Error; err != nil {
-		t.Fatalf("failed to create own connection: %v", err)
-	}
-
-	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	restoreClock := pkg.SetNowForTest(now)
-	defer restoreClock()
-	startedAt := now.Add(-30 * time.Second)
-
-	t.Run("missing auth_time is rejected", func(t *testing.T) {
-		claims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email}
-		if _, err := svc.auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err == nil {
-			t.Fatal("finishOIDCReauth() error = nil, want missing auth_time rejection")
-		}
-	})
-
-	t.Run("stale auth_time is rejected", func(t *testing.T) {
-		claims := &oidcIdentityClaims{
-			Subject:  "own-subject",
-			Email:    user.Email,
-			AuthTime: startedAt.Add(-oidcReauthAuthSkew - time.Second).Unix(),
-		}
-		if _, err := svc.auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err == nil {
-			t.Fatal("finishOIDCReauth() error = nil, want stale auth_time rejection")
-		}
-	})
-
-	t.Run("fresh auth_time is accepted", func(t *testing.T) {
-		claims := &oidcIdentityClaims{
-			Subject:  "own-subject",
-			Email:    user.Email,
-			AuthTime: now.Unix(),
-		}
-		if _, err := svc.auth.finishOIDCReauth(user.ID, ReauthOperationBackup, claims, startedAt); err != nil {
-			t.Fatalf("finishOIDCReauth() error = %v, want nil", err)
 		}
 	})
 }

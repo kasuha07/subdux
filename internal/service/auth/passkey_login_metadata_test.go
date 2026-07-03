@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"path/filepath"
@@ -62,7 +62,7 @@ func TestRecordPasskeyLoginMetadataAsyncDoesNotBlockResponse(t *testing.T) {
 		close(releaseDone)
 	}()
 
-	authService := &AuthService{DB: db}
+	authService := &Service{DB: db}
 
 	start := time.Now()
 	authService.recordPasskeyLoginMetadataAsync(user.ID, &webauthn.Credential{ID: credentialID}, time.Now().UTC())

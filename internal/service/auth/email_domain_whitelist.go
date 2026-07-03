@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"errors"
@@ -13,6 +13,7 @@ import (
 var (
 	ErrInvalidEmailDomainWhitelist = errors.New("invalid email domain whitelist")
 	ErrEmailDomainWhitelistTooLong = errors.New("email domain whitelist is too long")
+	ErrEmailDomainNotAllowed       = errors.New("email domain is not allowed")
 )
 
 func normalizeEmailDomainWhitelist(raw string) (string, error) {
@@ -128,17 +129,6 @@ func extractEmailDomain(email string) (string, error) {
 	return domain, nil
 }
 
-func sanitizeAndValidateEmail(email string) (string, error) {
-	normalized := strings.ToLower(strings.TrimSpace(email))
-	if normalized == "" {
-		return "", ErrInvalidEmail
-	}
-	if _, err := mail.ParseAddress(normalized); err != nil {
-		return "", ErrInvalidEmail
-	}
-	return normalized, nil
-}
-
 func isEmailDomainAllowed(email string, whitelist string) bool {
 	allowedDomains, err := parseEmailDomainWhitelist(whitelist)
 	if err != nil || len(allowedDomains) == 0 {
@@ -156,6 +146,20 @@ func isEmailDomainAllowed(email string, whitelist string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) enforceEmailDomainWhitelist(email string) error {
+	whitelist, err := getEmailDomainWhitelist(s.DB)
+	if err != nil {
+		return err
+	}
+	if whitelist == "" {
+		return nil
+	}
+	if !isEmailDomainAllowed(email, whitelist) {
+		return ErrEmailDomainNotAllowed
+	}
+	return nil
 }
 
 func getEmailDomainWhitelist(db *gorm.DB) (string, error) {

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -97,6 +98,13 @@ func (s *AdminService) ChangeUserStatus(userID uint, status string) error {
 		}
 		return nil
 	})
+}
+
+func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
+	now := pkg.NowUTC()
+	return tx.Model(&model.RefreshToken{}).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Updates(map[string]interface{}{"revoked_at": &now}).Error
 }
 
 func (s *AdminService) DeleteUser(userID uint) error {

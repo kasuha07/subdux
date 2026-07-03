@@ -1,9 +1,7 @@
-package service
+package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -225,7 +223,7 @@ func oidcACRMatches(allowlist []string, acr string) bool {
 	return false
 }
 
-func (s *AuthService) GetOIDCPublicConfig() *OIDCPublicConfig {
+func (s *Service) GetOIDCPublicConfig() *OIDCPublicConfig {
 	settings := s.getOIDCSettings()
 
 	return &OIDCPublicConfig{
@@ -235,7 +233,7 @@ func (s *AuthService) GetOIDCPublicConfig() *OIDCPublicConfig {
 	}
 }
 
-func (s *AuthService) BeginOIDCLogin() (*OIDCStartResult, error) {
+func (s *Service) BeginOIDCLogin() (*OIDCStartResult, error) {
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
 		return nil, errors.New("oidc login is not available")
@@ -249,7 +247,7 @@ func (s *AuthService) BeginOIDCLogin() (*OIDCStartResult, error) {
 	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
 }
 
-func (s *AuthService) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
+func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
 		return nil, errors.New("oidc login is not available")
@@ -268,7 +266,7 @@ func (s *AuthService) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 // operation through the state session so the minted ticket can be scoped to it,
 // and on completion issues no tokens — success only proves the admin still
 // controls their linked OIDC identity.
-func (s *AuthService) BeginOIDCReauth(userID uint, operation string) (*OIDCStartResult, error) {
+func (s *Service) BeginOIDCReauth(userID uint, operation string) (*OIDCStartResult, error) {
 	if userID == 0 {
 		return nil, errors.New("invalid oidc reauth session")
 	}
@@ -285,7 +283,7 @@ func (s *AuthService) BeginOIDCReauth(userID uint, operation string) (*OIDCStart
 	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
 }
 
-func (s *AuthService) HandleOIDCCallback(state string, code string, providerError string, providerErrorDescription string) (*OIDCCallbackResult, error) {
+func (s *Service) HandleOIDCCallback(state string, code string, providerError string, providerErrorDescription string) (*OIDCCallbackResult, error) {
 	purpose := oidcPurposeLogin
 	trimmedState := strings.TrimSpace(state)
 	if trimmedState == "" {
@@ -338,7 +336,7 @@ func (s *AuthService) HandleOIDCCallback(state string, code string, providerErro
 	return &OIDCCallbackResult{Purpose: purpose, SessionID: sessionID, Operation: operation}, nil
 }
 
-func (s *AuthService) ConsumeOIDCSessionResult(sessionID string) (*OIDCSessionResult, error) {
+func (s *Service) ConsumeOIDCSessionResult(sessionID string) (*OIDCSessionResult, error) {
 	result, err := s.takeOIDCResultSession(strings.TrimSpace(sessionID))
 	if err != nil {
 		return nil, err
@@ -353,7 +351,7 @@ func (s *AuthService) ConsumeOIDCSessionResult(sessionID string) (*OIDCSessionRe
 // grade the login proved (≥ OIDC-1), so the caller can enforce the minimum grade
 // the account's enrolled factors demand. The single-use semantics come from
 // takeOIDCResultSession, which deletes the session on read.
-func (s *AuthService) ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) (OIDCReauthGrade, error) {
+func (s *Service) ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) (OIDCReauthGrade, error) {
 	result, err := s.takeOIDCResultSession(strings.TrimSpace(sessionID))
 	if err != nil {
 		return 0, err
@@ -367,7 +365,7 @@ func (s *AuthService) ConsumeOIDCReauthResult(sessionID string, userID uint, ope
 	return result.Grade, nil
 }
 
-func (s *AuthService) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, error) {
+func (s *Service) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, error) {
 	var records []model.OIDCConnection
 	if err := s.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&records).Error; err != nil {
 		return nil, err
@@ -380,7 +378,7 @@ func (s *AuthService) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, er
 	return result, nil
 }
 
-func (s *AuthService) HasOIDCConnection(userID uint) (bool, error) {
+func (s *Service) HasOIDCConnection(userID uint) (bool, error) {
 	var count int64
 	if err := s.DB.Model(&model.OIDCConnection{}).
 		Where("provider = ? AND user_id = ?", oidcProviderKey, userID).
@@ -393,7 +391,7 @@ func (s *AuthService) HasOIDCConnection(userID uint) (bool, error) {
 // CanReauthWithOIDC reports whether the user can use OIDC as a step-up factor:
 // the provider must be enabled/configured and the user must have a linked OIDC
 // connection to authenticate against.
-func (s *AuthService) CanReauthWithOIDC(userID uint) (bool, error) {
+func (s *Service) CanReauthWithOIDC(userID uint) (bool, error) {
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
 		return false, nil
@@ -401,7 +399,7 @@ func (s *AuthService) CanReauthWithOIDC(userID uint) (bool, error) {
 	return s.HasOIDCConnection(userID)
 }
 
-func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error {
+func (s *Service) DeleteOIDCConnection(userID uint, connectionID uint) error {
 	result := s.DB.Where("id = ? AND user_id = ?", connectionID, userID).Delete(&model.OIDCConnection{})
 	if result.Error != nil {
 		return result.Error
@@ -412,10 +410,10 @@ func (s *AuthService) DeleteOIDCConnection(userID uint, connectionID uint) error
 	return nil
 }
 
-func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (string, error) {
+func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	client, err := buildOutboundHTTPClientWithTimeout(ctx, s.DB, outboundPurposeOIDC, 10*time.Second)
+	client, err := buildOIDCOutboundHTTPClient(ctx, s.DB, 10*time.Second)
 	if err != nil {
 		return "", errors.New("failed to initialize oidc provider")
 	}
@@ -487,10 +485,10 @@ func (s *AuthService) buildOIDCAuthorizationURL(settings oidcSettings, purpose s
 	return authorizationURL, nil
 }
 
-func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {
+func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	client, err := buildOutboundHTTPClientWithTimeout(ctx, s.DB, outboundPurposeOIDC, 10*time.Second)
+	client, err := buildOIDCOutboundHTTPClient(ctx, s.DB, 10*time.Second)
 	if err != nil {
 		return nil, errors.New("failed to initialize oidc provider")
 	}
@@ -585,7 +583,7 @@ func (s *AuthService) resolveOIDCIdentity(settings oidcSettings, code string, co
 	return &claims, nil
 }
 
-func (s *AuthService) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
+func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
 	var connection model.OIDCConnection
 	err := s.DB.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&connection).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -631,7 +629,7 @@ func (s *AuthService) finishOIDCLogin(settings oidcSettings, claims *oidcIdentit
 	}, nil
 }
 
-func (s *AuthService) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
+func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
 	if userID == 0 {
 		return OIDCSessionResult{}, errors.New("invalid oidc connect session")
 	}
@@ -703,7 +701,7 @@ func (s *AuthService) finishOIDCConnect(userID uint, claims *oidcIdentityClaims)
 // linked identity, never by authenticating as a different OIDC account. Reauth
 // also requires a fresh provider login: the OIDC request uses prompt=login and
 // max_age=0, and this callback path rejects ID tokens without a recent auth_time.
-func (s *AuthService) finishOIDCReauth(userID uint, operation string, claims *oidcIdentityClaims, startedAt time.Time) (OIDCSessionResult, error) {
+func (s *Service) finishOIDCReauth(userID uint, operation string, claims *oidcIdentityClaims, startedAt time.Time) (OIDCSessionResult, error) {
 	if userID == 0 {
 		return OIDCSessionResult{}, errors.New("invalid oidc reauth session")
 	}
@@ -763,7 +761,7 @@ func validateOIDCReauthFreshLogin(claims *oidcIdentityClaims, startedAt time.Tim
 	return nil
 }
 
-func (s *AuthService) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error) {
+func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error) {
 	email := strings.TrimSpace(claims.Email)
 	if email == "" {
 		return nil, errors.New("oidc provider did not return an email")
@@ -826,7 +824,7 @@ func (s *AuthService) createOIDCUser(claims *oidcIdentityClaims) (*model.User, e
 			return err
 		}
 
-		if err := SeedUserDefaults(tx, user.ID); err != nil {
+		if err := seedUserDefaults(tx, user.ID); err != nil {
 			return err
 		}
 
@@ -849,7 +847,7 @@ func (s *AuthService) createOIDCUser(claims *oidcIdentityClaims) (*model.User, e
 	return &user, nil
 }
 
-func (s *AuthService) allocateOIDCUsername(seed string) (string, error) {
+func (s *Service) allocateOIDCUsername(seed string) (string, error) {
 	base := normalizeOIDCUsername(seed)
 	if base == "" {
 		base = "user"
@@ -878,7 +876,7 @@ func (s *AuthService) allocateOIDCUsername(seed string) (string, error) {
 	return "", errors.New("failed to allocate username")
 }
 
-func (s *AuthService) createOIDCCallbackErrorResult(purpose string, message string) (*OIDCCallbackResult, error) {
+func (s *Service) createOIDCCallbackErrorResult(purpose string, message string) (*OIDCCallbackResult, error) {
 	if purpose != oidcPurposeConnect && purpose != oidcPurposeReauth {
 		purpose = oidcPurposeLogin
 	}
@@ -895,7 +893,7 @@ func (s *AuthService) createOIDCCallbackErrorResult(purpose string, message stri
 // provider's login as MFA-grade (OIDC-2) or phishing-resistant (OIDC-3). Values
 // are stored as free-form separated strings; splitReauthACRList tolerates
 // newline, comma, and semicolon separators to match the other settings lists.
-func (s *AuthService) getReauthACRLists() (mfa []string, phishingResistant []string) {
+func (s *Service) getReauthACRLists() (mfa []string, phishingResistant []string) {
 	readSetting := func(key string) string {
 		value, err := getSystemSettingString(context.Background(), s.DB, key, "")
 		if err != nil {
@@ -922,7 +920,7 @@ func splitReauthACRList(raw string) []string {
 	return values
 }
 
-func (s *AuthService) getOIDCSettings() oidcSettings {
+func (s *Service) getOIDCSettings() oidcSettings {
 	readSetting := func(key string) string {
 		value, err := getSystemSettingString(context.Background(), s.DB, key, "")
 		if err != nil {
@@ -959,7 +957,7 @@ func (s *AuthService) getOIDCSettings() oidcSettings {
 	}
 }
 
-func (s *AuthService) getOIDCProvider(ctx context.Context, issuerURL string) (*oidc.Provider, error) {
+func (s *Service) getOIDCProvider(ctx context.Context, issuerURL string) (*oidc.Provider, error) {
 	issuerURL = strings.TrimSpace(issuerURL)
 	if issuerURL == "" {
 		return nil, errors.New("oidc issuer url is required")
@@ -993,7 +991,7 @@ func (s *AuthService) getOIDCProvider(ctx context.Context, issuerURL string) (*o
 	return provider, nil
 }
 
-func (s *AuthService) cleanupOIDCProviderCacheLocked(now time.Time) {
+func (s *Service) cleanupOIDCProviderCacheLocked(now time.Time) {
 	for issuerURL, entry := range s.oidcProviderCache {
 		if entry.Provider == nil || !now.Before(entry.ExpiresAt) {
 			delete(s.oidcProviderCache, issuerURL)
@@ -1001,7 +999,7 @@ func (s *AuthService) cleanupOIDCProviderCacheLocked(now time.Time) {
 	}
 }
 
-func (s *AuthService) storeOIDCStateSession(state string, session oidcStateSession) {
+func (s *Service) storeOIDCStateSession(state string, session oidcStateSession) {
 	s.oidcMu.Lock()
 	defer s.oidcMu.Unlock()
 
@@ -1013,7 +1011,7 @@ func (s *AuthService) storeOIDCStateSession(state string, session oidcStateSessi
 	s.oidcStateSessions[state] = session
 }
 
-func (s *AuthService) takeOIDCStateSession(state string) (oidcStateSession, error) {
+func (s *Service) takeOIDCStateSession(state string) (oidcStateSession, error) {
 	s.oidcMu.Lock()
 	defer s.oidcMu.Unlock()
 
@@ -1032,7 +1030,7 @@ func (s *AuthService) takeOIDCStateSession(state string) (oidcStateSession, erro
 	return session, nil
 }
 
-func (s *AuthService) storeOIDCResultSession(result OIDCSessionResult) string {
+func (s *Service) storeOIDCResultSession(result OIDCSessionResult) string {
 	s.oidcMu.Lock()
 	defer s.oidcMu.Unlock()
 
@@ -1049,7 +1047,7 @@ func (s *AuthService) storeOIDCResultSession(result OIDCSessionResult) string {
 	return sessionID
 }
 
-func (s *AuthService) takeOIDCResultSession(sessionID string) (OIDCSessionResult, error) {
+func (s *Service) takeOIDCResultSession(sessionID string) (OIDCSessionResult, error) {
 	s.oidcMu.Lock()
 	defer s.oidcMu.Unlock()
 
@@ -1068,7 +1066,7 @@ func (s *AuthService) takeOIDCResultSession(sessionID string) (OIDCSessionResult
 	return session.Result, nil
 }
 
-func (s *AuthService) cleanupOIDCSessionsLocked() {
+func (s *Service) cleanupOIDCSessionsLocked() {
 	now := pkg.NowUTC()
 
 	for state, session := range s.oidcStateSessions {
@@ -1084,7 +1082,7 @@ func (s *AuthService) cleanupOIDCSessionsLocked() {
 	}
 }
 
-func (s *AuthService) enforceOIDCStateSessionLimitLocked() {
+func (s *Service) enforceOIDCStateSessionLimitLocked() {
 	overflow := len(s.oidcStateSessions) - maxOIDCStateSessions + 1
 	if overflow <= 0 {
 		return
@@ -1106,7 +1104,7 @@ func (s *AuthService) enforceOIDCStateSessionLimitLocked() {
 	}
 }
 
-func (s *AuthService) enforceOIDCResultSessionLimitLocked() {
+func (s *Service) enforceOIDCResultSessionLimitLocked() {
 	overflow := len(s.oidcResultSessions) - maxOIDCResultSession + 1
 	if overflow <= 0 {
 		return
@@ -1262,7 +1260,7 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 
 	if client == nil {
 		var err error
-		client, err = buildOutboundHTTPClientWithTimeout(ctx, nil, outboundPurposeOIDC, 10*time.Second)
+		client, err = buildOIDCOutboundHTTPClient(ctx, nil, 10*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -1322,17 +1320,4 @@ func normalizeOIDCUsername(raw string) string {
 		return "user"
 	}
 	return result
-}
-
-func generateSecureToken(byteLen int) (string, error) {
-	if byteLen <= 0 {
-		byteLen = 16
-	}
-
-	buffer := make([]byte, byteLen)
-	if _, err := rand.Read(buffer); err != nil {
-		return "", err
-	}
-
-	return base64.RawURLEncoding.EncodeToString(buffer), nil
 }

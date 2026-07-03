@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ func TestLogoutRevokesRefreshToken(t *testing.T) {
 	}
 
 	user := createTestUser(t, db)
-	service := NewAuthService(db)
+	service := NewService(db)
 
 	authResp, err := service.CreateSession(user.ID)
 	if err != nil {
@@ -48,7 +48,7 @@ func TestRefreshSessionRejectsLoggedOutToken(t *testing.T) {
 	}
 
 	user := createTestUser(t, db)
-	service := NewAuthService(db)
+	service := NewService(db)
 
 	authResp, err := service.CreateSession(user.ID)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestLogoutAllRevokesAllRefreshTokens(t *testing.T) {
 	}
 
 	user := createTestUser(t, db)
-	service := NewAuthService(db)
+	service := NewService(db)
 
 	first, err := service.CreateSession(user.ID)
 	if err != nil {

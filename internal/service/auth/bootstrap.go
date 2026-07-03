@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *AuthService) EnsureInitialAdmin(input InitialAdminInput) (*InitialAdminResult, error) {
+func (s *Service) EnsureInitialAdmin(input InitialAdminInput) (*InitialAdminResult, error) {
 	var userCount int64
 	if err := s.DB.Model(&model.User{}).Count(&userCount).Error; err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (s *AuthService) EnsureInitialAdmin(input InitialAdminInput) (*InitialAdmin
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
-		return SeedUserDefaults(tx, user.ID)
+		return seedUserDefaults(tx, user.ID)
 	}); err != nil {
 		return nil, err
 	}

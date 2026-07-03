@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"context"
@@ -91,7 +91,7 @@ func (u *webAuthnUser) WebAuthnIcon() string {
 	return ""
 }
 
-func (s *AuthService) ListPasskeys(userID uint) ([]PasskeyCredentialInfo, error) {
+func (s *Service) ListPasskeys(userID uint) ([]PasskeyCredentialInfo, error) {
 	var records []model.PasskeyCredential
 	if err := s.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&records).Error; err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (s *AuthService) ListPasskeys(userID uint) ([]PasskeyCredentialInfo, error)
 	return result, nil
 }
 
-func (s *AuthService) BeginPasskeyRegistration(userID uint, name string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
+func (s *Service) BeginPasskeyRegistration(userID uint, name string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
 	user, err := s.GetUser(userID)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func (s *AuthService) BeginPasskeyRegistration(userID uint, name string, origin 
 	}, nil
 }
 
-func (s *AuthService) FinishPasskeyRegistration(userID uint, sessionID string, parsedResponse *protocol.ParsedCredentialCreationData, origin string, host string, scheme string) (*PasskeyCredentialInfo, error) {
+func (s *Service) FinishPasskeyRegistration(userID uint, sessionID string, parsedResponse *protocol.ParsedCredentialCreationData, origin string, host string, scheme string) (*PasskeyCredentialInfo, error) {
 	session, err := s.takePasskeySession(sessionID, passkeySessionKindRegistration)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func (s *AuthService) FinishPasskeyRegistration(userID uint, sessionID string, p
 	}, nil
 }
 
-func (s *AuthService) BeginPasskeyLogin(origin string, host string, scheme string) (*PasskeyBeginResult, error) {
+func (s *Service) BeginPasskeyLogin(origin string, host string, scheme string) (*PasskeyBeginResult, error) {
 	wa, err := s.buildWebAuthn(origin, host, scheme)
 	if err != nil {
 		return nil, err
@@ -236,7 +236,7 @@ func (s *AuthService) BeginPasskeyLogin(origin string, host string, scheme strin
 	}, nil
 }
 
-func (s *AuthService) FinishPasskeyLogin(sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (*AuthResponse, error) {
+func (s *Service) FinishPasskeyLogin(sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (*AuthResponse, error) {
 	session, err := s.takePasskeySession(sessionID, passkeySessionKindLogin)
 	if err != nil {
 		return nil, err
@@ -274,7 +274,7 @@ func (s *AuthService) FinishPasskeyLogin(sessionID string, parsedResponse *proto
 // limited to that user's passkeys) and, on completion, issues no tokens. It
 // returns ErrNoPasskeyRegistered when the user has no passkeys so callers can
 // steer the user toward registration.
-func (s *AuthService) BeginPasskeyReauth(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
+func (s *Service) BeginPasskeyReauth(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
 	user, err := s.GetUser(userID)
 	if err != nil {
 		return nil, err
@@ -319,7 +319,7 @@ func (s *AuthService) BeginPasskeyReauth(userID uint, operation string, origin s
 // session is single-use (consumed by takePasskeySession) and must belong to the
 // same user, and match the operation, that began it — so a challenge started for
 // one operation cannot be completed to authorize another.
-func (s *AuthService) FinishPasskeyReauth(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) error {
+func (s *Service) FinishPasskeyReauth(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) error {
 	session, err := s.takePasskeySession(sessionID, passkeySessionKindReauth)
 	if err != nil {
 		return err
@@ -353,7 +353,7 @@ func (s *AuthService) FinishPasskeyReauth(userID uint, operation string, session
 }
 
 // HasPasskeys reports whether the user has at least one registered passkey.
-func (s *AuthService) HasPasskeys(userID uint) (bool, error) {
+func (s *Service) HasPasskeys(userID uint) (bool, error) {
 	var count int64
 	if err := s.DB.Model(&model.PasskeyCredential{}).Where("user_id = ?", userID).Count(&count).Error; err != nil {
 		return false, err
@@ -361,7 +361,7 @@ func (s *AuthService) HasPasskeys(userID uint) (bool, error) {
 	return count > 0, nil
 }
 
-func (s *AuthService) DeletePasskey(userID uint, passkeyID uint) error {
+func (s *Service) DeletePasskey(userID uint, passkeyID uint) error {
 	result := s.DB.Where("id = ? AND user_id = ?", passkeyID, userID).Delete(&model.PasskeyCredential{})
 	if result.Error != nil {
 		return result.Error
@@ -372,7 +372,7 @@ func (s *AuthService) DeletePasskey(userID uint, passkeyID uint) error {
 	return nil
 }
 
-func (s *AuthService) getWebAuthnUser(user model.User) (*webAuthnUser, error) {
+func (s *Service) getWebAuthnUser(user model.User) (*webAuthnUser, error) {
 	records, err := s.getPasskeyRecords(user.ID)
 	if err != nil {
 		return nil, err
@@ -399,7 +399,7 @@ func (s *AuthService) getWebAuthnUser(user model.User) (*webAuthnUser, error) {
 	}, nil
 }
 
-func (s *AuthService) discoverableUserHandler(rawID, userHandle []byte) (webauthn.User, error) {
+func (s *Service) discoverableUserHandler(rawID, userHandle []byte) (webauthn.User, error) {
 	user, err := s.resolvePasskeyUser(rawID, userHandle)
 	if err != nil {
 		return nil, err
@@ -408,7 +408,7 @@ func (s *AuthService) discoverableUserHandler(rawID, userHandle []byte) (webauth
 	return s.getWebAuthnUser(*user)
 }
 
-func (s *AuthService) resolvePasskeyUser(rawID, userHandle []byte) (*model.User, error) {
+func (s *Service) resolvePasskeyUser(rawID, userHandle []byte) (*model.User, error) {
 	if len(userHandle) > 0 {
 		if userID, err := strconv.ParseUint(string(userHandle), 10, 64); err == nil && userID > 0 {
 			user, userErr := s.GetUser(uint(userID))
@@ -441,7 +441,7 @@ func (s *AuthService) resolvePasskeyUser(rawID, userHandle []byte) (*model.User,
 	return user, nil
 }
 
-func (s *AuthService) getPasskeyRecords(userID uint) ([]model.PasskeyCredential, error) {
+func (s *Service) getPasskeyRecords(userID uint) ([]model.PasskeyCredential, error) {
 	var records []model.PasskeyCredential
 	if err := s.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&records).Error; err != nil {
 		return nil, err
@@ -449,7 +449,7 @@ func (s *AuthService) getPasskeyRecords(userID uint) ([]model.PasskeyCredential,
 	return records, nil
 }
 
-func (s *AuthService) buildWebAuthn(origin string, host string, scheme string) (*webauthn.WebAuthn, error) {
+func (s *Service) buildWebAuthn(origin string, host string, scheme string) (*webauthn.WebAuthn, error) {
 	siteName, err := getSystemSettingString(context.Background(), s.DB, "site_name", "")
 	if err != nil {
 		siteName = ""
@@ -515,7 +515,7 @@ func encodeCredentialID(data []byte) string {
 	return base64.RawURLEncoding.EncodeToString(data)
 }
 
-func (s *AuthService) recordPasskeyLoginMetadataAsync(userID uint, credential *webauthn.Credential, usedAt time.Time) {
+func (s *Service) recordPasskeyLoginMetadataAsync(userID uint, credential *webauthn.Credential, usedAt time.Time) {
 	if s == nil || s.DB == nil || credential == nil {
 		return
 	}
@@ -538,7 +538,7 @@ func (s *AuthService) recordPasskeyLoginMetadataAsync(userID uint, credential *w
 	}()
 }
 
-func (s *AuthService) storePasskeySession(session passkeySession) string {
+func (s *Service) storePasskeySession(session passkeySession) string {
 	s.passkeyMu.Lock()
 	defer s.passkeyMu.Unlock()
 
@@ -553,7 +553,7 @@ func (s *AuthService) storePasskeySession(session passkeySession) string {
 	return sessionID
 }
 
-func (s *AuthService) takePasskeySession(sessionID string, expected passkeySessionKind) (passkeySession, error) {
+func (s *Service) takePasskeySession(sessionID string, expected passkeySessionKind) (passkeySession, error) {
 	s.passkeyMu.Lock()
 	defer s.passkeyMu.Unlock()
 
@@ -577,7 +577,7 @@ func (s *AuthService) takePasskeySession(sessionID string, expected passkeySessi
 	return session, nil
 }
 
-func (s *AuthService) cleanupPasskeySessionsLocked() {
+func (s *Service) cleanupPasskeySessionsLocked() {
 	now := pkg.NowUTC()
 	for sessionID, session := range s.passkeySessions {
 		if now.After(session.ExpiresAt) {
@@ -586,7 +586,7 @@ func (s *AuthService) cleanupPasskeySessionsLocked() {
 	}
 }
 
-func (s *AuthService) enforcePasskeySessionLimitLocked() {
+func (s *Service) enforcePasskeySessionLimitLocked() {
 	overflow := len(s.passkeySessions) - maxPasskeySessions + 1
 	if overflow <= 0 {
 		return

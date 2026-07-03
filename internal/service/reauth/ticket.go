@@ -1,10 +1,13 @@
-package service
+package reauth
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
+	"gorm.io/gorm"
 )
 
 const (
@@ -22,7 +25,7 @@ type reauthTicket struct {
 
 // Consume validates and atomically spends a ticket. A ticket is valid only for
 // the same user and operation it was minted for, and only once.
-func (s *ReauthService) Consume(userID uint, operation string, ticket string) error {
+func (s *Service) Consume(userID uint, operation string, ticket string) error {
 	ticket = strings.TrimSpace(ticket)
 	if ticket == "" {
 		return ErrReauthRequired
@@ -50,9 +53,9 @@ func (s *ReauthService) Consume(userID uint, operation string, ticket string) er
 	return nil
 }
 
-func (s *ReauthService) mintTicket(userID uint, operation string) (string, error) {
+func (s *Service) mintTicket(userID uint, operation string) (string, error) {
 	// generateSecureToken returns URL-safe base64 with no padding.
-	ticket, err := generateSecureToken(reauthTicketBytes)
+	ticket, err := serviceutil.GenerateSecureToken(reauthTicketBytes)
 	if err != nil {
 		return "", err
 	}
@@ -73,7 +76,14 @@ func (s *ReauthService) mintTicket(userID uint, operation string) (string, error
 	return ticket, nil
 }
 
-func (s *ReauthService) cleanupLocked() {
+func withContext(db *gorm.DB, ctx context.Context) *gorm.DB {
+	if db == nil {
+		return nil
+	}
+	return db.WithContext(ctx)
+}
+
+func (s *Service) cleanupLocked() {
 	now := pkg.NowUTC()
 	for ticket, entry := range s.tickets {
 		if now.After(entry.expiresAt) {
@@ -82,7 +92,7 @@ func (s *ReauthService) cleanupLocked() {
 	}
 }
 
-func (s *ReauthService) enforceLimitLocked() {
+func (s *Service) enforceLimitLocked() {
 	overflow := len(s.tickets) - maxReauthTickets + 1
 	if overflow <= 0 {
 		return

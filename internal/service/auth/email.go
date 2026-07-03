@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"context"
@@ -54,14 +54,14 @@ func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-func (s *AuthService) GetRegistrationConfig() (*RegistrationConfig, error) {
+func (s *Service) GetRegistrationConfig() (*RegistrationConfig, error) {
 	return &RegistrationConfig{
 		RegistrationEnabled:      s.isRegistrationEnabled(),
 		EmailVerificationEnabled: s.isRegistrationEmailVerificationEnabled(),
 	}, nil
 }
 
-func (s *AuthService) SendRegistrationVerificationCode(email string) error {
+func (s *Service) SendRegistrationVerificationCode(email string) error {
 	normalizedEmail, err := sanitizeAndValidateEmail(email)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (s *AuthService) SendRegistrationVerificationCode(email string) error {
 	return s.issueVerificationCode(nil, normalizedEmail, verificationPurposeRegister)
 }
 
-func (s *AuthService) RequestPasswordReset(email string) error {
+func (s *Service) RequestPasswordReset(email string) error {
 	normalizedEmail, err := sanitizeAndValidateEmail(email)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 	return s.issueVerificationCode(&user.ID, normalizedEmail, verificationPurposePasswordReset)
 }
 
-func (s *AuthService) ResetPassword(email string, verificationCode string, newPassword string) error {
+func (s *Service) ResetPassword(email string, verificationCode string, newPassword string) error {
 	normalizedEmail, err := sanitizeAndValidateEmail(email)
 	if err != nil {
 		return err
@@ -155,7 +155,7 @@ func (s *AuthService) ResetPassword(email string, verificationCode string, newPa
 	return nil
 }
 
-func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail string) error {
+func (s *Service) SendEmailChangeVerificationCode(userID uint, newEmail string) error {
 	normalizedEmail, err := sanitizeAndValidateEmail(newEmail)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (s *AuthService) SendEmailChangeVerificationCode(userID uint, newEmail stri
 	return s.issueVerificationCode(&user.ID, normalizedEmail, verificationPurposeChangeEmail)
 }
 
-func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificationCode string) (*AuthResponse, error) {
+func (s *Service) ConfirmEmailChange(userID uint, newEmail string, verificationCode string) (*AuthResponse, error) {
 	normalizedEmail, err := sanitizeAndValidateEmail(newEmail)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func (s *AuthService) ConfirmEmailChange(userID uint, newEmail string, verificat
 	return s.issueAuthResponse(user)
 }
 
-func (s *AuthService) isRegistrationEnabled() bool {
+func (s *Service) isRegistrationEnabled() bool {
 	enabled, err := getSystemSettingBool(context.Background(), s.DB, "registration_enabled", false)
 	if err != nil {
 		return false
@@ -243,7 +243,7 @@ func (s *AuthService) isRegistrationEnabled() bool {
 	return enabled
 }
 
-func (s *AuthService) isRegistrationEmailVerificationEnabled() bool {
+func (s *Service) isRegistrationEmailVerificationEnabled() bool {
 	enabled, err := getSystemSettingBool(context.Background(), s.DB, "registration_email_verification_enabled", false)
 	if err != nil {
 		return false
@@ -271,7 +271,7 @@ func generateVerificationCode() (string, error) {
 	return fmt.Sprintf("%06d", randomNumber.Int64()), nil
 }
 
-func (s *AuthService) issueVerificationCode(userID *uint, email string, purpose string) error {
+func (s *Service) issueVerificationCode(userID *uint, email string, purpose string) error {
 	if err := s.ensureVerificationCodeCooldown(userID, email, purpose); err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (s *AuthService) issueVerificationCode(userID *uint, email string, purpose 
 	return nil
 }
 
-func (s *AuthService) ensureVerificationCodeCooldown(userID *uint, email string, purpose string) error {
+func (s *Service) ensureVerificationCodeCooldown(userID *uint, email string, purpose string) error {
 	query := s.DB.Where("email = ? AND purpose = ?", email, purpose)
 	if userID == nil {
 		query = query.Where("user_id IS NULL")
@@ -329,7 +329,7 @@ func (s *AuthService) ensureVerificationCodeCooldown(userID *uint, email string,
 	return nil
 }
 
-func (s *AuthService) consumeVerificationCode(userID *uint, email string, purpose string, code string) error {
+func (s *Service) consumeVerificationCode(userID *uint, email string, purpose string, code string) error {
 	trimmedCode := strings.TrimSpace(code)
 	if len(trimmedCode) != verificationCodeLength {
 		return ErrVerificationCodeInvalid
@@ -381,7 +381,7 @@ func (s *AuthService) consumeVerificationCode(userID *uint, email string, purpos
 	return nil
 }
 
-func (s *AuthService) sendVerificationCodeEmail(recipient string, purpose string, code string) error {
+func (s *Service) sendVerificationCodeEmail(recipient string, purpose string, code string) error {
 	cfg, err := servicesmtp.LoadRuntimeConfig(s.DB)
 	if err != nil {
 		return ErrSMTPUnavailable
@@ -406,20 +406,20 @@ func (s *AuthService) sendVerificationCodeEmail(recipient string, purpose string
 	message := servicesmtp.BuildMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
 	if err := servicesmtp.Send(*cfg, recipient, message); err != nil {
 		if errors.Is(err, servicesmtp.ErrSMTPRateLimited) {
-			return ErrSMTPRateLimited
+			return servicesmtp.ErrSMTPRateLimited
 		}
 		return ErrSMTPUnavailable
 	}
 	return nil
 }
 
-func (s *AuthService) cleanupVerificationCodes(email string, purpose string) {
+func (s *Service) cleanupVerificationCodes(email string, purpose string) {
 	threshold := pkg.NowUTC().Add(-24 * time.Hour)
 	_ = s.DB.Where("email = ? AND purpose = ? AND (consumed_at IS NOT NULL OR expires_at < ?)", email, purpose, threshold).
 		Delete(&model.EmailVerificationCode{}).Error
 }
 
-func (s *AuthService) emailExists(email string, excludeUserID uint) (bool, error) {
+func (s *Service) emailExists(email string, excludeUserID uint) (bool, error) {
 	query := s.DB.Model(&model.User{}).Where("LOWER(email) = ?", email)
 	if excludeUserID > 0 {
 		query = query.Where("id <> ?", excludeUserID)

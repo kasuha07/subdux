@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestStartSessionCleanupLoopRemovesExpiredSessions(t *testing.T) {
-	authService := NewAuthService(nil)
+	authService := NewService(nil)
 	authService.sessionCleanupInterval = 5 * time.Millisecond
 
 	now := time.Now().UTC()

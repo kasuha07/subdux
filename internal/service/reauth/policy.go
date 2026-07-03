@@ -1,8 +1,6 @@
-package service
+package reauth
 
-import "github.com/kasuha07/subdux/internal/model"
-
-// ReauthMethods reports which factors a user can use to re-authenticate, after
+// Methods reports which factors a user can use to re-authenticate, after
 // applying the account's step-up policy. Password is offered only when the
 // knowledge factor is an accepted method for the account — it is withheld from
 // passkey accounts that have no TOTP, which must step up with the passkey
@@ -11,14 +9,14 @@ import "github.com/kasuha07/subdux/internal/model"
 // one registered. OIDC is offered when the provider is enabled and the user has
 // a linked OIDC identity; the grade the provider must prove is enforced at
 // verification time (VerifyOIDC), not advertised here.
-type ReauthMethods struct {
+type Methods struct {
 	Password             bool `json:"password"`
 	PasswordRequiresTOTP bool `json:"password_requires_totp"`
 	Passkey              bool `json:"passkey"`
 	OIDC                 bool `json:"oidc"`
 }
 
-// ReauthPolicy captures the accepted step-up methods for an account and
+// Policy captures the accepted step-up methods for an account and
 // operation given its enrolled factors. It is the single source of truth for the
 // default reauth matrix:
 //
@@ -42,7 +40,7 @@ type ReauthMethods struct {
 // scoped only to the user and delete_passkey operation, not to the credential
 // being deleted. The user may prove presence with any registered passkey; the
 // target passkey ID is authorized by the deletion endpoint's ownership check.
-type ReauthPolicy struct {
+type Policy struct {
 	PasswordAllowed      bool
 	PasswordRequiresTOTP bool
 	PasskeyAllowed       bool
@@ -56,7 +54,7 @@ type reauthFactorAvailability struct {
 	hasOIDC    bool
 }
 
-func reauthPolicyFor(operation string, factors reauthFactorAvailability) ReauthPolicy {
+func reauthPolicyFor(operation string, factors reauthFactorAvailability) Policy {
 	requiredGrade := OIDCGradeFresh
 	if factors.hasPasskey {
 		requiredGrade = OIDCGradePhishingResistant
@@ -67,7 +65,7 @@ func reauthPolicyFor(operation string, factors reauthFactorAvailability) ReauthP
 		requiredGrade = OIDCGradeMFA
 	}
 	passwordAllowed := !(factors.hasPasskey && !factors.hasTOTP)
-	return ReauthPolicy{
+	return Policy{
 		PasswordAllowed:      passwordAllowed,
 		PasswordRequiresTOTP: factors.hasTOTP,
 		PasskeyAllowed:       factors.hasPasskey,
@@ -79,46 +77,38 @@ func reauthPolicyFor(operation string, factors reauthFactorAvailability) ReauthP
 // PolicyFor resolves what the given user's current factor enrollment requires
 // for operation. It decides what should be accepted; the factor verifier methods
 // still own how password, TOTP, passkey, and OIDC proofs are checked.
-func (s *ReauthService) PolicyFor(userID uint, operation string) (ReauthPolicy, error) {
+func (s *Service) PolicyFor(userID uint, operation string) (Policy, error) {
 	if !IsValidReauthOperation(operation) {
-		return ReauthPolicy{}, ErrInvalidReauthOperation
+		return Policy{}, ErrInvalidReauthOperation
 	}
 
 	factors, err := s.factorAvailability(userID)
 	if err != nil {
-		return ReauthPolicy{}, err
+		return Policy{}, err
 	}
 	return reauthPolicyFor(operation, factors), nil
 }
 
-func (s *ReauthService) factorAvailability(userID uint) (reauthFactorAvailability, error) {
-	var user model.User
-	if err := s.db.Select("id", "totp_enabled").First(&user, userID).Error; err != nil {
-		return reauthFactorAvailability{}, err
-	}
-	hasPasskey, err := s.auth.HasPasskeys(userID)
-	if err != nil {
-		return reauthFactorAvailability{}, err
-	}
-	hasOIDC, err := s.auth.CanReauthWithOIDC(userID)
+func (s *Service) factorAvailability(userID uint) (reauthFactorAvailability, error) {
+	state, err := s.auth.FactorState(userID)
 	if err != nil {
 		return reauthFactorAvailability{}, err
 	}
 	return reauthFactorAvailability{
-		hasTOTP:    user.TotpEnabled,
-		hasPasskey: hasPasskey,
-		hasOIDC:    hasOIDC,
+		hasTOTP:    state.HasTOTP,
+		hasPasskey: state.HasPasskey,
+		hasOIDC:    state.HasOIDC,
 	}, nil
 }
 
 // AvailableMethods reports the factors the user can present for reauth, after
 // applying the account's step-up policy.
-func (s *ReauthService) AvailableMethods(userID uint, operation string) (ReauthMethods, error) {
+func (s *Service) AvailableMethods(userID uint, operation string) (Methods, error) {
 	policy, err := s.PolicyFor(userID, operation)
 	if err != nil {
-		return ReauthMethods{}, err
+		return Methods{}, err
 	}
-	return ReauthMethods{
+	return Methods{
 		Password:             policy.PasswordAllowed,
 		PasswordRequiresTOTP: policy.PasswordAllowed && policy.PasswordRequiresTOTP,
 		Passkey:              policy.PasskeyAllowed,
@@ -129,7 +119,7 @@ func (s *ReauthService) AvailableMethods(userID uint, operation string) (ReauthM
 // ConsumeOIDCConnect consumes a connect_oidc ticket only when the current policy
 // requires it. Existing behavior is preserved: first-time OIDC linking requires
 // reauth, while already-linked users can reconnect without an extra ticket.
-func (s *ReauthService) ConsumeOIDCConnect(userID uint, ticket string) error {
+func (s *Service) ConsumeOIDCConnect(userID uint, ticket string) error {
 	hasConnection, err := s.auth.HasOIDCConnection(userID)
 	if err != nil {
 		return err

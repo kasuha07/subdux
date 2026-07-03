@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 
 func TestPublicRegisterDoesNotCreateInitialAdmin(t *testing.T) {
 	db := newTestDB(t)
-	svc := NewAuthService(db)
+	svc := NewService(db)
 
 	_, err := svc.Register(RegisterInput{
 		Username: "attacker",
@@ -32,7 +32,7 @@ func TestPublicRegisterDoesNotCreateInitialAdmin(t *testing.T) {
 
 func TestEnsureInitialAdminCreatesAdminWhenDatabaseIsEmpty(t *testing.T) {
 	db := newTestDB(t)
-	svc := NewAuthService(db)
+	svc := NewService(db)
 
 	result, err := svc.EnsureInitialAdmin(InitialAdminInput{
 		Username: "root",
@@ -72,7 +72,7 @@ func TestEnsureInitialAdminCreatesAdminWhenDatabaseIsEmpty(t *testing.T) {
 func TestEnsureInitialAdminSkipsWhenUserExists(t *testing.T) {
 	db := newTestDB(t)
 	existing := createTestUser(t, db)
-	svc := NewAuthService(db)
+	svc := NewService(db)
 
 	result, err := svc.EnsureInitialAdmin(InitialAdminInput{
 		Username: "root",
@@ -100,7 +100,7 @@ func TestEnsureInitialAdminSkipsWhenUserExists(t *testing.T) {
 
 func TestEnsureInitialAdminGeneratesPassword(t *testing.T) {
 	db := newTestDB(t)
-	svc := NewAuthService(db)
+	svc := NewService(db)
 
 	result, err := svc.EnsureInitialAdmin(InitialAdminInput{
 		Username: "admin",

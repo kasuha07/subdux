@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 
 func TestBeginOIDCLoginCachesProviderDiscovery(t *testing.T) {
 	db := newTestDB(t)
-	authService := NewAuthService(db)
+	authService := NewService(db)
 
 	var discoveryHits atomic.Int32
 	var issuerURL string
@@ -81,7 +81,7 @@ func TestBeginOIDCLoginCachesProviderDiscovery(t *testing.T) {
 
 func TestBeginOIDCReauthRequiresFreshLoginAuthorizationParams(t *testing.T) {
 	db := newTestDB(t)
-	authService := NewAuthService(db)
+	authService := NewService(db)
 
 	var issuerURL string
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

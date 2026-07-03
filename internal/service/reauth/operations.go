@@ -1,4 +1,4 @@
-package service
+package reauth
 
 // Operation identifiers scope a ticket to a single sensitive action so a ticket
 // minted for one operation cannot authorize another.
@@ -51,20 +51,30 @@ func IsValidReauthOperation(operation string) bool {
 	}
 }
 
-// ReauthOperationForCreateUser returns the step-up operation needed by the
+type AdminSettingsUpdateInput struct {
+	BackupScheduleEnabled    *bool
+	BackupTimeOfDay          *string
+	BackupIncludeAssets      *bool
+	BackupEncryptEnabled     *bool
+	BackupEncryptionPassword *string
+	BackupLocalDir           *string
+	BackupRetentionCount     *int64
+}
+
+// OperationForCreateUserRole returns the step-up operation needed by the
 // current admin-user creation policy. Creating a regular user remains unchanged
 // and does not require a reauth ticket.
-func ReauthOperationForCreateUser(input CreateUserInput) (string, bool) {
-	if input.Role == "admin" {
+func OperationForCreateUserRole(role string) (string, bool) {
+	if role == "admin" {
 		return ReauthOperationCreateAdminUser, true
 	}
 	return "", false
 }
 
-// ReauthOperationForAdminSettingsUpdate returns the step-up operation needed by
+// OperationForAdminSettingsUpdate returns the step-up operation needed by
 // the current admin settings policy. Only backup-schedule settings require a
 // reauth ticket today.
-func ReauthOperationForAdminSettingsUpdate(input UpdateSettingsInput) (string, bool) {
+func OperationForAdminSettingsUpdate(input AdminSettingsUpdateInput) (string, bool) {
 	if input.BackupScheduleEnabled != nil ||
 		input.BackupTimeOfDay != nil ||
 		input.BackupIncludeAssets != nil ||
@@ -77,7 +87,7 @@ func ReauthOperationForAdminSettingsUpdate(input UpdateSettingsInput) (string, b
 	return "", false
 }
 
-func ReauthOperationForExport(includeSecrets bool) string {
+func OperationForExport(includeSecrets bool) string {
 	if includeSecrets {
 		return ReauthOperationExportSecrets
 	}

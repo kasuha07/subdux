@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"strings"
@@ -14,7 +14,7 @@ func TestBuildWebAuthnRequiresConfiguredSiteURL(t *testing.T) {
 		t.Fatalf("failed to migrate settings: %v", err)
 	}
 
-	authService := NewAuthService(db)
+	authService := NewService(db)
 	_, err := authService.buildWebAuthn("https://evil.example.com", "evil.example.com", "https")
 	if err == nil {
 		t.Fatal("buildWebAuthn() error = nil, want site_url configuration error")
@@ -32,7 +32,7 @@ func TestBuildWebAuthnUsesConfiguredSiteURLOnly(t *testing.T) {
 	seedSystemSetting(t, db, "site_url", "https://app.example.com")
 	seedSystemSetting(t, db, "site_name", "Production Subdux")
 
-	authService := NewAuthService(db)
+	authService := NewService(db)
 	wa, err := authService.buildWebAuthn("https://evil.example.com", "evil.example.com", "https")
 	if err != nil {
 		t.Fatalf("buildWebAuthn() error = %v, want nil", err)
@@ -58,7 +58,7 @@ func TestBuildWebAuthnNormalizesBareSiteURL(t *testing.T) {
 	}
 	seedSystemSetting(t, db, "site_url", "app.example.com:8443")
 
-	authService := NewAuthService(db)
+	authService := NewService(db)
 	wa, err := authService.buildWebAuthn("", "", "")
 	if err != nil {
 		t.Fatalf("buildWebAuthn() error = %v, want nil", err)
@@ -78,7 +78,7 @@ func TestBuildWebAuthnAllowsConfiguredLoopbackSiteURL(t *testing.T) {
 	}
 	seedSystemSetting(t, db, "site_url", "http://localhost:5173")
 
-	authService := NewAuthService(db)
+	authService := NewService(db)
 	wa, err := authService.buildWebAuthn("", "", "")
 	if err != nil {
 		t.Fatalf("buildWebAuthn() error = %v, want nil", err)
@@ -98,7 +98,7 @@ func TestBuildWebAuthnRejectsPlainHTTPNonLoopbackSiteURL(t *testing.T) {
 	}
 	seedSystemSetting(t, db, "site_url", "http://app.example.com")
 
-	authService := NewAuthService(db)
+	authService := NewService(db)
 	_, err := authService.buildWebAuthn("", "", "")
 	if err == nil {
 		t.Fatal("buildWebAuthn() error = nil, want https requirement error")
@@ -114,7 +114,7 @@ func TestBuildWebAuthnRejectsPlainHTTPNonLoopbackSiteURL(t *testing.T) {
 // operation check runs before any WebAuthn validation, so seeding the session
 // directly exercises the guard without a real signed assertion.
 func TestFinishPasskeyReauthRejectsCrossOperation(t *testing.T) {
-	authService := NewAuthService(nil)
+	authService := NewService(nil)
 
 	const userID = uint(7)
 	sessionID := authService.storePasskeySession(passkeySession{

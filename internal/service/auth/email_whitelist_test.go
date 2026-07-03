@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"errors"
@@ -24,7 +24,7 @@ func TestSendRegistrationVerificationCodeBlockedByEmailDomainWhitelist(t *testin
 		t.Fatalf("failed to seed email_domain_whitelist: %v", err)
 	}
 
-	svc := NewAuthService(db)
+	svc := NewService(db)
 	err := svc.SendRegistrationVerificationCode("user@blocked.net")
 	if !errors.Is(err, ErrEmailDomainNotAllowed) {
 		t.Fatalf("SendRegistrationVerificationCode() error = %v, want %v", err, ErrEmailDomainNotAllowed)
@@ -57,7 +57,7 @@ func TestSendEmailChangeVerificationCodeBlockedByEmailDomainWhitelist(t *testing
 		t.Fatalf("failed to seed email_domain_whitelist: %v", err)
 	}
 
-	svc := NewAuthService(db)
+	svc := NewService(db)
 	err = svc.SendEmailChangeVerificationCode(user.ID, "new@blocked.net")
 	if !errors.Is(err, ErrEmailDomainNotAllowed) {
 		t.Fatalf("SendEmailChangeVerificationCode() error = %v, want %v", err, ErrEmailDomainNotAllowed)
@@ -84,7 +84,7 @@ func TestConfirmEmailChangeBlockedByEmailDomainWhitelist(t *testing.T) {
 		t.Fatalf("failed to seed email_domain_whitelist: %v", err)
 	}
 
-	svc := NewAuthService(db)
+	svc := NewService(db)
 	_, err := svc.ConfirmEmailChange(user.ID, "new@blocked.net", "123456")
 	if !errors.Is(err, ErrEmailDomainNotAllowed) {
 		t.Fatalf("ConfirmEmailChange() error = %v, want %v", err, ErrEmailDomainNotAllowed)
@@ -107,7 +107,7 @@ func TestRegisterWithVerificationEnabledBlockedByEmailDomainWhitelist(t *testing
 		t.Fatalf("failed to seed email_domain_whitelist: %v", err)
 	}
 
-	svc := NewAuthService(db)
+	svc := NewService(db)
 	_, err := svc.Register(RegisterInput{
 		Username:         "new-user",
 		Email:            "new@blocked.net",
@@ -135,7 +135,7 @@ func TestRegisterWithVerificationDisabledStillBlockedByEmailDomainWhitelist(t *t
 		t.Fatalf("failed to seed email_domain_whitelist: %v", err)
 	}
 
-	svc := NewAuthService(db)
+	svc := NewService(db)
 	_, err := svc.Register(RegisterInput{
 		Username: "new-user",
 		Email:    "new@blocked.net",

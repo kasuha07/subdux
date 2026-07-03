@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ var (
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 )
 
-func (s *AuthService) CreateSession(userID uint) (*AuthResponse, error) {
+func (s *Service) CreateSession(userID uint) (*AuthResponse, error) {
 	user, err := s.GetUser(userID)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func (s *AuthService) CreateSession(userID uint) (*AuthResponse, error) {
 	return s.issueAuthResponse(*user)
 }
 
-func (s *AuthService) issueAuthResponse(user model.User) (*AuthResponse, error) {
+func (s *Service) issueAuthResponse(user model.User) (*AuthResponse, error) {
 	accessToken, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (s *AuthService) issueAuthResponse(user model.User) (*AuthResponse, error) 
 	}, nil
 }
 
-func (s *AuthService) RefreshSession(rawRefreshToken string) (*AuthResponse, error) {
+func (s *Service) RefreshSession(rawRefreshToken string) (*AuthResponse, error) {
 	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
 	if rawRefreshToken == "" {
 		return nil, ErrInvalidRefreshToken
@@ -136,7 +136,7 @@ func (s *AuthService) RefreshSession(rawRefreshToken string) (*AuthResponse, err
 	}, nil
 }
 
-func (s *AuthService) Logout(rawRefreshToken string) error {
+func (s *Service) Logout(rawRefreshToken string) error {
 	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
 	if rawRefreshToken == "" {
 		return nil
@@ -151,7 +151,7 @@ func (s *AuthService) Logout(rawRefreshToken string) error {
 		}).Error
 }
 
-func (s *AuthService) LogoutAll(userID uint) error {
+func (s *Service) LogoutAll(userID uint) error {
 	return revokeAllRefreshTokens(s.DB, userID)
 }
 

@@ -1,4 +1,4 @@
-package service
+package reauth
 
 import (
 	"context"
@@ -6,9 +6,6 @@ import (
 	"sync"
 
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/kasuha07/subdux/internal/model"
-	"github.com/pquerna/otp/totp"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -49,20 +46,55 @@ var ErrPasswordReauthDisabled = errors.New("password re-authentication is not av
 // OIDC-3 phishing-resistant). The user can fall back to another accepted method.
 var ErrOIDCReauthInsufficient = errors.New("your provider sign-in did not prove strong enough authentication for this account; use a passkey or another method")
 
-// ReauthService verifies a re-authentication factor and manages the resulting
+// Service verifies a re-authentication factor and manages the resulting
 // tickets. Passkey verification is delegated to AuthService, which owns the
 // WebAuthn machinery; password verification is done here against the user's
 // bcrypt hash.
-type ReauthService struct {
+type Service struct {
 	db   *gorm.DB
-	auth *AuthService
+	auth Authenticator
 
 	mu      *sync.Mutex
 	tickets map[string]reauthTicket
 }
 
-func NewReauthService(db *gorm.DB, auth *AuthService) *ReauthService {
-	return &ReauthService{
+type OIDCReauthGrade int
+
+const (
+	OIDCGradeFresh             OIDCReauthGrade = 1
+	OIDCGradeMFA               OIDCReauthGrade = 2
+	OIDCGradePhishingResistant OIDCReauthGrade = 3
+)
+
+type FactorState struct {
+	HasPassword bool
+	HasTOTP     bool
+	HasPasskey  bool
+	HasOIDC     bool
+}
+
+type PasskeyBeginResult struct {
+	SessionID string      `json:"session_id"`
+	Options   interface{} `json:"options"`
+}
+
+type OIDCStartResult struct {
+	AuthorizationURL string `json:"authorization_url"`
+}
+
+type Authenticator interface {
+	WithContext(context.Context) Authenticator
+	FactorState(userID uint) (FactorState, error)
+	VerifyPassword(userID uint, password string, code string, requireTOTP bool) error
+	BeginPasskeyReauth(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error)
+	FinishPasskeyReauth(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) error
+	BeginOIDCReauth(userID uint, operation string) (*OIDCStartResult, error)
+	ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) (OIDCReauthGrade, error)
+	HasOIDCConnection(userID uint) (bool, error)
+}
+
+func NewService(db *gorm.DB, auth Authenticator) *Service {
+	return &Service{
 		db:      db,
 		auth:    auth,
 		mu:      &sync.Mutex{},
@@ -73,7 +105,7 @@ func NewReauthService(db *gorm.DB, auth *AuthService) *ReauthService {
 // WithContext binds the database handle (and the delegated AuthService) to ctx.
 // The in-memory ticket store and its lock are shared via pointers, so the clone
 // sees the same tickets as the parent.
-func (s *ReauthService) WithContext(ctx context.Context) *ReauthService {
+func (s *Service) WithContext(ctx context.Context) *Service {
 	clone := *s
 	clone.db = withContext(s.db, ctx)
 	if s.auth != nil {
@@ -87,7 +119,7 @@ func (s *ReauthService) WithContext(ctx context.Context) *ReauthService {
 // ErrPasswordReauthDisabled when the knowledge factor is not an accepted method
 // for the account (a passkey enrolled without TOTP). On success it mints a ticket
 // for the given operation.
-func (s *ReauthService) VerifyPassword(userID uint, operation string, password string, code string) (string, error) {
+func (s *Service) VerifyPassword(userID uint, operation string, password string, code string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
@@ -95,30 +127,17 @@ func (s *ReauthService) VerifyPassword(userID uint, operation string, password s
 		return "", ErrReauthRequired
 	}
 
-	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
+	factors, err := s.factorAvailability(userID)
+	if err != nil {
 		return "", ErrReauthRequired
 	}
-
-	hasPasskey, err := s.auth.HasPasskeys(userID)
-	if err != nil {
-		return "", err
-	}
-	policy := reauthPolicyFor(operation, reauthFactorAvailability{
-		hasTOTP:    user.TotpEnabled,
-		hasPasskey: hasPasskey,
-	})
+	policy := reauthPolicyFor(operation, factors)
 	if !policy.PasswordAllowed {
 		return "", ErrPasswordReauthDisabled
 	}
 
-	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+	if err := s.auth.VerifyPassword(userID, password, code, policy.PasswordRequiresTOTP); err != nil {
 		return "", ErrReauthRequired
-	}
-	if policy.PasswordRequiresTOTP {
-		if code == "" || user.TotpSecret == nil || !totp.Validate(code, *user.TotpSecret) {
-			return "", ErrReauthRequired
-		}
 	}
 
 	return s.mintTicket(userID, operation)
@@ -126,7 +145,7 @@ func (s *ReauthService) VerifyPassword(userID uint, operation string, password s
 
 // BeginPasskey starts a user-scoped passkey assertion for the operation. The
 // operation is validated here; the challenge itself is issued by AuthService.
-func (s *ReauthService) BeginPasskey(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
+func (s *Service) BeginPasskey(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
 	if !IsValidReauthOperation(operation) {
 		return nil, ErrInvalidReauthOperation
 	}
@@ -135,7 +154,7 @@ func (s *ReauthService) BeginPasskey(userID uint, operation string, origin strin
 
 // FinishPasskey validates a passkey assertion for the user and, on success,
 // mints a ticket for the operation.
-func (s *ReauthService) FinishPasskey(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (string, error) {
+func (s *Service) FinishPasskey(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
@@ -148,7 +167,7 @@ func (s *ReauthService) FinishPasskey(userID uint, operation string, sessionID s
 // BeginOIDC starts an OIDC step-up for the operation, returning the provider
 // authorization URL the client opens (in a popup) to authenticate. The operation
 // is validated here and carried through the OIDC state session.
-func (s *ReauthService) BeginOIDC(userID uint, operation string) (*OIDCStartResult, error) {
+func (s *Service) BeginOIDC(userID uint, operation string) (*OIDCStartResult, error) {
 	if !IsValidReauthOperation(operation) {
 		return nil, ErrInvalidReauthOperation
 	}
@@ -160,7 +179,7 @@ func (s *ReauthService) BeginOIDC(userID uint, operation string) (*OIDCStartResu
 // enforces that the provider login proved a strong enough assurance level for the
 // account's enrolled factors, and on success mints a ticket. Mirrors
 // FinishPasskey — the sensitive endpoints never learn which factor was used.
-func (s *ReauthService) VerifyOIDC(userID uint, operation string, sessionID string) (string, error) {
+func (s *Service) VerifyOIDC(userID uint, operation string, sessionID string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
@@ -170,18 +189,11 @@ func (s *ReauthService) VerifyOIDC(userID uint, operation string, sessionID stri
 		return "", err
 	}
 
-	var user model.User
-	if err := s.db.Select("id", "totp_enabled").First(&user, userID).Error; err != nil {
+	factors, err := s.factorAvailability(userID)
+	if err != nil {
 		return "", ErrReauthRequired
 	}
-	hasPasskey, err := s.auth.HasPasskeys(userID)
-	if err != nil {
-		return "", err
-	}
-	policy := reauthPolicyFor(operation, reauthFactorAvailability{
-		hasTOTP:    user.TotpEnabled,
-		hasPasskey: hasPasskey,
-	})
+	policy := reauthPolicyFor(operation, factors)
 	if grade < policy.RequiredOIDCGrade {
 		return "", ErrOIDCReauthInsufficient
 	}

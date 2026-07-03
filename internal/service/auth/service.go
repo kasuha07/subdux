@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type AuthService struct {
+type Service struct {
 	DB *gorm.DB
 
 	passkeyMu       *sync.Mutex
@@ -33,8 +33,8 @@ const (
 	oidcSessionCleanupInterval    = 1 * time.Minute
 )
 
-func NewAuthService(db *gorm.DB) *AuthService {
-	service := &AuthService{
+func NewService(db *gorm.DB) *Service {
+	service := &Service{
 		DB:                     db,
 		passkeyMu:              &sync.Mutex{},
 		passkeySessions:        make(map[string]passkeySession),
@@ -52,7 +52,7 @@ func NewAuthService(db *gorm.DB) *AuthService {
 // bound to ctx, so GORM cancels in-flight queries when ctx is cancelled (client
 // disconnect or write-timeout). The in-memory session stores and their locks are
 // pointers, so the clone shares them with the parent rather than copying a mutex.
-func (s *AuthService) WithContext(ctx context.Context) *AuthService {
+func (s *Service) WithContext(ctx context.Context) *Service {
 	clone := *s
 	clone.DB = s.DB.WithContext(ctx)
 	return &clone
@@ -97,7 +97,7 @@ type LoginResponse struct {
 	User         *model.User `json:"user,omitempty"`
 }
 
-func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
+func (s *Service) Register(input RegisterInput) (*AuthResponse, error) {
 	input.Username = strings.TrimSpace(input.Username)
 	input.Email = normalizeEmail(input.Email)
 	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
@@ -154,7 +154,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
-		return SeedUserDefaults(tx, user.ID)
+		return seedUserDefaults(tx, user.ID)
 	}); err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ type ChangePasswordInput struct {
 	NewPassword     string `json:"new_password"`
 }
 
-func (s *AuthService) GetUser(userID uint) (*model.User, error) {
+func (s *Service) GetUser(userID uint) (*model.User, error) {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
 		return nil, ErrUserNotFound
@@ -187,7 +187,7 @@ func (s *AuthService) GetUser(userID uint) (*model.User, error) {
 	return &user, nil
 }
 
-func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) error {
+func (s *Service) ChangePassword(userID uint, input ChangePasswordInput) error {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
 		return ErrUserNotFound
@@ -210,7 +210,7 @@ func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) err
 	})
 }
 
-func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
+func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 	identifier := strings.TrimSpace(input.Identifier)
 	normalizedEmail := strings.ToLower(identifier)
 
@@ -247,7 +247,7 @@ func (s *AuthService) Login(input LoginInput) (*LoginResponse, error) {
 	}, nil
 }
 
-func (s *AuthService) StartSessionCleanupLoop(ctx context.Context) {
+func (s *Service) StartSessionCleanupLoop(ctx context.Context) {
 	if s == nil || ctx == nil || s.sessionCleanupOnce == nil {
 		return
 	}
@@ -276,7 +276,7 @@ func (s *AuthService) StartSessionCleanupLoop(ctx context.Context) {
 	})
 }
 
-func (s *AuthService) runSessionCleanup() {
+func (s *Service) runSessionCleanup() {
 	s.passkeyMu.Lock()
 	s.cleanupPasskeySessionsLocked()
 	s.passkeyMu.Unlock()

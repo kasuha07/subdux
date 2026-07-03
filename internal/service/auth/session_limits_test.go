@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"strconv"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestPasskeySessionStoreLimit(t *testing.T) {
-	authService := NewAuthService(nil)
+	authService := NewService(nil)
 
 	for i := 0; i < maxPasskeySessions+50; i++ {
 		authService.storePasskeySession(passkeySession{
@@ -23,7 +23,7 @@ func TestPasskeySessionStoreLimit(t *testing.T) {
 }
 
 func TestOIDCSessionStoreLimit(t *testing.T) {
-	authService := NewAuthService(nil)
+	authService := NewService(nil)
 
 	for i := 0; i < maxOIDCStateSessions+50; i++ {
 		authService.storeOIDCStateSession(strconv.Itoa(i), oidcStateSession{})
