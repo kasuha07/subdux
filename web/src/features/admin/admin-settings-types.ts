@@ -20,6 +20,8 @@ export interface AdminSettingsTabProps {
   onOIDCClientSecretChange: (value: string) => void
   onOIDCEnabledChange: (enabled: boolean) => void
   onOIDCExtraAuthParamsChange: (value: string) => void
+  onOIDCReauthACRMFAChange: (value: string) => void
+  onOIDCReauthACRPhishingResistantChange: (value: string) => void
   onOIDCIssuerURLChange: (value: string) => void
   onOIDCProviderNameChange: (value: string) => void
   onOIDCRedirectURLChange: (value: string) => void
@@ -72,6 +74,8 @@ export interface AdminSettingsTabProps {
   oidcIssuerURL: string
   oidcProviderName: string
   oidcRedirectURL: string
+  oidcReauthACRMFA: string
+  oidcReauthACRPhishingResistant: string
   oidcResource: string
   oidcScopes: string
   oidcTokenEndpoint: string
@@ -151,6 +155,8 @@ export type AdminSettingsOIDCSectionProps = Pick<
   | "onOIDCClientSecretChange"
   | "onOIDCEnabledChange"
   | "onOIDCExtraAuthParamsChange"
+  | "onOIDCReauthACRMFAChange"
+  | "onOIDCReauthACRPhishingResistantChange"
   | "onOIDCIssuerURLChange"
   | "onOIDCProviderNameChange"
   | "onOIDCRedirectURLChange"
@@ -169,6 +175,8 @@ export type AdminSettingsOIDCSectionProps = Pick<
   | "oidcIssuerURL"
   | "oidcProviderName"
   | "oidcRedirectURL"
+  | "oidcReauthACRMFA"
+  | "oidcReauthACRPhishingResistant"
   | "oidcResource"
   | "oidcScopes"
   | "oidcTokenEndpoint"
@@ -249,12 +257,16 @@ export type AdminSettingsOIDCAdvancedFieldsProps = Pick<
   | "onOIDCAudienceChange"
   | "onOIDCAuthorizationEndpointChange"
   | "onOIDCExtraAuthParamsChange"
+  | "onOIDCReauthACRMFAChange"
+  | "onOIDCReauthACRPhishingResistantChange"
   | "onOIDCResourceChange"
   | "onOIDCTokenEndpointChange"
   | "onOIDCUserinfoEndpointChange"
   | "oidcAudience"
   | "oidcAuthorizationEndpoint"
   | "oidcExtraAuthParams"
+  | "oidcReauthACRMFA"
+  | "oidcReauthACRPhishingResistant"
   | "oidcResource"
   | "oidcTokenEndpoint"
   | "oidcUserinfoEndpoint"

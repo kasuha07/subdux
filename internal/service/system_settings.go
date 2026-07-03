@@ -72,6 +72,8 @@ func defaultAdminSystemSettings() *SystemSettings {
 		OIDCAudience:                         "",
 		OIDCResource:                         "",
 		OIDCExtraAuthParams:                  "",
+		OIDCReauthACRMFA:                     "",
+		OIDCReauthACRPhishingResistant:       "",
 		BackupScheduleEnabled:                false,
 		BackupTimeOfDay:                      "03:00",
 		BackupIncludeAssets:                  false,

@@ -141,6 +141,10 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.OIDCResource = settingValue
 		case "oidc_extra_auth_params":
 			settings.OIDCExtraAuthParams = settingValue
+		case "oidc_reauth_acr_mfa":
+			settings.OIDCReauthACRMFA = settingValue
+		case "oidc_reauth_acr_phishing_resistant":
+			settings.OIDCReauthACRPhishingResistant = settingValue
 		case backupScheduleEnabledKey:
 			settings.BackupScheduleEnabled = settingValue == "true"
 		case backupTimeOfDayKey:
@@ -529,6 +533,18 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 
 		if input.OIDCExtraAuthParams != nil {
 			if err := saveStringSystemSetting(tx, "oidc_extra_auth_params", *input.OIDCExtraAuthParams); err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCReauthACRMFA != nil {
+			if err := saveStringSystemSetting(tx, "oidc_reauth_acr_mfa", *input.OIDCReauthACRMFA); err != nil {
+				return err
+			}
+		}
+
+		if input.OIDCReauthACRPhishingResistant != nil {
+			if err := saveStringSystemSetting(tx, "oidc_reauth_acr_phishing_resistant", *input.OIDCReauthACRPhishingResistant); err != nil {
 				return err
 			}
 		}

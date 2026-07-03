@@ -7,11 +7,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
 	"github.com/labstack/echo/v4"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -66,8 +68,13 @@ func reauthGateTestToken(t *testing.T, admin model.User) string {
 // the password step-up endpoint on the same router the gate reads from.
 func mintReauthTicket(t *testing.T, e *echo.Echo, token, operation string) string {
 	t.Helper()
+	return mintReauthTicketWithCode(t, e, token, operation, "")
+}
 
-	body := fmt.Sprintf(`{"operation":%q,"password":%q}`, operation, reauthGateTestPassword)
+func mintReauthTicketWithCode(t *testing.T, e *echo.Echo, token, operation, code string) string {
+	t.Helper()
+
+	body := fmt.Sprintf(`{"operation":%q,"password":%q,"code":%q}`, operation, reauthGateTestPassword, code)
 	req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -88,6 +95,16 @@ func mintReauthTicket(t *testing.T, e *echo.Echo, token, operation string) strin
 		t.Fatalf("mint ticket returned empty ticket; body = %s", rec.Body.String())
 	}
 	return resp.Ticket
+}
+
+func enableReauthGateTestTOTP(t *testing.T, db *gorm.DB, userID uint, secret string) {
+	t.Helper()
+	if err := db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"totp_enabled": true,
+		"totp_secret":  secret,
+	}).Error; err != nil {
+		t.Fatalf("failed to enable totp: %v", err)
+	}
 }
 
 func postBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
@@ -279,6 +296,137 @@ func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		}
 		if !strings.Contains(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestReauthPasswordRequiresTOTPWhenEnabled(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	enableReauthGateTestTOTP(t, db, admin.ID, "JBSWY3DPEHPK3PXP")
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("methods advertise the upgraded password factor", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/reauth/methods?operation=backup", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+
+		var resp struct {
+			Password             bool `json:"password"`
+			PasswordRequiresTOTP bool `json:"password_requires_totp"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode methods response: %v; body = %s", err, rec.Body.String())
+		}
+		if !resp.Password {
+			t.Fatal("methods.password = false, want true")
+		}
+		if !resp.PasswordRequiresTOTP {
+			t.Fatal("methods.password_requires_totp = false, want true")
+		}
+	})
+
+	t.Run("missing or invalid totp code cannot mint a ticket", func(t *testing.T) {
+		body := fmt.Sprintf(`{"operation":%q,"password":%q}`, service.ReauthOperationBackup, reauthGateTestPassword)
+		req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("missing code status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("missing code body = %s, want re-authentication required", rec.Body.String())
+		}
+
+		body = fmt.Sprintf(`{"operation":%q,"password":%q,"code":"000000"}`, service.ReauthOperationBackup, reauthGateTestPassword)
+		req = httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("invalid code status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("invalid code body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("current totp code still allows the sensitive operation", func(t *testing.T) {
+		code, err := totp.GenerateCode("JBSWY3DPEHPK3PXP", time.Now().UTC())
+		if err != nil {
+			t.Fatalf("GenerateCode() error = %v, want nil", err)
+		}
+
+		ticket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationBackup, code)
+		rec := postBackup(t, e, token, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("backup status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+}
+
+func TestReauthPasswordDisabledForPasskeyAccount(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	if err := db.Create(&model.PasskeyCredential{
+		UserID:       admin.ID,
+		Name:         "laptop",
+		CredentialID: "cred-gate-passkey-only",
+		Credential:   []byte("{}"),
+	}).Error; err != nil {
+		t.Fatalf("failed to seed passkey: %v", err)
+	}
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("methods withhold the password factor", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/reauth/methods?operation=backup", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var resp struct {
+			Password bool `json:"password"`
+			Passkey  bool `json:"passkey"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode methods response: %v; body = %s", err, rec.Body.String())
+		}
+		if resp.Password {
+			t.Fatal("methods.password = true for passkey-only account, want false")
+		}
+		if !resp.Passkey {
+			t.Fatal("methods.passkey = false, want true")
+		}
+	})
+
+	t.Run("password step-up is refused", func(t *testing.T) {
+		body := fmt.Sprintf(`{"operation":%q,"password":%q}`, service.ReauthOperationBackup, reauthGateTestPassword)
+		req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "passkey") {
+			t.Fatalf("body = %s, want a passkey-directed message", rec.Body.String())
 		}
 	})
 }

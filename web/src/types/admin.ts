@@ -74,6 +74,8 @@ export interface SystemSettings {
   oidc_audience: string
   oidc_resource: string
   oidc_extra_auth_params: string
+  oidc_reauth_acr_mfa: string
+  oidc_reauth_acr_phishing_resistant: string
   backup_schedule_enabled: boolean
   backup_time_of_day: string
   backup_include_assets: boolean
@@ -137,6 +139,8 @@ export interface UpdateSettingsInput {
   oidc_audience?: string
   oidc_resource?: string
   oidc_extra_auth_params?: string
+  oidc_reauth_acr_mfa?: string
+  oidc_reauth_acr_phishing_resistant?: string
   backup_schedule_enabled?: boolean
   backup_time_of_day?: string
   backup_include_assets?: boolean

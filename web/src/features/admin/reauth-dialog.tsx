@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { Fingerprint, KeyRound } from "lucide-react"
-import { Link } from "react-router-dom"
-import { toast } from "sonner"
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Fingerprint, KeyRound } from "lucide-react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,17 +12,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { api } from "@/lib/api"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { api } from "@/lib/api";
 import {
   getPasskeyCredential,
   isPasskeySupported,
   type CredentialAssertionJSON,
-} from "@/lib/passkey"
-import { getPasskeyErrorMessage } from "@/lib/passkey-error"
-import type { OIDCConfig, OIDCStartResponse, PasskeyBeginResult, ReauthMethods } from "@/types"
+} from "@/lib/passkey";
+import { getPasskeyErrorMessage } from "@/lib/passkey-error";
+import type {
+  OIDCConfig,
+  OIDCStartResponse,
+  PasskeyBeginResult,
+  ReauthMethods,
+} from "@/types";
 
 type ReauthOperation =
   | "backup"
@@ -36,24 +41,24 @@ type ReauthOperation =
   | "export_redacted"
   | "export_secrets"
   | "import_subdux"
-  | "import_wallos"
+  | "import_wallos";
 
 // Base path for the step-up re-authentication API. The endpoints live in a
 // shared (human-session, not admin-only) group, so this dialog is not coupled
 // to the admin surface and can be reused for other sensitive operations.
-const REAUTH_API_BASE = "/reauth"
+const REAUTH_API_BASE = "/reauth";
 
 interface ReauthDialogProps {
-  operation: ReauthOperation
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  operation: ReauthOperation;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   // Called once a factor is verified, receiving the single-use ticket to pass
   // to the sensitive endpoint. The dialog closes itself after invoking this.
-  onVerified: (ticket: string) => void | Promise<void>
-  title: string
-  description: string
-  confirmVariant?: "default" | "destructive"
-  layer?: "base" | "stacked"
+  onVerified: (ticket: string) => void | Promise<void>;
+  title: string;
+  description: string;
+  confirmVariant?: "default" | "destructive";
+  layer?: "base" | "stacked";
 }
 
 export default function ReauthDialog({
@@ -66,196 +71,233 @@ export default function ReauthDialog({
   confirmVariant = "default",
   layer = "base",
 }: ReauthDialogProps) {
-  const { t } = useTranslation()
-  const [methods, setMethods] = useState<ReauthMethods>({ password: true, passkey: false, oidc: false })
-  const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
-  const [password, setPassword] = useState("")
-  const [busy, setBusy] = useState(false)
+  const { t } = useTranslation();
+  const [methods, setMethods] = useState<ReauthMethods>({
+    password: true,
+    password_requires_totp: false,
+    passkey: false,
+    oidc: false,
+  });
+  const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null);
+  const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [busy, setBusy] = useState(false);
   // Tracks a live OIDC popup so we don't open a second one and can react to the
   // user closing it manually.
-  const oidcPopupRef = useRef<Window | null>(null)
+  const oidcPopupRef = useRef<Window | null>(null);
 
   // Reset transient state each time the dialog transitions to open. This runs
   // during render (React's documented pattern) rather than in an effect so we
   // don't need a remounting `key` on the parent — remounting churns Radix's
   // dismissable layer, which races its module-global body `pointer-events`
   // bookkeeping and can leave the page stuck behind an invisible mask.
-  const [wasOpen, setWasOpen] = useState(open)
+  const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
-    setWasOpen(open)
+    setWasOpen(open);
     if (open) {
-      setPassword("")
-      setBusy(false)
+      setMethods({
+        password: true,
+        password_requires_totp: false,
+        passkey: false,
+        oidc: false,
+      });
+      setPassword("");
+      setTotpCode("");
+      setBusy(false);
     }
   }
 
-  const passkeySupported = isPasskeySupported()
+  const passkeySupported = isPasskeySupported();
 
   useEffect(() => {
     if (!open) {
-      return
+      return;
     }
     // Discover which factors this user can present.
-    let cancelled = false
+    let cancelled = false;
     api
       .get<ReauthMethods>(`${REAUTH_API_BASE}/methods?operation=${operation}`)
       .then((result) => {
         if (!cancelled && result) {
-          setMethods(result)
+          setMethods(result);
         }
       })
       .catch(() => {
         // Password is always a valid attempt; fall back to it if discovery fails.
         if (!cancelled) {
-          setMethods({ password: true, passkey: false, oidc: false })
+          setMethods({
+            password: true,
+            password_requires_totp: false,
+            passkey: false,
+            oidc: false,
+          });
         }
-      })
+      });
     // The provider name is only needed to label the OIDC button; failure is
     // non-fatal (the button falls back to a generic label).
     api
       .get<OIDCConfig>("/auth/oidc/config")
       .then((config) => {
         if (!cancelled && config) {
-          setOidcConfig(config)
+          setOidcConfig(config);
         }
       })
-      .catch(() => void 0)
+      .catch(() => void 0);
     return () => {
-      cancelled = true
-    }
-  }, [open, operation])
+      cancelled = true;
+    };
+  }, [open, operation]);
 
   // If the dialog unmounts (parent closes it) while an OIDC popup is still open,
   // close the orphaned popup so it can't post back to a gone listener.
   useEffect(() => {
     return () => {
-      oidcPopupRef.current?.close()
-      oidcPopupRef.current = null
-    }
-  }, [])
+      oidcPopupRef.current?.close();
+      oidcPopupRef.current = null;
+    };
+  }, []);
 
   async function verified(ticket: string) {
-    onOpenChange(false)
-    await onVerified(ticket)
+    onOpenChange(false);
+    await onVerified(ticket);
   }
 
   async function handlePasswordConfirm() {
-    if (busy || password.trim() === "") {
-      return
+    if (
+      busy ||
+      password.trim() === "" ||
+      (methods.password_requires_totp && totpCode.trim() === "")
+    ) {
+      return;
     }
-    setBusy(true)
+    setBusy(true);
     try {
-      const { ticket } = await api.post<{ ticket: string }>(`${REAUTH_API_BASE}/password`, {
-        operation,
-        password,
-      })
-      await verified(ticket)
+      const { ticket } = await api.post<{ ticket: string }>(
+        `${REAUTH_API_BASE}/password`,
+        {
+          operation,
+          password,
+          code: totpCode.trim(),
+        },
+      );
+      await verified(ticket);
     } catch {
       // api.post surfaces the backend message via toast; keep the dialog open
       // so the admin can correct the password.
-      setBusy(false)
+      setBusy(false);
     }
   }
 
   async function handlePasskeyConfirm() {
     if (busy) {
-      return
+      return;
     }
     if (!passkeySupported) {
-      toast.error(t("admin.backup.reauth.passkeyUnsupported"))
-      return
+      toast.error(t("admin.backup.reauth.passkeyUnsupported"));
+      return;
     }
-    setBusy(true)
+    setBusy(true);
     try {
       const begin = await api.post<PasskeyBeginResult<CredentialAssertionJSON>>(
         `${REAUTH_API_BASE}/passkey/start`,
-        { operation }
-      )
-      const credential = await getPasskeyCredential(begin.options)
-      const { ticket } = await api.post<{ ticket: string }>(`${REAUTH_API_BASE}/passkey/finish`, {
-        operation,
-        session_id: begin.session_id,
-        credential,
-      })
-      await verified(ticket)
+        { operation },
+      );
+      const credential = await getPasskeyCredential(begin.options);
+      const { ticket } = await api.post<{ ticket: string }>(
+        `${REAUTH_API_BASE}/passkey/finish`,
+        {
+          operation,
+          session_id: begin.session_id,
+          credential,
+        },
+      );
+      await verified(ticket);
     } catch (err) {
       // Backend failures already toast via api.post. Surface browser/WebAuthn
       // errors (user cancelled, no authenticator, etc.); the api.post path
       // rethrows a plain Error whose message was already shown, so only toast
       // for non-api errors to avoid a duplicate.
       if (err instanceof DOMException) {
-        toast.error(getPasskeyErrorMessage(err, t, "admin.backup.reauth.passkeyError"))
+        toast.error(
+          getPasskeyErrorMessage(err, t, "admin.backup.reauth.passkeyError"),
+        );
       } else if (!(err instanceof Error)) {
-        toast.error(t("admin.backup.reauth.passkeyError"))
+        toast.error(t("admin.backup.reauth.passkeyError"));
       }
-      setBusy(false)
+      setBusy(false);
     }
   }
 
   async function handleOIDCConfirm() {
     if (busy) {
-      return
+      return;
     }
 
     // Open the popup synchronously inside the click handler; browsers block
     // window.open() issued from an async continuation. It briefly shows about:blank
     // while the authorization URL is fetched.
-    const popup = window.open("", "oidc-reauth", "width=520,height=640")
+    const popup = window.open("", "oidc-reauth", "width=520,height=640");
     if (!popup) {
-      toast.error(t("admin.backup.reauth.oidcPopupBlocked"))
-      return
+      toast.error(t("admin.backup.reauth.oidcPopupBlocked"));
+      return;
     }
-    const popupWin: Window = popup
-    oidcPopupRef.current = popupWin
-    setBusy(true)
+    const popupWin: Window = popup;
+    oidcPopupRef.current = popupWin;
+    setBusy(true);
 
     try {
-      const { authorization_url } = await api.post<OIDCStartResponse>(`${REAUTH_API_BASE}/oidc/start`, {
-        operation,
-      })
-      popupWin.location.href = authorization_url
+      const { authorization_url } = await api.post<OIDCStartResponse>(
+        `${REAUTH_API_BASE}/oidc/start`,
+        {
+          operation,
+        },
+      );
+      popupWin.location.href = authorization_url;
 
       // Wait for the callback popup (same origin, on /oidc/reauth) to post its
       // outcome back, or for the user to close the popup without finishing.
       await new Promise<void>((resolve, reject) => {
         function cleanup() {
-          window.removeEventListener("message", onMessage)
-          window.clearInterval(pollClosed)
-          oidcPopupRef.current = null
+          window.removeEventListener("message", onMessage);
+          window.clearInterval(pollClosed);
+          oidcPopupRef.current = null;
         }
         function onMessage(event: MessageEvent) {
           if (event.origin !== window.location.origin) {
-            return
+            return;
           }
           if (event.data?.type !== "oidc-reauth") {
-            return
+            return;
           }
-          cleanup()
-          popupWin.close()
-          resolve()
+          cleanup();
+          popupWin.close();
+          resolve();
         }
         const pollClosed = window.setInterval(() => {
           if (popupWin.closed) {
-            cleanup()
-            reject(new DOMException("popup closed", "AbortError"))
+            cleanup();
+            reject(new DOMException("popup closed", "AbortError"));
           }
-        }, 500)
-        window.addEventListener("message", onMessage)
-      })
+        }, 500);
+        window.addEventListener("message", onMessage);
+      });
 
-      const { ticket } = await api.post<{ ticket: string }>(`${REAUTH_API_BASE}/oidc/finish`, {
-        operation,
-      })
-      await verified(ticket)
+      const { ticket } = await api.post<{ ticket: string }>(
+        `${REAUTH_API_BASE}/oidc/finish`,
+        {
+          operation,
+        },
+      );
+      await verified(ticket);
     } catch (err) {
       // Backend failures already toast via api.post. A user-closed popup throws
       // an AbortError with no toast, so surface a generic message only for that.
       if (err instanceof DOMException) {
-        toast.error(t("admin.backup.reauth.oidcCancelled"))
+        toast.error(t("admin.backup.reauth.oidcCancelled"));
       }
-      oidcPopupRef.current?.close()
-      oidcPopupRef.current = null
-      setBusy(false)
+      oidcPopupRef.current?.close();
+      oidcPopupRef.current = null;
+      setBusy(false);
     }
   }
 
@@ -264,7 +306,7 @@ export default function ReauthDialog({
       open={open}
       onOpenChange={(next) => {
         if (!next) {
-          onOpenChange(false)
+          onOpenChange(false);
         }
       }}
     >
@@ -274,37 +316,75 @@ export default function ReauthDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
-          <Label htmlFor="reauth-password">{t("admin.backup.reauth.passwordLabel")}</Label>
-          <Input
-            id="reauth-password"
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={password}
-            disabled={busy}
-            onChange={(event) => setPassword(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault()
-                void handlePasswordConfirm()
-              }
-            }}
-          />
-        </div>
+        {methods.password && (
+          <div className="space-y-2">
+            <Label htmlFor="reauth-password">
+              {t("admin.backup.reauth.passwordLabel")}
+            </Label>
+            <Input
+              id="reauth-password"
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={password}
+              disabled={busy}
+              onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handlePasswordConfirm();
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {methods.password && methods.password_requires_totp && (
+          <div className="space-y-2">
+            <Label htmlFor="reauth-totp-code">
+              {t("admin.backup.reauth.totpCodeLabel")}
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              {t("admin.backup.reauth.totpCodeDescription")}
+            </p>
+            <Input
+              id="reauth-totp-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder={t("auth.login.twoFactor.codePlaceholder")}
+              value={totpCode}
+              disabled={busy}
+              onChange={(event) => setTotpCode(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handlePasswordConfirm();
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {!methods.password && (
+          <p className="text-sm text-muted-foreground">
+            {t("admin.backup.reauth.passwordDisabled")}
+          </p>
+        )}
 
         {methods.passkey && passkeySupported && (
           <div className="space-y-2">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+            {methods.password && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    {t("admin.backup.reauth.or")}
+                  </span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  {t("admin.backup.reauth.or")}
-                </span>
-              </div>
-            </div>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -320,7 +400,7 @@ export default function ReauthDialog({
 
         {methods.oidc && (
           <div className="space-y-2">
-            {!(methods.passkey && passkeySupported) && (
+            {(methods.password || (methods.passkey && passkeySupported)) && (
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -341,7 +421,9 @@ export default function ReauthDialog({
             >
               <KeyRound className="size-4" />
               {oidcConfig?.provider_name
-                ? t("admin.backup.reauth.useOIDCNamed", { provider: oidcConfig.provider_name })
+                ? t("admin.backup.reauth.useOIDCNamed", {
+                    provider: oidcConfig.provider_name,
+                  })
                 : t("admin.backup.reauth.useOIDC")}
             </Button>
             {!methods.passkey && (
@@ -359,18 +441,28 @@ export default function ReauthDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
             {t("admin.backup.cancel")}
           </Button>
-          <Button
-            variant={confirmVariant}
-            onClick={() => void handlePasswordConfirm()}
-            disabled={busy || password.trim() === ""}
-          >
-            {t("admin.backup.reauth.confirm")}
-          </Button>
+          {methods.password && (
+            <Button
+              variant={confirmVariant}
+              onClick={() => void handlePasswordConfirm()}
+              disabled={
+                busy ||
+                password.trim() === "" ||
+                (methods.password_requires_totp && totpCode.trim() === "")
+              }
+            >
+              {t("admin.backup.reauth.confirm")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

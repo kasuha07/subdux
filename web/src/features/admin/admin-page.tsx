@@ -315,6 +315,14 @@ export default function AdminPage() {
                   onOIDCExtraAuthParamsChange={(value) =>
                     admin.setSettingsField("oidcExtraAuthParams", value)
                   }
+                  oidcReauthACRMFA={settingsForm.oidcReauthACRMFA}
+                  onOIDCReauthACRMFAChange={(value) =>
+                    admin.setSettingsField("oidcReauthACRMFA", value)
+                  }
+                  oidcReauthACRPhishingResistant={settingsForm.oidcReauthACRPhishingResistant}
+                  onOIDCReauthACRPhishingResistantChange={(value) =>
+                    admin.setSettingsField("oidcReauthACRPhishingResistant", value)
+                  }
                   onSave={admin.handleSaveAuthSettings}
                 />
               </Suspense>

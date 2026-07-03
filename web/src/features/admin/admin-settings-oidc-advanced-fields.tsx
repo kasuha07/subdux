@@ -9,12 +9,16 @@ export default function AdminSettingsOIDCAdvancedFields({
   onOIDCAudienceChange,
   onOIDCAuthorizationEndpointChange,
   onOIDCExtraAuthParamsChange,
+  onOIDCReauthACRMFAChange,
+  onOIDCReauthACRPhishingResistantChange,
   onOIDCResourceChange,
   onOIDCTokenEndpointChange,
   onOIDCUserinfoEndpointChange,
   oidcAudience,
   oidcAuthorizationEndpoint,
   oidcExtraAuthParams,
+  oidcReauthACRMFA,
+  oidcReauthACRPhishingResistant,
   oidcResource,
   oidcTokenEndpoint,
   oidcUserinfoEndpoint,
@@ -92,6 +96,32 @@ export default function AdminSettingsOIDCAdvancedFields({
           />
           <p className="text-xs text-muted-foreground">
             {t("admin.settings.oidcExtraAuthParamsDescription")}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="oidc-reauth-acr-mfa">{t("admin.settings.oidcReauthAcrMfa")}</Label>
+          <Input
+            id="oidc-reauth-acr-mfa"
+            value={oidcReauthACRMFA}
+            onChange={(event) => onOIDCReauthACRMFAChange(event.target.value)}
+            placeholder={"mfa\nhttp://schemas.openid.net/pape/policies/2007/06/multi-factor"}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t("admin.settings.oidcReauthAcrMfaDescription")}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="oidc-reauth-acr-phishing-resistant">{t("admin.settings.oidcReauthAcrPhishingResistant")}</Label>
+          <Input
+            id="oidc-reauth-acr-phishing-resistant"
+            value={oidcReauthACRPhishingResistant}
+            onChange={(event) => onOIDCReauthACRPhishingResistantChange(event.target.value)}
+            placeholder={"phr\nphishing-resistant"}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t("admin.settings.oidcReauthAcrPhishingResistantDescription")}
           </p>
         </div>
       </div>

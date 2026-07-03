@@ -78,6 +78,8 @@ type SystemSettings struct {
 	OIDCAudience                         string `json:"oidc_audience"`
 	OIDCResource                         string `json:"oidc_resource"`
 	OIDCExtraAuthParams                  string `json:"oidc_extra_auth_params"`
+	OIDCReauthACRMFA                     string `json:"oidc_reauth_acr_mfa"`
+	OIDCReauthACRPhishingResistant       string `json:"oidc_reauth_acr_phishing_resistant"`
 	BackupScheduleEnabled                bool   `json:"backup_schedule_enabled"`
 	BackupTimeOfDay                      string `json:"backup_time_of_day"`
 	BackupIncludeAssets                  bool   `json:"backup_include_assets"`
@@ -141,6 +143,8 @@ type UpdateSettingsInput struct {
 	OIDCAudience                         *string `json:"oidc_audience"`
 	OIDCResource                         *string `json:"oidc_resource"`
 	OIDCExtraAuthParams                  *string `json:"oidc_extra_auth_params"`
+	OIDCReauthACRMFA                     *string `json:"oidc_reauth_acr_mfa"`
+	OIDCReauthACRPhishingResistant       *string `json:"oidc_reauth_acr_phishing_resistant"`
 	BackupScheduleEnabled                *bool   `json:"backup_schedule_enabled"`
 	BackupTimeOfDay                      *string `json:"backup_time_of_day"`
 	BackupIncludeAssets                  *bool   `json:"backup_include_assets"`

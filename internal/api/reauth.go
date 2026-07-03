@@ -17,9 +17,10 @@ import (
 const reauthTicketHeader = "X-Reauth-Ticket"
 
 // ReauthHandler exposes step-up re-authentication endpoints. A client verifies
-// one factor (password or passkey) for a named operation and receives a
-// short-lived, single-use ticket, which it then presents to the sensitive
-// endpoint (e.g. backup download / restore).
+// one reauth method for a named operation and receives a short-lived,
+// single-use ticket, which it then presents to the sensitive endpoint (e.g.
+// backup download / restore). The password method may itself require a TOTP
+// code when the account has two-factor authentication enabled.
 type ReauthHandler struct {
 	Service *service.ReauthService
 }
@@ -60,6 +61,7 @@ func (h *ReauthHandler) Methods(c echo.Context) error {
 type reauthPasswordInput struct {
 	Operation string `json:"operation"`
 	Password  string `json:"password"`
+	Code      string `json:"code"`
 }
 
 func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
@@ -72,7 +74,9 @@ func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 		return writeReauthError(c, err)
 	}
 
-	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyPassword(getUserID(c), operation, input.Password)
+	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyPassword(
+		getUserID(c), operation, input.Password, input.Code,
+	)
 	if err != nil {
 		return writeReauthError(c, err)
 	}

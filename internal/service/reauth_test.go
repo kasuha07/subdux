@@ -8,6 +8,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -52,11 +53,21 @@ func newReauthTestService(t *testing.T) (*ReauthService, model.User, string) {
 	return NewReauthService(db, NewAuthService(db)), user, password
 }
 
+func enableReauthTestTOTP(t *testing.T, svc *ReauthService, userID uint, secret string) {
+	t.Helper()
+	if err := svc.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"totp_enabled": true,
+		"totp_secret":  secret,
+	}).Error; err != nil {
+		t.Fatalf("failed to enable totp: %v", err)
+	}
+}
+
 func TestReauthVerifyPassword(t *testing.T) {
 	svc, user, password := newReauthTestService(t)
 
 	t.Run("correct password mints a usable ticket", func(t *testing.T) {
-		ticket, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password)
+		ticket, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, "")
 		if err != nil {
 			t.Fatalf("VerifyPassword() error = %v, want nil", err)
 		}
@@ -69,20 +80,46 @@ func TestReauthVerifyPassword(t *testing.T) {
 	})
 
 	t.Run("wrong password is rejected", func(t *testing.T) {
-		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, "wrong"); !errors.Is(err, ErrReauthRequired) {
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, "wrong", ""); !errors.Is(err, ErrReauthRequired) {
 			t.Fatalf("VerifyPassword() error = %v, want ErrReauthRequired", err)
 		}
 	})
 
 	t.Run("empty password is rejected", func(t *testing.T) {
-		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, ""); !errors.Is(err, ErrReauthRequired) {
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, "", ""); !errors.Is(err, ErrReauthRequired) {
 			t.Fatalf("VerifyPassword() error = %v, want ErrReauthRequired", err)
 		}
 	})
 
 	t.Run("unknown operation is rejected", func(t *testing.T) {
-		if _, err := svc.VerifyPassword(user.ID, "wipe", password); !errors.Is(err, ErrInvalidReauthOperation) {
+		if _, err := svc.VerifyPassword(user.ID, "wipe", password, ""); !errors.Is(err, ErrInvalidReauthOperation) {
 			t.Fatalf("VerifyPassword() error = %v, want ErrInvalidReauthOperation", err)
+		}
+	})
+
+	t.Run("totp-enabled users need a current totp code", func(t *testing.T) {
+		const secret = "JBSWY3DPEHPK3PXP"
+		enableReauthTestTOTP(t, svc, user.ID, secret)
+
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, ""); !errors.Is(err, ErrReauthRequired) {
+			t.Fatalf("VerifyPassword() without code error = %v, want ErrReauthRequired", err)
+		}
+
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, "000000"); !errors.Is(err, ErrReauthRequired) {
+			t.Fatalf("VerifyPassword() with invalid code error = %v, want ErrReauthRequired", err)
+		}
+
+		code, err := totp.GenerateCode(secret, time.Now().UTC())
+		if err != nil {
+			t.Fatalf("GenerateCode() error = %v, want nil", err)
+		}
+
+		ticket, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, code)
+		if err != nil {
+			t.Fatalf("VerifyPassword() with totp error = %v, want nil", err)
+		}
+		if ticket == "" {
+			t.Fatal("VerifyPassword() with totp returned empty ticket")
 		}
 	})
 }
@@ -92,7 +129,7 @@ func TestReauthConsume(t *testing.T) {
 
 	mint := func(op string) string {
 		t.Helper()
-		ticket, err := svc.VerifyPassword(user.ID, op, password)
+		ticket, err := svc.VerifyPassword(user.ID, op, password, "")
 		if err != nil {
 			t.Fatalf("VerifyPassword() error = %v", err)
 		}
@@ -144,7 +181,7 @@ func TestReauthTicketExpiry(t *testing.T) {
 	restore := pkg.SetClockForTest(clock)
 	defer restore()
 
-	ticket, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password)
+	ticket, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, "")
 	if err != nil {
 		t.Fatalf("VerifyPassword() error = %v", err)
 	}
@@ -194,6 +231,9 @@ func TestReauthAvailableMethods(t *testing.T) {
 	if !methods.Password {
 		t.Fatal("AvailableMethods().Password = false, want true")
 	}
+	if methods.PasswordRequiresTOTP {
+		t.Fatal("AvailableMethods().PasswordRequiresTOTP = true, want false")
+	}
 	if methods.Passkey {
 		t.Fatal("AvailableMethods().Passkey = true, want false (no passkey registered)")
 	}
@@ -214,6 +254,17 @@ func TestReauthAvailableMethods(t *testing.T) {
 	}
 	if !methods.Passkey {
 		t.Fatal("AvailableMethods().Passkey = false, want true")
+	}
+
+	const secret = "JBSWY3DPEHPK3PXP"
+	enableReauthTestTOTP(t, svc, user.ID, secret)
+
+	methods, err = svc.AvailableMethods(user.ID)
+	if err != nil {
+		t.Fatalf("AvailableMethods() after totp enable error = %v", err)
+	}
+	if !methods.PasswordRequiresTOTP {
+		t.Fatal("AvailableMethods().PasswordRequiresTOTP = false, want true")
 	}
 }
 
@@ -284,11 +335,14 @@ func TestReauthVerifyOIDC(t *testing.T) {
 	svc, user, _ := newReauthTestService(t)
 
 	// Seed a valid reauth result session as the OIDC callback would, then verify.
+	// A password-only account requires only OIDC-1, so a fresh-grade session is
+	// sufficient here; grade enforcement is covered by TestReauthVerifyOIDCGrade.
 	mintSession := func(userID uint, operation string) string {
 		return svc.auth.storeOIDCResultSession(OIDCSessionResult{
 			Purpose:   oidcPurposeReauth,
 			UserID:    userID,
 			Operation: operation,
+			Grade:     OIDCGradeFresh,
 		})
 	}
 
@@ -384,6 +438,157 @@ func TestFinishOIDCReauthOwnership(t *testing.T) {
 	}
 	if result.Purpose != oidcPurposeReauth || result.UserID != user.ID || result.Operation != ReauthOperationBackup {
 		t.Fatalf("finishOIDCReauth() result = %+v, want reauth/%d/%s", result, user.ID, ReauthOperationBackup)
+	}
+}
+
+func seedReauthTestPasskey(t *testing.T, svc *ReauthService, userID uint, credID string) {
+	t.Helper()
+	if err := svc.db.Create(&model.PasskeyCredential{
+		UserID:       userID,
+		Name:         "test",
+		CredentialID: credID,
+		Credential:   []byte("{}"),
+	}).Error; err != nil {
+		t.Fatalf("failed to create passkey: %v", err)
+	}
+}
+
+// TestReauthPasswordPolicy exercises the reauth matrix's knowledge-factor rule:
+// the password path is disabled exactly when a passkey is enrolled without TOTP,
+// and returns as password+TOTP when TOTP is also enrolled.
+func TestReauthPasswordPolicy(t *testing.T) {
+	t.Run("passkey without totp disables the password path", func(t *testing.T) {
+		svc, user, password := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-passkey-only")
+
+		methods, err := svc.AvailableMethods(user.ID)
+		if err != nil {
+			t.Fatalf("AvailableMethods() error = %v", err)
+		}
+		if methods.Password {
+			t.Fatal("AvailableMethods().Password = true for passkey-only account, want false")
+		}
+		if !methods.Passkey {
+			t.Fatal("AvailableMethods().Passkey = false, want true")
+		}
+
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, ""); !errors.Is(err, ErrPasswordReauthDisabled) {
+			t.Fatalf("VerifyPassword() error = %v, want ErrPasswordReauthDisabled", err)
+		}
+	})
+
+	t.Run("passkey plus totp restores the password+totp path", func(t *testing.T) {
+		svc, user, password := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-passkey-totp")
+		const secret = "JBSWY3DPEHPK3PXP"
+		enableReauthTestTOTP(t, svc, user.ID, secret)
+
+		methods, err := svc.AvailableMethods(user.ID)
+		if err != nil {
+			t.Fatalf("AvailableMethods() error = %v", err)
+		}
+		if !methods.Password {
+			t.Fatal("AvailableMethods().Password = false for passkey+totp account, want true")
+		}
+		if !methods.PasswordRequiresTOTP {
+			t.Fatal("AvailableMethods().PasswordRequiresTOTP = false, want true")
+		}
+
+		// Password alone (no code) is rejected; password+current code succeeds.
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, ""); !errors.Is(err, ErrReauthRequired) {
+			t.Fatalf("VerifyPassword() without code error = %v, want ErrReauthRequired", err)
+		}
+		code, err := totp.GenerateCode(secret, time.Now().UTC())
+		if err != nil {
+			t.Fatalf("GenerateCode() error = %v", err)
+		}
+		if _, err := svc.VerifyPassword(user.ID, ReauthOperationBackup, password, code); err != nil {
+			t.Fatalf("VerifyPassword() with code error = %v, want nil", err)
+		}
+	})
+}
+
+// TestReauthVerifyOIDCGrade exercises the matrix's OIDC minimum-grade rule: a
+// TOTP account needs OIDC-2, a passkey account needs OIDC-3, and a shortfall
+// yields ErrOIDCReauthInsufficient without minting a ticket.
+func TestReauthVerifyOIDCGrade(t *testing.T) {
+	mintSession := func(svc *ReauthService, userID uint, operation string, grade OIDCReauthGrade) string {
+		return svc.auth.storeOIDCResultSession(OIDCSessionResult{
+			Purpose:   oidcPurposeReauth,
+			UserID:    userID,
+			Operation: operation,
+			Grade:     grade,
+		})
+	}
+
+	t.Run("totp account rejects OIDC-1 but accepts OIDC-2", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		enableReauthTestTOTP(t, svc, user.ID, "JBSWY3DPEHPK3PXP")
+
+		low := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradeFresh)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, low); !errors.Is(err, ErrOIDCReauthInsufficient) {
+			t.Fatalf("VerifyOIDC() OIDC-1 error = %v, want ErrOIDCReauthInsufficient", err)
+		}
+
+		ok := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradeMFA)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, ok); err != nil {
+			t.Fatalf("VerifyOIDC() OIDC-2 error = %v, want nil", err)
+		}
+	})
+
+	t.Run("passkey account requires OIDC-3", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-oidc-grade")
+
+		mfa := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradeMFA)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, mfa); !errors.Is(err, ErrOIDCReauthInsufficient) {
+			t.Fatalf("VerifyOIDC() OIDC-2 error = %v, want ErrOIDCReauthInsufficient", err)
+		}
+
+		pr := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradePhishingResistant)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, pr); err != nil {
+			t.Fatalf("VerifyOIDC() OIDC-3 error = %v, want nil", err)
+		}
+	})
+
+	t.Run("password-only account accepts OIDC-1", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		s := mintSession(svc, user.ID, ReauthOperationBackup, OIDCGradeFresh)
+		if _, err := svc.VerifyOIDC(user.ID, ReauthOperationBackup, s); err != nil {
+			t.Fatalf("VerifyOIDC() OIDC-1 error = %v, want nil", err)
+		}
+	})
+}
+
+// TestGradeOIDCReauth covers the acr/amr classification table.
+func TestGradeOIDCReauth(t *testing.T) {
+	mfaACR := []string{"http://schemas.openid.net/pape/policies/2007/06/multi-factor", "mfa"}
+	prACR := []string{"phishing-resistant", "urn:acr:fido"}
+
+	cases := []struct {
+		name   string
+		claims *oidcIdentityClaims
+		want   OIDCReauthGrade
+	}{
+		{"no evidence stays fresh", &oidcIdentityClaims{}, OIDCGradeFresh},
+		{"amr otp is mfa", &oidcIdentityClaims{AMR: []string{"pwd", "otp"}}, OIDCGradeMFA},
+		{"amr mfa is mfa", &oidcIdentityClaims{AMR: []string{"mfa"}}, OIDCGradeMFA},
+		{"amr fido is phishing-resistant", &oidcIdentityClaims{AMR: []string{"pwd", "fido"}}, OIDCGradePhishingResistant},
+		{"amr hwk is phishing-resistant", &oidcIdentityClaims{AMR: []string{"hwk"}}, OIDCGradePhishingResistant},
+		{"amr webauthn is phishing-resistant", &oidcIdentityClaims{AMR: []string{"webauthn"}}, OIDCGradePhishingResistant},
+		{"configured mfa acr is mfa", &oidcIdentityClaims{ACR: "mfa"}, OIDCGradeMFA},
+		{"configured pr acr is phishing-resistant", &oidcIdentityClaims{ACR: "phishing-resistant"}, OIDCGradePhishingResistant},
+		{"pr amr beats mfa acr", &oidcIdentityClaims{ACR: "mfa", AMR: []string{"fido"}}, OIDCGradePhishingResistant},
+		{"space separated acr matches", &oidcIdentityClaims{ACR: "level1 urn:acr:fido"}, OIDCGradePhishingResistant},
+		{"case-insensitive amr", &oidcIdentityClaims{AMR: []string{"FIDO"}}, OIDCGradePhishingResistant},
+		{"unrelated acr stays fresh", &oidcIdentityClaims{ACR: "level0"}, OIDCGradeFresh},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := gradeOIDCReauth(tc.claims, mfaACR, prACR); got != tc.want {
+				t.Fatalf("gradeOIDCReauth() = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }
 

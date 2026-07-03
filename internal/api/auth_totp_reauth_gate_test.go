@@ -144,7 +144,7 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 	user := createReauthGateTestAdmin(t, reauthDB)
 	reauthSvc := service.NewReauthService(reauthDB, service.NewAuthService(reauthDB))
 
-	ticket, err := reauthSvc.VerifyPassword(user.ID, service.ReauthOperationEnableTOTP, reauthGateTestPassword)
+	ticket, err := reauthSvc.VerifyPassword(user.ID, service.ReauthOperationEnableTOTP, reauthGateTestPassword, "")
 	if err != nil {
 		t.Fatalf("VerifyPassword() error = %v, want nil", err)
 	}

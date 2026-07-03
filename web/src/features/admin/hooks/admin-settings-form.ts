@@ -29,6 +29,8 @@ export interface AdminSettingsFormState {
   oidcClientSecretConfigured: boolean
   oidcEnabled: boolean
   oidcExtraAuthParams: string
+  oidcReauthACRMFA: string
+  oidcReauthACRPhishingResistant: string
   oidcIssuerURL: string
   oidcProviderName: string
   oidcRedirectURL: string
@@ -115,6 +117,8 @@ const formFieldsByScope: Record<AdminSettingsSaveScope, readonly (keyof AdminSet
     "oidcClientSecretConfigured",
     "oidcEnabled",
     "oidcExtraAuthParams",
+    "oidcReauthACRMFA",
+    "oidcReauthACRPhishingResistant",
     "oidcIssuerURL",
     "oidcProviderName",
     "oidcRedirectURL",
@@ -168,6 +172,8 @@ export function createAdminSettingsForm(settings?: SystemSettings): AdminSetting
     oidcClientSecretConfigured: settings?.oidc_client_secret_configured ?? false,
     oidcEnabled: settings?.oidc_enabled ?? false,
     oidcExtraAuthParams: settings?.oidc_extra_auth_params || "",
+    oidcReauthACRMFA: settings?.oidc_reauth_acr_mfa || "",
+    oidcReauthACRPhishingResistant: settings?.oidc_reauth_acr_phishing_resistant || "",
     oidcIssuerURL: settings?.oidc_issuer_url || "",
     oidcProviderName: settings?.oidc_provider_name || "OIDC",
     oidcRedirectURL: settings?.oidc_redirect_url || "",
@@ -303,6 +309,8 @@ function buildAuthSettingsPayload(form: AdminSettingsFormState): UpdateSettingsI
     oidc_client_id: form.oidcClientID,
     oidc_enabled: form.oidcEnabled,
     oidc_extra_auth_params: form.oidcExtraAuthParams,
+    oidc_reauth_acr_mfa: form.oidcReauthACRMFA,
+    oidc_reauth_acr_phishing_resistant: form.oidcReauthACRPhishingResistant,
     oidc_issuer_url: form.oidcIssuerURL,
     oidc_provider_name: form.oidcProviderName,
     oidc_redirect_url: form.oidcRedirectURL,

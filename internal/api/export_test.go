@@ -43,6 +43,7 @@ func newExportAPITestDB(t *testing.T) *gorm.DB {
 		&model.NotificationPolicy{},
 		&model.NotificationTemplate{},
 		&model.CalendarToken{},
+		&model.PasskeyCredential{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}

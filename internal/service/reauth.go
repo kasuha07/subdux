@@ -10,17 +10,19 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 // Reauth ("step-up") re-verifies that the human behind an already-authenticated
-// session is present before a sensitive operation runs. A single factor
-// (password or passkey) is verified here and, on success, a short-lived,
-// single-use, operation-scoped ticket is minted. The sensitive endpoint then
-// only has to Consume the ticket — it never needs to know which factor was
-// used. Adding a new factor later (e.g. TOTP) means adding one verifier that
-// mints a ticket; the sensitive endpoints stay untouched.
+// session is present before a sensitive operation runs. A reauth method
+// (password, passkey, or OIDC) is verified here and, on success, a short-lived,
+// single-use, operation-scoped ticket is minted. The password method can itself
+// require a second factor: when the user has TOTP enabled, password reauth is
+// upgraded to password plus a current TOTP code. The sensitive endpoint then
+// only has to Consume the ticket — it never needs to know which factor path was
+// used.
 //
 // Tickets and passkey challenge sessions are held in memory, matching the
 // existing passkey/OIDC session stores. This is correct for a single-process
@@ -59,16 +61,67 @@ var ErrInvalidReauthOperation = errors.New("invalid reauth operation")
 // operation). It deliberately does not distinguish these cases.
 var ErrReauthRequired = errors.New("re-authentication required")
 
-// ReauthMethods reports which factors a user can use to re-authenticate.
-// Password is always offered; a wrong or unusable password (e.g. an OIDC-only
-// account) simply fails verification. Passkey is offered when the user has one
-// registered. OIDC is offered when the provider is enabled/configured and the
-// user has a linked OIDC identity — the step-up factor for OIDC-only admins who
-// never learned their randomly-generated password.
+// ErrPasswordReauthDisabled is returned when the password (knowledge) factor is
+// not an accepted reauth method for the account. This is the case when the user
+// has a passkey enrolled but no TOTP: per policy a passkey account must step up
+// with the passkey itself (or, if TOTP is also enrolled, password+TOTP). The
+// error is distinct from ErrReauthRequired so the caller can steer the user to a
+// stronger factor rather than implying a wrong password.
+var ErrPasswordReauthDisabled = errors.New("password re-authentication is not available for this account; use a passkey")
+
+// ErrOIDCReauthInsufficient is returned when an OIDC step-up succeeds but the
+// provider login did not prove a strong enough assurance level for the account's
+// enrolled factors (e.g. a TOTP account needs OIDC-2 MFA, a passkey account needs
+// OIDC-3 phishing-resistant). The user can fall back to another accepted method.
+var ErrOIDCReauthInsufficient = errors.New("your provider sign-in did not prove strong enough authentication for this account; use a passkey or another method")
+
+// ReauthMethods reports which factors a user can use to re-authenticate, after
+// applying the account's step-up policy (reauthPolicyFor). Password is offered
+// only when the knowledge factor is an accepted method for the account — it is
+// withheld from passkey accounts that have no TOTP, which must step up with the
+// passkey itself. PasswordRequiresTOTP is set when the password path is offered
+// but must be accompanied by a current TOTP code. Passkey is offered when the
+// user has one registered. OIDC is offered when the provider is enabled and the
+// user has a linked OIDC identity; the grade the provider must prove is enforced
+// at verification time (VerifyOIDC), not advertised here.
 type ReauthMethods struct {
-	Password bool `json:"password"`
-	Passkey  bool `json:"passkey"`
-	OIDC     bool `json:"oidc"`
+	Password             bool `json:"password"`
+	PasswordRequiresTOTP bool `json:"password_requires_totp"`
+	Passkey              bool `json:"passkey"`
+	OIDC                 bool `json:"oidc"`
+}
+
+// reauthPolicy captures the accepted step-up methods for an account given its
+// enrolled factors. It is the single source of truth for the reauth matrix:
+//
+//	enrolled factors            password        passkey   OIDC min grade
+//	password                    yes             -         OIDC-1
+//	password+TOTP               yes (+TOTP)     -         OIDC-2
+//	password+passkey            no              yes       OIDC-3
+//	password+TOTP+passkey       yes (+TOTP)     yes       OIDC-3
+//
+// The knowledge (password) factor is disabled exactly when a passkey is enrolled
+// without TOTP: such an account must use its passkey (a stronger, phishing-
+// resistant factor) rather than a bare password. When TOTP is also enrolled the
+// password path returns as password+TOTP, matching the passkey's strength.
+type reauthPolicy struct {
+	passwordAllowed      bool
+	passwordRequiresTOTP bool
+	requiredOIDCGrade    OIDCReauthGrade
+}
+
+func reauthPolicyFor(hasTOTP, hasPasskey bool) reauthPolicy {
+	requiredGrade := OIDCGradeFresh
+	if hasPasskey {
+		requiredGrade = OIDCGradePhishingResistant
+	} else if hasTOTP {
+		requiredGrade = OIDCGradeMFA
+	}
+	return reauthPolicy{
+		passwordAllowed:      !(hasPasskey && !hasTOTP),
+		passwordRequiresTOTP: hasTOTP,
+		requiredOIDCGrade:    requiredGrade,
+	}
 }
 
 type reauthTicket struct {
@@ -133,8 +186,13 @@ func IsValidReauthOperation(operation string) bool {
 	}
 }
 
-// AvailableMethods reports the factors the user can present for reauth.
+// AvailableMethods reports the factors the user can present for reauth, after
+// applying the account's step-up policy.
 func (s *ReauthService) AvailableMethods(userID uint) (ReauthMethods, error) {
+	var user model.User
+	if err := s.db.Select("id", "totp_enabled").First(&user, userID).Error; err != nil {
+		return ReauthMethods{}, err
+	}
 	hasPasskey, err := s.auth.HasPasskeys(userID)
 	if err != nil {
 		return ReauthMethods{}, err
@@ -143,12 +201,22 @@ func (s *ReauthService) AvailableMethods(userID uint) (ReauthMethods, error) {
 	if err != nil {
 		return ReauthMethods{}, err
 	}
-	return ReauthMethods{Password: true, Passkey: hasPasskey, OIDC: hasOIDC}, nil
+
+	policy := reauthPolicyFor(user.TotpEnabled, hasPasskey)
+	return ReauthMethods{
+		Password:             policy.passwordAllowed,
+		PasswordRequiresTOTP: policy.passwordAllowed && policy.passwordRequiresTOTP,
+		Passkey:              hasPasskey,
+		OIDC:                 hasOIDC,
+	}, nil
 }
 
-// VerifyPassword checks the user's account password and, on success, mints a
-// ticket for the given operation.
-func (s *ReauthService) VerifyPassword(userID uint, operation string, password string) (string, error) {
+// VerifyPassword checks the user's account password and, when TOTP is enabled on
+// the account, also requires a current authenticator code. It fails with
+// ErrPasswordReauthDisabled when the knowledge factor is not an accepted method
+// for the account (a passkey enrolled without TOTP). On success it mints a ticket
+// for the given operation.
+func (s *ReauthService) VerifyPassword(userID uint, operation string, password string, code string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
@@ -160,8 +228,23 @@ func (s *ReauthService) VerifyPassword(userID uint, operation string, password s
 	if err := s.db.First(&user, userID).Error; err != nil {
 		return "", ErrReauthRequired
 	}
+
+	hasPasskey, err := s.auth.HasPasskeys(userID)
+	if err != nil {
+		return "", err
+	}
+	policy := reauthPolicyFor(user.TotpEnabled, hasPasskey)
+	if !policy.passwordAllowed {
+		return "", ErrPasswordReauthDisabled
+	}
+
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
 		return "", ErrReauthRequired
+	}
+	if policy.passwordRequiresTOTP {
+		if code == "" || user.TotpSecret == nil || !totp.Validate(code, *user.TotpSecret) {
+			return "", ErrReauthRequired
+		}
 	}
 
 	return s.mintTicket(userID, operation)
@@ -199,16 +282,33 @@ func (s *ReauthService) BeginOIDC(userID uint, operation string) (*OIDCStartResu
 }
 
 // VerifyOIDC completes an OIDC step-up: it spends the single-use reauth result
-// session produced by the OIDC callback (bound to this user and operation) and,
-// on success, mints a ticket. Mirrors FinishPasskey — the sensitive endpoints
-// never learn which factor was used.
+// session produced by the OIDC callback (bound to this user and operation),
+// enforces that the provider login proved a strong enough assurance level for the
+// account's enrolled factors, and on success mints a ticket. Mirrors
+// FinishPasskey — the sensitive endpoints never learn which factor was used.
 func (s *ReauthService) VerifyOIDC(userID uint, operation string, sessionID string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
-	if err := s.auth.ConsumeOIDCReauthResult(sessionID, userID, operation); err != nil {
+
+	grade, err := s.auth.ConsumeOIDCReauthResult(sessionID, userID, operation)
+	if err != nil {
 		return "", err
 	}
+
+	var user model.User
+	if err := s.db.Select("id", "totp_enabled").First(&user, userID).Error; err != nil {
+		return "", ErrReauthRequired
+	}
+	hasPasskey, err := s.auth.HasPasskeys(userID)
+	if err != nil {
+		return "", err
+	}
+	policy := reauthPolicyFor(user.TotpEnabled, hasPasskey)
+	if grade < policy.requiredOIDCGrade {
+		return "", ErrOIDCReauthInsufficient
+	}
+
 	return s.mintTicket(userID, operation)
 }
 

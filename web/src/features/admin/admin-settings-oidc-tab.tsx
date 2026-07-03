@@ -22,6 +22,8 @@ export default function AdminSettingsOIDCTab({
   onOIDCClientSecretChange,
   onOIDCEnabledChange,
   onOIDCExtraAuthParamsChange,
+  onOIDCReauthACRMFAChange,
+  onOIDCReauthACRPhishingResistantChange,
   onOIDCIssuerURLChange,
   onOIDCProviderNameChange,
   onOIDCRedirectURLChange,
@@ -41,6 +43,8 @@ export default function AdminSettingsOIDCTab({
   oidcIssuerURL,
   oidcProviderName,
   oidcRedirectURL,
+  oidcReauthACRMFA,
+  oidcReauthACRPhishingResistant,
   oidcResource,
   oidcScopes,
   oidcTokenEndpoint,
@@ -69,6 +73,8 @@ export default function AdminSettingsOIDCTab({
         onOIDCClientSecretChange={onOIDCClientSecretChange}
         onOIDCEnabledChange={onOIDCEnabledChange}
         onOIDCExtraAuthParamsChange={onOIDCExtraAuthParamsChange}
+        onOIDCReauthACRMFAChange={onOIDCReauthACRMFAChange}
+        onOIDCReauthACRPhishingResistantChange={onOIDCReauthACRPhishingResistantChange}
         onOIDCIssuerURLChange={onOIDCIssuerURLChange}
         onOIDCProviderNameChange={onOIDCProviderNameChange}
         onOIDCRedirectURLChange={onOIDCRedirectURLChange}
@@ -87,6 +93,8 @@ export default function AdminSettingsOIDCTab({
         oidcIssuerURL={oidcIssuerURL}
         oidcProviderName={oidcProviderName}
         oidcRedirectURL={oidcRedirectURL}
+        oidcReauthACRMFA={oidcReauthACRMFA}
+        oidcReauthACRPhishingResistant={oidcReauthACRPhishingResistant}
         oidcResource={oidcResource}
         oidcScopes={oidcScopes}
         oidcTokenEndpoint={oidcTokenEndpoint}

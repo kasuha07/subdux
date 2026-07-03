@@ -73,12 +73,15 @@ type OIDCSessionResult struct {
 	Connection   *OIDCConnectionInfo `json:"connection,omitempty"`
 	Error        string              `json:"error,omitempty"`
 
-	// UserID and Operation are internal to the reauth ("step-up") flow. They are
-	// never serialized to clients: the reauth result session is consumed
-	// server-side (VerifyOIDC) to mint a ticket, and these fields let Consume
-	// bind the OIDC identity back to the requesting admin and operation.
-	UserID    uint   `json:"-"`
-	Operation string `json:"-"`
+	// UserID, Operation, and Grade are internal to the reauth ("step-up") flow.
+	// They are never serialized to clients: the reauth result session is consumed
+	// server-side (VerifyOIDC) to mint a ticket, and these fields let Consume bind
+	// the OIDC identity back to the requesting admin and operation, and enforce
+	// that the login proved a strong enough assurance level (OIDCGrade) for the
+	// account's enrolled factors.
+	UserID    uint            `json:"-"`
+	Operation string          `json:"-"`
+	Grade     OIDCReauthGrade `json:"-"`
 }
 
 type oidcStateSession struct {
@@ -124,13 +127,102 @@ func (s oidcSettings) isConfigured() bool {
 }
 
 type oidcIdentityClaims struct {
-	Subject           string `json:"sub"`
-	Email             string `json:"email"`
-	EmailVerified     bool   `json:"email_verified"`
-	PreferredUsername string `json:"preferred_username"`
-	Name              string `json:"name"`
-	Nonce             string `json:"nonce"`
-	AuthTime          int64  `json:"auth_time"`
+	Subject           string   `json:"sub"`
+	Email             string   `json:"email"`
+	EmailVerified     bool     `json:"email_verified"`
+	PreferredUsername string   `json:"preferred_username"`
+	Name              string   `json:"name"`
+	Nonce             string   `json:"nonce"`
+	AuthTime          int64    `json:"auth_time"`
+	ACR               string   `json:"acr"`
+	AMR               []string `json:"amr"`
+}
+
+// OIDCReauthGrade is the assurance level a completed OIDC step-up proves, mapped
+// onto the same reauth tiers as local factors:
+//
+//	OIDC-1 (Fresh)              fresh provider login (auth_time verified), no MFA evidence — password-level
+//	OIDC-2 (MFA)               fresh login whose acr/amr proves multi-factor — password+TOTP-level
+//	OIDC-3 (PhishingResistant) fresh login whose acr/amr proves passkey/FIDO2/security-key — passkey-level
+//
+// OIDC-0 ("unknown strength": reused IdP session, no reliable auth_time) is never
+// represented here — the callback path rejects it via validateOIDCReauthFreshLogin
+// before any result session is minted, so a graded result always means ≥ OIDC-1.
+type OIDCReauthGrade int
+
+const (
+	OIDCGradeFresh             OIDCReauthGrade = 1
+	OIDCGradeMFA               OIDCReauthGrade = 2
+	OIDCGradePhishingResistant OIDCReauthGrade = 3
+)
+
+// Standardized amr values (RFC 8176) that classify a completed login. These are
+// heuristics: amr is a bag of method identifiers, so we upgrade the grade to the
+// strongest signal present. Admin-configured acr allowlists (getReauthACRLists)
+// cover providers that only emit provider-specific acr values.
+var (
+	// amr tokens proving phishing-resistant authentication (hardware-bound /
+	// WebAuthn / FIDO2). "phr"/"phrh" are widely emitted by Microsoft Entra.
+	oidcAMRPhishingResistant = map[string]struct{}{
+		"hwk": {}, "fido": {}, "webauthn": {}, "phr": {}, "phrh": {},
+	}
+	// amr tokens proving a second factor beyond a password.
+	oidcAMRMultiFactor = map[string]struct{}{
+		"mfa": {}, "otp": {}, "sms": {}, "tel": {}, "mca": {},
+	}
+)
+
+// gradeOIDCReauth classifies a fresh OIDC login (auth_time already validated by
+// the caller) into a reauth grade using amr heuristics plus admin-configured acr
+// allowlists. It returns the strongest grade any signal supports; absent MFA/PR
+// evidence it stays at OIDC-1 (fresh login only).
+func gradeOIDCReauth(claims *oidcIdentityClaims, mfaACR, phishingResistantACR []string) OIDCReauthGrade {
+	if claims == nil {
+		return OIDCGradeFresh
+	}
+
+	for _, method := range claims.AMR {
+		if _, ok := oidcAMRPhishingResistant[strings.ToLower(strings.TrimSpace(method))]; ok {
+			return OIDCGradePhishingResistant
+		}
+	}
+	if oidcACRMatches(phishingResistantACR, claims.ACR) {
+		return OIDCGradePhishingResistant
+	}
+
+	for _, method := range claims.AMR {
+		if _, ok := oidcAMRMultiFactor[strings.ToLower(strings.TrimSpace(method))]; ok {
+			return OIDCGradeMFA
+		}
+	}
+	if oidcACRMatches(mfaACR, claims.ACR) {
+		return OIDCGradeMFA
+	}
+
+	return OIDCGradeFresh
+}
+
+// oidcACRMatches reports whether the token-separated acr claim contains any value
+// in the allowlist. The acr claim is a space-separated string of values (per
+// OIDC core); each is compared case-insensitively after trimming.
+func oidcACRMatches(allowlist []string, acr string) bool {
+	if len(allowlist) == 0 {
+		return false
+	}
+	present := make(map[string]struct{})
+	for _, value := range strings.Fields(acr) {
+		present[strings.ToLower(strings.TrimSpace(value))] = struct{}{}
+	}
+	for _, allowed := range allowlist {
+		trimmed := strings.ToLower(strings.TrimSpace(allowed))
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := present[trimmed]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *AuthService) GetOIDCPublicConfig() *OIDCPublicConfig {
@@ -257,20 +349,22 @@ func (s *AuthService) ConsumeOIDCSessionResult(sessionID string) (*OIDCSessionRe
 // ConsumeOIDCReauthResult atomically spends the reauth result session created by
 // a successful OIDC step-up callback. It succeeds only when the session was
 // minted for the reauth purpose, belongs to the same admin (userID), and matches
-// the operation the step-up was started for. The single-use semantics come from
+// the operation the step-up was started for. On success it returns the assurance
+// grade the login proved (≥ OIDC-1), so the caller can enforce the minimum grade
+// the account's enrolled factors demand. The single-use semantics come from
 // takeOIDCResultSession, which deletes the session on read.
-func (s *AuthService) ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) error {
+func (s *AuthService) ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) (OIDCReauthGrade, error) {
 	result, err := s.takeOIDCResultSession(strings.TrimSpace(sessionID))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if result.Error != "" {
-		return errors.New(result.Error)
+		return 0, errors.New(result.Error)
 	}
 	if result.Purpose != oidcPurposeReauth || result.UserID != userID || result.Operation != operation {
-		return errors.New("invalid oidc reauth session")
+		return 0, errors.New("invalid oidc reauth session")
 	}
-	return nil
+	return result.Grade, nil
 }
 
 func (s *AuthService) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, error) {
@@ -628,10 +722,14 @@ func (s *AuthService) finishOIDCReauth(userID uint, operation string, claims *oi
 		return OIDCSessionResult{}, errors.New("oidc identity is not linked to this account")
 	}
 
+	mfaACR, phishingResistantACR := s.getReauthACRLists()
+	grade := gradeOIDCReauth(claims, mfaACR, phishingResistantACR)
+
 	return OIDCSessionResult{
 		Purpose:   oidcPurposeReauth,
 		UserID:    userID,
 		Operation: operation,
+		Grade:     grade,
 	}, nil
 }
 
@@ -783,6 +881,29 @@ func (s *AuthService) createOIDCCallbackErrorResult(purpose string, message stri
 	})
 
 	return &OIDCCallbackResult{Purpose: purpose, SessionID: sessionID}, nil
+}
+
+// getReauthACRLists returns the admin-configured acr allowlists that mark a
+// provider's login as MFA-grade (OIDC-2) or phishing-resistant (OIDC-3). Values
+// are stored as free-form separated strings; splitReauthACRList tolerates
+// newline, comma, and semicolon separators to match the other settings lists.
+func (s *AuthService) getReauthACRLists() (mfa []string, phishingResistant []string) {
+	return splitReauthACRList(s.getSetting("oidc_reauth_acr_mfa")),
+		splitReauthACRList(s.getSetting("oidc_reauth_acr_phishing_resistant"))
+}
+
+func splitReauthACRList(raw string) []string {
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '\n' || r == '\r' || r == ',' || r == ';' || r == ' ' || r == '\t'
+	})
+	values := make([]string, 0, len(fields))
+	for _, field := range fields {
+		trimmed := strings.TrimSpace(field)
+		if trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+	return values
 }
 
 func (s *AuthService) getOIDCSettings() oidcSettings {
