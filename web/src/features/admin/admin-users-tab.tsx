@@ -23,6 +23,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -143,15 +150,18 @@ export default function AdminUsersTab({
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="role">{t("admin.users.role")}</Label>
-                    <select
-                      id="role"
+                    <Select
                       value={newRole}
-                      onChange={(event) => onNewRoleChange(event.target.value as "user" | "admin")}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      onValueChange={(value) => onNewRoleChange(value as "user" | "admin")}
                     >
-                      <option value="user">{t("admin.users.roleUser")}</option>
-                      <option value="admin">{t("admin.users.roleAdmin")}</option>
-                    </select>
+                      <SelectTrigger id="role" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">{t("admin.users.roleUser")}</SelectItem>
+                        <SelectItem value="admin">{t("admin.users.roleAdmin")}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
