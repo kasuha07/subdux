@@ -1,4 +1,4 @@
-package service
+package smtp
 
 import (
 	"context"
@@ -10,10 +10,12 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/outbound"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
-type smtpRuntimeConfig struct {
+type RuntimeConfig struct {
 	Host             string
 	Port             int64
 	Username         string
@@ -30,11 +32,7 @@ type smtpRuntimeConfig struct {
 	DialContext      func(context.Context, string, string) (net.Conn, error)
 }
 
-func (s *AdminService) loadSMTPRuntimeConfig() (*smtpRuntimeConfig, error) {
-	return loadSMTPRuntimeConfig(s.DB)
-}
-
-func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
+func LoadRuntimeConfig(db *gorm.DB) (*RuntimeConfig, error) {
 	if db == nil {
 		return nil, errors.New("failed to load smtp settings")
 	}
@@ -96,7 +94,7 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 		return nil, errors.New("smtp username and password are required for selected auth method")
 	}
 
-	return &smtpRuntimeConfig{
+	return &RuntimeConfig{
 		Host:             host,
 		Port:             port,
 		Username:         username,
@@ -110,7 +108,7 @@ func loadSMTPRuntimeConfig(db *gorm.DB) (*smtpRuntimeConfig, error) {
 		RateLimitSeconds: rateLimitSeconds,
 		RateLimitDB:      db,
 		SkipTLSVerify:    values["smtp_skip_tls_verify"] == "true",
-		DialContext:      NewOutboundDialContext(db, time.Duration(timeoutSeconds)*time.Second),
+		DialContext:      outbound.NewOutboundDialContext(db, time.Duration(timeoutSeconds)*time.Second),
 	}, nil
 }
 
@@ -131,18 +129,18 @@ func loadSMTPRuntimeSettingValues(ctx context.Context, db *gorm.DB) (map[string]
 		"smtp_skip_tls_verify":    "false",
 	}
 
-	values, err := loadRawSystemSettingStrings(ctx, db, defaults)
+	values, err := systemsettings.LoadRawStrings(ctx, db, defaults)
 	if err != nil {
 		return nil, errors.New("failed to load smtp settings")
 	}
 
 	for key, storedValue := range values {
-		value, decryptErr := decryptSystemSettingValueIfNeeded(key, storedValue)
+		value, decryptErr := systemsettings.DecryptValueIfNeeded(key, storedValue)
 		if decryptErr != nil {
 			return nil, errors.New("failed to decrypt smtp settings")
 		}
-		if !pkg.IsSystemSettingEncrypted(storedValue) && value != "" && isEncryptedSystemSettingKey(key) {
-			if encryptedValue, encryptErr := encryptSystemSettingValueIfNeeded(key, value); encryptErr == nil {
+		if !pkg.IsSystemSettingEncrypted(storedValue) && value != "" && systemsettings.IsEncryptedKey(key) {
+			if encryptedValue, encryptErr := systemsettings.EncryptValueIfNeeded(key, value); encryptErr == nil {
 				_ = db.WithContext(ctx).Model(&model.SystemSetting{}).Where("key = ?", key).Update("value", encryptedValue).Error
 			}
 		}

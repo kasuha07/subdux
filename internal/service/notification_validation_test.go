@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 )
 
 type notificationTestRoundTripper func(req *http.Request) (*http.Response, error)
@@ -327,8 +328,7 @@ func TestValidateChannelConfigRejectsUnknownFields(t *testing.T) {
 }
 
 func TestDoNotificationRequestRejectsRedirectToPrivateHost(t *testing.T) {
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, host string) ([]net.IP, error) {
 		switch host {
 		case "example.com":
 			return []net.IP{net.ParseIP("93.184.216.34")}, nil
@@ -337,10 +337,8 @@ func TestDoNotificationRequestRejectsRedirectToPrivateHost(t *testing.T) {
 		default:
 			return nil, errors.New("unexpected lookup host")
 		}
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	callCount := 0
 	client := &http.Client{
@@ -393,13 +391,10 @@ func TestDoNotificationRequestRejectsRedirectToPrivateHost(t *testing.T) {
 }
 
 func TestValidateResolvedOutboundHostRejectsDNSLookupFailure(t *testing.T) {
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, _ string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, _ string) ([]net.IP, error) {
 		return nil, errors.New("dns unavailable")
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	err := validateResolvedOutboundHost("example.com", nil)
 	if err == nil {
@@ -411,13 +406,10 @@ func TestValidateResolvedOutboundHostRejectsDNSLookupFailure(t *testing.T) {
 }
 
 func TestValidateResolvedOutboundHostRejectsEmptyDNSResults(t *testing.T) {
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, _ string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, _ string) ([]net.IP, error) {
 		return []net.IP{}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	err := validateResolvedOutboundHost("example.com", nil)
 	if err == nil {
@@ -429,16 +421,13 @@ func TestValidateResolvedOutboundHostRejectsEmptyDNSResults(t *testing.T) {
 }
 
 func TestValidateResolvedOutboundHostClassifiesRestrictedResolvedIP(t *testing.T) {
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, host string) ([]net.IP, error) {
 		if host != "example.com" {
 			t.Fatalf("lookup host = %q, want example.com", host)
 		}
 		return []net.IP{net.ParseIP("10.0.0.5")}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	err := validateResolvedOutboundHost("example.com", nil)
 	if err == nil {
@@ -453,16 +442,13 @@ func TestValidateResolvedOutboundHostClassifiesRestrictedResolvedIP(t *testing.T
 }
 
 func TestSendSMTPRejectsRuntimePrivateHost(t *testing.T) {
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, host string) ([]net.IP, error) {
 		if host != "smtp.example.com" {
 			t.Fatalf("lookup host = %q, want smtp.example.com", host)
 		}
 		return []net.IP{net.ParseIP("10.0.0.5")}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	svc := &NotificationService{}
 	channel := model.NotificationChannel{

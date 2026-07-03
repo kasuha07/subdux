@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
@@ -577,34 +578,13 @@ func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, e
 }
 
 func saveBoolSystemSetting(tx *gorm.DB, key string, enabled bool) error {
-	value := "false"
-	if enabled {
-		value = "true"
-	}
-	return saveStringSystemSetting(tx, key, value)
+	return systemsettings.SaveBool(tx, key, enabled)
 }
 
 func saveStringSystemSetting(tx *gorm.DB, key string, value string) error {
-	// Use a map rather than a struct for Assign so that empty-string values are
-	// persisted. GORM omits zero-value struct fields from updates, which would
-	// otherwise make it impossible to clear a setting back to an empty value.
-	return tx.Where("key = ?", key).
-		Assign(map[string]interface{}{"value": value}).
-		FirstOrCreate(&model.SystemSetting{Key: key}).Error
+	return systemsettings.SaveString(tx, key, value)
 }
 
 func saveEncryptedSystemSetting(tx *gorm.DB, key string, value string) error {
-	// Encrypted keys are write-only: their values are never returned to clients
-	// (only a "<key>Set" flag is). By convention an empty incoming value means
-	// "keep the existing secret unchanged" rather than "clear it", because a
-	// blank field cannot be distinguished from "leave as-is" when the current
-	// value is never shown back. Skip the write so the stored secret survives.
-	if strings.TrimSpace(value) == "" {
-		return nil
-	}
-	encrypted, err := encryptSystemSettingValueIfNeeded(key, value)
-	if err != nil {
-		return err
-	}
-	return saveStringSystemSetting(tx, key, encrypted)
+	return systemsettings.SaveEncrypted(tx, key, value)
 }

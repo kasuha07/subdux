@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"gorm.io/gorm"
 )
 
@@ -17,16 +18,13 @@ func TestSendNtfyUsesSubscriptionURLAsClickHeader(t *testing.T) {
 	const subscriptionURL = "https://subscription.example.com/manage"
 	const configClickURL = "https://channel.example.com/fallback"
 
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, host string) ([]net.IP, error) {
 		if host != "ntfy.example.com" {
 			return nil, errors.New("unexpected lookup host")
 		}
 		return []net.IP{net.ParseIP("93.184.216.34")}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	var gotClick string
 	var gotXClick string
@@ -67,16 +65,13 @@ func TestSendNtfyUsesSubscriptionURLAsClickHeader(t *testing.T) {
 func TestSendNtfyFallsBackToConfigClickHeaderWhenSubscriptionURLMissing(t *testing.T) {
 	const configClickURL = "https://channel.example.com/fallback"
 
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, host string) ([]net.IP, error) {
 		if host != "ntfy.example.com" {
 			return nil, errors.New("unexpected lookup host")
 		}
 		return []net.IP{net.ParseIP("93.184.216.34")}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	var gotClick string
 	var gotXClick string

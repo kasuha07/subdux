@@ -1,4 +1,4 @@
-package service
+package smtp
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func (a *smtpLoginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 	}
 }
 
-func normalizeSMTPRateLimitSeconds(value int64) (int64, error) {
+func NormalizeRateLimitSeconds(value int64) (int64, error) {
 	if value < 0 || value > smtpRateLimitMaxSeconds {
 		return 0, ErrInvalidSMTPRateLimit
 	}
@@ -71,7 +71,7 @@ func parseSMTPRateLimitSeconds(raw string) int64 {
 	return value
 }
 
-func buildSMTPMessage(fromEmail string, fromName string, toEmail string, subject string, body string) []byte {
+func BuildMessage(fromEmail string, fromName string, toEmail string, subject string, body string) []byte {
 	escapedName := strings.ReplaceAll(fromName, "\"", "'")
 	fromHeader := fromEmail
 	if strings.TrimSpace(escapedName) != "" {
@@ -89,8 +89,8 @@ func buildSMTPMessage(fromEmail string, fromName string, toEmail string, subject
 	return []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + body + "\r\n")
 }
 
-func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) error {
-	if err := reserveSMTPRateLimitSlot(cfg); err != nil {
+func Send(cfg RuntimeConfig, recipient string, message []byte) error {
+	if err := ReserveRateLimitSlot(cfg); err != nil {
 		return err
 	}
 
@@ -192,7 +192,7 @@ func sendSMTPMessage(cfg smtpRuntimeConfig, recipient string, message []byte) er
 	return nil
 }
 
-func reserveSMTPRateLimitSlot(cfg smtpRuntimeConfig) error {
+func ReserveRateLimitSlot(cfg RuntimeConfig) error {
 	if cfg.RateLimitSeconds <= 0 || cfg.RateLimitDB == nil {
 		return nil
 	}
@@ -223,7 +223,7 @@ func reserveSMTPRateLimitSlot(cfg smtpRuntimeConfig) error {
 	})
 }
 
-func buildSMTPAuth(cfg smtpRuntimeConfig) (smtp.Auth, error) {
+func buildSMTPAuth(cfg RuntimeConfig) (smtp.Auth, error) {
 	username := strings.TrimSpace(cfg.Username)
 	password := strings.TrimSpace(cfg.Password)
 

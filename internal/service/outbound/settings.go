@@ -1,4 +1,4 @@
-package service
+package outbound
 
 import (
 	"errors"
@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
 const (
-	systemProxyTypeHTTP   = "http"
-	systemProxyTypeSOCKS5 = "socks5"
+	SystemProxyTypeHTTP   = "http"
+	SystemProxyTypeSOCKS5 = "socks5"
 )
 
 var (
@@ -21,17 +22,17 @@ var (
 	ErrInvalidSystemProxyURL  = errors.New("system proxy url must include a host")
 )
 
-type systemProxyConfig struct {
+type SystemProxyConfig struct {
 	Enabled  bool
 	Type     string
 	URL      string
 	HasValue bool
 }
 
-func loadSystemProxyConfig(db *gorm.DB) (systemProxyConfig, error) {
-	cfg := systemProxyConfig{
+func LoadSystemProxyConfig(db *gorm.DB) (SystemProxyConfig, error) {
+	cfg := SystemProxyConfig{
 		Enabled: false,
-		Type:    systemProxyTypeHTTP,
+		Type:    SystemProxyTypeHTTP,
 		URL:     "",
 	}
 	if db == nil {
@@ -49,7 +50,7 @@ func loadSystemProxyConfig(db *gorm.DB) (systemProxyConfig, error) {
 
 	for _, item := range items {
 		settingValue := item.Value
-		decryptedValue, decryptErr := decryptSystemSettingValueIfNeeded(item.Key, item.Value)
+		decryptedValue, decryptErr := systemsettings.DecryptValueIfNeeded(item.Key, item.Value)
 		if decryptErr == nil {
 			settingValue = decryptedValue
 		}
@@ -66,45 +67,45 @@ func loadSystemProxyConfig(db *gorm.DB) (systemProxyConfig, error) {
 	}
 
 	if strings.TrimSpace(cfg.Type) == "" {
-		cfg.Type = systemProxyTypeHTTP
+		cfg.Type = SystemProxyTypeHTTP
 	}
 
 	return cfg, nil
 }
 
-func validateIncomingSystemProxySettings(tx *gorm.DB, input UpdateSettingsInput) error {
-	cfg, err := loadSystemProxyConfig(tx)
+func ValidateIncomingSystemProxySettings(tx *gorm.DB, enabledInput *bool, typeInput *string, urlInput *string) error {
+	cfg, err := LoadSystemProxyConfig(tx)
 	if err != nil {
 		return err
 	}
 
 	proxyType := cfg.Type
-	if input.SystemProxyType != nil {
-		proxyType, err = normalizeSystemProxyType(*input.SystemProxyType)
+	if typeInput != nil {
+		proxyType, err = NormalizeSystemProxyType(*typeInput)
 		if err != nil {
 			return err
 		}
 	}
 
 	proxyURL := cfg.URL
-	if input.SystemProxyURL != nil {
-		proxyURL = *input.SystemProxyURL
+	if urlInput != nil {
+		proxyURL = *urlInput
 	}
 
 	enabled := cfg.Enabled
-	if input.SystemProxyEnabled != nil {
-		enabled = *input.SystemProxyEnabled
+	if enabledInput != nil {
+		enabled = *enabledInput
 	}
 
-	if input.SystemProxyURL == nil && !enabled {
+	if urlInput == nil && !enabled {
 		return nil
 	}
 
-	return validateSystemProxySettings(proxyType, proxyURL, enabled)
+	return ValidateSystemProxySettings(proxyType, proxyURL, enabled)
 }
 
-func validateSystemProxySettings(proxyType string, proxyURL string, enabled bool) error {
-	normalizedType, err := normalizeSystemProxyType(proxyType)
+func ValidateSystemProxySettings(proxyType string, proxyURL string, enabled bool) error {
+	normalizedType, err := NormalizeSystemProxyType(proxyType)
 	if err != nil {
 		return err
 	}
@@ -117,25 +118,25 @@ func validateSystemProxySettings(proxyType string, proxyURL string, enabled bool
 		return nil
 	}
 
-	_, err = normalizeSystemProxyURL(normalizedType, trimmedURL)
+	_, err = NormalizeSystemProxyURL(normalizedType, trimmedURL)
 	return err
 }
 
-func normalizeSystemProxyType(proxyType string) (string, error) {
+func NormalizeSystemProxyType(proxyType string) (string, error) {
 	normalized := strings.TrimSpace(strings.ToLower(proxyType))
 	if normalized == "" {
-		return systemProxyTypeHTTP, nil
+		return SystemProxyTypeHTTP, nil
 	}
 	switch normalized {
-	case systemProxyTypeHTTP, systemProxyTypeSOCKS5:
+	case SystemProxyTypeHTTP, SystemProxyTypeSOCKS5:
 		return normalized, nil
 	default:
 		return "", ErrInvalidSystemProxyType
 	}
 }
 
-func normalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) {
-	normalizedType, err := normalizeSystemProxyType(proxyType)
+func NormalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) {
+	normalizedType, err := NormalizeSystemProxyType(proxyType)
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +155,11 @@ func normalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) 
 	}
 
 	switch normalizedType {
-	case systemProxyTypeHTTP:
+	case SystemProxyTypeHTTP:
 		if parsed.Scheme != "http" {
 			return nil, fmt.Errorf("system proxy url must start with http://")
 		}
-	case systemProxyTypeSOCKS5:
+	case SystemProxyTypeSOCKS5:
 		if parsed.Scheme != "socks5" && parsed.Scheme != "socks5h" {
 			return nil, fmt.Errorf("system proxy url must start with socks5://")
 		}

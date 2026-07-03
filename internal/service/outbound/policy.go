@@ -1,4 +1,4 @@
-package service
+package outbound
 
 import (
 	"context"
@@ -14,16 +14,16 @@ import (
 )
 
 const (
-	ssrfFilterModeBlacklist = "blacklist"
-	ssrfFilterModeWhitelist = "whitelist"
+	FilterModeBlacklist = "blacklist"
+	FilterModeWhitelist = "whitelist"
 
-	ssrfProtectionEnabledKey = "ssrf_protection_enabled"
-	ssrfAllowPrivateIPKey    = "ssrf_allow_private_ip"
-	ssrfDomainFilterModeKey  = "ssrf_domain_filter_mode"
-	ssrfDomainFilterListKey  = "ssrf_domain_filter_list"
-	ssrfIPFilterModeKey      = "ssrf_ip_filter_mode"
-	ssrfIPFilterListKey      = "ssrf_ip_filter_list"
-	ssrfFilterResolvedIPsKey = "ssrf_filter_resolved_ips"
+	ProtectionEnabledKey = "ssrf_protection_enabled"
+	AllowPrivateIPKey    = "ssrf_allow_private_ip"
+	DomainFilterModeKey  = "ssrf_domain_filter_mode"
+	DomainFilterListKey  = "ssrf_domain_filter_list"
+	IPFilterModeKey      = "ssrf_ip_filter_mode"
+	IPFilterListKey      = "ssrf_ip_filter_list"
+	FilterResolvedIPsKey = "ssrf_filter_resolved_ips"
 
 	maxSSRFDomainFilterListLength = 500
 	maxSSRFIPFilterListLength     = 500
@@ -37,7 +37,7 @@ var (
 	ErrSSRFIPFilterListTooLong     = errors.New("ssrf ip filter list is too long")
 )
 
-type ssrfProtectionConfig struct {
+type Policy struct {
 	Enabled          bool
 	AllowPrivateIP   bool
 	DomainFilterMode string
@@ -47,35 +47,33 @@ type ssrfProtectionConfig struct {
 	FilterResolvedIP bool
 }
 
-type outboundPolicy = ssrfProtectionConfig
-
-func defaultSSRFProtectionConfig() ssrfProtectionConfig {
-	return ssrfProtectionConfig{
+func DefaultPolicy() Policy {
+	return Policy{
 		Enabled:          true,
 		AllowPrivateIP:   false,
-		DomainFilterMode: ssrfFilterModeBlacklist,
+		DomainFilterMode: FilterModeBlacklist,
 		DomainFilters:    nil,
-		IPFilterMode:     ssrfFilterModeBlacklist,
+		IPFilterMode:     FilterModeBlacklist,
 		IPFilters:        nil,
 		FilterResolvedIP: true,
 	}
 }
 
-func loadSSRFProtectionConfig(db *gorm.DB) (ssrfProtectionConfig, error) {
-	cfg := defaultSSRFProtectionConfig()
+func LoadPolicy(db *gorm.DB) (Policy, error) {
+	cfg := DefaultPolicy()
 	if db == nil {
 		return cfg, nil
 	}
 
 	var items []model.SystemSetting
 	if err := db.Where("key IN ?", []string{
-		ssrfProtectionEnabledKey,
-		ssrfAllowPrivateIPKey,
-		ssrfDomainFilterModeKey,
-		ssrfDomainFilterListKey,
-		ssrfIPFilterModeKey,
-		ssrfIPFilterListKey,
-		ssrfFilterResolvedIPsKey,
+		ProtectionEnabledKey,
+		AllowPrivateIPKey,
+		DomainFilterModeKey,
+		DomainFilterListKey,
+		IPFilterModeKey,
+		IPFilterListKey,
+		FilterResolvedIPsKey,
 	}).Find(&items).Error; err != nil {
 		return cfg, err
 	}
@@ -83,27 +81,27 @@ func loadSSRFProtectionConfig(db *gorm.DB) (ssrfProtectionConfig, error) {
 	for _, item := range items {
 		value := strings.TrimSpace(item.Value)
 		switch item.Key {
-		case ssrfProtectionEnabledKey:
+		case ProtectionEnabledKey:
 			cfg.Enabled = value == "true"
-		case ssrfAllowPrivateIPKey:
+		case AllowPrivateIPKey:
 			cfg.AllowPrivateIP = value == "true"
-		case ssrfDomainFilterModeKey:
-			if mode, err := normalizeSSRFFilterMode(value); err == nil {
+		case DomainFilterModeKey:
+			if mode, err := NormalizeFilterMode(value); err == nil {
 				cfg.DomainFilterMode = mode
 			}
-		case ssrfDomainFilterListKey:
+		case DomainFilterListKey:
 			if domains, err := parseSSRFDomainFilterList(value); err == nil {
 				cfg.DomainFilters = domains
 			}
-		case ssrfIPFilterModeKey:
-			if mode, err := normalizeSSRFFilterMode(value); err == nil {
+		case IPFilterModeKey:
+			if mode, err := NormalizeFilterMode(value); err == nil {
 				cfg.IPFilterMode = mode
 			}
-		case ssrfIPFilterListKey:
+		case IPFilterListKey:
 			if prefixes, err := parseSSRFIPFilterList(value); err == nil {
 				cfg.IPFilters = prefixes
 			}
-		case ssrfFilterResolvedIPsKey:
+		case FilterResolvedIPsKey:
 			cfg.FilterResolvedIP = value == "true"
 		}
 	}
@@ -111,36 +109,32 @@ func loadSSRFProtectionConfig(db *gorm.DB) (ssrfProtectionConfig, error) {
 	return cfg, nil
 }
 
-func ssrfProtectionConfigForDB(db *gorm.DB) ssrfProtectionConfig {
-	cfg, err := loadSSRFProtectionConfig(db)
+func PolicyForDB(db *gorm.DB) Policy {
+	cfg, err := LoadPolicy(db)
 	if err != nil {
-		return defaultSSRFProtectionConfig()
+		return DefaultPolicy()
 	}
 	return cfg
 }
 
-func loadOutboundPolicy(_ context.Context, db *gorm.DB) (outboundPolicy, error) {
-	return loadSSRFProtectionConfig(db)
+func LoadPolicyContext(_ context.Context, db *gorm.DB) (Policy, error) {
+	return LoadPolicy(db)
 }
 
-func outboundPolicyForDB(db *gorm.DB) outboundPolicy {
-	return ssrfProtectionConfigForDB(db)
-}
-
-func normalizeSSRFFilterMode(mode string) (string, error) {
+func NormalizeFilterMode(mode string) (string, error) {
 	normalized := strings.TrimSpace(strings.ToLower(mode))
 	if normalized == "" {
-		return ssrfFilterModeBlacklist, nil
+		return FilterModeBlacklist, nil
 	}
 	switch normalized {
-	case ssrfFilterModeBlacklist, ssrfFilterModeWhitelist:
+	case FilterModeBlacklist, FilterModeWhitelist:
 		return normalized, nil
 	default:
 		return "", ErrInvalidSSRFFilterMode
 	}
 }
 
-func normalizeSSRFDomainFilterList(raw string) (string, error) {
+func NormalizeDomainFilterList(raw string) (string, error) {
 	domains, err := parseSSRFDomainFilterList(raw)
 	if err != nil {
 		return "", err
@@ -237,7 +231,7 @@ func isValidHostnamePattern(hostname string) bool {
 	return true
 }
 
-func normalizeSSRFIPFilterList(raw string) (string, error) {
+func NormalizeIPFilterList(raw string) (string, error) {
 	prefixes, err := parseSSRFIPFilterList(raw)
 	if err != nil {
 		return "", err
@@ -323,24 +317,24 @@ func ssrfListSeparator(r rune) bool {
 	return r == '\n' || r == ',' || r == ';'
 }
 
-func validateSSRFProtectionSettings(input UpdateSettingsInput) error {
-	if input.SSRFDomainFilterMode != nil {
-		if _, err := normalizeSSRFFilterMode(*input.SSRFDomainFilterMode); err != nil {
+func ValidatePolicyUpdate(domainMode *string, ipMode *string, domainList *string, ipList *string) error {
+	if domainMode != nil {
+		if _, err := NormalizeFilterMode(*domainMode); err != nil {
 			return err
 		}
 	}
-	if input.SSRFIPFilterMode != nil {
-		if _, err := normalizeSSRFFilterMode(*input.SSRFIPFilterMode); err != nil {
+	if ipMode != nil {
+		if _, err := NormalizeFilterMode(*ipMode); err != nil {
 			return err
 		}
 	}
-	if input.SSRFDomainFilterList != nil {
-		if _, err := normalizeSSRFDomainFilterList(*input.SSRFDomainFilterList); err != nil {
+	if domainList != nil {
+		if _, err := NormalizeDomainFilterList(*domainList); err != nil {
 			return err
 		}
 	}
-	if input.SSRFIPFilterList != nil {
-		if _, err := normalizeSSRFIPFilterList(*input.SSRFIPFilterList); err != nil {
+	if ipList != nil {
+		if _, err := NormalizeIPFilterList(*ipList); err != nil {
 			return err
 		}
 	}
@@ -394,7 +388,7 @@ func netIPToAddr(ip net.IP) (netip.Addr, bool) {
 }
 
 func ssrfFilterError(fieldLabel string, mode string, targetType string) error {
-	if mode == ssrfFilterModeWhitelist {
+	if mode == FilterModeWhitelist {
 		return fmt.Errorf("%s is not allowed by ssrf %s whitelist", fieldLabel, targetType)
 	}
 	return fmt.Errorf("%s is blocked by ssrf %s blacklist", fieldLabel, targetType)

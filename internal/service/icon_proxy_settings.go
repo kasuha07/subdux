@@ -5,9 +5,11 @@ import (
 	"net"
 	"sort"
 	"strings"
+
+	"github.com/kasuha07/subdux/internal/service/settings"
 )
 
-const defaultIconProxyDomainWhitelist = "google.com\ngstatic.com\nicon.horse"
+const defaultIconProxyDomainWhitelist = settings.DefaultIconProxyDomainWhitelist
 
 var (
 	ErrInvalidIconProxyDomainWhitelist = errors.New("invalid icon proxy domain whitelist")

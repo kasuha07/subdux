@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/kasuha07/subdux/internal/pkg"
 	"math/big"
 	"net/mail"
 	"strings"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -91,7 +92,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 		return err
 	}
 
-	if _, err := loadSMTPRuntimeConfig(s.DB); err != nil {
+	if _, err := servicesmtp.LoadRuntimeConfig(s.DB); err != nil {
 		return ErrSMTPUnavailable
 	}
 
@@ -381,7 +382,7 @@ func (s *AuthService) consumeVerificationCode(userID *uint, email string, purpos
 }
 
 func (s *AuthService) sendVerificationCodeEmail(recipient string, purpose string, code string) error {
-	cfg, err := loadSMTPRuntimeConfig(s.DB)
+	cfg, err := servicesmtp.LoadRuntimeConfig(s.DB)
 	if err != nil {
 		return ErrSMTPUnavailable
 	}
@@ -402,9 +403,9 @@ func (s *AuthService) sendVerificationCodeEmail(recipient string, purpose string
 		body = fmt.Sprintf("Use this code to confirm your new email address: %s\r\nThis code expires in %d minutes.\r\nIf you did not request this, you can ignore this email.", code, expiresMinutes)
 	}
 
-	message := buildSMTPMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
-	if err := sendSMTPMessage(*cfg, recipient, message); err != nil {
-		if errors.Is(err, ErrSMTPRateLimited) {
+	message := servicesmtp.BuildMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
+	if err := servicesmtp.Send(*cfg, recipient, message); err != nil {
+		if errors.Is(err, servicesmtp.ErrSMTPRateLimited) {
 			return ErrSMTPRateLimited
 		}
 		return ErrSMTPUnavailable

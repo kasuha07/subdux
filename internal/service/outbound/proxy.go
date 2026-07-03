@@ -1,4 +1,4 @@
-package service
+package outbound
 
 import (
 	"bufio"
@@ -28,22 +28,22 @@ func NewOutboundDialContext(db *gorm.DB, timeout time.Duration) func(context.Con
 		return directDialer.DialContext
 	}
 
-	cfg, err := loadSystemProxyConfig(db)
+	cfg, err := LoadSystemProxyConfig(db)
 	if err != nil || !cfg.Enabled {
 		return directDialer.DialContext
 	}
 
-	proxyURL, err := normalizeSystemProxyURL(cfg.Type, cfg.URL)
+	proxyURL, err := NormalizeSystemProxyURL(cfg.Type, cfg.URL)
 	if err != nil {
 		return directDialer.DialContext
 	}
 
 	switch cfg.Type {
-	case systemProxyTypeHTTP:
+	case SystemProxyTypeHTTP:
 		return func(ctx context.Context, network string, address string) (net.Conn, error) {
 			return dialHTTPProxyConnect(ctx, directDialer, proxyURL, network, address)
 		}
-	case systemProxyTypeSOCKS5:
+	case SystemProxyTypeSOCKS5:
 		dialer, err := proxy.FromURL(proxyURL, directDialer)
 		if err != nil {
 			return directDialer.DialContext
@@ -61,7 +61,7 @@ func NewOutboundDialContext(db *gorm.DB, timeout time.Duration) func(context.Con
 
 func NewSafeOutboundDialContext(db *gorm.DB, timeout time.Duration) func(context.Context, string, string) (net.Conn, error) {
 	if db != nil {
-		cfg, err := loadSystemProxyConfig(db)
+		cfg, err := LoadSystemProxyConfig(db)
 		if err == nil && cfg.Enabled {
 			proxyDialContext := NewOutboundDialContext(db, timeout)
 			return func(ctx context.Context, network string, address string) (net.Conn, error) {
@@ -70,7 +70,7 @@ func NewSafeOutboundDialContext(db *gorm.DB, timeout time.Duration) func(context
 					if err != nil {
 						return nil, err
 					}
-					if err := validateOutboundHost(host, "outbound request url", db); err != nil {
+					if err := ValidateHost(host, "outbound request url", db); err != nil {
 						return nil, err
 					}
 				}
@@ -92,7 +92,7 @@ func newOutboundHTTPTransport(options outboundHTTPClientOptions) (http.RoundTrip
 		return http.DefaultTransport, nil
 	}
 
-	cfg, err := loadSystemProxyConfig(options.DB)
+	cfg, err := LoadSystemProxyConfig(options.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -108,14 +108,14 @@ func newOutboundHTTPTransport(options outboundHTTPClientOptions) (http.RoundTrip
 
 	transport := cloneDefaultHTTPTransport()
 	switch cfg.Type {
-	case systemProxyTypeHTTP:
-		proxyURL, err := normalizeSystemProxyURL(cfg.Type, cfg.URL)
+	case SystemProxyTypeHTTP:
+		proxyURL, err := NormalizeSystemProxyURL(cfg.Type, cfg.URL)
 		if err != nil {
 			return nil, err
 		}
 		transport.Proxy = http.ProxyURL(proxyURL)
-	case systemProxyTypeSOCKS5:
-		proxyURL, err := normalizeSystemProxyURL(cfg.Type, cfg.URL)
+	case SystemProxyTypeSOCKS5:
+		proxyURL, err := NormalizeSystemProxyURL(cfg.Type, cfg.URL)
 		if err != nil {
 			return nil, err
 		}

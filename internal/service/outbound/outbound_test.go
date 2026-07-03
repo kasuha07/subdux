@@ -1,4 +1,4 @@
-package service
+package outbound
 
 import (
 	"bufio"
@@ -9,15 +9,18 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
-func TestUpdateSettingsEncryptsSystemProxyURLAndDoesNotExposeValue(t *testing.T) {
+func TestSystemProxyConfigDecryptsEncryptedURL(t *testing.T) {
 	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
 
 	db := newTestDB(t)
@@ -25,17 +28,8 @@ func TestUpdateSettingsEncryptsSystemProxyURLAndDoesNotExposeValue(t *testing.T)
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	adminService := NewAdminService(db)
-	enabled := true
-	proxyType := "socks5"
 	proxyURL := "socks5://user:pass@proxy.example.com:1080"
-	if err := adminService.UpdateSettings(UpdateSettingsInput{
-		SystemProxyEnabled: &enabled,
-		SystemProxyType:    &proxyType,
-		SystemProxyURL:     &proxyURL,
-	}); err != nil {
-		t.Fatalf("UpdateSettings() failed: %v", err)
-	}
+	seedProxySettings(t, db, "true", "socks5", proxyURL)
 
 	var stored model.SystemSetting
 	if err := db.Where("key = ?", "system_proxy_url").First(&stored).Error; err != nil {
@@ -48,48 +42,46 @@ func TestUpdateSettingsEncryptsSystemProxyURLAndDoesNotExposeValue(t *testing.T)
 		t.Fatalf("expected encrypted proxy url prefix, got %q", stored.Value)
 	}
 
-	settings, err := adminService.GetSettings()
+	cfg, err := LoadSystemProxyConfig(db)
 	if err != nil {
-		t.Fatalf("GetSettings() failed: %v", err)
+		t.Fatalf("LoadSystemProxyConfig() failed: %v", err)
 	}
-	if !settings.SystemProxyEnabled {
-		t.Fatal("SystemProxyEnabled = false, want true")
+	if !cfg.Enabled {
+		t.Fatal("Enabled = false, want true")
 	}
-	if settings.SystemProxyType != "socks5" {
-		t.Fatalf("SystemProxyType = %q, want socks5", settings.SystemProxyType)
+	if cfg.Type != "socks5" {
+		t.Fatalf("Type = %q, want socks5", cfg.Type)
 	}
-	if !settings.SystemProxyURLSet {
-		t.Fatal("SystemProxyURLSet = false, want true")
+	if !cfg.HasValue {
+		t.Fatal("HasValue = false, want true")
+	}
+	if cfg.URL != proxyURL {
+		t.Fatalf("URL = %q, want decrypted proxy URL", cfg.URL)
 	}
 }
 
-func TestUpdateSettingsRejectsEnabledSystemProxyWithoutURL(t *testing.T) {
+func TestValidateIncomingSystemProxySettingsRejectsEnabledWithoutURL(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	adminService := NewAdminService(db)
 	enabled := true
-	if err := adminService.UpdateSettings(UpdateSettingsInput{SystemProxyEnabled: &enabled}); !errors.Is(err, ErrInvalidSystemProxyURL) {
-		t.Fatalf("UpdateSettings() error = %v, want ErrInvalidSystemProxyURL", err)
+	if err := ValidateIncomingSystemProxySettings(db, &enabled, nil, nil); !errors.Is(err, ErrInvalidSystemProxyURL) {
+		t.Fatalf("ValidateIncomingSystemProxySettings() error = %v, want ErrInvalidSystemProxyURL", err)
 	}
 }
 
-func TestUpdateSettingsAllowsDisabledSystemProxyTypeChangeWithoutURL(t *testing.T) {
+func TestValidateIncomingSystemProxySettingsAllowsDisabledTypeChangeWithoutURL(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	adminService := NewAdminService(db)
 	disabled := false
 	proxyType := "socks5"
-	if err := adminService.UpdateSettings(UpdateSettingsInput{
-		SystemProxyEnabled: &disabled,
-		SystemProxyType:    &proxyType,
-	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v, want nil", err)
+	if err := ValidateIncomingSystemProxySettings(db, &disabled, &proxyType, nil); err != nil {
+		t.Fatalf("ValidateIncomingSystemProxySettings() error = %v, want nil", err)
 	}
 }
 
@@ -235,9 +227,9 @@ func TestSafeOutboundHTTPClientPreservesHTTPProxyForPrivateDNSResults(t *testing
 		t.Fatalf("http.NewRequest() error = %v", err)
 	}
 
-	resp, err := doNotificationRequest(client, req, nil)
+	resp, err := DoNotificationRequest(client, req, nil)
 	if err != nil {
-		t.Fatalf("doNotificationRequest() error = %v, want nil through proxy", err)
+		t.Fatalf("DoNotificationRequest() error = %v, want nil through proxy", err)
 	}
 	defer resp.Body.Close()
 
@@ -268,8 +260,8 @@ func TestSafeOutboundHTTPClientProxyRoundTripperAppliesSSRFDomainFilter(t *testi
 
 	seedProxySettings(t, db, "true", "http", proxyServer.URL)
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfDomainFilterModeKey: "whitelist",
-		ssrfDomainFilterListKey: "allowed.example.com",
+		DomainFilterModeKey: "whitelist",
+		DomainFilterListKey: "allowed.example.com",
 	})
 
 	originalLookup := lookupOutboundHostIPs
@@ -361,29 +353,29 @@ func TestOutboundPurposeTrustBoundary(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfDomainFilterModeKey: "whitelist",
-		ssrfDomainFilterListKey: "allowed.example.com",
+		DomainFilterModeKey: "whitelist",
+		DomainFilterListKey: "allowed.example.com",
 	})
 
 	for _, tt := range []struct {
 		name    string
-		purpose outboundPurpose
+		purpose Purpose
 		wantErr bool
 	}{
-		{name: "user notification", purpose: outboundPurposeNotification, wantErr: true},
-		{name: "admin ssrf test", purpose: outboundPurposeAdminTest, wantErr: true},
-		{name: "oidc admin configured endpoint", purpose: outboundPurposeOIDC},
-		{name: "fixed notification provider", purpose: outboundPurposeFixedNotification},
-		{name: "icon proxy provider", purpose: outboundPurposeIconProxy},
-		{name: "exchange rate provider", purpose: outboundPurposeExchangeRate},
+		{name: "user notification", purpose: PurposeNotification, wantErr: true},
+		{name: "admin ssrf test", purpose: PurposeAdminTest, wantErr: true},
+		{name: "oidc admin configured endpoint", purpose: PurposeOIDC},
+		{name: "fixed notification provider", purpose: PurposeFixedNotification},
+		{name: "icon proxy provider", purpose: PurposeIconProxy},
+		{name: "exchange rate provider", purpose: PurposeExchangeRate},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateOutboundURL(context.Background(), db, "http://127.0.0.1/status", tt.purpose)
+			err := ValidateURL(context.Background(), db, "http://127.0.0.1/status", tt.purpose)
 			if tt.wantErr && err == nil {
-				t.Fatal("validateOutboundURL() error = nil, want SSRF policy rejection")
+				t.Fatal("ValidateURL() error = nil, want SSRF policy rejection")
 			}
 			if !tt.wantErr && err != nil {
-				t.Fatalf("validateOutboundURL() error = %v, want nil for trusted purpose", err)
+				t.Fatalf("ValidateURL() error = %v, want nil for trusted purpose", err)
 			}
 		})
 	}
@@ -519,88 +511,73 @@ func TestDoNotificationRequestNilClientUsesSafeOutboundClient(t *testing.T) {
 		t.Fatalf("http.NewRequest() error = %v", err)
 	}
 
-	resp, err := doNotificationRequest(nil, req, nil)
+	resp, err := DoNotificationRequest(nil, req, nil)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
 	if err == nil {
-		t.Fatal("doNotificationRequest() error = nil, want private address validation error")
+		t.Fatal("DoNotificationRequest() error = nil, want private address validation error")
 	}
 	if !strings.Contains(err.Error(), "resolves to localhost or private network addresses") {
-		t.Fatalf("doNotificationRequest() error = %q, want private address validation error", err.Error())
+		t.Fatalf("DoNotificationRequest() error = %q, want private address validation error", err.Error())
 	}
 }
 
 func TestSSRFSettingsDefaultProtection(t *testing.T) {
-	settings := defaultAdminSystemSettings()
-	if !settings.SSRFProtectionEnabled {
-		t.Fatal("SSRFProtectionEnabled = false, want true")
+	cfg := DefaultPolicy()
+	if !cfg.Enabled {
+		t.Fatal("Enabled = false, want true")
 	}
-	if settings.SSRFAllowPrivateIP {
-		t.Fatal("SSRFAllowPrivateIP = true, want false")
+	if cfg.AllowPrivateIP {
+		t.Fatal("AllowPrivateIP = true, want false")
 	}
-	if settings.SSRFDomainFilterMode != "blacklist" {
-		t.Fatalf("SSRFDomainFilterMode = %q, want blacklist", settings.SSRFDomainFilterMode)
+	if cfg.DomainFilterMode != "blacklist" {
+		t.Fatalf("DomainFilterMode = %q, want blacklist", cfg.DomainFilterMode)
 	}
-	if settings.SSRFIPFilterMode != "blacklist" {
-		t.Fatalf("SSRFIPFilterMode = %q, want blacklist", settings.SSRFIPFilterMode)
+	if cfg.IPFilterMode != "blacklist" {
+		t.Fatalf("IPFilterMode = %q, want blacklist", cfg.IPFilterMode)
 	}
-	if !settings.SSRFFilterResolvedIPs {
-		t.Fatal("SSRFFilterResolvedIPs = false, want true")
+	if !cfg.FilterResolvedIP {
+		t.Fatal("FilterResolvedIP = false, want true")
 	}
 }
 
-func TestUpdateSettingsNormalizesSSRFProtectionLists(t *testing.T) {
-	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
-		t.Fatalf("failed to migrate system settings table: %v", err)
-	}
-
-	disabled := false
-	allowPrivate := true
+func TestNormalizeSSRFProtectionLists(t *testing.T) {
 	domainMode := "whitelist"
 	domainList := " api.example.com.;example.com,api.example.com "
 	ipMode := "blacklist"
 	ipList := "10.0.0.2;10.0.0.0/8,10.0.0.2"
-	filterResolved := false
 
-	adminService := NewAdminService(db)
-	if err := adminService.UpdateSettings(UpdateSettingsInput{
-		SSRFProtectionEnabled: &disabled,
-		SSRFAllowPrivateIP:    &allowPrivate,
-		SSRFDomainFilterMode:  &domainMode,
-		SSRFDomainFilterList:  &domainList,
-		SSRFIPFilterMode:      &ipMode,
-		SSRFIPFilterList:      &ipList,
-		SSRFFilterResolvedIPs: &filterResolved,
-	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
-	}
-
-	settings, err := adminService.GetSettings()
+	normalizedDomainMode, err := NormalizeFilterMode(domainMode)
 	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
+		t.Fatalf("NormalizeFilterMode(domain) error = %v", err)
 	}
-	if settings.SSRFProtectionEnabled {
-		t.Fatal("SSRFProtectionEnabled = true, want false")
+	if normalizedDomainMode != "whitelist" {
+		t.Fatalf("domain mode = %q, want whitelist", normalizedDomainMode)
 	}
-	if !settings.SSRFAllowPrivateIP {
-		t.Fatal("SSRFAllowPrivateIP = false, want true")
+
+	normalizedDomainList, err := NormalizeDomainFilterList(domainList)
+	if err != nil {
+		t.Fatalf("NormalizeDomainFilterList() error = %v", err)
 	}
-	if settings.SSRFDomainFilterMode != "whitelist" {
-		t.Fatalf("SSRFDomainFilterMode = %q, want whitelist", settings.SSRFDomainFilterMode)
+	if normalizedDomainList != "api.example.com\nexample.com" {
+		t.Fatalf("domain list = %q, want normalized list", normalizedDomainList)
 	}
-	if settings.SSRFDomainFilterList != "api.example.com\nexample.com" {
-		t.Fatalf("SSRFDomainFilterList = %q, want normalized list", settings.SSRFDomainFilterList)
+
+	normalizedIPMode, err := NormalizeFilterMode(ipMode)
+	if err != nil {
+		t.Fatalf("NormalizeFilterMode(ip) error = %v", err)
 	}
-	if settings.SSRFIPFilterMode != "blacklist" {
-		t.Fatalf("SSRFIPFilterMode = %q, want blacklist", settings.SSRFIPFilterMode)
+	if normalizedIPMode != "blacklist" {
+		t.Fatalf("ip mode = %q, want blacklist", normalizedIPMode)
 	}
-	if settings.SSRFIPFilterList != "10.0.0.0/8\n10.0.0.2" {
-		t.Fatalf("SSRFIPFilterList = %q, want normalized list", settings.SSRFIPFilterList)
+
+	normalizedIPList, err := NormalizeIPFilterList(ipList)
+	if err != nil {
+		t.Fatalf("NormalizeIPFilterList() error = %v", err)
 	}
-	if settings.SSRFFilterResolvedIPs {
-		t.Fatal("SSRFFilterResolvedIPs = true, want false")
+	if normalizedIPList != "10.0.0.0/8\n10.0.0.2" {
+		t.Fatalf("ip list = %q, want normalized list", normalizedIPList)
 	}
 }
 
@@ -610,19 +587,19 @@ func TestSSRFDomainWhitelistRejectsUnlistedHost(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfDomainFilterModeKey: "whitelist",
-		ssrfDomainFilterListKey: "allowed.example.com",
+		DomainFilterModeKey: "whitelist",
+		DomainFilterListKey: "allowed.example.com",
 	})
 
-	if err := validateOutboundHost("api.allowed.example.com", "webhook url", db); err != nil {
-		t.Fatalf("validateOutboundHost() allowed error = %v, want nil", err)
+	if err := ValidateHost("api.allowed.example.com", "webhook url", db); err != nil {
+		t.Fatalf("ValidateHost() allowed error = %v, want nil", err)
 	}
-	err := validateOutboundHost("blocked.example.com", "webhook url", db)
+	err := ValidateHost("blocked.example.com", "webhook url", db)
 	if err == nil {
-		t.Fatal("validateOutboundHost() error = nil, want whitelist rejection")
+		t.Fatal("ValidateHost() error = nil, want whitelist rejection")
 	}
 	if !strings.Contains(err.Error(), "not allowed by ssrf domain whitelist") {
-		t.Fatalf("validateOutboundHost() error = %q, want domain whitelist rejection", err.Error())
+		t.Fatalf("ValidateHost() error = %q, want domain whitelist rejection", err.Error())
 	}
 }
 
@@ -632,16 +609,16 @@ func TestSSRFDomainWhitelistRejectsBareIPWithoutIPWhitelist(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfDomainFilterModeKey: "whitelist",
-		ssrfDomainFilterListKey: "allowed.example.com",
+		DomainFilterModeKey: "whitelist",
+		DomainFilterListKey: "allowed.example.com",
 	})
 
-	err := validateOutboundHost("93.184.216.34", "webhook url", db)
+	err := ValidateHost("93.184.216.34", "webhook url", db)
 	if err == nil {
-		t.Fatal("validateOutboundHost() error = nil, want bare IP rejected by domain whitelist")
+		t.Fatal("ValidateHost() error = nil, want bare IP rejected by domain whitelist")
 	}
 	if !strings.Contains(err.Error(), "not allowed by ssrf domain whitelist") {
-		t.Fatalf("validateOutboundHost() error = %q, want domain whitelist rejection", err.Error())
+		t.Fatalf("ValidateHost() error = %q, want domain whitelist rejection", err.Error())
 	}
 }
 
@@ -651,14 +628,14 @@ func TestSSRFDomainWhitelistAllowsBareIPWithExplicitIPWhitelist(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfDomainFilterModeKey: "whitelist",
-		ssrfDomainFilterListKey: "allowed.example.com",
-		ssrfIPFilterModeKey:     "whitelist",
-		ssrfIPFilterListKey:     "93.184.216.0/24",
+		DomainFilterModeKey: "whitelist",
+		DomainFilterListKey: "allowed.example.com",
+		IPFilterModeKey:     "whitelist",
+		IPFilterListKey:     "93.184.216.0/24",
 	})
 
-	if err := validateOutboundHost("93.184.216.34", "webhook url", db); err != nil {
-		t.Fatalf("validateOutboundHost() error = %v, want explicit IP whitelist to allow bare IP", err)
+	if err := ValidateHost("93.184.216.34", "webhook url", db); err != nil {
+		t.Fatalf("ValidateHost() error = %v, want explicit IP whitelist to allow bare IP", err)
 	}
 }
 
@@ -668,8 +645,8 @@ func TestSSRFIPBlacklistRejectsResolvedAddress(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfIPFilterModeKey: "blacklist",
-		ssrfIPFilterListKey: "93.184.216.0/24",
+		IPFilterModeKey: "blacklist",
+		IPFilterListKey: "93.184.216.0/24",
 	})
 
 	originalLookup := lookupOutboundHostIPs
@@ -683,12 +660,12 @@ func TestSSRFIPBlacklistRejectsResolvedAddress(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	err := validateResolvedOutboundHost("example.com", db)
+	err := ValidateResolvedHost("example.com", db)
 	if err == nil {
-		t.Fatal("validateResolvedOutboundHost() error = nil, want IP blacklist rejection")
+		t.Fatal("ValidateResolvedHost() error = nil, want IP blacklist rejection")
 	}
 	if !strings.Contains(err.Error(), "blocked by ssrf ip blacklist") {
-		t.Fatalf("validateResolvedOutboundHost() error = %q, want IP blacklist rejection", err.Error())
+		t.Fatalf("ValidateResolvedHost() error = %q, want IP blacklist rejection", err.Error())
 	}
 }
 
@@ -698,7 +675,7 @@ func TestSSRFAllowPrivateIPAllowsRFCPrivateResolvedAddress(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfAllowPrivateIPKey: "true",
+		AllowPrivateIPKey: "true",
 	})
 
 	originalLookup := lookupOutboundHostIPs
@@ -712,8 +689,8 @@ func TestSSRFAllowPrivateIPAllowsRFCPrivateResolvedAddress(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	if err := validateResolvedOutboundHost("intranet.example.com", db); err != nil {
-		t.Fatalf("validateResolvedOutboundHost() error = %v, want nil", err)
+	if err := ValidateResolvedHost("intranet.example.com", db); err != nil {
+		t.Fatalf("ValidateResolvedHost() error = %v, want nil", err)
 	}
 }
 
@@ -723,7 +700,7 @@ func TestSSRFFilterResolvedIPsCanBeDisabled(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfFilterResolvedIPsKey: "false",
+		FilterResolvedIPsKey: "false",
 	})
 
 	originalLookup := lookupOutboundHostIPs
@@ -737,8 +714,8 @@ func TestSSRFFilterResolvedIPsCanBeDisabled(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	if err := validateResolvedOutboundHost("example.com", db); err != nil {
-		t.Fatalf("validateResolvedOutboundHost() error = %v, want nil when resolved-IP filtering is disabled", err)
+	if err := ValidateResolvedHost("example.com", db); err != nil {
+		t.Fatalf("ValidateResolvedHost() error = %v, want nil when resolved-IP filtering is disabled", err)
 	}
 }
 
@@ -748,11 +725,11 @@ func TestSSRFProtectionCanBeDisabled(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 	seedSSRFSettings(t, db, map[string]string{
-		ssrfProtectionEnabledKey: "false",
+		ProtectionEnabledKey: "false",
 	})
 
-	if err := validateOutboundHost("127.0.0.1", "webhook url", db); err != nil {
-		t.Fatalf("validateOutboundHost() error = %v, want nil when SSRF protection is disabled", err)
+	if err := ValidateHost("127.0.0.1", "webhook url", db); err != nil {
+		t.Fatalf("ValidateHost() error = %v, want nil when SSRF protection is disabled", err)
 	}
 }
 
@@ -774,7 +751,7 @@ func TestAdminServiceTestSSRFAllowsPublicResolvedAddress(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	result, err := NewAdminService(db).TestSSRF(SSRFTestInput{Target: "https://Example.com/status"})
+	result, err := TestSSRF(context.Background(), db, SSRFTestInput{Target: "https://Example.com/status"})
 	if err != nil {
 		t.Fatalf("TestSSRF() error = %v, want nil", err)
 	}
@@ -810,7 +787,7 @@ func TestAdminServiceTestSSRFReportsBlockedResolvedAddress(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	result, err := NewAdminService(db).TestSSRF(SSRFTestInput{Target: "internal.example.com"})
+	result, err := TestSSRF(context.Background(), db, SSRFTestInput{Target: "internal.example.com"})
 	if err != nil {
 		t.Fatalf("TestSSRF() error = %v, want nil", err)
 	}
@@ -841,7 +818,7 @@ func TestAdminServiceTestSSRFProxyModeSkipsLocalDNS(t *testing.T) {
 		lookupOutboundHostIPs = originalLookup
 	}()
 
-	result, err := NewAdminService(db).TestSSRF(SSRFTestInput{Target: "intranet.example.com"})
+	result, err := TestSSRF(context.Background(), db, SSRFTestInput{Target: "intranet.example.com"})
 	if err != nil {
 		t.Fatalf("TestSSRF() error = %v, want nil", err)
 	}
@@ -865,7 +842,7 @@ func TestAdminServiceTestSSRFRejectsInvalidTarget(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	_, err := NewAdminService(db).TestSSRF(SSRFTestInput{Target: "ftp://example.com"})
+	_, err := TestSSRF(context.Background(), db, SSRFTestInput{Target: "ftp://example.com"})
 	if !errors.Is(err, ErrInvalidSSRFTestTarget) {
 		t.Fatalf("TestSSRF() error = %v, want ErrInvalidSSRFTestTarget", err)
 	}
@@ -874,7 +851,7 @@ func TestAdminServiceTestSSRFRejectsInvalidTarget(t *testing.T) {
 func seedProxySettings(t *testing.T, db *gorm.DB, enabled string, proxyType string, proxyURL string) {
 	t.Helper()
 
-	encryptedProxyURL, err := encryptSystemSettingValueIfNeeded("system_proxy_url", proxyURL)
+	encryptedProxyURL, err := systemsettings.EncryptValueIfNeeded("system_proxy_url", proxyURL)
 	if err != nil {
 		t.Fatalf("failed to encrypt proxy url: %v", err)
 	}
@@ -893,17 +870,28 @@ func seedProxySettings(t *testing.T, db *gorm.DB, enabled string, proxyType stri
 	}
 }
 
+func newTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	dbPath := filepath.Join(t.TempDir(), "subdux-outbound-test.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	return db
+}
+
 func seedSSRFSettings(t *testing.T, db *gorm.DB, overrides map[string]string) {
 	t.Helper()
 
 	values := map[string]string{
-		ssrfProtectionEnabledKey: "true",
-		ssrfAllowPrivateIPKey:    "false",
-		ssrfDomainFilterModeKey:  "blacklist",
-		ssrfDomainFilterListKey:  "",
-		ssrfIPFilterModeKey:      "blacklist",
-		ssrfIPFilterListKey:      "",
-		ssrfFilterResolvedIPsKey: "true",
+		ProtectionEnabledKey: "true",
+		AllowPrivateIPKey:    "false",
+		DomainFilterModeKey:  "blacklist",
+		DomainFilterListKey:  "",
+		IPFilterModeKey:      "blacklist",
+		IPFilterListKey:      "",
+		FilterResolvedIPsKey: "true",
 	}
 	for key, value := range overrides {
 		values[key] = value

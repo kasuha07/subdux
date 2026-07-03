@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 )
 
 func (s *NotificationService) sendSMTP(channel model.NotificationChannel, toEmail, message string) error {
@@ -45,7 +47,7 @@ func (s *NotificationService) sendSMTP(channel model.NotificationChannel, toEmai
 	if encryption == "" {
 		encryption = "starttls"
 	}
-	rtCfg := smtpRuntimeConfig{
+	rtCfg := servicesmtp.RuntimeConfig{
 		Host:           cfg.Host,
 		Port:           port,
 		Username:       cfg.Username,
@@ -56,14 +58,14 @@ func (s *NotificationService) sendSMTP(channel model.NotificationChannel, toEmai
 		AuthMethod:     "auto",
 		TimeoutSeconds: 10,
 		SkipTLSVerify:  cfg.SkipTLSVerify,
-		DialContext:    NewSafeOutboundDialContext(s.DB, 10*time.Second),
+		DialContext:    serviceoutbound.NewSafeOutboundDialContext(s.DB, 10*time.Second),
 	}
 
 	subject := "Subscription Reminder"
 	body := message
-	smtpMessage := buildSMTPMessage(rtCfg.FromEmail, rtCfg.FromName, cfg.ToEmail, subject, body)
+	smtpMessage := servicesmtp.BuildMessage(rtCfg.FromEmail, rtCfg.FromName, cfg.ToEmail, subject, body)
 
-	return sendSMTPMessage(rtCfg, cfg.ToEmail, smtpMessage)
+	return servicesmtp.Send(rtCfg, cfg.ToEmail, smtpMessage)
 }
 
 func (s *NotificationService) sendResend(channel model.NotificationChannel, message string) error {

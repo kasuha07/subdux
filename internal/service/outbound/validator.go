@@ -1,4 +1,4 @@
-package service
+package outbound
 
 import (
 	"context"
@@ -17,7 +17,15 @@ var lookupOutboundHostIPs = func(ctx context.Context, network string, host strin
 	return net.DefaultResolver.LookupIP(ctx, network, host)
 }
 
-var errRestrictedOutboundTarget = errors.New("restricted outbound target")
+var ErrRestrictedOutboundTarget = errors.New("restricted outbound target")
+
+func SetLookupHostIPsForTest(fn func(context.Context, string, string) ([]net.IP, error)) func() {
+	previous := lookupOutboundHostIPs
+	lookupOutboundHostIPs = fn
+	return func() {
+		lookupOutboundHostIPs = previous
+	}
+}
 
 type restrictedOutboundTargetError struct {
 	fieldLabel string
@@ -32,10 +40,10 @@ func (e restrictedOutboundTargetError) Error() string {
 }
 
 func (e restrictedOutboundTargetError) Unwrap() error {
-	return errRestrictedOutboundTarget
+	return ErrRestrictedOutboundTarget
 }
 
-func validateHTTPURL(rawURL string, fieldLabel string, requireHTTPS bool) (*url.URL, error) {
+func ValidateHTTPURL(rawURL string, fieldLabel string, requireHTTPS bool) (*url.URL, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || parsed.Host == "" {
 		if requireHTTPS {
@@ -58,55 +66,55 @@ func validateHTTPURL(rawURL string, fieldLabel string, requireHTTPS bool) (*url.
 	return parsed, nil
 }
 
-func validateOutboundChannelURL(rawURL string, fieldLabel string, requireHTTPS bool, db *gorm.DB) error {
-	return validateOutboundURLWithOptions(context.Background(), db, rawURL, fieldLabel, requireHTTPS, outboundPurposeNotification)
+func ValidateChannelURL(rawURL string, fieldLabel string, requireHTTPS bool, db *gorm.DB) error {
+	return ValidateURLWithOptions(context.Background(), db, rawURL, fieldLabel, requireHTTPS, PurposeNotification)
 }
 
-func validateOutboundURL(ctx context.Context, db *gorm.DB, rawURL string, purpose outboundPurpose) error {
-	return validateOutboundURLWithOptions(ctx, db, rawURL, "outbound request url", false, purpose)
+func ValidateURL(ctx context.Context, db *gorm.DB, rawURL string, purpose Purpose) error {
+	return ValidateURLWithOptions(ctx, db, rawURL, "outbound request url", false, purpose)
 }
 
-func validateOutboundURLWithOptions(_ context.Context, db *gorm.DB, rawURL string, fieldLabel string, requireHTTPS bool, purpose outboundPurpose) error {
-	parsed, err := validateHTTPURL(rawURL, fieldLabel, requireHTTPS)
+func ValidateURLWithOptions(_ context.Context, db *gorm.DB, rawURL string, fieldLabel string, requireHTTPS bool, purpose Purpose) error {
+	parsed, err := ValidateHTTPURL(rawURL, fieldLabel, requireHTTPS)
 	if err != nil {
 		return err
 	}
-	return validateOutboundHostForPurpose(parsed.Hostname(), fieldLabel, db, purpose)
+	return ValidateHostForPurpose(parsed.Hostname(), fieldLabel, db, purpose)
 }
 
-func validateOutboundHost(hostname string, fieldLabel string, db *gorm.DB) error {
-	return validateOutboundHostForPurpose(hostname, fieldLabel, db, "")
+func ValidateHost(hostname string, fieldLabel string, db *gorm.DB) error {
+	return ValidateHostForPurpose(hostname, fieldLabel, db, "")
 }
 
-func validateOutboundHostForPurpose(hostname string, fieldLabel string, db *gorm.DB, purpose outboundPurpose) error {
-	if !outboundPurposeAppliesSSRFPolicy(purpose) {
+func ValidateHostForPurpose(hostname string, fieldLabel string, db *gorm.DB, purpose Purpose) error {
+	if !PurposeAppliesSSRFPolicy(purpose) {
 		if _, err := normalizeOutboundHostname(hostname); err != nil {
 			return fmt.Errorf("%s must include a host", fieldLabel)
 		}
 		return nil
 	}
 
-	cfg := outboundPolicyForDB(db)
-	return validateOutboundHostWithConfig(hostname, fieldLabel, cfg)
+	cfg := PolicyForDB(db)
+	return ValidateHostWithConfig(hostname, fieldLabel, cfg)
 }
 
-// outboundPurposeAppliesSSRFPolicy is the trust-boundary map for hostname
+// PurposeAppliesSSRFPolicy is the trust-boundary map for hostname
 // policy. User-configurable outbound targets are checked against the SSRF
 // policy; administrator-configured or fixed provider endpoints are trusted as
 // administrator policy and rely on the configured proxy/network ACL boundary.
-func outboundPurposeAppliesSSRFPolicy(purpose outboundPurpose) bool {
+func PurposeAppliesSSRFPolicy(purpose Purpose) bool {
 	switch purpose {
-	case outboundPurposeOIDC,
-		outboundPurposeFixedNotification,
-		outboundPurposeIconProxy,
-		outboundPurposeExchangeRate:
+	case PurposeOIDC,
+		PurposeFixedNotification,
+		PurposeIconProxy,
+		PurposeExchangeRate:
 		return false
 	default:
 		return true
 	}
 }
 
-func validateOutboundHostWithConfig(hostname string, fieldLabel string, cfg ssrfProtectionConfig) error {
+func ValidateHostWithConfig(hostname string, fieldLabel string, cfg Policy) error {
 	normalized, err := normalizeOutboundHostname(hostname)
 	if err != nil {
 		return fmt.Errorf("%s must include a host", fieldLabel)
@@ -121,7 +129,7 @@ func validateOutboundHostWithConfig(hostname string, fieldLabel string, cfg ssrf
 	}
 
 	if ip := net.ParseIP(normalized); ip != nil {
-		if cfg.DomainFilterMode == ssrfFilterModeWhitelist && cfg.IPFilterMode != ssrfFilterModeWhitelist {
+		if cfg.DomainFilterMode == FilterModeWhitelist && cfg.IPFilterMode != FilterModeWhitelist {
 			if isRestrictedOutboundIP(ip, cfg.AllowPrivateIP) {
 				return restrictedOutboundTargetError{fieldLabel: fieldLabel}
 			}
@@ -131,11 +139,11 @@ func validateOutboundHostWithConfig(hostname string, fieldLabel string, cfg ssrf
 	}
 
 	switch cfg.DomainFilterMode {
-	case ssrfFilterModeWhitelist:
+	case FilterModeWhitelist:
 		if !domainMatchesSSRFFilter(normalized, cfg.DomainFilters) {
 			return ssrfFilterError(fieldLabel, cfg.DomainFilterMode, "domain")
 		}
-	case ssrfFilterModeBlacklist:
+	case FilterModeBlacklist:
 		if domainMatchesSSRFFilter(normalized, cfg.DomainFilters) {
 			return ssrfFilterError(fieldLabel, cfg.DomainFilterMode, "domain")
 		}
@@ -174,7 +182,7 @@ func isCarrierGradeNATIP(ip net.IP) bool {
 	return ipv4 != nil && ipv4[0] == 100 && ipv4[1] >= 64 && ipv4[1] <= 127
 }
 
-func validateOutboundIPWithConfig(ip net.IP, fieldLabel string, cfg ssrfProtectionConfig) error {
+func validateOutboundIPWithConfig(ip net.IP, fieldLabel string, cfg Policy) error {
 	if !cfg.Enabled {
 		return nil
 	}
@@ -183,11 +191,11 @@ func validateOutboundIPWithConfig(ip net.IP, fieldLabel string, cfg ssrfProtecti
 	}
 
 	switch cfg.IPFilterMode {
-	case ssrfFilterModeWhitelist:
+	case FilterModeWhitelist:
 		if !ipMatchesSSRFFilter(ip, cfg.IPFilters) {
 			return ssrfFilterError(fieldLabel, cfg.IPFilterMode, "ip")
 		}
-	case ssrfFilterModeBlacklist:
+	case FilterModeBlacklist:
 		if ipMatchesSSRFFilter(ip, cfg.IPFilters) {
 			return ssrfFilterError(fieldLabel, cfg.IPFilterMode, "ip")
 		}
@@ -195,17 +203,17 @@ func validateOutboundIPWithConfig(ip net.IP, fieldLabel string, cfg ssrfProtecti
 	return nil
 }
 
-func validateResolvedOutboundHost(hostname string, db *gorm.DB) error {
+func ValidateResolvedHost(hostname string, db *gorm.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	_, err := resolveSafeOutboundHostIPs(ctx, "ip", hostname, "outbound request url", db)
+	_, err := ResolveSafeHostIPs(ctx, "ip", hostname, "outbound request url", db)
 	return err
 }
 
-func resolveSafeOutboundHostIPs(ctx context.Context, network string, hostname string, fieldLabel string, db *gorm.DB) ([]net.IP, error) {
-	cfg := outboundPolicyForDB(db)
-	if err := validateOutboundHostWithConfig(hostname, fieldLabel, cfg); err != nil {
+func ResolveSafeHostIPs(ctx context.Context, network string, hostname string, fieldLabel string, db *gorm.DB) ([]net.IP, error) {
+	cfg := PolicyForDB(db)
+	if err := ValidateHostWithConfig(hostname, fieldLabel, cfg); err != nil {
 		return nil, err
 	}
 
@@ -228,7 +236,7 @@ func resolveSafeOutboundHostIPs(ctx context.Context, network string, hostname st
 	if cfg.Enabled && cfg.FilterResolvedIP {
 		for _, resolvedIP := range ips {
 			if err := validateOutboundIPWithConfig(resolvedIP, fieldLabel, cfg); err != nil {
-				if errors.Is(err, errRestrictedOutboundTarget) {
+				if errors.Is(err, ErrRestrictedOutboundTarget) {
 					return nil, restrictedOutboundTargetError{fieldLabel: fieldLabel, resolved: true}
 				}
 				return nil, err
@@ -250,18 +258,18 @@ func lookupIPNetwork(network string) string {
 	}
 }
 
-func doNotificationRequest(client *http.Client, req *http.Request, db *gorm.DB) (*http.Response, error) {
-	return doOutboundRequest(client, req, db, outboundPurposeNotification)
+func DoNotificationRequest(client *http.Client, req *http.Request, db *gorm.DB) (*http.Response, error) {
+	return DoRequest(client, req, db, PurposeNotification)
 }
 
-func doOutboundRequest(client *http.Client, req *http.Request, db *gorm.DB, purpose outboundPurpose) (*http.Response, error) {
+func DoRequest(client *http.Client, req *http.Request, db *gorm.DB, purpose Purpose) (*http.Response, error) {
 	if req == nil || req.URL == nil {
 		return nil, errors.New("invalid outbound request")
 	}
 
 	if client == nil {
 		var err error
-		client, err = buildOutboundHTTPClientWithTimeout(req.Context(), db, purpose, 15*time.Second)
+		client, err = BuildHTTPClientWithTimeout(req.Context(), db, purpose, 15*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -295,29 +303,7 @@ func doOutboundRequest(client *http.Client, req *http.Request, db *gorm.DB, purp
 
 func validateOutboundRequestHost(hostname string, proxyMediated bool, db *gorm.DB) error {
 	if proxyMediated {
-		return validateOutboundHost(hostname, "outbound request url", db)
+		return ValidateHost(hostname, "outbound request url", db)
 	}
-	return validateResolvedOutboundHost(hostname, db)
-}
-
-func (s *NotificationService) newNotificationHTTPClient(timeout time.Duration) *http.Client {
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
-	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeNotification, timeout)
-	if err != nil {
-		return NewSafeOutboundHTTPClient(s.DB, timeout)
-	}
-	return client
-}
-
-func (s *NotificationService) newFixedNotificationHTTPClient(timeout time.Duration) *http.Client {
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
-	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeFixedNotification, timeout)
-	if err != nil {
-		return NewOutboundHTTPClient(s.DB, timeout)
-	}
-	return client
+	return ValidateResolvedHost(hostname, db)
 }

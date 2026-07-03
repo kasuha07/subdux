@@ -3,16 +3,17 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/kasuha07/subdux/internal/pkg"
 	"net/mail"
 	"strings"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 )
 
 func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) error {
-	cfg, err := loadSMTPRuntimeConfig(s.DB)
+	cfg, err := servicesmtp.LoadRuntimeConfig(s.DB)
 	if err != nil {
 		return err
 	}
@@ -36,9 +37,9 @@ func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) 
 
 	subject := "Subdux SMTP Test"
 	body := fmt.Sprintf("This is a test email from Subdux.\r\nSent at: %s", pkg.Now().Format(time.RFC3339))
-	message := buildSMTPMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
+	message := servicesmtp.BuildMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
 
-	if err := sendSMTPMessage(*cfg, recipient, message); err != nil {
+	if err := servicesmtp.Send(*cfg, recipient, message); err != nil {
 		return err
 	}
 

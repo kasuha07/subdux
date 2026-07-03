@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 )
 
 func TestUpdateSettingsIconProxyDomainWhitelistNormalization(t *testing.T) {
@@ -119,13 +120,10 @@ func TestIconProxyServiceFetchStreamsWhenUpstreamAllowed(t *testing.T) {
 		t.Fatalf("failed to seed icon_proxy_domain_whitelist: %v", err)
 	}
 
-	originalLookup := lookupOutboundHostIPs
-	lookupOutboundHostIPs = func(_ context.Context, _ string, _ string) ([]net.IP, error) {
+	restoreLookup := serviceoutbound.SetLookupHostIPsForTest(func(_ context.Context, _ string, _ string) ([]net.IP, error) {
 		return []net.IP{net.ParseIP("8.8.8.8")}, nil
-	}
-	defer func() {
-		lookupOutboundHostIPs = originalLookup
-	}()
+	})
+	defer restoreLookup()
 
 	svc := NewIconProxyService(db)
 	svc.httpClient = &http.Client{

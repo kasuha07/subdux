@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -151,8 +150,6 @@ type UpdateSettingsInput struct {
 	BackupLocalDir                       *string `json:"backup_local_dir"`
 	BackupRetentionCount                 *int64  `json:"backup_retention_count"`
 }
-
-var ErrInvalidSSRFTestTarget = errors.New("ssrf test target must be a valid hostname or ip address")
 
 type SSRFTestInput struct {
 	Target string `json:"target"`

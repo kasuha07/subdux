@@ -1,45 +1,21 @@
 package service
 
 import (
-	"strings"
-
-	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/settings"
 )
 
 const bcryptMaxPasswordBytes = 72
 
-var encryptedSystemSettingKeys = map[string]struct{}{
-	"smtp_password":              {},
-	"oidc_client_secret":         {},
-	"currencyapi_key":            {},
-	"system_proxy_url":           {},
-	"backup_encryption_password": {},
-}
-
 func isEncryptedSystemSettingKey(key string) bool {
-	_, exists := encryptedSystemSettingKeys[key]
-	return exists
+	return settings.IsEncryptedKey(key)
 }
 
 func encryptSystemSettingValueIfNeeded(key string, value string) (string, error) {
-	if !isEncryptedSystemSettingKey(key) {
-		return value, nil
-	}
-
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	return pkg.EncryptSystemSettingValue(value)
+	return settings.EncryptValueIfNeeded(key, value)
 }
 
 func decryptSystemSettingValueIfNeeded(key string, value string) (string, error) {
-	if !isEncryptedSystemSettingKey(key) {
-		return value, nil
-	}
-
-	return pkg.DecryptSystemSettingValue(value)
+	return settings.DecryptValueIfNeeded(key, value)
 }
 
 func validateBcryptPasswordLength(password string) error {

@@ -1,4 +1,4 @@
-package service
+package outbound
 
 import (
 	"context"
@@ -11,15 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	outboundPurposeOIDC              outboundPurpose = "oidc"
-	outboundPurposeNotification      outboundPurpose = "notification"
-	outboundPurposeFixedNotification outboundPurpose = "fixed_notification"
-	outboundPurposeIconProxy         outboundPurpose = "icon_proxy"
-	outboundPurposeAdminTest         outboundPurpose = "admin_test"
-	outboundPurposeExchangeRate      outboundPurpose = "exchange_rate"
-)
-
 type outboundHTTPClientOptions struct {
 	Timeout      time.Duration
 	DB           *gorm.DB
@@ -27,7 +18,16 @@ type outboundHTTPClientOptions struct {
 	SecureDialer *safeOutboundDialer
 }
 
-type outboundPurpose string
+type Purpose string
+
+const (
+	PurposeOIDC              Purpose = "oidc"
+	PurposeNotification      Purpose = "notification"
+	PurposeFixedNotification Purpose = "fixed_notification"
+	PurposeIconProxy         Purpose = "icon_proxy"
+	PurposeAdminTest         Purpose = "admin_test"
+	PurposeExchangeRate      Purpose = "exchange_rate"
+)
 
 func NewOutboundHTTPClient(db *gorm.DB, timeout time.Duration) *http.Client {
 	return newOutboundHTTPClient(outboundHTTPClientOptions{
@@ -44,13 +44,13 @@ func NewSafeOutboundHTTPClient(db *gorm.DB, timeout time.Duration) *http.Client 
 	})
 }
 
-func buildOutboundHTTPClient(ctx context.Context, db *gorm.DB, purpose outboundPurpose) (*http.Client, error) {
-	return buildOutboundHTTPClientWithTimeout(ctx, db, purpose, 15*time.Second)
+func BuildHTTPClient(ctx context.Context, db *gorm.DB, purpose Purpose) (*http.Client, error) {
+	return BuildHTTPClientWithTimeout(ctx, db, purpose, 15*time.Second)
 }
 
-func buildOutboundHTTPClientWithTimeout(_ context.Context, db *gorm.DB, purpose outboundPurpose, timeout time.Duration) (*http.Client, error) {
+func BuildHTTPClientWithTimeout(_ context.Context, db *gorm.DB, purpose Purpose, timeout time.Duration) (*http.Client, error) {
 	switch purpose {
-	case outboundPurposeNotification:
+	case PurposeNotification:
 		return NewSafeOutboundHTTPClient(db, timeout), nil
 	default:
 		return NewOutboundHTTPClient(db, timeout), nil
@@ -115,7 +115,7 @@ func (d *safeOutboundDialer) DialContext(ctx context.Context, network string, ad
 		return nil, err
 	}
 
-	ips, err := resolveSafeOutboundHostIPs(ctx, network, host, "outbound request url", d.db)
+	ips, err := ResolveSafeHostIPs(ctx, network, host, "outbound request url", d.db)
 	if err != nil {
 		return nil, err
 	}
