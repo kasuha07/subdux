@@ -44,6 +44,7 @@ const (
 	ReauthOperationCreateAPIKey    = "create_api_key"
 	ReauthOperationCreateAdminUser = "create_admin_user"
 	ReauthOperationChangeUserRole  = "change_user_role"
+	ReauthOperationDeleteUser      = "delete_user"
 	ReauthOperationExportRedacted  = "export_redacted"
 	ReauthOperationExportSecrets   = "export_secrets"
 	ReauthOperationImportSubdux    = "import_subdux"
@@ -198,6 +199,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationCreateAPIKey,
 		ReauthOperationCreateAdminUser,
 		ReauthOperationChangeUserRole,
+		ReauthOperationDeleteUser,
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,
 		ReauthOperationImportSubdux,

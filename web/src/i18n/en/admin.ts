@@ -53,6 +53,9 @@ const admin = {
     roleReauthTitle: "Confirm role change",
     roleReauthDescription:
       "For security, re-authenticate before changing this user's role.",
+    deleteReauthTitle: "Confirm user deletion",
+    deleteReauthDescription:
+      "For security, re-authenticate before permanently deleting this user.",
   },
   settings: {
     siteName: "Site name",

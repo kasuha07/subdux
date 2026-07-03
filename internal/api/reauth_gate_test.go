@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -239,6 +240,19 @@ func putAdminUserRole(t *testing.T, e *echo.Echo, token string, userID uint, rol
 	return rec
 }
 
+func deleteAdminUser(t *testing.T, e *echo.Echo, token string, userID uint, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/admin/users/%d", userID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
@@ -397,6 +411,65 @@ func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
 		}
 
 		rec = postAdminUser(t, e, token, "create-admin-reuse", "create-admin-reuse@example.com", "admin", ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	target := model.User{
+		Username: "delete-target",
+		Email:    "delete-target@example.com",
+		Password: "x",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&target).Error; err != nil {
+		t.Fatalf("failed to create target user: %v", err)
+	}
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := deleteAdminUser(t, e, token, target.ID, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		rec := deleteAdminUser(t, e, token, target.ID, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationDeleteUser)
+
+		rec := deleteAdminUser(t, e, token, target.ID, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var deleted model.User
+		if err := db.First(&deleted, target.ID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("deleted user lookup error = %v, want %v", err, gorm.ErrRecordNotFound)
+		}
+
+		rec = deleteAdminUser(t, e, token, target.ID, ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}

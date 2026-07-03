@@ -267,6 +267,14 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "cannot delete yourself"})
 	}
 
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		currentUserID,
+		service.ReauthOperationDeleteUser,
+		strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
+	); err != nil {
+		return writeReauthError(c, err)
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).DeleteUser(uint(userID)); err != nil {
 		return writeInternalServerError(c, err)
 	}

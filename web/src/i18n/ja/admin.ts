@@ -52,6 +52,9 @@ const admin = {
     roleReauthTitle: "ロール変更の確認",
     roleReauthDescription:
       "セキュリティのため、ユーザーのロールを変更する前に再認証してください。",
+    deleteReauthTitle: "ユーザー削除の確認",
+    deleteReauthDescription:
+      "セキュリティのため、このユーザーを完全に削除する前に再認証してください。",
   },
   settings: {
     siteName: "サイト名",

@@ -60,7 +60,7 @@ interface UseAdminPageStateResult {
   handleCreateUser: (reauthTicket?: string) => Promise<void>
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
-  handleDeleteUser: (id: number) => Promise<void>
+  handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
   handleDisableUserPasskeys: (user: AdminUser) => Promise<void>
   handleDisableUserTOTP: (user: AdminUser) => Promise<void>
   handleDownloadBackup: (reauthTicket: string) => Promise<boolean>
@@ -294,13 +294,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleDeleteUser(id: number) {
+  async function handleDeleteUser(id: number, reauthTicket: string) {
     if (!confirm(t("admin.users.deleteConfirm"))) {
       return
     }
 
     try {
-      await api.delete(`/admin/users/${id}`)
+      await api.delete(`/admin/users/${id}`, { headers: { "X-Reauth-Ticket": reauthTicket } })
       setUsers((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("admin.users.deleteSuccess"))
     } catch {

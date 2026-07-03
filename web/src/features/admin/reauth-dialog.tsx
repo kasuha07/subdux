@@ -42,6 +42,7 @@ type ReauthOperation =
   | "create_api_key"
   | "create_admin_user"
   | "change_user_role"
+  | "delete_user"
   | "export_redacted"
   | "export_secrets"
   | "import_subdux"

@@ -43,7 +43,7 @@ interface AdminUsersTabProps {
   onCreateDialogOpenChange: (open: boolean) => void
   onCreateUser: (reauthTicket?: string) => void | Promise<void>
   onConfirmToggleRole: (reauthTicket: string) => void | Promise<void>
-  onDeleteUser: (id: number) => void | Promise<void>
+  onDeleteUser: (id: number, reauthTicket: string) => void | Promise<void>
   onDisableUserPasskeys: (user: AdminUser) => void | Promise<void>
   onDisableUserTOTP: (user: AdminUser) => void | Promise<void>
   onNewEmailChange: (value: string) => void
@@ -81,6 +81,7 @@ export default function AdminUsersTab({
 }: AdminUsersTabProps) {
   const { t, i18n } = useTranslation()
   const [createAdminReauthOpen, setCreateAdminReauthOpen] = useState(false)
+  const [deleteReauthUser, setDeleteReauthUser] = useState<AdminUser | null>(null)
 
   function handleCreateClick() {
     if (newRole === "admin") {
@@ -250,7 +251,7 @@ export default function AdminUsersTab({
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() => void onDeleteUser(user.id)}
+                        onClick={() => setDeleteReauthUser(user)}
                       >
                         {t("admin.users.delete")}
                       </DropdownMenuItem>
@@ -288,6 +289,29 @@ export default function AdminUsersTab({
         title={t("admin.users.createAdminReauthTitle")}
         description={t("admin.users.createAdminReauthDescription")}
         layer="stacked"
+      />
+
+      <ReauthDialog
+        operation="delete_user"
+        open={deleteReauthUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteReauthUser(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          if (!deleteReauthUser) {
+            return
+          }
+          try {
+            await onDeleteUser(deleteReauthUser.id, ticket)
+          } finally {
+            setDeleteReauthUser(null)
+          }
+        }}
+        title={t("admin.users.deleteReauthTitle")}
+        description={t("admin.users.deleteReauthDescription")}
+        confirmVariant="destructive"
       />
     </TabsContent>
   )

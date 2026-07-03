@@ -48,6 +48,8 @@ const admin = {
     createAdminReauthDescription: "出于安全考虑，创建管理员用户前请重新验证身份。",
     roleReauthTitle: "确认角色修改",
     roleReauthDescription: "出于安全考虑，修改用户角色前请重新验证身份。",
+    deleteReauthTitle: "确认删除用户",
+    deleteReauthDescription: "出于安全考虑，永久删除该用户前请重新验证身份。",
   },
   settings: {
     siteName: "站点名称",
