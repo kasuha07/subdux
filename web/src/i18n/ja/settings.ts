@@ -352,6 +352,10 @@ const settings = {
       "title": "本人確認",
       "description": "セキュリティのため、APIキーを作成する前に再認証してください。"
     },
+    "deleteReauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、APIキーを削除する前に再認証してください。"
+    },
     "copied": "クリップボードにコピーしました",
     "usage": "使用方法",
     "usageDescription": "リクエスト時にX-API-KeyヘッダーにAPIキーを設定してください。",

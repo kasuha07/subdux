@@ -110,6 +110,14 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid api key id"})
 	}
 
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		service.ReauthOperationDeleteAPIKey,
+		c.Request().Header.Get(reauthTicketHeader),
+	); err != nil {
+		return writeReauthError(c, err)
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(keyID)); err != nil {
 		if err == service.ErrAPIKeyNotFound {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})

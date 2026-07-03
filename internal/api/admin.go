@@ -158,10 +158,10 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must not exceed 72 bytes"})
 	}
 
-	if input.Role == "admin" {
+	if operation, ok := service.ReauthOperationForCreateUser(input); ok {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			getUserID(c),
-			service.ReauthOperationCreateAdminUser,
+			operation,
 			strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
 		); err != nil {
 			return writeReauthError(c, err)
@@ -302,13 +302,13 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	if updateTouchesBackupSchedule(input) {
+	if operation, ok := service.ReauthOperationForAdminSettingsUpdate(input); ok {
 		if h.Reauth == nil {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "reauthentication service is not configured"})
 		}
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			getUserID(c),
-			service.ReauthOperationBackupSchedule,
+			operation,
 			c.Request().Header.Get(reauthTicketHeader),
 		); err != nil {
 			return writeReauthError(c, err)
@@ -338,16 +338,6 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})
-}
-
-func updateTouchesBackupSchedule(input service.UpdateSettingsInput) bool {
-	return input.BackupScheduleEnabled != nil ||
-		input.BackupTimeOfDay != nil ||
-		input.BackupIncludeAssets != nil ||
-		input.BackupEncryptEnabled != nil ||
-		input.BackupEncryptionPassword != nil ||
-		input.BackupLocalDir != nil ||
-		input.BackupRetentionCount != nil
 }
 
 func (h *AdminHandler) TestSSRF(c echo.Context) error {

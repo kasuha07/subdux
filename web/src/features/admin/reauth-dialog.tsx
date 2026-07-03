@@ -40,6 +40,7 @@ type ReauthOperation =
   | "disable_totp"
   | "connect_oidc"
   | "create_api_key"
+  | "delete_api_key"
   | "create_admin_user"
   | "change_user_role"
   | "delete_user"

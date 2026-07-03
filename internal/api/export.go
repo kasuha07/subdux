@@ -25,10 +25,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 	if includeSecrets && c.QueryParam("confirm") != "include_secrets" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "exporting notification secrets requires confirmation"})
 	}
-	operation := service.ReauthOperationExportRedacted
-	if includeSecrets {
-		operation = service.ReauthOperationExportSecrets
-	}
+	operation := service.ReauthOperationForExport(includeSecrets)
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		operation,

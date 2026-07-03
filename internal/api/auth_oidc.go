@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -66,14 +67,11 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 	}
 
 	authService := h.Service.WithContext(c.Request().Context())
-	hasConnection, err := authService.HasOIDCConnection(userID)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load oidc connections"})
-	}
-	if !hasConnection {
-		if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationConnectOIDC, input.ReauthTicket); err != nil {
-			return writeReauthError(c, err)
+	if err := h.Reauth.WithContext(c.Request().Context()).ConsumeOIDCConnect(userID, input.ReauthTicket); err != nil {
+		if !errors.Is(err, service.ErrReauthRequired) {
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load oidc connections"})
 		}
+		return writeReauthError(c, err)
 	}
 
 	result, err := authService.BeginOIDCConnect(userID)

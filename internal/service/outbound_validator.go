@@ -78,9 +78,32 @@ func validateOutboundHost(hostname string, fieldLabel string, db *gorm.DB) error
 	return validateOutboundHostForPurpose(hostname, fieldLabel, db, "")
 }
 
-func validateOutboundHostForPurpose(hostname string, fieldLabel string, db *gorm.DB, _ outboundPurpose) error {
+func validateOutboundHostForPurpose(hostname string, fieldLabel string, db *gorm.DB, purpose outboundPurpose) error {
+	if !outboundPurposeAppliesSSRFPolicy(purpose) {
+		if _, err := normalizeOutboundHostname(hostname); err != nil {
+			return fmt.Errorf("%s must include a host", fieldLabel)
+		}
+		return nil
+	}
+
 	cfg := outboundPolicyForDB(db)
 	return validateOutboundHostWithConfig(hostname, fieldLabel, cfg)
+}
+
+// outboundPurposeAppliesSSRFPolicy is the trust-boundary map for hostname
+// policy. User-configurable outbound targets are checked against the SSRF
+// policy; administrator-configured or fixed provider endpoints are trusted as
+// administrator policy and rely on the configured proxy/network ACL boundary.
+func outboundPurposeAppliesSSRFPolicy(purpose outboundPurpose) bool {
+	switch purpose {
+	case outboundPurposeOIDC,
+		outboundPurposeFixedNotification,
+		outboundPurposeIconProxy,
+		outboundPurposeExchangeRate:
+		return false
+	default:
+		return true
+	}
 }
 
 func validateOutboundHostWithConfig(hostname string, fieldLabel string, cfg ssrfProtectionConfig) error {

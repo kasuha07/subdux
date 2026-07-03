@@ -210,6 +210,19 @@ func postCreateAPIKey(t *testing.T, e *echo.Echo, token, name, ticket string) *h
 	return rec
 }
 
+func deleteAPIKey(t *testing.T, e *echo.Echo, token string, id uint, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/api-keys/%d", id), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func postAdminUser(t *testing.T, e *echo.Echo, token, username, email, role, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -655,13 +668,13 @@ func TestReauthPasswordDisabledForPasskeyAccount(t *testing.T) {
 	})
 }
 
-func TestAPIKeyListAndDeleteDoNotRequireReauthTicket(t *testing.T) {
+func TestAPIKeyListDoesNotRequireReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
 	e := newHumanOnlyRouteTestServer(t, db)
 	token := reauthGateTestToken(t, admin)
 
-	apiKeyResp, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+	_, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
 		Name:    "Integration",
 		KeyKind: service.APIKeyKindAPIIntegration,
 		Scopes:  []string{service.APIKeyScopeRead},
@@ -677,14 +690,72 @@ func TestAPIKeyListAndDeleteDoNotRequireReauthTicket(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
+}
 
-	req = httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/api-keys/%d", apiKeyResp.APIKey.ID), nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	rec = httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("delete status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	createAPIKey := func(t *testing.T, name string) uint {
+		t.Helper()
+		apiKeyResp, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+			Name:    name,
+			KeyKind: service.APIKeyKindAPIIntegration,
+			Scopes:  []string{service.APIKeyScopeRead},
+		})
+		if err != nil {
+			t.Fatalf("failed to create api key: %v", err)
+		}
+		return apiKeyResp.APIKey.ID
 	}
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		keyID := createAPIKey(t, "Missing ticket")
+		rec := deleteAPIKey(t, e, token, keyID, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		keyID := createAPIKey(t, "Wrong operation")
+		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		rec := deleteAPIKey(t, e, token, keyID, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		keyID := createAPIKey(t, "Delete me")
+		ticket := mintReauthTicket(t, e, token, service.ReauthOperationDeleteAPIKey)
+
+		rec := deleteAPIKey(t, e, token, keyID, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var deleted model.APIKey
+		if err := db.First(&deleted, keyID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("deleted api key lookup error = %v, want %v", err, gorm.ErrRecordNotFound)
+		}
+
+		secondKeyID := createAPIKey(t, "Second delete")
+		rec = deleteAPIKey(t, e, token, secondKeyID, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
 }
 
 func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T) {

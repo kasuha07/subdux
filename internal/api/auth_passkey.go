@@ -83,9 +83,8 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid passkey id"})
 	}
 
-	// Deleting a passkey is a sensitive account change, but the reauth ticket is
-	// intentionally user/operation scoped rather than bound to the passkey being
-	// deleted: proving presence with any enrolled passkey is enough.
+	// Deleting a passkey is a sensitive account change. ReauthService owns the
+	// accepted factor policy; the handler only consumes the operation ticket.
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		service.ReauthOperationDeletePasskey,

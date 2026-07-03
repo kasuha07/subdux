@@ -355,6 +355,40 @@ func TestSafeOutboundDialContextPreservesHTTPProxyConnect(t *testing.T) {
 	}
 }
 
+func TestOutboundPurposeTrustBoundary(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatalf("failed to migrate system settings table: %v", err)
+	}
+	seedSSRFSettings(t, db, map[string]string{
+		ssrfDomainFilterModeKey: "whitelist",
+		ssrfDomainFilterListKey: "allowed.example.com",
+	})
+
+	for _, tt := range []struct {
+		name    string
+		purpose outboundPurpose
+		wantErr bool
+	}{
+		{name: "user notification", purpose: outboundPurposeNotification, wantErr: true},
+		{name: "admin ssrf test", purpose: outboundPurposeAdminTest, wantErr: true},
+		{name: "oidc admin configured endpoint", purpose: outboundPurposeOIDC},
+		{name: "fixed notification provider", purpose: outboundPurposeFixedNotification},
+		{name: "icon proxy provider", purpose: outboundPurposeIconProxy},
+		{name: "exchange rate provider", purpose: outboundPurposeExchangeRate},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateOutboundURL(context.Background(), db, "http://127.0.0.1/status", tt.purpose)
+			if tt.wantErr && err == nil {
+				t.Fatal("validateOutboundURL() error = nil, want SSRF policy rejection")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("validateOutboundURL() error = %v, want nil for trusted purpose", err)
+			}
+		})
+	}
+}
+
 func TestSafeOutboundHTTPClientDialsValidatedResolvedIP(t *testing.T) {
 	originalLookup := lookupOutboundHostIPs
 	lookupOutboundHostIPs = func(_ context.Context, _ string, host string) ([]net.IP, error) {

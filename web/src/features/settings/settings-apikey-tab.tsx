@@ -44,6 +44,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   const [newKey, setNewKey] = useState<string | null>(null)
   const [newKeyKind, setNewKeyKind] = useState<"mcp_client" | "api_integration">("mcp_client")
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteReauthId, setDeleteReauthId] = useState<number | null>(null)
   const [mcpEnabled, setMCPEnabled] = useState(false)
 
   const loadKeys = useCallback(() => {
@@ -94,12 +95,19 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     }
   }
 
-  async function handleDelete(id: number) {
+  function handleDelete(id: number) {
     if (!confirm(t("settings.apiKeys.deleteConfirm"))) return
+    setDeleteReauthId(id)
+  }
+
+  async function deleteWithTicket(reauthTicket: string) {
+    if (deleteReauthId === null) return
+    const id = deleteReauthId
     setDeletingId(id)
     try {
-      await api.delete(`/api-keys/${id}`)
+      await api.delete(`/api-keys/${id}`, { headers: { "X-Reauth-Ticket": reauthTicket } })
       setKeys((prev) => prev.filter((k) => k.id !== id))
+      setDeleteReauthId(null)
     } catch {
       // error toast handled by api helper
     } finally {
@@ -318,6 +326,19 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
           description={t("settings.apiKeys.reauth.description")}
           layer="stacked"
         />
+        <ReauthDialog
+          operation="delete_api_key"
+          open={deleteReauthId !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteReauthId(null)
+            }
+          }}
+          onVerified={deleteWithTicket}
+          title={t("settings.apiKeys.deleteReauth.title")}
+          description={t("settings.apiKeys.deleteReauth.description")}
+          confirmVariant="destructive"
+        />
 
         <Separator />
 
@@ -369,7 +390,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                   size="icon-sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  disabled={deletingId === key.id}
+                  disabled={deletingId === key.id || deleteReauthId === key.id}
                   onClick={() => void handleDelete(key.id)}
                 >
                   <Trash2 className="size-4" />

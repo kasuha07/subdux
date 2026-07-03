@@ -352,6 +352,10 @@ const settings = {
       "title": "Confirm it's you",
       "description": "For security, re-authenticate before creating an API key."
     },
+    "deleteReauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before deleting an API key."
+    },
     "copied": "Copied to clipboard",
     "usage": "Usage",
     "usageDescription": "Use the API key in the X-API-Key header when making requests.",

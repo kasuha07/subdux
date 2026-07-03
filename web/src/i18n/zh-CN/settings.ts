@@ -352,6 +352,10 @@ const settings = {
       "title": "确认是你本人",
       "description": "出于安全考虑，创建 API 密钥前请重新验证身份。"
     },
+    "deleteReauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，删除 API 密钥前请重新验证身份。"
+    },
     "copied": "已复制到剪贴板",
     "usage": "使用方法",
     "usageDescription": "在请求时将 API 密钥放入 X-API-Key 请求头中。",

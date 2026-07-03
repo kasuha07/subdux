@@ -331,6 +331,130 @@ func TestReauthAvailableMethodsOIDC(t *testing.T) {
 	}
 }
 
+func TestReauthPolicyForMatrix(t *testing.T) {
+	t.Run("password only", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+
+		policy, err := svc.PolicyFor(user.ID, ReauthOperationBackup)
+		if err != nil {
+			t.Fatalf("PolicyFor() error = %v", err)
+		}
+		if !policy.PasswordAllowed || policy.PasswordRequiresTOTP || policy.PasskeyAllowed || policy.RequiredOIDCGrade != OIDCGradeFresh {
+			t.Fatalf("PolicyFor() = %+v, want password-only OIDC-1 policy", policy)
+		}
+	})
+
+	t.Run("password plus totp", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		enableReauthTestTOTP(t, svc, user.ID, "JBSWY3DPEHPK3PXP")
+
+		policy, err := svc.PolicyFor(user.ID, ReauthOperationBackup)
+		if err != nil {
+			t.Fatalf("PolicyFor() error = %v", err)
+		}
+		if !policy.PasswordAllowed || !policy.PasswordRequiresTOTP || policy.PasskeyAllowed || policy.RequiredOIDCGrade != OIDCGradeMFA {
+			t.Fatalf("PolicyFor() = %+v, want password+totp OIDC-2 policy", policy)
+		}
+	})
+
+	t.Run("password plus passkey", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-policy-passkey")
+
+		policy, err := svc.PolicyFor(user.ID, ReauthOperationDeletePasskey)
+		if err != nil {
+			t.Fatalf("PolicyFor() error = %v", err)
+		}
+		if policy.PasswordAllowed || policy.PasswordRequiresTOTP || !policy.PasskeyAllowed || policy.RequiredOIDCGrade != OIDCGradePhishingResistant {
+			t.Fatalf("PolicyFor(delete_passkey) = %+v, want passkey-only OIDC-3 policy", policy)
+		}
+	})
+
+	t.Run("password plus totp plus passkey", func(t *testing.T) {
+		svc, user, _ := newReauthTestService(t)
+		seedReauthTestPasskey(t, svc, user.ID, "cred-policy-both")
+		enableReauthTestTOTP(t, svc, user.ID, "JBSWY3DPEHPK3PXP")
+
+		policy, err := svc.PolicyFor(user.ID, ReauthOperationBackup)
+		if err != nil {
+			t.Fatalf("PolicyFor() error = %v", err)
+		}
+		if !policy.PasswordAllowed || !policy.PasswordRequiresTOTP || !policy.PasskeyAllowed || policy.RequiredOIDCGrade != OIDCGradePhishingResistant {
+			t.Fatalf("PolicyFor() = %+v, want passkey+totp OIDC-3 policy", policy)
+		}
+
+		policy, err = svc.PolicyFor(user.ID, ReauthOperationDisableTOTP)
+		if err != nil {
+			t.Fatalf("PolicyFor(disable_totp) error = %v", err)
+		}
+		if policy.RequiredOIDCGrade != OIDCGradeMFA {
+			t.Fatalf("PolicyFor(disable_totp).RequiredOIDCGrade = %d, want %d", policy.RequiredOIDCGrade, OIDCGradeMFA)
+		}
+	})
+}
+
+func TestReauthOperationSelectors(t *testing.T) {
+	t.Run("admin user creation only", func(t *testing.T) {
+		if op, ok := ReauthOperationForCreateUser(CreateUserInput{Role: "admin"}); !ok || op != ReauthOperationCreateAdminUser {
+			t.Fatalf("ReauthOperationForCreateUser(admin) = %q/%v, want %q/true", op, ok, ReauthOperationCreateAdminUser)
+		}
+		if op, ok := ReauthOperationForCreateUser(CreateUserInput{Role: "user"}); ok || op != "" {
+			t.Fatalf("ReauthOperationForCreateUser(user) = %q/%v, want empty/false", op, ok)
+		}
+	})
+
+	t.Run("admin settings backup schedule only", func(t *testing.T) {
+		enabled := true
+		if op, ok := ReauthOperationForAdminSettingsUpdate(UpdateSettingsInput{BackupScheduleEnabled: &enabled}); !ok || op != ReauthOperationBackupSchedule {
+			t.Fatalf("ReauthOperationForAdminSettingsUpdate(backup) = %q/%v, want %q/true", op, ok, ReauthOperationBackupSchedule)
+		}
+		name := "Subdux"
+		if op, ok := ReauthOperationForAdminSettingsUpdate(UpdateSettingsInput{SiteName: &name}); ok || op != "" {
+			t.Fatalf("ReauthOperationForAdminSettingsUpdate(site name) = %q/%v, want empty/false", op, ok)
+		}
+	})
+
+	t.Run("export mode", func(t *testing.T) {
+		if op := ReauthOperationForExport(false); op != ReauthOperationExportRedacted {
+			t.Fatalf("ReauthOperationForExport(false) = %q, want %q", op, ReauthOperationExportRedacted)
+		}
+		if op := ReauthOperationForExport(true); op != ReauthOperationExportSecrets {
+			t.Fatalf("ReauthOperationForExport(true) = %q, want %q", op, ReauthOperationExportSecrets)
+		}
+	})
+}
+
+func TestReauthConsumeOIDCConnectPolicy(t *testing.T) {
+	svc, user, password := newReauthTestService(t)
+	if err := svc.db.AutoMigrate(&model.OIDCConnection{}); err != nil {
+		t.Fatalf("failed to migrate oidc connection: %v", err)
+	}
+
+	if err := svc.ConsumeOIDCConnect(user.ID, ""); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("ConsumeOIDCConnect() without connection error = %v, want ErrReauthRequired", err)
+	}
+
+	ticket, err := svc.VerifyPassword(user.ID, ReauthOperationConnectOIDC, password, "")
+	if err != nil {
+		t.Fatalf("VerifyPassword(connect_oidc) error = %v", err)
+	}
+	if err := svc.ConsumeOIDCConnect(user.ID, ticket); err != nil {
+		t.Fatalf("ConsumeOIDCConnect() with ticket error = %v, want nil", err)
+	}
+	if err := svc.Consume(user.ID, ReauthOperationConnectOIDC, ticket); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("post-ConsumeOIDCConnect Consume() error = %v, want spent ticket", err)
+	}
+
+	if err := svc.db.Create(&model.OIDCConnection{
+		UserID: user.ID, Provider: oidcProviderKey, Subject: "sub-linked", Email: user.Email,
+	}).Error; err != nil {
+		t.Fatalf("failed to create oidc connection: %v", err)
+	}
+	if err := svc.ConsumeOIDCConnect(user.ID, ""); err != nil {
+		t.Fatalf("ConsumeOIDCConnect() with existing connection error = %v, want nil", err)
+	}
+}
+
 func TestReauthVerifyOIDC(t *testing.T) {
 	svc, user, _ := newReauthTestService(t)
 
