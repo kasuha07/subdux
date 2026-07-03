@@ -103,36 +103,6 @@ func notificationTriggerRequiresExactSentLog(triggerType string) bool {
 	}
 }
 
-func notificationTriggerTypes(daysUntilBilling, daysBefore int, notifyOnDueDay bool) []string {
-	triggers := make([]string, 0, 2)
-	if daysUntilBilling == daysBefore && daysBefore > 0 {
-		triggers = append(triggers, notificationTriggerDaysBefore)
-	}
-	if daysUntilBilling == 0 && notifyOnDueDay {
-		triggers = append(triggers, notificationTriggerDueDay)
-	}
-	return triggers
-}
-
-func notificationTriggerTypesForSubscription(
-	renewalMode string,
-	daysUntilBilling int,
-	daysBefore int,
-	notifyOnDueDay bool,
-	notifyManualRenewDaily bool,
-) []string {
-	triggers := notificationTriggerTypes(daysUntilBilling, daysBefore, notifyOnDueDay)
-	if normalizeRenewalMode(renewalMode) == renewalModeManualRenew &&
-		notifyManualRenewDaily &&
-		daysBefore > 0 &&
-		daysUntilBilling >= 0 &&
-		daysUntilBilling < daysBefore &&
-		(daysUntilBilling != 0 || !notifyOnDueDay) {
-		triggers = append(triggers, notificationTriggerManualDaily)
-	}
-	return triggers
-}
-
 func notificationSentDateCandidates(notifyDate, originalNotifyDate time.Time) []time.Time {
 	candidates := make([]time.Time, 0, 2)
 	candidates = appendUniqueNotificationDate(candidates, normalizeDateUTC(notifyDate))
@@ -429,175 +399,45 @@ func (s *NotificationService) cancelOutboxIfNoLongerDeliverable(job model.Notifi
 		return notificationOutboxStatusExpired
 	}
 
-	var sub model.Subscription
-	err := s.DB.Select("id", "user_id", "status", "billing_type", "renewal_mode", "ends_at", "next_billing_date", "notify_enabled", "notify_days_before").
-		Where("id = ? AND user_id = ?", job.SubscriptionID, job.UserID).
-		First(&sub).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		if updateErr := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "subscription not found"); updateErr != nil {
-			logOutboxPersistError(job, "cancel_subscription_missing", updateErr)
-		}
-		return notificationOutboxStatusCancelled
-	}
-	if err != nil {
-		if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
-			logOutboxPersistError(job, "release_subscription_lookup", updateErr)
-		}
-		return notificationOutboxStatusPending
-	}
-
-	notifyEnabled := true
-	if sub.NotifyEnabled != nil {
-		notifyEnabled = *sub.NotifyEnabled
-	}
-	if job.TriggerType == notificationTriggerManualEnded {
-		if normalizeStatus(sub.Status) != subscriptionStatusEnded ||
-			normalizeRenewalMode(sub.RenewalMode) != renewalModeManualRenew ||
-			sub.BillingType != billingTypeRecurring ||
-			sub.EndsAt == nil ||
-			!notifyEnabled ||
-			!normalizeDateUTC(job.NotifyDate).Equal(normalizeDateUTC(*sub.EndsAt)) {
-			if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "manual-renew end notification no longer deliverable"); err != nil {
-				logOutboxPersistError(job, "cancel_manual_end_not_deliverable", err)
-			}
-			return notificationOutboxStatusCancelled
-		}
-		return ""
-	}
-
-	if job.TriggerType == notificationTriggerEndingSoon {
-		if normalizeStatus(sub.Status) != subscriptionStatusActive ||
-			normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd ||
-			sub.BillingType != billingTypeRecurring ||
-			!notifyEnabled ||
-			cancelAtPeriodEndBoundary(sub) == nil {
-			if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "ending notification no longer deliverable"); err != nil {
-				logOutboxPersistError(job, "cancel_ending_not_deliverable", err)
-			}
-			return notificationOutboxStatusCancelled
-		}
-
-		matches, reason, err := s.outboxMatchesCurrentEndingSoonReminder(job, sub)
+	reminderPolicy := subscriptionReminderPolicy{}
+	if job.TriggerType != notificationTriggerManualEnded {
+		policy, err := s.GetPolicy(job.UserID)
 		if err != nil {
 			if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
-				logOutboxPersistError(job, "release_ending_validation", updateErr)
+				logOutboxPersistError(job, "release_reminder_policy_lookup", updateErr)
 			}
 			return notificationOutboxStatusPending
 		}
-		if !matches {
-			if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, reason); err != nil {
-				logOutboxPersistError(job, "cancel_stale_ending", err)
-			}
-			return notificationOutboxStatusCancelled
+		reminderPolicy = subscriptionReminderPolicy{
+			DaysBefore:             policy.DaysBefore,
+			NotifyOnDueDay:         policy.NotifyOnDueDay,
+			NotifyManualRenewDaily: policy.NotifyManualRenewDaily,
 		}
-		return ""
 	}
 
-	if normalizeStatus(sub.Status) != subscriptionStatusActive ||
-		sub.BillingType != billingTypeRecurring ||
-		sub.NextBillingDate == nil ||
-		!notifyEnabled ||
-		!subscriptionHasFutureCharge(sub) {
-		if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, "notification no longer deliverable"); err != nil {
-			logOutboxPersistError(job, "cancel_not_deliverable", err)
-		}
-		return notificationOutboxStatusCancelled
-	}
-
-	matches, reason, err := s.outboxMatchesCurrentReminder(job, sub)
+	matches, reason, err := validateSubscriptionNotificationOutboxJob(context.Background(), s.DB, job, reminderPolicy)
 	if err != nil {
 		if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
-			logOutboxPersistError(job, "release_reminder_validation", updateErr)
+			logOutboxPersistError(job, "release_subscription_notification_validation", updateErr)
 		}
 		return notificationOutboxStatusPending
 	}
 	if !matches {
+		logAction := "cancel_stale_reminder"
+		if reason == "subscription not found" {
+			logAction = "cancel_subscription_missing"
+		} else if job.TriggerType == notificationTriggerManualEnded {
+			logAction = "cancel_manual_end_not_deliverable"
+		} else if job.TriggerType == notificationTriggerEndingSoon {
+			logAction = "cancel_stale_ending"
+		}
 		if err := s.updateNotificationOutboxTerminal(job, notificationOutboxStatusCancelled, reason); err != nil {
-			logOutboxPersistError(job, "cancel_stale_reminder", err)
+			logOutboxPersistError(job, logAction, err)
 		}
 		return notificationOutboxStatusCancelled
 	}
 
 	return ""
-}
-
-func (s *NotificationService) outboxMatchesCurrentReminder(job model.NotificationOutbox, sub model.Subscription) (bool, string, error) {
-	policy, err := s.GetPolicy(job.UserID)
-	if err != nil {
-		return false, "", err
-	}
-
-	daysBefore := policy.DaysBefore
-	notifyOnDueDay := policy.NotifyOnDueDay
-	if sub.NotifyDaysBefore != nil {
-		daysBefore = *sub.NotifyDaysBefore
-	}
-
-	systemLoc := pkg.GetSystemTimezone()
-	billingDate := pkg.NormalizeDateInTimezone(*sub.NextBillingDate, systemLoc)
-	if !normalizeDateUTC(job.NotifyDate).Equal(normalizeDateUTC(billingDate)) {
-		return false, "queued reminder no longer matches billing date", nil
-	}
-
-	daysUntilBilling := pkg.DaysUntil(*sub.NextBillingDate, systemLoc)
-	if job.TriggerType == notificationTriggerManualDaily {
-		scheduledDate := pkg.NormalizeDateInTimezone(job.ScheduledFor, systemLoc)
-		today := pkg.TodayInTimezone(systemLoc)
-		if !scheduledDate.Equal(today) {
-			return false, "queued daily manual-renew reminder is stale", nil
-		}
-	}
-
-	for _, triggerType := range notificationTriggerTypesForSubscription(
-		sub.RenewalMode,
-		daysUntilBilling,
-		daysBefore,
-		notifyOnDueDay,
-		policy.NotifyManualRenewDaily,
-	) {
-		if triggerType == job.TriggerType {
-			return true, "", nil
-		}
-	}
-
-	return false, "queued reminder no longer matches reminder timing", nil
-}
-
-func (s *NotificationService) outboxMatchesCurrentEndingSoonReminder(job model.NotificationOutbox, sub model.Subscription) (bool, string, error) {
-	policy, err := s.GetPolicy(job.UserID)
-	if err != nil {
-		return false, "", err
-	}
-
-	daysBefore := policy.DaysBefore
-	notifyOnDueDay := policy.NotifyOnDueDay
-	if sub.NotifyDaysBefore != nil {
-		daysBefore = *sub.NotifyDaysBefore
-	}
-
-	boundary := cancelAtPeriodEndBoundary(sub)
-	if boundary == nil {
-		return false, "queued ending reminder no longer has an ending date", nil
-	}
-
-	systemLoc := pkg.GetSystemTimezone()
-	endDate := pkg.NormalizeDateInTimezone(*boundary, systemLoc)
-	if !normalizeDateUTC(job.NotifyDate).Equal(normalizeDateUTC(endDate)) {
-		return false, "queued ending reminder no longer matches ending date", nil
-	}
-
-	daysUntilEnd := pkg.DaysUntil(endDate, systemLoc)
-	if len(notificationTriggerTypes(daysUntilEnd, daysBefore, notifyOnDueDay)) == 0 {
-		return false, "queued ending reminder no longer matches reminder timing", nil
-	}
-
-	scheduledDate := pkg.NormalizeDateInTimezone(job.ScheduledFor, systemLoc)
-	today := pkg.TodayInTimezone(systemLoc)
-	if !scheduledDate.Equal(today) {
-		return false, "queued ending reminder is stale", nil
-	}
-
-	return true, "", nil
 }
 
 func (s *NotificationService) loadOutboxChannel(job model.NotificationOutbox) (*model.NotificationChannel, string) {

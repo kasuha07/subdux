@@ -3,34 +3,20 @@ package service
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 )
 
-func notificationEventTypeForSubscription(sub model.Subscription) string {
-	switch normalizeRenewalMode(sub.RenewalMode) {
-	case renewalModeManualRenew:
-		return "manual_renew_reminder"
-	case renewalModeCancelAtPeriodEnd:
-		return "ending_soon"
-	default:
-		return "auto_renew_reminder"
-	}
-}
-
 func (s *NotificationService) buildTemplateData(
-	sub *model.Subscription,
+	candidate subscriptionReminderCandidate,
 	user *model.User,
-	billingDate time.Time,
-	daysUntil int,
-	eventType string,
 ) TemplateData {
+	template := candidate.Template
 	paymentMethodName := ""
-	if sub.PaymentMethodID != nil {
+	if template.PaymentMethodID != nil {
 		var paymentMethod model.PaymentMethod
 		err := s.DB.Select("name").
-			Where("id = ? AND user_id = ?", *sub.PaymentMethodID, sub.UserID).
+			Where("id = ? AND user_id = ?", *template.PaymentMethodID, candidate.UserID).
 			First(&paymentMethod).Error
 		if err == nil {
 			paymentMethodName = paymentMethod.Name
@@ -38,18 +24,18 @@ func (s *NotificationService) buildTemplateData(
 	}
 
 	return TemplateData{
-		SubscriptionName: sub.Name,
-		BillingDate:      billingDate.Format("2006-01-02"),
-		Amount:           sub.Amount,
-		Currency:         sub.Currency,
-		DaysUntil:        daysUntil,
-		EventType:        eventType,
-		RenewalMode:      normalizeRenewalMode(sub.RenewalMode),
-		Status:           normalizeStatus(sub.Status),
-		Category:         sub.Category,
+		SubscriptionName: template.Name,
+		BillingDate:      candidate.NotifyDate.Format("2006-01-02"),
+		Amount:           template.Amount,
+		Currency:         template.Currency,
+		DaysUntil:        candidate.DaysUntil,
+		EventType:        candidate.EventType,
+		RenewalMode:      template.RenewalMode,
+		Status:           template.Status,
+		Category:         template.Category,
 		PaymentMethod:    paymentMethodName,
-		URL:              sub.URL,
-		Remark:           sub.Notes,
+		URL:              template.URL,
+		Remark:           template.Notes,
 		UserEmail:        user.Email,
 	}
 }

@@ -2,11 +2,10 @@ package service
 
 import (
 	"errors"
-	"github.com/kasuha07/subdux/internal/pkg"
 	"strings"
-	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
 
@@ -211,33 +210,19 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 		return renderer.RenderTemplate(input.Template, templateData)
 	}
 
-	templateData.SubscriptionName = sub.Name
-	templateData.Amount = sub.Amount
-	templateData.Currency = sub.Currency
-	templateData.URL = sub.URL
-	templateData.Remark = sub.Notes
-	templateData.Category = sub.Category
-	templateData.EventType = notificationEventTypeForSubscription(sub)
-	templateData.RenewalMode = normalizeRenewalMode(sub.RenewalMode)
-	templateData.Status = normalizeStatus(sub.Status)
-
-	billingDateSource := sub.NextBillingDate
-	if normalizeRenewalMode(sub.RenewalMode) == renewalModeCancelAtPeriodEnd {
-		billingDateSource = cancelAtPeriodEndBoundary(sub)
-	}
-	if billingDateSource != nil {
-		billingDate := time.Date(
-			billingDateSource.Year(),
-			billingDateSource.Month(),
-			billingDateSource.Day(),
-			0, 0, 0, 0,
-			billingDateSource.Location(),
-		)
-		templateData.BillingDate = billingDate.Format("2006-01-02")
-		now := pkg.Now().In(billingDate.Location())
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, billingDate.Location())
-		templateData.DaysUntil = int(billingDate.Sub(today).Hours() / 24)
-	}
+	candidate := subscriptionReminderCandidateFromPreviewSubscription(sub, pkg.Now(), templateData.DaysUntil)
+	template := candidate.Template
+	templateData.SubscriptionName = template.Name
+	templateData.Amount = template.Amount
+	templateData.Currency = template.Currency
+	templateData.URL = template.URL
+	templateData.Remark = template.Notes
+	templateData.Category = template.Category
+	templateData.EventType = candidate.EventType
+	templateData.RenewalMode = template.RenewalMode
+	templateData.Status = template.Status
+	templateData.BillingDate = candidate.NotifyDate.Format("2006-01-02")
+	templateData.DaysUntil = candidate.DaysUntil
 
 	if sub.CategoryID != nil && strings.TrimSpace(templateData.Category) == "" {
 		var category model.Category

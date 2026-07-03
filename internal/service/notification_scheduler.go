@@ -107,18 +107,19 @@ func notificationDispatchWorkerCount(jobCount int) int {
 
 func (s *NotificationService) processUserNotifications(userID uint) error {
 	now := pkg.NowInSystemTimezone()
-	if err := reconcileSubscriptionLifecycleForUser(s.DB, userID, now); err != nil {
-		return err
-	}
 
 	policy, err := s.GetPolicy(userID)
 	if err != nil {
 		return err
 	}
+	reminderPolicy := subscriptionReminderPolicy{
+		DaysBefore:             policy.DaysBefore,
+		NotifyOnDueDay:         policy.NotifyOnDueDay,
+		NotifyManualRenewDaily: policy.NotifyManualRenewDaily,
+	}
 
-	var subs []model.Subscription
-	if err := s.DB.Where("user_id = ? AND status = ? AND billing_type = ? AND (next_billing_date IS NOT NULL OR ends_at IS NOT NULL)",
-		userID, subscriptionStatusActive, billingTypeRecurring).Find(&subs).Error; err != nil {
+	candidates, err := listSubscriptionReminderCandidates(context.Background(), s.DB, userID, now, reminderPolicy)
+	if err != nil {
 		return err
 	}
 
@@ -136,33 +137,27 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 		return err
 	}
 
-	systemLoc := pkg.GetSystemTimezone()
 	scheduledDispatches := make(map[string]struct{})
 
-	endedManualRenewSubs, err := s.manualRenewEndedNotificationCandidates(userID, now)
+	endedManualRenewSubs, err := listEndedManualRenewNotificationCandidates(context.Background(), s.DB, userID, now)
 	if err != nil {
 		return err
 	}
-	for _, sub := range endedManualRenewSubs {
-		if sub.EndsAt == nil {
+	for _, candidate := range endedManualRenewSubs {
+		sent, err := s.manualRenewEndedNotificationAlreadySent(candidate.SubscriptionID, normalizeDateUTC(candidate.NotifyDate))
+		if err != nil {
+			return err
+		}
+		if sent {
 			continue
 		}
 
-		notifyEnabled := true
-		if sub.NotifyEnabled != nil {
-			notifyEnabled = *sub.NotifyEnabled
-		}
-		if !notifyEnabled {
-			continue
-		}
-
-		endedAt := pkg.NormalizeDateInTimezone(*sub.EndsAt, systemLoc)
 		for _, channel := range enabledChannels {
-			if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, notificationTriggerManualEnded, endedAt, endedAt) {
+			if !shouldScheduleNotificationOutbox(scheduledDispatches, candidate.SubscriptionID, channel.Type, candidate.TriggerType, candidate.NotifyDate, candidate.DedupeDate) {
 				continue
 			}
 
-			templateData := s.buildTemplateData(&sub, &user, endedAt, 0, "manual_renew_ended")
+			templateData := s.buildTemplateData(candidate, &user)
 			message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
 			if renderErr != nil {
 				logging.Error("failed to render notification template",
@@ -173,58 +168,27 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 			}
 			if err := s.enqueueNotificationOutbox(notificationOutboxJob{
 				userID:          userID,
-				subscriptionID:  sub.ID,
+				subscriptionID:  candidate.SubscriptionID,
 				channel:         channel,
-				triggerType:     notificationTriggerManualEnded,
-				notifyDate:      endedAt,
-				dedupeDate:      endedAt,
+				triggerType:     candidate.TriggerType,
+				notifyDate:      candidate.NotifyDate,
+				dedupeDate:      candidate.DedupeDate,
 				message:         message,
 				targetEmail:     user.Email,
-				subscriptionURL: sub.URL,
+				subscriptionURL: candidate.Template.URL,
 			}); err != nil {
 				return err
 			}
 		}
 	}
 
-	for _, sub := range subs {
-		if normalizeRenewalMode(sub.RenewalMode) != renewalModeCancelAtPeriodEnd {
-			continue
-		}
-
-		boundary := cancelAtPeriodEndBoundary(sub)
-		if boundary == nil {
-			continue
-		}
-
-		notifyEnabled := true
-		daysBefore := policy.DaysBefore
-		notifyOnDueDay := policy.NotifyOnDueDay
-
-		if sub.NotifyEnabled != nil {
-			notifyEnabled = *sub.NotifyEnabled
-		}
-		if !notifyEnabled {
-			continue
-		}
-		if sub.NotifyDaysBefore != nil {
-			daysBefore = *sub.NotifyDaysBefore
-		}
-
-		endDate := pkg.NormalizeDateInTimezone(*boundary, systemLoc)
-		scanDate := pkg.NormalizeDateInTimezone(now, systemLoc)
-		daysUntilEnd := pkg.DaysUntil(endDate, systemLoc)
-		triggerTypes := notificationTriggerTypes(daysUntilEnd, daysBefore, notifyOnDueDay)
-		if len(triggerTypes) == 0 {
-			continue
-		}
-
+	for _, candidate := range candidates {
 		for _, channel := range enabledChannels {
-			if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, notificationTriggerEndingSoon, endDate, scanDate) {
+			if !shouldScheduleNotificationOutbox(scheduledDispatches, candidate.SubscriptionID, channel.Type, candidate.TriggerType, candidate.NotifyDate, candidate.DedupeDate) {
 				continue
 			}
 
-			templateData := s.buildTemplateData(&sub, &user, endDate, daysUntilEnd, "ending_soon")
+			templateData := s.buildTemplateData(candidate, &user)
 			message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
 			if renderErr != nil {
 				logging.Error("failed to render notification template",
@@ -235,123 +199,21 @@ func (s *NotificationService) processUserNotifications(userID uint) error {
 			}
 			if err := s.enqueueNotificationOutbox(notificationOutboxJob{
 				userID:          userID,
-				subscriptionID:  sub.ID,
+				subscriptionID:  candidate.SubscriptionID,
 				channel:         channel,
-				triggerType:     notificationTriggerEndingSoon,
-				notifyDate:      endDate,
-				dedupeDate:      scanDate,
+				triggerType:     candidate.TriggerType,
+				notifyDate:      candidate.NotifyDate,
+				dedupeDate:      candidate.DedupeDate,
 				message:         message,
 				targetEmail:     user.Email,
-				subscriptionURL: sub.URL,
+				subscriptionURL: candidate.Template.URL,
 			}); err != nil {
 				return err
-			}
-		}
-	}
-
-	for _, sub := range subs {
-		if sub.NextBillingDate == nil || !subscriptionHasFutureCharge(sub) {
-			continue
-		}
-
-		notifyEnabled := true
-		daysBefore := policy.DaysBefore
-		notifyOnDueDay := policy.NotifyOnDueDay
-
-		if sub.NotifyEnabled != nil {
-			notifyEnabled = *sub.NotifyEnabled
-		}
-		if !notifyEnabled {
-			continue
-		}
-		if sub.NotifyDaysBefore != nil {
-			daysBefore = *sub.NotifyDaysBefore
-		}
-
-		billingDate := pkg.NormalizeDateInTimezone(*sub.NextBillingDate, systemLoc)
-		scanDate := pkg.NormalizeDateInTimezone(now, systemLoc)
-
-		daysUntilBilling := pkg.DaysUntil(*sub.NextBillingDate, systemLoc)
-		triggerTypes := notificationTriggerTypesForSubscription(
-			sub.RenewalMode,
-			daysUntilBilling,
-			daysBefore,
-			notifyOnDueDay,
-			policy.NotifyManualRenewDaily,
-		)
-		if len(triggerTypes) == 0 {
-			continue
-		}
-
-		for _, channel := range enabledChannels {
-			for _, triggerType := range triggerTypes {
-				dedupeDate := billingDate
-				if triggerType == notificationTriggerManualDaily {
-					dedupeDate = scanDate
-				}
-				if !shouldScheduleNotificationOutbox(scheduledDispatches, sub.ID, channel.Type, triggerType, billingDate, dedupeDate) {
-					continue
-				}
-
-				eventType := notificationEventTypeForSubscription(sub)
-				templateData := s.buildTemplateData(&sub, &user, billingDate, daysUntilBilling, eventType)
-				message, renderErr := s.renderNotificationMessage(userID, channel.Type, templateData)
-				if renderErr != nil {
-					logging.Error("failed to render notification template",
-						slog.Uint64("user_id", uint64(userID)),
-						slog.String("channel", channel.Type),
-						slog.Any("error", renderErr))
-					continue
-				}
-				if err := s.enqueueNotificationOutbox(notificationOutboxJob{
-					userID:          userID,
-					subscriptionID:  sub.ID,
-					channel:         channel,
-					triggerType:     triggerType,
-					notifyDate:      billingDate,
-					dedupeDate:      dedupeDate,
-					message:         message,
-					targetEmail:     user.Email,
-					subscriptionURL: sub.URL,
-				}); err != nil {
-					return err
-				}
 			}
 		}
 	}
 
 	return nil
-}
-
-func (s *NotificationService) manualRenewEndedNotificationCandidates(userID uint, referenceDate time.Time) ([]model.Subscription, error) {
-	today := normalizeDateUTC(referenceDate)
-	var subs []model.Subscription
-	if err := s.DB.Where(
-		"user_id = ? AND status = ? AND renewal_mode = ? AND billing_type = ? AND ends_at IS NOT NULL AND ends_at < ?",
-		userID,
-		subscriptionStatusEnded,
-		renewalModeManualRenew,
-		billingTypeRecurring,
-		today,
-	).Order("ends_at ASC, id ASC").Find(&subs).Error; err != nil {
-		return nil, err
-	}
-
-	candidates := make([]model.Subscription, 0, len(subs))
-	for _, sub := range subs {
-		if sub.EndsAt == nil {
-			continue
-		}
-		sent, err := s.manualRenewEndedNotificationAlreadySent(sub.ID, normalizeDateUTC(*sub.EndsAt))
-		if err != nil {
-			return nil, err
-		}
-		if sent {
-			continue
-		}
-		candidates = append(candidates, sub)
-	}
-	return candidates, nil
 }
 
 func (s *NotificationService) manualRenewEndedNotificationAlreadySent(subscriptionID uint, endedAt time.Time) (bool, error) {

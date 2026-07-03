@@ -166,13 +166,7 @@ func (s *NotificationService) TestChannel(userID, channelID uint) error {
 		Notes:       "Test notification",
 	}
 
-	templateData := s.buildTemplateData(
-		testSubscription,
-		&user,
-		testBillingDate,
-		3,
-		notificationEventTypeForSubscription(*testSubscription),
-	)
+	templateData := s.buildTemplateData(subscriptionReminderCandidateFromPreviewSubscription(*testSubscription, testBillingDate, 3), &user)
 
 	message, err := s.renderNotificationMessage(userID, channel.Type, templateData)
 	if err != nil {
