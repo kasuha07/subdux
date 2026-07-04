@@ -62,9 +62,9 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationAddPasskey,
-		reauthTicketFromRequest(c),
+		apimw.ReauthTicketFromRequest(c),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(input.Credential))
@@ -92,9 +92,9 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationDeletePasskey,
-		reauthTicketFromRequest(c),
+		apimw.ReauthTicketFromRequest(c),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeletePasskey(userID, uint(passkeyID)); err != nil {

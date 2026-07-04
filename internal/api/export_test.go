@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/glebarez/sqlite"
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
@@ -190,7 +191,7 @@ func TestExportRedactsSecretsUnlessConfirmed(t *testing.T) {
 	redactedTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 	req := httptest.NewRequest(http.MethodGet, "/api/export", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set(reauthTicketHeader, redactedTicket)
+	req.Header.Set(apimw.ReauthTicketHeader, redactedTicket)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -206,7 +207,7 @@ func TestExportRedactsSecretsUnlessConfirmed(t *testing.T) {
 	secretsTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportSecrets)
 	req = httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set(reauthTicketHeader, secretsTicket)
+	req.Header.Set(apimw.ReauthTicketHeader, secretsTicket)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -261,7 +262,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 		wrongTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportSecrets)
 		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set(reauthTicketHeader, wrongTicket)
+		req.Header.Set(apimw.ReauthTicketHeader, wrongTicket)
 		rec = httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -275,7 +276,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 		ticket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 		rec = httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -285,7 +286,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 
 		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 		rec = httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -301,7 +302,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 		redactedTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 		req := httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set(reauthTicketHeader, redactedTicket)
+		req.Header.Set(apimw.ReauthTicketHeader, redactedTicket)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -315,7 +316,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 		ticket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportSecrets)
 		req = httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 		rec = httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 

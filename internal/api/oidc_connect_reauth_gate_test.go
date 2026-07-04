@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
@@ -62,7 +63,7 @@ func postOIDCConnectStart(t *testing.T, e *echo.Echo, token, ticket string) *htt
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

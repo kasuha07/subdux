@@ -63,12 +63,12 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 	authService := h.Service.WithContext(c.Request().Context())
 	if err := h.Reauth.WithContext(c.Request().Context()).ConsumeOIDCConnect(
 		userID,
-		reauthTicketFromRequest(c),
+		apimw.ReauthTicketFromRequest(c),
 	); err != nil {
 		if !errors.Is(err, servicereauth.ErrReauthRequired) {
 			return httpx.WriteError(c, http.StatusInternalServerError, "failed to load oidc connections")
 		}
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	result, err := authService.BeginOIDCConnect(userID)

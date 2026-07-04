@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
@@ -32,7 +33,7 @@ func postTOTPSetup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.R
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -58,7 +59,7 @@ func postTOTPDisable(t *testing.T, e *echo.Echo, token, ticket string) *httptest
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -249,7 +250,7 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 	handler := NewAuthHandler(authSvc, serviceauth.NewTOTPService(brokenDB), reauthSvc)
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(`{}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(reauthTicketHeader, ticket)
+	req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	rec := httptest.NewRecorder()
 	e := echo.New()
 	e.HTTPErrorHandler = APIErrorHandler(e.HTTPErrorHandler)

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	adminservice "github.com/kasuha07/subdux/internal/service/admin"
@@ -118,7 +119,7 @@ func postBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.Resp
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -132,7 +133,7 @@ func putAdminSettings(t *testing.T, e *echo.Echo, token, body, ticket string) *h
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -148,7 +149,7 @@ func postRestore(t *testing.T, e *echo.Echo, token, ticket string) *httptest.Res
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/restore", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -163,7 +164,7 @@ func postSubduxImport(t *testing.T, e *echo.Echo, token string, confirm bool, ti
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -178,7 +179,7 @@ func postWallosImport(t *testing.T, e *echo.Echo, token string, confirm bool, ti
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -193,7 +194,7 @@ func postWallosImportWithAPIKey(t *testing.T, e *echo.Echo, apiKey string, confi
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("X-API-Key", apiKey)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -208,7 +209,7 @@ func postCreateAPIKey(t *testing.T, e *echo.Echo, token, name, ticket string) *h
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -221,7 +222,7 @@ func deleteAPIKey(t *testing.T, e *echo.Echo, token string, id uint, ticket stri
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/api-keys/%d", id), nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -236,7 +237,7 @@ func postAdminUser(t *testing.T, e *echo.Echo, token, username, email, role, tic
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -251,7 +252,7 @@ func putAdminUserRole(t *testing.T, e *echo.Echo, token string, userID uint, rol
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -264,7 +265,7 @@ func deleteAdminUser(t *testing.T, e *echo.Echo, token string, userID uint, tick
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/admin/users/%d", userID), nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

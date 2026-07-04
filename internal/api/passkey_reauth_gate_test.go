@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
@@ -35,7 +36,7 @@ func postFinishPasskeyRegistration(t *testing.T, e *echo.Echo, token, ticket str
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -48,7 +49,7 @@ func deletePasskey(t *testing.T, e *echo.Echo, token string, passkeyID uint, tic
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/auth/passkeys/%d", passkeyID), nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

@@ -42,9 +42,9 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationChangeEmail,
-		c.Request().Header.Get(reauthTicketHeader),
+		c.Request().Header.Get(apimw.ReauthTicketHeader),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).SendEmailChangeVerificationCode(userID, input.NewEmail); err != nil {

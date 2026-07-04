@@ -66,9 +66,9 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationCreateAPIKey,
-		c.Request().Header.Get(reauthTicketHeader),
+		c.Request().Header.Get(apimw.ReauthTicketHeader),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	role := apimw.From(c).Role
@@ -108,9 +108,9 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationDeleteAPIKey,
-		c.Request().Header.Get(reauthTicketHeader),
+		c.Request().Header.Get(apimw.ReauthTicketHeader),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(keyID)); err != nil {

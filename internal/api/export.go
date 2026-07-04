@@ -32,9 +32,9 @@ func (h *ExportHandler) Export(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		operation,
-		c.Request().Header.Get(reauthTicketHeader),
+		c.Request().Header.Get(apimw.ReauthTicketHeader),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	data, err := h.Service.WithContext(c.Request().Context()).ExportUserData(userID, includeSecrets)

@@ -17,9 +17,9 @@ func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationEnableTOTP,
-		reauthTicketFromRequest(c),
+		apimw.ReauthTicketFromRequest(c),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	result, err := h.TOTPService.WithContext(c.Request().Context()).BeginSetup(userID)
@@ -54,9 +54,9 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationDisableTOTP,
-		reauthTicketFromRequest(c),
+		apimw.ReauthTicketFromRequest(c),
 	); err != nil {
-		return writeReauthError(c, err)
+		return apimw.WriteReauthError(c, err)
 	}
 
 	if err := h.TOTPService.WithContext(c.Request().Context()).Disable(userID); err != nil {

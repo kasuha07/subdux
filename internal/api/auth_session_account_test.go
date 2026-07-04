@@ -113,7 +113,7 @@ func postConfirmEmailChange(t *testing.T, e *echo.Echo, token, ticket, newEmail,
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -128,7 +128,7 @@ func postSendEmailChangeCode(t *testing.T, e *echo.Echo, token, ticket, newEmail
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
-		req.Header.Set(reauthTicketHeader, ticket)
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

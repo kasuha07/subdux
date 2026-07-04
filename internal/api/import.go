@@ -37,9 +37,9 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			userID,
 			servicereauth.ReauthOperationImportWallos,
-			c.Request().Header.Get(reauthTicketHeader),
+			c.Request().Header.Get(apimw.ReauthTicketHeader),
 		); err != nil {
-			return writeReauthError(c, err)
+			return apimw.WriteReauthError(c, err)
 		}
 	}
 
@@ -63,9 +63,9 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			userID,
 			servicereauth.ReauthOperationImportSubdux,
-			c.Request().Header.Get(reauthTicketHeader),
+			c.Request().Header.Get(apimw.ReauthTicketHeader),
 		); err != nil {
-			return writeReauthError(c, err)
+			return apimw.WriteReauthError(c, err)
 		}
 	}
 
