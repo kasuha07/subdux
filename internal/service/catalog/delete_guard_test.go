@@ -1,11 +1,23 @@
-package service
+package catalog
 
 import (
 	"errors"
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/servicetest"
+	"gorm.io/gorm"
 )
+
+func newTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	return servicetest.NewDB(t)
+}
+
+func createTestUser(t *testing.T, db *gorm.DB) model.User {
+	t.Helper()
+	return servicetest.CreateUser(t, db)
+}
 
 func TestCurrencyDeleteBlockedWhenUsedBySubscription(t *testing.T) {
 	db := newTestDB(t)

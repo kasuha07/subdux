@@ -6,7 +6,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// This file centralizes the context-binding helpers for services whose only
+// This file centralizes the context-binding helpers for parent-package services
+// whose only
 // mutable state is the GORM handle (plus immutable configuration such as a
 // validator). Each WithContext returns a shallow copy of the service with its
 // database handle bound to ctx via gorm.DB.WithContext, so that GORM propagates
@@ -16,9 +17,9 @@ import (
 // The copy is safe because these structs hold no locks or other by-value
 // synchronization primitives; transactions and free helper functions that take
 // a *gorm.DB inherit the bound context automatically from the session they are
-// handed. Services that own in-memory caches or session stores (AuthService,
-// TOTPService, ExchangeRateService, NotificationService) define WithContext
-// alongside their own declarations so the shared state is preserved.
+// handed. Split subpackages such as catalog/auth/subscription and services that
+// own in-memory caches or session stores define WithContext alongside their own
+// declarations so the shared state is preserved.
 
 // withContext binds db to ctx, tolerating a nil handle so context-less unit
 // tests that construct services without a database keep working.
@@ -27,24 +28,6 @@ func withContext(db *gorm.DB, ctx context.Context) *gorm.DB {
 		return nil
 	}
 	return db.WithContext(ctx)
-}
-
-func (s *CategoryService) WithContext(ctx context.Context) *CategoryService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
-func (s *PaymentMethodService) WithContext(ctx context.Context) *PaymentMethodService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
-func (s *CurrencyService) WithContext(ctx context.Context) *CurrencyService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
 }
 
 func (s *AdminService) WithContext(ctx context.Context) *AdminService {
