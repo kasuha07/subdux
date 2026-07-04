@@ -14,6 +14,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
@@ -543,7 +544,7 @@ func (s *ExchangeRateService) outboundHTTPClient() *http.Client {
 
 func (s *ExchangeRateService) StartBackgroundRefresh(
 	ctx context.Context,
-	monitor *BackgroundTaskMonitor,
+	monitor *serviceutil.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
 	const taskKey = "exchange_rate_refresh"

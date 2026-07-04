@@ -24,7 +24,6 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
-	"github.com/kasuha07/subdux/internal/service"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
@@ -84,7 +83,7 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-API-Key", "MCP-Protocol-Version"},
 	}))
 
-	taskMonitor := service.NewBackgroundTaskMonitor()
+	taskMonitor := serviceutil.NewBackgroundTaskMonitor()
 	erService, notificationService := api.SetupRoutes(appCtx, e, db, taskMonitor)
 
 	var backgroundTasks sync.WaitGroup
@@ -387,7 +386,7 @@ func uploadedAssetContentType(relativePath string) string {
 func startNotificationWorkers(
 	ctx context.Context,
 	ns *notificationservice.Service,
-	monitor *service.BackgroundTaskMonitor,
+	monitor *serviceutil.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
 	const (
@@ -508,7 +507,7 @@ func startNotificationWorkers(
 func startSubscriptionLifecycleSweep(
 	ctx context.Context,
 	subscriptions *subscriptionservice.Service,
-	monitor *service.BackgroundTaskMonitor,
+	monitor *serviceutil.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
 	const (
@@ -579,7 +578,7 @@ func startSubscriptionLifecycleSweep(
 func startScheduledBackupWorker(
 	ctx context.Context,
 	backupService *servicebackup.Service,
-	monitor *service.BackgroundTaskMonitor,
+	monitor *serviceutil.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
 	const (

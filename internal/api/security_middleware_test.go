@@ -13,9 +13,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -639,7 +639,7 @@ func newHumanOnlyRouteTestServer(t *testing.T, db *gorm.DB) *echo.Echo {
 	t.Helper()
 
 	e := echo.New()
-	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 	return e
 }
 

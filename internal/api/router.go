@@ -20,6 +20,7 @@ import (
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/kasuha07/subdux/internal/version"
@@ -127,7 +128,7 @@ func SetupRoutes(
 	ctx context.Context,
 	e *echo.Echo,
 	db *gorm.DB,
-	taskMonitor *service.BackgroundTaskMonitor,
+	taskMonitor *serviceutil.BackgroundTaskMonitor,
 ) (*service.ExchangeRateService, *notificationservice.Service) {
 	authService := serviceauth.NewService(db)
 	authService.StartSessionCleanupLoop(ctx)

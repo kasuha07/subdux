@@ -19,6 +19,7 @@ import (
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -712,7 +713,7 @@ func TestSetupRoutesRegistersMCPAtRoot(t *testing.T) {
 	}
 
 	e := echo.New()
-	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -744,7 +745,7 @@ func TestSetupRoutesMCPMethodNotAllowedStillValidatesHeaders(t *testing.T) {
 	}
 
 	e := echo.New()
-	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 
 	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
 	req.Header.Set("X-API-Key", apiKey)
@@ -792,7 +793,7 @@ func TestSetupRoutesMCPDisabledByDefault(t *testing.T) {
 	}
 
 	e := echo.New()
-	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -815,7 +816,7 @@ func TestSiteInfoIncludesMCPEnabled(t *testing.T) {
 	}
 
 	e := echo.New()
-	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/site-info", nil)
 	rec := httptest.NewRecorder()

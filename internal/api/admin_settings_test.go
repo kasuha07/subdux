@@ -13,6 +13,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -190,7 +191,7 @@ func TestAdminSSRFTestRouteRequiresAdminRole(t *testing.T) {
 	}
 
 	e := echo.New()
-	SetupRoutes(context.Background(), e, db, service.NewBackgroundTaskMonitor())
+	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 
 	token, err := pkg.GenerateAccessToken(1, "alice", "alice@example.com", "user")
 	if err != nil {

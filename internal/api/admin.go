@@ -17,13 +17,14 @@ import (
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"github.com/labstack/echo/v4"
 )
 
 type AdminHandler struct {
 	Service     *service.AdminService
-	TaskMonitor *service.BackgroundTaskMonitor
+	TaskMonitor *serviceutil.BackgroundTaskMonitor
 	Reauth      *servicereauth.Service
 }
 
@@ -60,7 +61,7 @@ const (
 	maxBackupUploadSize = 32 << 20 // 32 MiB
 )
 
-func NewAdminHandler(s *service.AdminService, taskMonitor *service.BackgroundTaskMonitor, reauth *servicereauth.Service) *AdminHandler {
+func NewAdminHandler(s *service.AdminService, taskMonitor *serviceutil.BackgroundTaskMonitor, reauth *servicereauth.Service) *AdminHandler {
 	return &AdminHandler{Service: s, TaskMonitor: taskMonitor, Reauth: reauth}
 }
 
