@@ -9,6 +9,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	calendarservice "github.com/kasuha07/subdux/internal/service/calendar"
 	"gorm.io/gorm"
 )
 
@@ -67,7 +68,7 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 	adminService := NewAdminService(db)
 	authService := serviceauth.NewService(db)
 	apiKeyService := apikeyservice.NewService(db)
-	calendarService := NewCalendarService(db)
+	calendarService := calendarservice.NewService(db)
 
 	authResp, err := authService.CreateSession(target.ID)
 	if err != nil {
@@ -234,7 +235,7 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 	adminService := NewAdminService(db)
 	authService := serviceauth.NewService(db)
 	apiKeyService := apikeyservice.NewService(db)
-	calendarService := NewCalendarService(db)
+	calendarService := calendarservice.NewService(db)
 
 	preferredCurrency := model.UserPreference{UserID: target.ID, PreferredCurrency: "USD"}
 	if err := db.Create(&preferredCurrency).Error; err != nil {

@@ -36,12 +36,6 @@ func (s *AdminService) WithContext(ctx context.Context) *AdminService {
 	return &clone
 }
 
-func (s *CalendarService) WithContext(ctx context.Context) *CalendarService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
 func (s *ExportService) WithContext(ctx context.Context) *ExportService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)

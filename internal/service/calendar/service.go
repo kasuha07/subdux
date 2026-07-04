@@ -1,6 +1,7 @@
-package service
+package calendar
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,15 +16,23 @@ import (
 	"gorm.io/gorm"
 )
 
-type CalendarService struct {
+type Service struct {
 	DB *gorm.DB
 }
 
-func NewCalendarService(db *gorm.DB) *CalendarService {
-	return &CalendarService{DB: db}
+func NewService(db *gorm.DB) *Service {
+	return &Service{DB: db}
 }
 
-func (s *CalendarService) GenerateToken(userID uint, name string) (*model.CalendarToken, error) {
+func (s *Service) WithContext(ctx context.Context) *Service {
+	clone := *s
+	if s.DB != nil {
+		clone.DB = s.DB.WithContext(ctx)
+	}
+	return &clone
+}
+
+func (s *Service) GenerateToken(userID uint, name string) (*model.CalendarToken, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
@@ -44,7 +53,7 @@ func (s *CalendarService) GenerateToken(userID uint, name string) (*model.Calend
 	return &ct, nil
 }
 
-func (s *CalendarService) ListTokens(userID uint) ([]model.CalendarToken, error) {
+func (s *Service) ListTokens(userID uint) ([]model.CalendarToken, error) {
 	var tokens []model.CalendarToken
 	if err := s.DB.Where("user_id = ?", userID).Order("created_at ASC").Find(&tokens).Error; err != nil {
 		return nil, err
@@ -55,7 +64,7 @@ func (s *CalendarService) ListTokens(userID uint) ([]model.CalendarToken, error)
 	return tokens, nil
 }
 
-func (s *CalendarService) DeleteToken(userID uint, tokenID uint) error {
+func (s *Service) DeleteToken(userID uint, tokenID uint) error {
 	result := s.DB.Where("id = ? AND user_id = ?", tokenID, userID).Delete(&model.CalendarToken{})
 	if result.Error != nil {
 		return result.Error
@@ -66,7 +75,7 @@ func (s *CalendarService) DeleteToken(userID uint, tokenID uint) error {
 	return nil
 }
 
-func (s *CalendarService) ValidateToken(token string) (uint, error) {
+func (s *Service) ValidateToken(token string) (uint, error) {
 	tokenHash := hashCalendarToken(token)
 
 	var ct model.CalendarToken
@@ -102,7 +111,7 @@ func hashCalendarToken(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subscription, error) {
+func (s *Service) GetSubscriptionsForCalendar(userID uint) ([]model.Subscription, error) {
 	now := pkg.NowInSystemTimezone()
 
 	var subs []model.Subscription
@@ -122,7 +131,7 @@ func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subs
 	return subscriptionservice.PresentActiveSubscriptions(subs, now), nil
 }
 
-func (s *CalendarService) GenerateICalFeed(userID uint) (string, error) {
+func (s *Service) GenerateICalFeed(userID uint) (string, error) {
 	subs, err := s.GetSubscriptionsForCalendar(userID)
 	if err != nil {
 		return "", err
@@ -227,7 +236,7 @@ func icalFold(line string) string {
 		encoded := []byte(string(r))
 		if octets+len(encoded) > maxOctets {
 			sb.WriteString("\r\n ")
-			octets = 1 // the leading space counts
+			octets = 1
 		}
 		sb.WriteRune(r)
 		octets += len(encoded)

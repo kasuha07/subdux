@@ -1,4 +1,4 @@
-package service
+package calendar
 
 import (
 	"strings"
@@ -15,7 +15,7 @@ func TestGenerateICalFeedOmitsRRuleForNonAutoRenewRecurring(t *testing.T) {
 	db := newTestDB(t)
 	user := createTestUser(t, db)
 	service := subscriptionservice.NewService(db)
-	calendarService := NewCalendarService(db)
+	calendarService := NewService(db)
 
 	intervalCount := 1
 	if _, err := service.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
@@ -49,7 +49,7 @@ func TestGenerateICalFeedOmitsCancelAtPeriodEndSubscription(t *testing.T) {
 	db := newTestDB(t)
 	user := createTestUser(t, db)
 	service := subscriptionservice.NewService(db)
-	calendarService := NewCalendarService(db)
+	calendarService := NewService(db)
 
 	intervalCount := 1
 	if _, err := service.Create(user.ID, subscriptionservice.CreateSubscriptionInput{

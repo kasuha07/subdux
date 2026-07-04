@@ -16,6 +16,7 @@ import (
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	authreauth "github.com/kasuha07/subdux/internal/service/authreauth"
+	calendarservice "github.com/kasuha07/subdux/internal/service/calendar"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
@@ -148,7 +149,7 @@ func SetupRoutes(
 	notificationService := notificationservice.NewService(db, templateService, renderer)
 	apiKeyService := apikeyservice.NewService(db)
 	auditService := auditservice.NewService(db)
-	calendarService := service.NewCalendarService(db)
+	calendarService := calendarservice.NewService(db)
 	exportService := service.NewExportService(db)
 	importService := service.NewImportService(db)
 	if err := systemSettingsService.SeedDefaults(); err != nil {

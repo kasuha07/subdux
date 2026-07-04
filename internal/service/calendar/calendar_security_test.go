@@ -1,4 +1,4 @@
-package service
+package calendar
 
 import (
 	"strings"
@@ -9,12 +9,8 @@ import (
 
 func TestGenerateCalendarTokenStoresHashAndListHidesToken(t *testing.T) {
 	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.CalendarToken{}); err != nil {
-		t.Fatalf("failed to migrate calendar tokens: %v", err)
-	}
-
 	user := createTestUser(t, db)
-	svc := NewCalendarService(db)
+	svc := NewService(db)
 
 	created, err := svc.GenerateToken(user.ID, "Personal")
 	if err != nil {
@@ -57,10 +53,6 @@ func TestGenerateCalendarTokenStoresHashAndListHidesToken(t *testing.T) {
 
 func TestValidateCalendarTokenMigratesLegacyPlaintextToken(t *testing.T) {
 	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.CalendarToken{}); err != nil {
-		t.Fatalf("failed to migrate calendar tokens: %v", err)
-	}
-
 	user := createTestUser(t, db)
 	legacyToken := strings.Repeat("a", 64)
 	stored := model.CalendarToken{UserID: user.ID, Token: legacyToken, Name: "Legacy"}
@@ -68,7 +60,7 @@ func TestValidateCalendarTokenMigratesLegacyPlaintextToken(t *testing.T) {
 		t.Fatalf("failed to create legacy calendar token: %v", err)
 	}
 
-	svc := NewCalendarService(db)
+	svc := NewService(db)
 	userID, err := svc.ValidateToken(legacyToken)
 	if err != nil {
 		t.Fatalf("ValidateToken() error = %v", err)

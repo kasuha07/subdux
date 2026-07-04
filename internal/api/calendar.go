@@ -5,15 +5,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kasuha07/subdux/internal/service"
+	calendarservice "github.com/kasuha07/subdux/internal/service/calendar"
 	"github.com/labstack/echo/v4"
 )
 
 type CalendarHandler struct {
-	Service *service.CalendarService
+	Service *calendarservice.Service
 }
 
-func NewCalendarHandler(s *service.CalendarService) *CalendarHandler {
+func NewCalendarHandler(s *calendarservice.Service) *CalendarHandler {
 	return &CalendarHandler{Service: s}
 }
 
