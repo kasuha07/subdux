@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/kasuha07/subdux/internal/api/apicontract"
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
@@ -14,30 +15,14 @@ type CategoryHandler struct {
 	Service *catalogservice.CategoryService
 }
 
-type categoryResponse struct {
-	ID             uint    `json:"id"`
-	Name           string  `json:"name"`
-	SystemKey      *string `json:"system_key"`
-	NameCustomized bool    `json:"name_customized"`
-	DisplayOrder   int     `json:"display_order"`
-}
+type categoryResponse = apicontract.CategoryResponse
 
 func mapCategoryResponse(category model.Category) categoryResponse {
-	return categoryResponse{
-		ID:             category.ID,
-		Name:           category.Name,
-		SystemKey:      category.SystemKey,
-		NameCustomized: category.NameCustomized,
-		DisplayOrder:   category.DisplayOrder,
-	}
+	return apicontract.MapCategoryResponse(category)
 }
 
 func mapCategoryResponses(categories []model.Category) []categoryResponse {
-	responses := make([]categoryResponse, len(categories))
-	for i, category := range categories {
-		responses[i] = mapCategoryResponse(category)
-	}
-	return responses
+	return apicontract.MapCategoryResponses(categories)
 }
 
 func NewCategoryHandler(s *catalogservice.CategoryService) *CategoryHandler {

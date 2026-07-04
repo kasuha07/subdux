@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/kasuha07/subdux/internal/api/apicontract"
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
@@ -14,32 +15,14 @@ type PaymentMethodHandler struct {
 	Service *catalogservice.PaymentMethodService
 }
 
-type paymentMethodResponse struct {
-	ID             uint    `json:"id"`
-	Name           string  `json:"name"`
-	SystemKey      *string `json:"system_key"`
-	NameCustomized bool    `json:"name_customized"`
-	Icon           string  `json:"icon"`
-	SortOrder      int     `json:"sort_order"`
-}
+type paymentMethodResponse = apicontract.PaymentMethodResponse
 
 func mapPaymentMethodResponse(method model.PaymentMethod) paymentMethodResponse {
-	return paymentMethodResponse{
-		ID:             method.ID,
-		Name:           method.Name,
-		SystemKey:      method.SystemKey,
-		NameCustomized: method.NameCustomized,
-		Icon:           method.Icon,
-		SortOrder:      method.SortOrder,
-	}
+	return apicontract.MapPaymentMethodResponse(method)
 }
 
 func mapPaymentMethodResponses(methods []model.PaymentMethod) []paymentMethodResponse {
-	responses := make([]paymentMethodResponse, len(methods))
-	for i, method := range methods {
-		responses[i] = mapPaymentMethodResponse(method)
-	}
-	return responses
+	return apicontract.MapPaymentMethodResponses(methods)
 }
 
 func NewPaymentMethodHandler(s *catalogservice.PaymentMethodService) *PaymentMethodHandler {
