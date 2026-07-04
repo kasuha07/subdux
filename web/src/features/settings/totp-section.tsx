@@ -33,7 +33,7 @@ export default function TotpSection({ user, onUserChange }: Props) {
   async function handleDisable(reauthTicket: string) {
     setDisabling(true)
     try {
-      await api.post("/auth/totp/disable", { reauth_ticket: reauthTicket })
+      await api.post("/auth/totp/disable", {}, { headers: { "X-Reauth-Ticket": reauthTicket } })
       toast.success(t("settings.twoFactor.disableSuccess"))
       api.get<User>("/auth/me").then(onUserChange).catch(() => void 0)
     } finally {

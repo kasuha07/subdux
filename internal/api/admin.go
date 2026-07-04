@@ -129,7 +129,7 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			getUserID(c),
 			operation,
-			strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
+			reauthTicketFromRequest(c),
 		); err != nil {
 			return writeReauthError(c, err)
 		}
@@ -161,7 +161,7 @@ func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		getUserID(c),
 		servicereauth.ReauthOperationChangeUserRole,
-		strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
+		reauthTicketFromRequest(c),
 	); err != nil {
 		return writeReauthError(c, err)
 	}
@@ -239,7 +239,7 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		currentUserID,
 		servicereauth.ReauthOperationDeleteUser,
-		strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader)),
+		reauthTicketFromRequest(c),
 	); err != nil {
 		return writeReauthError(c, err)
 	}
@@ -284,7 +284,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			getUserID(c),
 			operation,
-			c.Request().Header.Get(reauthTicketHeader),
+			reauthTicketFromRequest(c),
 		); err != nil {
 			return writeReauthError(c, err)
 		}
@@ -356,13 +356,16 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 	var input struct {
 		IncludeAssets bool   `json:"include_assets"`
 		Password      string `json:"password"`
-		ReauthTicket  string `json:"reauth_ticket"`
 	}
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(getUserID(c), servicereauth.ReauthOperationBackup, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		getUserID(c),
+		servicereauth.ReauthOperationBackup,
+		reauthTicketFromRequest(c),
+	); err != nil {
 		return writeReauthError(c, err)
 	}
 
@@ -426,7 +429,11 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 	// single-use, so a failure after this point requires a fresh re-auth on retry
 	// — an intentional trade-off that keeps the destructive step strictly behind a
 	// proven-present admin.
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(getUserID(c), servicereauth.ReauthOperationRestore, strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader))); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		getUserID(c),
+		servicereauth.ReauthOperationRestore,
+		reauthTicketFromRequest(c),
+	); err != nil {
 		return writeReauthError(c, err)
 	}
 

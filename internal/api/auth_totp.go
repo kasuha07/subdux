@@ -13,13 +13,11 @@ import (
 
 func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 	userID := getUserID(c)
-	var input struct {
-		ReauthTicket string `json:"reauth_ticket"`
-	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
-	}
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, servicereauth.ReauthOperationEnableTOTP, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		servicereauth.ReauthOperationEnableTOTP,
+		reauthTicketFromRequest(c),
+	); err != nil {
 		return writeReauthError(c, err)
 	}
 
@@ -52,13 +50,11 @@ func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 
 func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 	userID := getUserID(c)
-	var input struct {
-		ReauthTicket string `json:"reauth_ticket"`
-	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
-	}
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, servicereauth.ReauthOperationDisableTOTP, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		servicereauth.ReauthOperationDisableTOTP,
+		reauthTicketFromRequest(c),
+	); err != nil {
 		return writeReauthError(c, err)
 	}
 

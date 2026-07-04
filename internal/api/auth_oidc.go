@@ -56,19 +56,14 @@ func (h *AuthHandler) BeginOIDCLogin(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-type beginOIDCConnectInput struct {
-	ReauthTicket string `json:"reauth_ticket"`
-}
-
 func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 	userID := getUserID(c)
-	var input beginOIDCConnectInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
-	}
 
 	authService := h.Service.WithContext(c.Request().Context())
-	if err := h.Reauth.WithContext(c.Request().Context()).ConsumeOIDCConnect(userID, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).ConsumeOIDCConnect(
+		userID,
+		reauthTicketFromRequest(c),
+	); err != nil {
 		if !errors.Is(err, servicereauth.ErrReauthRequired) {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load oidc connections"})
 		}

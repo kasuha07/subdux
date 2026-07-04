@@ -48,7 +48,11 @@ export default function TotpSetupDialog({ open, onOpenChange, reauthTicket, onEn
     setCopied(false)
     setSetup(null)
 
-    api.post<TotpSetupResponse>("/auth/totp/setup", { reauth_ticket: reauthTicket }).then(setSetup).catch(() => {
+    api.post<TotpSetupResponse>(
+      "/auth/totp/setup",
+      {},
+      { headers: { "X-Reauth-Ticket": reauthTicket } }
+    ).then(setSetup).catch(() => {
       handleClose(false)
     })
   }, [open, handleClose, reauthTicket, t])

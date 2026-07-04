@@ -87,10 +87,6 @@ export interface VerifyTotpInput {
   code: string;
 }
 
-export interface DisableTotpInput {
-  reauth_ticket: string;
-}
-
 export interface ChangePasswordInput {
   current_password: string;
   new_password: string;

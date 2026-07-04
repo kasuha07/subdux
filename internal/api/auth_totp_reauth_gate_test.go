@@ -28,10 +28,12 @@ type totpSetupGateResponse struct {
 func postTOTPSetup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(`{}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
@@ -52,10 +54,12 @@ func postTOTPConfirm(t *testing.T, e *echo.Echo, token, sessionID, code string) 
 func postTOTPDisable(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/disable", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/disable", strings.NewReader(`{}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
@@ -243,9 +247,9 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 	}
 
 	handler := NewAuthHandler(authSvc, serviceauth.NewTOTPService(brokenDB), reauthSvc)
-	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(`{}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(reauthTicketHeader, ticket)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	c.Set("user", &jwt.Token{

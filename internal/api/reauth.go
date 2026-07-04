@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
@@ -15,6 +16,10 @@ import (
 // before parsing/buffering the body — e.g. the restore upload is gated behind a
 // proven-present admin before any multipart data is read.
 const reauthTicketHeader = "X-Reauth-Ticket"
+
+func reauthTicketFromRequest(c echo.Context) string {
+	return strings.TrimSpace(c.Request().Header.Get(reauthTicketHeader))
+}
 
 // ReauthHandler exposes step-up re-authentication endpoints. A client verifies
 // one reauth method for a named operation and receives a short-lived,

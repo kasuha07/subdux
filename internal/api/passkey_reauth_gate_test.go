@@ -30,13 +30,13 @@ import (
 func postFinishPasskeyRegistration(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	body := fmt.Sprintf(
-		`{"session_id":"nonexistent-session","credential":{"stub":true},"reauth_ticket":%q}`,
-		ticket,
-	)
+	body := `{"session_id":"nonexistent-session","credential":{"stub":true}}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/passkeys/register/finish", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec

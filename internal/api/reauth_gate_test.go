@@ -113,10 +113,13 @@ func enableReauthGateTestTOTP(t *testing.T, db *gorm.DB, userID uint, secret str
 func postBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"include_assets":false,"password":"","reauth_ticket":%q}`, ticket)
+	body := `{"include_assets":false,"password":""}`
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/backup", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec

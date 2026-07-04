@@ -40,9 +40,8 @@ func (h *AuthHandler) BeginPasskeyRegistration(c echo.Context) error {
 }
 
 type passkeyFinishRegistrationInput struct {
-	SessionID    string          `json:"session_id"`
-	Credential   json.RawMessage `json:"credential"`
-	ReauthTicket string          `json:"reauth_ticket"`
+	SessionID  string          `json:"session_id"`
+	Credential json.RawMessage `json:"credential"`
 }
 
 func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
@@ -59,7 +58,11 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 	// must back it, so an attacker who steals a live session cannot silently
 	// enroll their own authenticator. The single-use ticket is consumed before
 	// the credential is validated/persisted.
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, servicereauth.ReauthOperationAddPasskey, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		servicereauth.ReauthOperationAddPasskey,
+		reauthTicketFromRequest(c),
+	); err != nil {
 		return writeReauthError(c, err)
 	}
 
@@ -88,7 +91,7 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationDeletePasskey,
-		c.Request().Header.Get(reauthTicketHeader),
+		reauthTicketFromRequest(c),
 	); err != nil {
 		return writeReauthError(c, err)
 	}

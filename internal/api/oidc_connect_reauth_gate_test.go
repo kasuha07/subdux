@@ -58,10 +58,12 @@ func seedOIDCConnectTestProvider(t *testing.T, db *gorm.DB) *httptest.Server {
 func postOIDCConnectStart(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/oidc/connect/start", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/oidc/connect/start", strings.NewReader(`{}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(reauthTicketHeader, ticket)
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec

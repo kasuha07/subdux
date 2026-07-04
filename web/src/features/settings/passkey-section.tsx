@@ -57,11 +57,14 @@ export default function PasskeySection() {
         name: name.trim(),
       })
       const credential = await createPasskeyCredential(begin.options)
-      const created = await api.post<PasskeyCredential>("/auth/passkeys/register/finish", {
-        session_id: begin.session_id,
-        credential,
-        reauth_ticket: reauthTicket,
-      })
+      const created = await api.post<PasskeyCredential>(
+        "/auth/passkeys/register/finish",
+        {
+          session_id: begin.session_id,
+          credential,
+        },
+        { headers: { "X-Reauth-Ticket": reauthTicket } }
+      )
       setPasskeys((prev) => [created, ...prev])
       setName("")
       toast.success(t("settings.passkeys.registerSuccess"))

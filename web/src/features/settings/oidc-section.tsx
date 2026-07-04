@@ -83,9 +83,11 @@ export default function OIDCSection() {
     setError("")
     setStarting(true)
     try {
-      const result = await api.post<OIDCStartResponse>("/auth/oidc/connect/start", {
-        reauth_ticket: reauthTicket,
-      })
+      const result = await api.post<OIDCStartResponse>(
+        "/auth/oidc/connect/start",
+        {},
+        { headers: { "X-Reauth-Ticket": reauthTicket } }
+      )
       window.location.href = result.authorization_url
     } catch (err) {
       setError(err instanceof Error ? err.message : t("settings.oidc.connectError"))

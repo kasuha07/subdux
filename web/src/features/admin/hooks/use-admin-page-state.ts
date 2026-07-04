@@ -509,10 +509,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       const password = downloadPassword.trim()
       const res = await api.fetch("/admin/backup", {
         method: "POST",
+        headers: { "X-Reauth-Ticket": reauthTicket },
         body: JSON.stringify({
           include_assets: includeAssetsInBackup,
           password,
-          reauth_ticket: reauthTicket,
         }),
       })
       if (!res.ok) {
