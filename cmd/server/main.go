@@ -25,6 +25,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service"
+	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
@@ -88,7 +89,7 @@ func main() {
 	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
 	startNotificationWorkers(appCtx, notificationService, taskMonitor, &backgroundTasks)
 	startSubscriptionLifecycleSweep(appCtx, service.NewSubscriptionService(db), taskMonitor, &backgroundTasks)
-	startScheduledBackupWorker(appCtx, service.NewAdminService(db), taskMonitor, &backgroundTasks)
+	startScheduledBackupWorker(appCtx, servicebackup.NewService(db), taskMonitor, &backgroundTasks)
 
 	setupUploads(e, filepath.Join(pkg.GetDataPath(), "assets"))
 
@@ -575,7 +576,7 @@ func startSubscriptionLifecycleSweep(
 // last-run guard together produce "once per day at the configured HH:MM".
 func startScheduledBackupWorker(
 	ctx context.Context,
-	admin *service.AdminService,
+	backupService *servicebackup.Service,
 	monitor *service.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
@@ -600,7 +601,7 @@ func startScheduledBackupWorker(
 	}
 
 	runBackup := func() {
-		run := func() error { return admin.RunScheduledBackup(ownerID) }
+		run := func() error { return backupService.RunScheduledBackup(ownerID) }
 		if monitor != nil {
 			if err := monitor.Run(taskKey, run); err != nil {
 				logging.Error("scheduled backup failed", slog.Any("error", err))

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
@@ -216,27 +217,27 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 			settings.OIDCReauthACRMFA = settingValue
 		case "oidc_reauth_acr_phishing_resistant":
 			settings.OIDCReauthACRPhishingResistant = settingValue
-		case backupScheduleEnabledKey:
+		case servicebackup.KeyScheduleEnabled:
 			settings.BackupScheduleEnabled = settingValue == "true"
-		case backupTimeOfDayKey:
+		case servicebackup.KeyTimeOfDay:
 			settings.BackupTimeOfDay = settingValue
-		case backupIncludeAssetsKey:
+		case servicebackup.KeyIncludeAssets:
 			settings.BackupIncludeAssets = settingValue == "true"
-		case backupEncryptEnabledKey:
+		case servicebackup.KeyEncryptEnabled:
 			settings.BackupEncryptEnabled = settingValue == "true"
-		case backupEncryptionPasswordKey:
+		case servicebackup.KeyEncryptionPassword:
 			settings.BackupEncryptionPasswordSet = strings.TrimSpace(settingValue) != ""
-		case backupLocalDirKey:
+		case servicebackup.KeyLocalDir:
 			settings.BackupLocalDir = settingValue
-		case backupRetentionCountKey:
+		case servicebackup.KeyRetentionCount:
 			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
 				settings.BackupRetentionCount = v
 			}
-		case backupLastRunAtKey:
+		case servicebackup.KeyLastRunAt:
 			settings.BackupLastRunAt = settingValue
-		case backupLastStatusKey:
+		case servicebackup.KeyLastStatus:
 			settings.BackupLastStatus = settingValue
-		case backupLastErrorKey:
+		case servicebackup.KeyLastError:
 			settings.BackupLastError = settingValue
 		}
 	}
@@ -625,7 +626,15 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			}
 		}
 
-		if err := applyBackupSettings(tx, input); err != nil {
+		if err := servicebackup.ApplySettings(tx, servicebackup.UpdateSettingsInput{
+			ScheduleEnabled:    input.BackupScheduleEnabled,
+			TimeOfDay:          input.BackupTimeOfDay,
+			IncludeAssets:      input.BackupIncludeAssets,
+			EncryptEnabled:     input.BackupEncryptEnabled,
+			EncryptionPassword: input.BackupEncryptionPassword,
+			LocalDir:           input.BackupLocalDir,
+			RetentionCount:     input.BackupRetentionCount,
+		}); err != nil {
 			return err
 		}
 

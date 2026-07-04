@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/service"
+	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"github.com/labstack/echo/v4"
@@ -27,13 +28,13 @@ type AdminHandler struct {
 var (
 	// errInvalidBackup maps malformed or unsupported restore archives to HTTP
 	// 400 so callers can correct the uploaded file or password and retry.
-	errInvalidBackup = service.ErrInvalidBackup
+	errInvalidBackup = servicebackup.ErrInvalidBackup
 	// errBackupPasswordRequired signals that an uploaded archive is encrypted
 	// but no password was supplied. Maps to HTTP 400.
-	errBackupPasswordRequired = service.ErrBackupPasswordRequired
+	errBackupPasswordRequired = servicebackup.ErrBackupPasswordRequired
 	// errBackupInvalidPassword signals that the supplied password failed to
 	// decrypt an encrypted archive entry. Maps to HTTP 400.
-	errBackupInvalidPassword = service.ErrBackupInvalidPassword
+	errBackupInvalidPassword = servicebackup.ErrBackupInvalidPassword
 )
 
 // isClientBackupError reports whether err is a client-correctable restore
@@ -290,10 +291,10 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 			errors.Is(err, serviceoutbound.ErrSSRFDomainFilterListTooLong) ||
 			errors.Is(err, serviceoutbound.ErrInvalidSSRFIPFilterList) ||
 			errors.Is(err, serviceoutbound.ErrSSRFIPFilterListTooLong) ||
-			errors.Is(err, service.ErrInvalidBackupTimeOfDay) ||
-			errors.Is(err, service.ErrInvalidBackupRetentionCount) ||
-			errors.Is(err, service.ErrInvalidBackupLocalDir) ||
-			errors.Is(err, service.ErrBackupEncryptionPasswordRequired) {
+			errors.Is(err, servicebackup.ErrInvalidBackupTimeOfDay) ||
+			errors.Is(err, servicebackup.ErrInvalidBackupRetentionCount) ||
+			errors.Is(err, servicebackup.ErrInvalidBackupLocalDir) ||
+			errors.Is(err, servicebackup.ErrBackupEncryptionPasswordRequired) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -353,7 +354,7 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 		return writeReauthError(c, err)
 	}
 
-	backupPath, err := h.Service.WithContext(c.Request().Context()).BackupDB(input.IncludeAssets, input.Password)
+	backupPath, err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).BackupDB(input.IncludeAssets, input.Password)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "backup failed"})
 	}
@@ -372,9 +373,9 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 }
 
 func (h *AdminHandler) RunBackupNow(c echo.Context) error {
-	backupPath, err := h.Service.WithContext(c.Request().Context()).CreateLocalBackup()
+	backupPath, err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).CreateLocalBackup()
 	if err != nil {
-		if errors.Is(err, service.ErrBackupEncryptionPasswordRequired) {
+		if errors.Is(err, servicebackup.ErrBackupEncryptionPasswordRequired) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -387,12 +388,12 @@ func (h *AdminHandler) RunBackupNow(c echo.Context) error {
 }
 
 type localBackupResponse struct {
-	Directory string                    `json:"directory"`
-	Backups   []service.LocalBackupInfo `json:"backups"`
+	Directory string                          `json:"directory"`
+	Backups   []servicebackup.LocalBackupInfo `json:"backups"`
 }
 
 func (h *AdminHandler) ListLocalBackups(c echo.Context) error {
-	directory, backups, err := h.Service.WithContext(c.Request().Context()).ListLocalBackups()
+	directory, backups, err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).ListLocalBackups()
 	if err != nil {
 		return writeInternalServerError(c, err)
 	}
@@ -440,7 +441,7 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 
 	password := strings.TrimSpace(c.FormValue("password"))
 
-	if err := h.Service.WithContext(c.Request().Context()).RestoreBackup(uploadedBackupPath, password); err != nil {
+	if err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).RestoreBackup(uploadedBackupPath, password); err != nil {
 		if isClientBackupError(err) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
