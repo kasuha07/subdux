@@ -42,67 +42,70 @@ func (h *NotificationHandler) ListChannels(c echo.Context) error {
 func (h *NotificationHandler) CreateChannel(c echo.Context) error {
 	userID := getUserID(c)
 	var input notificationservice.CreateChannelInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	if input.Type == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "type is required"})
+		return writeError(c, http.StatusBadRequest, "type is required")
 	}
 
 	channel, err := h.Service.WithContext(c.Request().Context()).CreateChannel(userID, input)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 	return c.JSON(http.StatusCreated, mapNotificationChannelResponse(*channel, h.Service))
 }
 
 func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 
 	var input notificationservice.UpdateChannelInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	channel, err := h.Service.WithContext(c.Request().Context()).UpdateChannel(userID, uint(id), input)
 	if err != nil {
-		if err.Error() == "channel not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "channel not found"),
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 	return c.JSON(http.StatusOK, mapNotificationChannelResponse(*channel, h.Service))
 }
 
 func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeleteChannel(userID, uint(id)); err != nil {
-		if err.Error() == "channel not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "channel not found"),
+		)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *NotificationHandler) TestChannel(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).TestChannel(userID, uint(id)); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "test notification sent"})
 }
@@ -119,13 +122,15 @@ func (h *NotificationHandler) GetPolicy(c echo.Context) error {
 func (h *NotificationHandler) UpdatePolicy(c echo.Context) error {
 	userID := getUserID(c)
 	var input notificationservice.UpdatePolicyInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	policy, err := h.Service.WithContext(c.Request().Context()).UpdatePolicy(userID, input)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 	return c.JSON(http.StatusOK, policy)
 }

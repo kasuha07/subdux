@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
@@ -50,7 +49,9 @@ func (h *AuthHandler) GetOIDCConfig(c echo.Context) error {
 func (h *AuthHandler) BeginOIDCLogin(c echo.Context) error {
 	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDCLogin()
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -65,14 +66,16 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 		reauthTicketFromRequest(c),
 	); err != nil {
 		if !errors.Is(err, servicereauth.ErrReauthRequired) {
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load oidc connections"})
+			return writeError(c, http.StatusInternalServerError, "failed to load oidc connections")
 		}
 		return writeReauthError(c, err)
 	}
 
 	result, err := authService.BeginOIDCConnect(userID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -87,11 +90,11 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 	)
 	if err != nil {
 		clearOIDCSessionCookie(c)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to process oidc callback"})
+		return writeError(c, http.StatusInternalServerError, "failed to process oidc callback")
 	}
 	if callbackResult.SessionID == "" {
 		clearOIDCSessionCookie(c)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to finalize oidc callback"})
+		return writeError(c, http.StatusInternalServerError, "failed to finalize oidc callback")
 	}
 
 	// Reauth ("step-up") uses its own path-scoped cookie and lands on a dedicated,
@@ -117,13 +120,15 @@ func (h *AuthHandler) GetOIDCSession(c echo.Context) error {
 	sessionID := getCookieValue(c, oidcSessionCookieName)
 	if sessionID == "" {
 		clearOIDCSessionCookie(c)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "oidc session cookie is required"})
+		return writeError(c, http.StatusBadRequest, "oidc session cookie is required")
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).ConsumeOIDCSessionResult(sessionID)
 	clearOIDCSessionCookie(c)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusNotFound, func(error) bool { return true }),
+		)
 	}
 
 	return writeOIDCSessionSuccess(c, http.StatusOK, result)
@@ -133,7 +138,7 @@ func (h *AuthHandler) ListOIDCConnections(c echo.Context) error {
 	userID := getUserID(c)
 	connections, err := h.Service.WithContext(c.Request().Context()).ListOIDCConnections(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list oidc connections"})
+		return writeError(c, http.StatusInternalServerError, "failed to list oidc connections")
 	}
 
 	return c.JSON(http.StatusOK, connections)
@@ -141,13 +146,15 @@ func (h *AuthHandler) ListOIDCConnections(c echo.Context) error {
 
 func (h *AuthHandler) DeleteOIDCConnection(c echo.Context) error {
 	userID := getUserID(c)
-	connectionID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid oidc connection id"})
+	connectionID, ok := parseUintParam(c, "id", "invalid oidc connection id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeleteOIDCConnection(userID, uint(connectionID)); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "oidc connection deleted"})

@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/api/apicontract"
@@ -64,14 +63,14 @@ func (h *SubscriptionHandler) List(c echo.Context) error {
 
 func (h *SubscriptionHandler) GetByID(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).GetByID(userID, uint(id))
 	if err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "Subscription not found"})
+		return writeError(c, http.StatusNotFound, "Subscription not found")
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
@@ -79,15 +78,15 @@ func (h *SubscriptionHandler) GetByID(c echo.Context) error {
 
 func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	detail, err := h.Service.WithContext(c.Request().Context()).GetDetail(userID, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": "Subscription not found"})
+			return writeError(c, http.StatusNotFound, "Subscription not found")
 		}
 		return writeInternalServerError(c, err)
 	}
@@ -98,26 +97,27 @@ func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
 func (h *SubscriptionHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
 	var input subscriptionservice.CreateSubscriptionInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	if input.Name == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name is required"})
+		return writeError(c, http.StatusBadRequest, "Name is required")
 	}
 	if input.Amount < 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must not be negative"})
+		return writeError(c, http.StatusBadRequest, "Amount must not be negative")
 	}
 	if !validateSubscriptionIcon(input.Icon) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
+		return writeError(c, http.StatusBadRequest, "Invalid icon value")
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
+				return isSubscriptionBadRequestError(err.Error())
+			}),
+		)
 	}
 
 	return c.JSON(http.StatusCreated, mapSubscriptionResponse(*sub))
@@ -125,28 +125,29 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 
 func (h *SubscriptionHandler) Update(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	var input subscriptionservice.UpdateSubscriptionInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	if input.Amount != nil && *input.Amount < 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Amount must not be negative"})
+		return writeError(c, http.StatusBadRequest, "Amount must not be negative")
 	}
 	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid icon value"})
+		return writeError(c, http.StatusBadRequest, "Invalid icon value")
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
+				return isSubscriptionBadRequestError(err.Error())
+			}),
+		)
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
@@ -154,16 +155,17 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 
 func (h *SubscriptionHandler) Delete(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
-		if isSubscriptionBadRequestError(err.Error()) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
+				return isSubscriptionBadRequestError(err.Error())
+			}),
+		)
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -171,17 +173,18 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 
 func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).MarkManualRenewed(userID, uint(id))
 	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
+				return isSubscriptionBadRequestError(err.Error())
+			}),
+		)
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
@@ -218,19 +221,21 @@ func (h *SubscriptionHandler) ActionCenter(c echo.Context) error {
 func (h *SubscriptionHandler) SnoozeAction(c echo.Context) error {
 	userID := getUserID(c)
 	var input subscriptionservice.SnoozeSubscriptionActionInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	snooze, err := h.Service.WithContext(c.Request().Context()).SnoozeAction(userID, input)
 	if err != nil {
-		if isSubscriptionBadRequestError(err.Error()) || strings.Contains(err.Error(), "action key") || strings.Contains(err.Error(), "snooze") {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		if err.Error() == "subscription not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "subscription not found"),
+			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
+				message := err.Error()
+				return isSubscriptionBadRequestError(message) ||
+					strings.Contains(message, "action key") ||
+					strings.Contains(message, "snooze")
+			}),
+		)
 	}
 
 	return c.JSON(http.StatusOK, snooze)
@@ -238,35 +243,32 @@ func (h *SubscriptionHandler) SnoozeAction(c echo.Context) error {
 
 func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	svc := h.Service.WithContext(c.Request().Context())
 
 	fileHeader, err := c.FormFile("icon")
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "no file provided"})
+		return writeError(c, http.StatusBadRequest, "no file provided")
 	}
 
 	maxSize := svc.GetMaxIconFileSize()
 
 	src, err := fileHeader.Open()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to read file"})
+		return writeError(c, http.StatusInternalServerError, "failed to read file")
 	}
 	defer src.Close()
 
 	iconPath, err := svc.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
-		if isIconUploadForbiddenError(err) {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
-		}
-		if isIconUploadBadRequestError(err) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusForbidden, isIconUploadForbiddenError),
+			serviceErrorFunc(http.StatusBadRequest, isIconUploadBadRequestError),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})

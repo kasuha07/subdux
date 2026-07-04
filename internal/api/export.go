@@ -24,7 +24,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 	userID := getUserID(c)
 	includeSecrets := c.QueryParam("include_secrets") == "1"
 	if includeSecrets && c.QueryParam("confirm") != "include_secrets" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "exporting notification secrets requires confirmation"})
+		return writeError(c, http.StatusBadRequest, "exporting notification secrets requires confirmation")
 	}
 	operation := servicereauth.OperationForExport(includeSecrets)
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -42,7 +42,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 
 	out, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to encode export"})
+		return writeError(c, http.StatusInternalServerError, "failed to encode export")
 	}
 
 	date := pkg.NowUTC().Format("2006-01-02")

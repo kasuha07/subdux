@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -53,13 +52,13 @@ func mapAPIKeyResponse(key model.APIKey) apiKeyResponse {
 func (h *APIKeyHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
 	var input apikeyservice.CreateInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name is required"})
+		return writeError(c, http.StatusBadRequest, "Name is required")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -75,11 +74,21 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 	if err != nil {
 		switch err {
 		case apikeyservice.ErrAPIKeyNameRequired, apikeyservice.ErrAPIKeyNameTooLong, apikeyservice.ErrAPIKeyScopeInvalid, apikeyservice.ErrAPIKeyKindRequired, apikeyservice.ErrAPIKeyKindInvalid:
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+			return writeServiceError(c, err,
+				serviceError(http.StatusBadRequest,
+					apikeyservice.ErrAPIKeyNameRequired,
+					apikeyservice.ErrAPIKeyNameTooLong,
+					apikeyservice.ErrAPIKeyScopeInvalid,
+					apikeyservice.ErrAPIKeyKindRequired,
+					apikeyservice.ErrAPIKeyKindInvalid,
+				),
+			)
 		case apikeyservice.ErrAPIKeyLimitReached:
-			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
+			return writeServiceError(c, err,
+				serviceError(http.StatusConflict, apikeyservice.ErrAPIKeyLimitReached),
+			)
 		default:
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create api key"})
+			return writeError(c, http.StatusInternalServerError, "failed to create api key")
 		}
 	}
 
@@ -93,7 +102,7 @@ func (h *APIKeyHandler) List(c echo.Context) error {
 	userID := getUserID(c)
 	keys, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list api keys"})
+		return writeError(c, http.StatusInternalServerError, "failed to list api keys")
 	}
 
 	responses := make([]apiKeyResponse, 0, len(keys))
@@ -106,9 +115,9 @@ func (h *APIKeyHandler) List(c echo.Context) error {
 
 func (h *APIKeyHandler) Delete(c echo.Context) error {
 	userID := getUserID(c)
-	keyID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid api key id"})
+	keyID, ok := parseUintParam(c, "id", "invalid api key id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -121,9 +130,11 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(keyID)); err != nil {
 		if err == apikeyservice.ErrAPIKeyNotFound {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+			return writeServiceError(c, err,
+				serviceError(http.StatusNotFound, apikeyservice.ErrAPIKeyNotFound),
+			)
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to delete api key"})
+		return writeError(c, http.StatusInternalServerError, "failed to delete api key")
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "api key deleted"})

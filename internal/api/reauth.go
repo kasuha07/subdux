@@ -38,7 +38,9 @@ func NewReauthHandler(s *servicereauth.Service) *ReauthHandler {
 // message. It never returns 401, so a failed re-auth attempt does not trip the
 // frontend's token-refresh/logout flow.
 func writeReauthError(c echo.Context, err error) error {
-	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	return writeServiceError(c, err,
+		serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+	)
 }
 
 // validateReauthOperation extracts and validates the operation identifier,
@@ -59,7 +61,7 @@ func (h *ReauthHandler) Methods(c echo.Context) error {
 
 	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(getUserID(c), operation)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load re-authentication methods"})
+		return writeError(c, http.StatusInternalServerError, "failed to load re-authentication methods")
 	}
 	return c.JSON(http.StatusOK, methods)
 }
@@ -72,8 +74,8 @@ type reauthPasswordInput struct {
 
 func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 	var input reauthPasswordInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
 	if err != nil {
@@ -95,8 +97,8 @@ type reauthPasskeyStartInput struct {
 
 func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 	var input reauthPasskeyStartInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
 	if err != nil {
@@ -120,20 +122,20 @@ type reauthPasskeyFinishInput struct {
 
 func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 	var input reauthPasskeyFinishInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
 	if err != nil {
 		return writeReauthError(c, err)
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "session_id and credential are required"})
+		return writeError(c, http.StatusBadRequest, "session_id and credential are required")
 	}
 
 	parsedResponse, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid credential payload"})
+		return writeError(c, http.StatusBadRequest, "invalid credential payload")
 	}
 
 	ticket, err := h.Service.WithContext(c.Request().Context()).FinishPasskey(
@@ -156,8 +158,8 @@ type reauthOIDCStartInput struct {
 // result back to the opener.
 func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	var input reauthOIDCStartInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
 	if err != nil {
@@ -180,8 +182,8 @@ type reauthOIDCFinishInput struct {
 // The cookie is always cleared, so a failed attempt cannot be replayed.
 func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 	var input reauthOIDCFinishInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
 	if err != nil {

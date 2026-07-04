@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -103,26 +102,26 @@ func mapAdminUserResponses(users []adminservice.AdminUserListItem) []adminUserRe
 func (h *AdminHandler) ListUsers(c echo.Context) error {
 	users, err := h.Service.WithContext(c.Request().Context()).ListUsers()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list users"})
+		return writeError(c, http.StatusInternalServerError, "failed to list users")
 	}
 	return c.JSON(http.StatusOK, mapAdminUserResponses(users))
 }
 
 func (h *AdminHandler) CreateUser(c echo.Context) error {
 	var input adminservice.CreateUserInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	if input.Username == "" || input.Email == "" || input.Password == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "username, email and password are required"})
+		return writeError(c, http.StatusBadRequest, "username, email and password are required")
 	}
 
 	if len(input.Password) < 8 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 8 characters"})
+		return writeError(c, http.StatusBadRequest, "password must be at least 8 characters")
 	}
 	if err := serviceauth.ValidateBcryptPasswordLength(input.Password); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must not exceed 72 bytes"})
+		return writeError(c, http.StatusBadRequest, "password must not exceed 72 bytes")
 	}
 
 	if operation, ok := servicereauth.OperationForCreateUserRole(input.Role); ok {
@@ -137,25 +136,27 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 
 	user, err := h.Service.WithContext(c.Request().Context()).CreateUser(input)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusCreated, mapAdminUserResponse(adminservice.AdminUserListItem{User: *user}))
 }
 
 func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	userID, ok := parseUintParam(c, "id", "invalid user id")
+	if !ok {
+		return nil
 	}
 
 	var input adminservice.ChangeRoleInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	if input.Role != "admin" && input.Role != "user" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid role"})
+		return writeError(c, http.StatusBadRequest, "invalid role")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -167,34 +168,38 @@ func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).ChangeUserRole(uint(userID), input.Role); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "role updated"})
 }
 
 func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	userID, ok := parseUintParam(c, "id", "invalid user id")
+	if !ok {
+		return nil
 	}
 
 	var input adminservice.ChangeStatusInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).ChangeUserStatus(uint(userID), input.Status); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "status updated"})
 }
 
 func (h *AdminHandler) DisableUserTOTP(c echo.Context) error {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	userID, ok := parseUintParam(c, "id", "invalid user id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DisableUserTOTP(uint(userID)); err != nil {
@@ -205,9 +210,9 @@ func (h *AdminHandler) DisableUserTOTP(c echo.Context) error {
 }
 
 func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	userID, ok := parseUintParam(c, "id", "invalid user id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DisableUserPasskeys(uint(userID)); err != nil {
@@ -218,22 +223,20 @@ func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
 }
 
 func writeAdminCredentialResetError(c echo.Context, err error) error {
-	if errors.Is(err, serviceauth.ErrUserNotFound) ||
-		errors.Is(err, adminservice.ErrAdminCredentialResetForbidden) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
-	return writeInternalServerError(c, err)
+	return writeServiceError(c, err,
+		serviceError(http.StatusBadRequest, serviceauth.ErrUserNotFound, adminservice.ErrAdminCredentialResetForbidden),
+	)
 }
 
 func (h *AdminHandler) DeleteUser(c echo.Context) error {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
+	userID, ok := parseUintParam(c, "id", "invalid user id")
+	if !ok {
+		return nil
 	}
 
 	currentUserID := getUserID(c)
 	if currentUserID == uint(userID) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "cannot delete yourself"})
+		return writeError(c, http.StatusBadRequest, "cannot delete yourself")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -258,15 +261,15 @@ func (h *AdminHandler) ListBackgroundTasks(c echo.Context) error {
 func (h *AdminHandler) GetSettings(c echo.Context) error {
 	settings, err := h.Service.WithContext(c.Request().Context()).GetSettings()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to get settings"})
+		return writeError(c, http.StatusInternalServerError, "failed to get settings")
 	}
 	return c.JSON(http.StatusOK, settings)
 }
 
 func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	var input adminservice.UpdateSettingsInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	if operation, ok := servicereauth.OperationForAdminSettingsUpdate(servicereauth.AdminSettingsUpdateInput{
@@ -279,7 +282,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		BackupRetentionCount:     input.BackupRetentionCount,
 	}); ok {
 		if h.Reauth == nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "reauthentication service is not configured"})
+			return writeError(c, http.StatusInternalServerError, "reauthentication service is not configured")
 		}
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			getUserID(c),
@@ -291,25 +294,26 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input); err != nil {
-		if errors.Is(err, serviceauth.ErrInvalidEmailDomainWhitelist) ||
-			errors.Is(err, serviceauth.ErrEmailDomainWhitelistTooLong) ||
-			errors.Is(err, iconproxy.ErrInvalidIconProxyDomainWhitelist) ||
-			errors.Is(err, iconproxy.ErrIconProxyDomainWhitelistTooLong) ||
-			errors.Is(err, servicesmtp.ErrInvalidSMTPRateLimit) ||
-			errors.Is(err, serviceoutbound.ErrInvalidSystemProxyType) ||
-			errors.Is(err, serviceoutbound.ErrInvalidSystemProxyURL) ||
-			errors.Is(err, serviceoutbound.ErrInvalidSSRFFilterMode) ||
-			errors.Is(err, serviceoutbound.ErrInvalidSSRFDomainFilterList) ||
-			errors.Is(err, serviceoutbound.ErrSSRFDomainFilterListTooLong) ||
-			errors.Is(err, serviceoutbound.ErrInvalidSSRFIPFilterList) ||
-			errors.Is(err, serviceoutbound.ErrSSRFIPFilterListTooLong) ||
-			errors.Is(err, servicebackup.ErrInvalidBackupTimeOfDay) ||
-			errors.Is(err, servicebackup.ErrInvalidBackupRetentionCount) ||
-			errors.Is(err, servicebackup.ErrInvalidBackupLocalDir) ||
-			errors.Is(err, servicebackup.ErrBackupEncryptionPasswordRequired) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceError(http.StatusBadRequest,
+				serviceauth.ErrInvalidEmailDomainWhitelist,
+				serviceauth.ErrEmailDomainWhitelistTooLong,
+				iconproxy.ErrInvalidIconProxyDomainWhitelist,
+				iconproxy.ErrIconProxyDomainWhitelistTooLong,
+				servicesmtp.ErrInvalidSMTPRateLimit,
+				serviceoutbound.ErrInvalidSystemProxyType,
+				serviceoutbound.ErrInvalidSystemProxyURL,
+				serviceoutbound.ErrInvalidSSRFFilterMode,
+				serviceoutbound.ErrInvalidSSRFDomainFilterList,
+				serviceoutbound.ErrSSRFDomainFilterListTooLong,
+				serviceoutbound.ErrInvalidSSRFIPFilterList,
+				serviceoutbound.ErrSSRFIPFilterListTooLong,
+				servicebackup.ErrInvalidBackupTimeOfDay,
+				servicebackup.ErrInvalidBackupRetentionCount,
+				servicebackup.ErrInvalidBackupLocalDir,
+				servicebackup.ErrBackupEncryptionPasswordRequired,
+			),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})
@@ -317,16 +321,15 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 
 func (h *AdminHandler) TestSSRF(c echo.Context) error {
 	var input adminservice.SSRFTestInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).TestSSRF(input)
 	if err != nil {
-		if errors.Is(err, serviceoutbound.ErrInvalidSSRFTestTarget) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceError(http.StatusBadRequest, serviceoutbound.ErrInvalidSSRFTestTarget),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -336,17 +339,17 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 	var input struct {
 		RecipientEmail string `json:"recipient_email"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	currentUserID := getUserID(c)
 
 	if err := h.Service.WithContext(c.Request().Context()).SendSMTPTestEmail(currentUserID, input.RecipientEmail); err != nil {
-		if errors.Is(err, servicesmtp.ErrSMTPRateLimited) {
-			return c.JSON(http.StatusTooManyRequests, echo.Map{"error": err.Error()})
-		}
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceError(http.StatusTooManyRequests, servicesmtp.ErrSMTPRateLimited),
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "test email sent"})
@@ -357,8 +360,8 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 		IncludeAssets bool   `json:"include_assets"`
 		Password      string `json:"password"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -371,7 +374,7 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 
 	backupPath, err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).BackupDB(input.IncludeAssets, input.Password)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "backup failed"})
+		return writeError(c, http.StatusInternalServerError, "backup failed")
 	}
 	defer os.Remove(backupPath)
 
@@ -390,10 +393,9 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 func (h *AdminHandler) RunBackupNow(c echo.Context) error {
 	backupPath, err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).CreateLocalBackup()
 	if err != nil {
-		if errors.Is(err, servicebackup.ErrBackupEncryptionPasswordRequired) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceError(http.StatusBadRequest, servicebackup.ErrBackupEncryptionPasswordRequired),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
@@ -440,31 +442,29 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 	file, err := c.FormFile("backup")
 	if err != nil {
 		if isRequestTooLargeError(err) {
-			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{
-				"error": fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20),
-			})
+			return writeError(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20))
 		}
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "no file uploaded"})
+		return writeError(c, http.StatusBadRequest, "no file uploaded")
 	}
 
 	uploadedBackupPath, err := saveUploadedBackupFile(file)
 	if err != nil {
 		if isRequestTooLargeError(err) {
-			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{
-				"error": fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20),
-			})
+			return writeError(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20))
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to save uploaded backup"})
+		return writeError(c, http.StatusInternalServerError, "failed to save uploaded backup")
 	}
 	defer os.Remove(uploadedBackupPath)
 
 	password := strings.TrimSpace(c.FormValue("password"))
 
 	if err := servicebackup.NewService(h.Service.DB.WithContext(c.Request().Context())).RestoreBackup(uploadedBackupPath, password); err != nil {
-		if isClientBackupError(err) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		if !isClientBackupError(err) {
+			return writeError(c, http.StatusInternalServerError, "failed to restore backup")
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to restore backup"})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, isClientBackupError),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "backup restored - please restart server"})

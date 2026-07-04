@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
@@ -19,7 +18,7 @@ func (h *AuthHandler) ListPasskeys(c echo.Context) error {
 	userID := getUserID(c)
 	passkeys, err := h.Service.WithContext(c.Request().Context()).ListPasskeys(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to list passkeys"})
+		return writeError(c, http.StatusInternalServerError, "failed to list passkeys")
 	}
 	return c.JSON(http.StatusOK, passkeys)
 }
@@ -27,13 +26,15 @@ func (h *AuthHandler) ListPasskeys(c echo.Context) error {
 func (h *AuthHandler) BeginPasskeyRegistration(c echo.Context) error {
 	userID := getUserID(c)
 	var input passkeyBeginRegistrationInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyRegistration(userID, input.Name, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -47,11 +48,11 @@ type passkeyFinishRegistrationInput struct {
 func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 	userID := getUserID(c)
 	var input passkeyFinishRegistrationInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "session_id and credential are required"})
+		return writeError(c, http.StatusBadRequest, "session_id and credential are required")
 	}
 
 	// Registering a passkey is a sensitive account change: a proven-present user
@@ -68,12 +69,14 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 
 	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid credential payload"})
+		return writeError(c, http.StatusBadRequest, "invalid credential payload")
 	}
 
 	passkey, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyRegistration(userID, input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusCreated, passkey)
@@ -81,9 +84,9 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 
 func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	userID := getUserID(c)
-	passkeyID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid passkey id"})
+	passkeyID, ok := parseUintParam(c, "id", "invalid passkey id")
+	if !ok {
+		return nil
 	}
 
 	// Deleting a passkey is a sensitive account change. ReauthService owns the
@@ -97,7 +100,9 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeletePasskey(userID, uint(passkeyID)); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"message": "passkey deleted"})
@@ -106,7 +111,9 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 func (h *AuthHandler) BeginPasskeyLogin(c echo.Context) error {
 	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyLogin(c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -119,22 +126,24 @@ type passkeyFinishLoginInput struct {
 
 func (h *AuthHandler) FinishPasskeyLogin(c echo.Context) error {
 	var input passkeyFinishLoginInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "session_id and credential are required"})
+		return writeError(c, http.StatusBadRequest, "session_id and credential are required")
 	}
 
 	parsedResponse, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid credential payload"})
+		return writeError(c, http.StatusBadRequest, "invalid credential payload")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyLogin(input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
 		clearRefreshTokenCookie(c)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusUnauthorized, func(error) bool { return true }),
+		)
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)

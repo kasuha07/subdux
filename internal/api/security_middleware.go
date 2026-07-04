@@ -99,7 +99,7 @@ func authIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 			}
 
 			if !limiter.Allow("ip:" + clientIP) {
-				return c.JSON(http.StatusTooManyRequests, echo.Map{"error": "too many attempts, please try again later"})
+				return writeError(c, http.StatusTooManyRequests, "too many attempts, please try again later")
 			}
 
 			return next(c)
@@ -124,7 +124,7 @@ func authAccountRateLimit(limit int, window time.Duration, extractor accountKeyE
 			}
 
 			if !limiter.Allow("acct:" + accountKey) {
-				return c.JSON(http.StatusTooManyRequests, echo.Map{"error": "too many attempts for this account, please try again later"})
+				return writeError(c, http.StatusTooManyRequests, "too many attempts for this account, please try again later")
 			}
 
 			return next(c)
@@ -283,7 +283,7 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if getAPIKeyKind(c) != apikeyservice.APIKeyKindAPIIntegration {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": "api key kind cannot access this endpoint"})
+			return writeError(c, http.StatusForbidden, "api key kind cannot access this endpoint")
 		}
 
 		path := c.Path()
@@ -292,7 +292,7 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if !isAPIKeyRouteAllowed(path) {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": "api key cannot access this endpoint"})
+			return writeError(c, http.StatusForbidden, "api key cannot access this endpoint")
 		}
 
 		requiredScope := requiredAPIKeyScope(c)
@@ -301,14 +301,14 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "api key does not have required scope"})
+		return writeError(c, http.StatusForbidden, "api key does not have required scope")
 	}
 }
 
 func HumanSessionOnlyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if getAuthType(c) == pkg.AuthTypeAPIKey {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": "human session required"})
+			return writeError(c, http.StatusForbidden, "human session required")
 		}
 		return next(c)
 	}

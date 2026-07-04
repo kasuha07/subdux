@@ -123,5 +123,5 @@ func writeAuthServiceError(c echo.Context, err error) error {
 	if status == http.StatusInternalServerError {
 		return writeInternalServerError(c, err)
 	}
-	return c.JSON(status, echo.Map{"error": err.Error()})
+	return writeError(c, status, err.Error())
 }

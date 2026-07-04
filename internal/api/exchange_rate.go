@@ -39,12 +39,12 @@ func (h *ExchangeRateHandler) GetRate(c echo.Context) error {
 	target := c.Param("target")
 
 	if base == "" || target == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "base and target currencies are required"})
+		return writeError(c, http.StatusBadRequest, "base and target currencies are required")
 	}
 
 	rate, ok := h.Service.WithContext(c.Request().Context()).GetRate(base, target)
 	if !ok {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "exchange rate not found"})
+		return writeError(c, http.StatusNotFound, "exchange rate not found")
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
@@ -79,12 +79,12 @@ func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
 func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
 	userID := getUserID(c)
 	var input exchangerate.UpdatePreferenceInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	if input.PreferredCurrency == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "preferred_currency is required"})
+		return writeError(c, http.StatusBadRequest, "preferred_currency is required")
 	}
 
 	pref, err := h.Service.WithContext(c.Request().Context()).UpdateUserPreference(userID, input)

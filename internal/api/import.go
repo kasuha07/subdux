@@ -1,9 +1,7 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/kasuha07/subdux/internal/pkg"
 	importer "github.com/kasuha07/subdux/internal/service/importer"
@@ -27,15 +25,12 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxImportRequestBodyBytes)
 
 	var req importer.WallosImportRequest
-	if err := c.Bind(&req); err != nil {
-		if strings.Contains(err.Error(), "request body too large") {
-			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{"error": "import file is too large"})
-		}
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON"})
+	if !bindLimitedJSON(c, &req, "import file is too large", "invalid JSON") {
+		return nil
 	}
 	if req.Confirm {
 		if getAuthType(c) == pkg.AuthTypeAPIKey {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": "human session required"})
+			return writeError(c, http.StatusForbidden, "human session required")
 		}
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			userID,
@@ -48,10 +43,9 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 
 	result, err := h.Service.WithContext(c.Request().Context()).ImportFromWallos(userID, req.Data, req.Confirm)
 	if err != nil {
-		if errors.Is(err, importer.ErrWallosImportTooLarge) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceError(http.StatusBadRequest, importer.ErrWallosImportTooLarge),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -62,11 +56,8 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxImportRequestBodyBytes)
 
 	var req importer.SubduxImportRequest
-	if err := c.Bind(&req); err != nil {
-		if strings.Contains(err.Error(), "request body too large") {
-			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{"error": "import file is too large"})
-		}
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid JSON"})
+	if !bindLimitedJSON(c, &req, "import file is too large", "invalid JSON") {
+		return nil
 	}
 	if req.Confirm {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -80,10 +71,9 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 
 	result, err := h.Service.WithContext(c.Request().Context()).ImportFromSubdux(userID, req.Data, req.Confirm)
 	if err != nil {
-		if errors.Is(err, importer.ErrInvalidSubduxImportFormat) || errors.Is(err, importer.ErrSubduxImportTooLarge) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceError(http.StatusBadRequest, importer.ErrInvalidSubduxImportFormat, importer.ErrSubduxImportTooLarge),
+		)
 	}
 
 	return c.JSON(http.StatusOK, result)

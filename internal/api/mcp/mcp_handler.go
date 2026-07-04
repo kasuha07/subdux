@@ -90,24 +90,28 @@ type mcpRequestMetadata struct {
 	RequestID     string
 }
 
+func writeError(c echo.Context, status int, message string) error {
+	return c.JSON(status, echo.Map{"error": message})
+}
+
 func (h *MCPHandler) HandlePost(c echo.Context) error {
 	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
 
 	principal, status, err := h.authenticate(c)
 	if err != nil {
-		return c.JSON(status, echo.Map{"error": err.Error()})
+		return writeError(c, status, err.Error())
 	}
 	if err := validateMCPOrigin(c); err != nil {
-		return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusForbidden, err.Error())
 	}
 	if err := validateMCPProtocolHeader(c); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadRequest, err.Error())
 	}
 	if err := validateMCPContentTypeHeader(c); err != nil {
-		return c.JSON(http.StatusUnsupportedMediaType, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusUnsupportedMediaType, err.Error())
 	}
 	if err := validateMCPAcceptHeader(c); err != nil {
-		return c.JSON(http.StatusNotAcceptable, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusNotAcceptable, err.Error())
 	}
 
 	principal.Request = readMCPRequestMetadata(c)
@@ -129,16 +133,16 @@ func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
 	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
 
 	if _, status, err := h.authenticate(c); err != nil {
-		return c.JSON(status, echo.Map{"error": err.Error()})
+		return writeError(c, status, err.Error())
 	}
 	if err := validateMCPOrigin(c); err != nil {
-		return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusForbidden, err.Error())
 	}
 	if err := validateMCPAcceptHeader(c); err != nil {
-		return c.JSON(http.StatusNotAcceptable, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusNotAcceptable, err.Error())
 	}
 	if err := validateMCPContentTypeHeader(c); err != nil {
-		return c.JSON(http.StatusUnsupportedMediaType, echo.Map{"error": err.Error()})
+		return writeError(c, http.StatusUnsupportedMediaType, err.Error())
 	}
 	return c.NoContent(http.StatusMethodNotAllowed)
 }

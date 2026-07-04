@@ -87,7 +87,7 @@ func getAPIKeyKind(c echo.Context) string {
 func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if getUserRole(c) != "admin" {
-			return c.JSON(403, echo.Map{"error": "admin access required"})
+			return writeError(c, 403, "admin access required")
 		}
 		return next(c)
 	}
@@ -107,12 +107,12 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *apikeyservic
 			// Otherwise, try API key
 			key := c.Request().Header.Get("X-API-Key")
 			if key == "" {
-				return c.JSON(http.StatusUnauthorized, echo.Map{"error": "authorization required"})
+				return writeError(c, http.StatusUnauthorized, "authorization required")
 			}
 
 			principal, err := apiKeyService.WithContext(c.Request().Context()).ValidateKey(key)
 			if err != nil {
-				return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+				return writeError(c, http.StatusUnauthorized, err.Error())
 			}
 
 			claims := &pkg.JWTClaims{
@@ -217,25 +217,25 @@ func SetupRoutes(
 		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
 			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create request"})
+			return writeError(c, http.StatusInternalServerError, "failed to create request")
 		}
 		req.Header.Set("Accept", "application/vnd.github+json")
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return c.JSON(http.StatusBadGateway, echo.Map{"error": "failed to fetch latest release"})
+			return writeError(c, http.StatusBadGateway, "failed to fetch latest release")
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return c.JSON(http.StatusBadGateway, echo.Map{"error": "github api returned non-200"})
+			return writeError(c, http.StatusBadGateway, "github api returned non-200")
 		}
 
 		var release struct {
 			TagName string `json:"tag_name"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to parse response"})
+			return writeError(c, http.StatusInternalServerError, "failed to parse response")
 		}
 
 		return c.JSON(http.StatusOK, echo.Map{"tag_name": release.TagName})
@@ -412,10 +412,10 @@ func mcpEnabledMiddleware(settingsService *systemsettings.Service) echo.Middlewa
 		return func(c echo.Context) error {
 			enabled, err := settingsService.IsMCPEnabled()
 			if err != nil {
-				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to read mcp settings"})
+				return writeError(c, http.StatusInternalServerError, "failed to read mcp settings")
 			}
 			if !enabled {
-				return c.JSON(http.StatusNotFound, echo.Map{"error": "mcp is not enabled"})
+				return writeError(c, http.StatusNotFound, "mcp is not enabled")
 			}
 			return next(c)
 		}

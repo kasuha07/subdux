@@ -34,11 +34,11 @@ func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 		SessionID string `json:"session_id"`
 		Code      string `json:"code"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	if input.SessionID == "" || input.Code == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "session_id and code are required"})
+		return writeError(c, http.StatusBadRequest, "session_id and code are required")
 	}
 
 	backupCodes, err := h.TOTPService.WithContext(c.Request().Context()).ConfirmSetup(userID, input.SessionID, input.Code)
@@ -65,18 +65,16 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 }
 
 func writeTOTPServiceError(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, serviceauth.ErrTOTPAlreadyEnabled),
-		errors.Is(err, serviceauth.ErrTOTPSetupExpired),
-		errors.Is(err, serviceauth.ErrTOTPInvalidCode),
-		errors.Is(err, serviceauth.ErrTOTPInvalidPassword),
-		errors.Is(err, serviceauth.ErrTOTPInvalidAuthCode):
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	case errors.Is(err, serviceauth.ErrUserNotFound):
-		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-	default:
-		return writeInternalServerError(c, err)
-	}
+	return writeServiceError(c, err,
+		serviceError(http.StatusBadRequest,
+			serviceauth.ErrTOTPAlreadyEnabled,
+			serviceauth.ErrTOTPSetupExpired,
+			serviceauth.ErrTOTPInvalidCode,
+			serviceauth.ErrTOTPInvalidPassword,
+			serviceauth.ErrTOTPInvalidAuthCode,
+		),
+		serviceError(http.StatusNotFound, serviceauth.ErrUserNotFound),
+	)
 }
 
 type verifyTOTPLoginInput struct {
@@ -86,37 +84,37 @@ type verifyTOTPLoginInput struct {
 
 func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 	var input verifyTOTPLoginInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	if input.TotpToken == "" || input.Code == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Token and code are required"})
+		return writeError(c, http.StatusBadRequest, "Token and code are required")
 	}
 
 	userID, err := pkg.ValidateTOTPPendingToken(input.TotpToken)
 	if err != nil {
 		clearRefreshTokenCookie(c)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
+		return writeError(c, http.StatusUnauthorized, "Invalid or expired session")
 	}
 
 	ctx := c.Request().Context()
 	totpSvc := h.TOTPService.WithContext(ctx)
 	if !totpSvc.VerifyLogin(userID, input.Code) && !totpSvc.VerifyBackupCode(userID, input.Code) {
 		clearRefreshTokenCookie(c)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid code"})
+		return writeError(c, http.StatusUnauthorized, "Invalid code")
 	}
 
 	resp, err := h.Service.WithContext(ctx).CreateSession(userID)
 	if err != nil {
 		if errors.Is(err, serviceauth.ErrUserNotFound) {
 			clearRefreshTokenCookie(c)
-			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
+			return writeError(c, http.StatusUnauthorized, "Invalid or expired session")
 		}
 		if strings.Contains(strings.ToLower(err.Error()), "disabled") {
 			clearRefreshTokenCookie(c)
-			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "account is disabled"})
+			return writeError(c, http.StatusUnauthorized, "account is disabled")
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create session"})
+		return writeError(c, http.StatusInternalServerError, "failed to create session")
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)

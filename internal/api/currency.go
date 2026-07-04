@@ -1,9 +1,7 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
@@ -58,50 +56,46 @@ func (h *CurrencyHandler) List(c echo.Context) error {
 func (h *CurrencyHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
 	var input catalogservice.CreateCurrencyInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	if input.Code == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "code is required"})
+		return writeError(c, http.StatusBadRequest, "code is required")
 	}
 	currency, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
-		if err.Error() == "currency code already exists" {
-			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
-		}
-		if err.Error() == "code must be 1-10 characters" || err.Error() == "code must contain only uppercase letters" {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusConflict, "currency code already exists"),
+			serviceErrorMessage(http.StatusBadRequest, "code must be 1-10 characters", "code must contain only uppercase letters"),
+		)
 	}
 	return c.JSON(http.StatusCreated, mapUserCurrencyResponse(*currency))
 }
 
 func (h *CurrencyHandler) Update(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 	var input catalogservice.UpdateCurrencyInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	currency, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
-		if err.Error() == "currency not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "currency not found"),
+		)
 	}
 	return c.JSON(http.StatusOK, mapUserCurrencyResponse(*currency))
 }
 
 func (h *CurrencyHandler) Delete(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 	ctx := c.Request().Context()
 	svc := h.Service.WithContext(ctx)
@@ -111,16 +105,11 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 		return writeInternalServerError(c, err)
 	}
 	if err := svc.Delete(userID, uint(id), pref.PreferredCurrency); err != nil {
-		if err.Error() == "currency not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		if err.Error() == "cannot delete your preferred currency" {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		if errors.Is(err, catalogservice.ErrCurrencyInUse) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "currency not found"),
+			serviceErrorMessage(http.StatusBadRequest, "cannot delete your preferred currency"),
+			serviceError(http.StatusBadRequest, catalogservice.ErrCurrencyInUse),
+		)
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
@@ -128,8 +117,8 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 func (h *CurrencyHandler) Reorder(c echo.Context) error {
 	userID := getUserID(c)
 	var items []catalogservice.ReorderItem
-	if err := c.Bind(&items); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &items, "invalid request body") {
+		return nil
 	}
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return writeInternalServerError(c, err)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -16,7 +15,9 @@ func (h *AuthHandler) Me(c echo.Context) error {
 	userID := getUserID(c)
 	user, err := h.Service.WithContext(c.Request().Context()).GetUser(userID)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusNotFound, func(error) bool { return true }),
+		)
 	}
 	return c.JSON(http.StatusOK, mapAuthUserResponse(*user))
 }
@@ -26,16 +27,16 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 	var input struct {
 		NewEmail string `json:"new_email"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.NewEmail = strings.TrimSpace(input.NewEmail)
 	if input.NewEmail == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New email is required"})
+		return writeError(c, http.StatusBadRequest, "New email is required")
 	}
 	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+		return writeError(c, http.StatusBadRequest, "Invalid email")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -59,17 +60,17 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 		NewEmail         string `json:"new_email"`
 		VerificationCode string `json:"verification_code"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.NewEmail = strings.TrimSpace(input.NewEmail)
 	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
 	if input.NewEmail == "" || input.VerificationCode == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New email and verification code are required"})
+		return writeError(c, http.StatusBadRequest, "New email and verification code are required")
 	}
 	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+		return writeError(c, http.StatusBadRequest, "Invalid email")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).ConfirmEmailChange(userID, input.NewEmail, input.VerificationCode)
@@ -82,18 +83,20 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 
 func (h *AuthHandler) Login(c echo.Context) error {
 	var input serviceauth.LoginInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	if input.Identifier == "" || input.Password == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Username/email and password are required"})
+		return writeError(c, http.StatusBadRequest, "Username/email and password are required")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).Login(input)
 	if err != nil {
 		clearRefreshTokenCookie(c)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusUnauthorized, func(error) bool { return true }),
+		)
 	}
 
 	return writeLoginSuccess(c, http.StatusOK, resp)
@@ -103,8 +106,8 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	if err := c.Bind(&input); err != nil && !errors.Is(err, io.EOF) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindOptionalJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.RefreshToken = strings.TrimSpace(input.RefreshToken)
@@ -113,16 +116,18 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 	}
 	if input.RefreshToken == "" {
 		clearRefreshTokenCookie(c)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "refresh token is required"})
+		return writeError(c, http.StatusBadRequest, "refresh token is required")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).RefreshSession(input.RefreshToken)
 	if err != nil {
 		if errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
 			clearRefreshTokenCookie(c)
-			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid refresh token"})
+			return writeServiceError(c, err,
+				serviceError(http.StatusUnauthorized, serviceauth.ErrInvalidRefreshToken),
+			)
 		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to refresh session"})
+		return writeError(c, http.StatusInternalServerError, "failed to refresh session")
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)
@@ -132,8 +137,8 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	if err := c.Bind(&input); err != nil && !errors.Is(err, io.EOF) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindOptionalJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.RefreshToken = strings.TrimSpace(input.RefreshToken)

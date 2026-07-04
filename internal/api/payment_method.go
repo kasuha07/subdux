@@ -1,9 +1,7 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/kasuha07/subdux/internal/api/apicontract"
 	"github.com/kasuha07/subdux/internal/model"
@@ -41,26 +39,23 @@ func (h *PaymentMethodHandler) List(c echo.Context) error {
 func (h *PaymentMethodHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
 	var input catalogservice.CreatePaymentMethodInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 
 	if input.Name == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "name is required"})
+		return writeError(c, http.StatusBadRequest, "name is required")
 	}
 	if !validateIcon(input.Icon) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid icon value"})
+		return writeError(c, http.StatusBadRequest, "invalid icon value")
 	}
 
 	method, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
-		if err.Error() == "payment method name already exists" {
-			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
-		}
-		if err.Error() == "name must be 1-50 characters" {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusConflict, "payment method name already exists"),
+			serviceErrorMessage(http.StatusBadRequest, "name must be 1-50 characters"),
+		)
 	}
 
 	return c.JSON(http.StatusCreated, mapPaymentMethodResponse(*method))
@@ -68,31 +63,26 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 
 func (h *PaymentMethodHandler) Update(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 
 	var input catalogservice.UpdatePaymentMethodInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &input, "invalid request body") {
+		return nil
 	}
 	if input.Icon != nil && !validateIcon(*input.Icon) {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid icon value"})
+		return writeError(c, http.StatusBadRequest, "invalid icon value")
 	}
 
 	method, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
-		if err.Error() == "payment method not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		if err.Error() == "payment method name already exists" {
-			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
-		}
-		if err.Error() == "name must be 1-50 characters" {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "payment method not found"),
+			serviceErrorMessage(http.StatusConflict, "payment method name already exists"),
+			serviceErrorMessage(http.StatusBadRequest, "name must be 1-50 characters"),
+		)
 	}
 
 	return c.JSON(http.StatusOK, mapPaymentMethodResponse(*method))
@@ -100,19 +90,16 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 
 func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
-		if err.Error() == "payment method not found" {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
-		}
-		if errors.Is(err, catalogservice.ErrPaymentMethodInUse) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorMessage(http.StatusNotFound, "payment method not found"),
+			serviceError(http.StatusBadRequest, catalogservice.ErrPaymentMethodInUse),
+		)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -120,8 +107,8 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 	userID := getUserID(c)
 	var items []catalogservice.ReorderItem
-	if err := c.Bind(&items); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	if !bindJSON(c, &items, "invalid request body") {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
@@ -132,19 +119,19 @@ func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 
 func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+	id, ok := parseUintParam(c, "id", "invalid id")
+	if !ok {
+		return nil
 	}
 
 	fileHeader, err := c.FormFile("icon")
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "no file provided"})
+		return writeError(c, http.StatusBadRequest, "no file provided")
 	}
 
 	src, err := fileHeader.Open()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to read file"})
+		return writeError(c, http.StatusInternalServerError, "failed to read file")
 	}
 	defer src.Close()
 
@@ -152,13 +139,10 @@ func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 	maxSize := svc.GetMaxIconFileSize()
 	iconPath, err := svc.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
-		if isIconUploadForbiddenError(err) {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
-		}
-		if isIconUploadBadRequestError(err) {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		}
-		return writeInternalServerError(c, err)
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusForbidden, isIconUploadForbiddenError),
+			serviceErrorFunc(http.StatusBadRequest, isIconUploadBadRequestError),
+		)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})

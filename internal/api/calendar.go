@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 
 	calendarservice "github.com/kasuha07/subdux/internal/service/calendar"
@@ -34,15 +33,15 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 	var input struct {
 		Name string `json:"name"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name is required"})
+		return writeError(c, http.StatusBadRequest, "Name is required")
 	}
 	if len(input.Name) > 100 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Name must be 100 characters or less"})
+		return writeError(c, http.StatusBadRequest, "Name must be 100 characters or less")
 	}
 
 	svc := h.Service.WithContext(c.Request().Context())
@@ -51,7 +50,7 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 		return writeInternalServerError(c, err)
 	}
 	if len(existing) >= 5 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Maximum of 5 calendar links reached"})
+		return writeError(c, http.StatusBadRequest, "Maximum of 5 calendar links reached")
 	}
 
 	token, err := svc.GenerateToken(userID, input.Name)
@@ -63,9 +62,9 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 
 func (h *CalendarHandler) DeleteToken(c echo.Context) error {
 	userID := getUserID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	id, ok := parseUintParam(c, "id", "Invalid ID")
+	if !ok {
+		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeleteToken(userID, uint(id)); err != nil {
@@ -77,13 +76,13 @@ func (h *CalendarHandler) DeleteToken(c echo.Context) error {
 func (h *CalendarHandler) GetCalendarFeed(c echo.Context) error {
 	tokenStr := c.QueryParam("token")
 	if tokenStr == "" {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "token is required"})
+		return writeError(c, http.StatusUnauthorized, "token is required")
 	}
 
 	svc := h.Service.WithContext(c.Request().Context())
 	userID, err := svc.ValidateToken(tokenStr)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid or expired token"})
+		return writeError(c, http.StatusUnauthorized, "invalid or expired token")
 	}
 
 	ics, err := svc.GenerateICalFeed(userID)

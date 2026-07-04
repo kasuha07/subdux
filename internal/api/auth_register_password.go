@@ -11,8 +11,8 @@ import (
 
 func (h *AuthHandler) Register(c echo.Context) error {
 	var input serviceauth.RegisterInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.Username = strings.TrimSpace(input.Username)
@@ -20,17 +20,17 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
 
 	if input.Username == "" || input.Email == "" || input.Password == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Username, email and password are required"})
+		return writeError(c, http.StatusBadRequest, "Username, email and password are required")
 	}
 	if _, err := mail.ParseAddress(input.Email); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+		return writeError(c, http.StatusBadRequest, "Invalid email")
 	}
 
 	if len(input.Password) < 8 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must be at least 8 characters"})
+		return writeError(c, http.StatusBadRequest, "Password must be at least 8 characters")
 	}
 	if err := serviceauth.ValidateBcryptPasswordLength(input.Password); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must not exceed 72 bytes"})
+		return writeError(c, http.StatusBadRequest, "Password must not exceed 72 bytes")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).Register(input)
@@ -44,7 +44,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 func (h *AuthHandler) GetRegistrationConfig(c echo.Context) error {
 	config, err := h.Service.WithContext(c.Request().Context()).GetRegistrationConfig()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load registration config"})
+		return writeError(c, http.StatusInternalServerError, "failed to load registration config")
 	}
 	return c.JSON(http.StatusOK, config)
 }
@@ -53,16 +53,16 @@ func (h *AuthHandler) SendRegisterVerificationCode(c echo.Context) error {
 	var input struct {
 		Email string `json:"email"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	email := strings.TrimSpace(input.Email)
 	if email == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email is required"})
+		return writeError(c, http.StatusBadRequest, "Email is required")
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+		return writeError(c, http.StatusBadRequest, "Invalid email")
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).SendRegistrationVerificationCode(email); err != nil {
@@ -76,16 +76,16 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 	var input struct {
 		Email string `json:"email"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	email := strings.TrimSpace(input.Email)
 	if email == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email is required"})
+		return writeError(c, http.StatusBadRequest, "Email is required")
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+		return writeError(c, http.StatusBadRequest, "Invalid email")
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).RequestPasswordReset(email); err != nil {
@@ -101,24 +101,24 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 		VerificationCode string `json:"verification_code"`
 		NewPassword      string `json:"new_password"`
 	}
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 
 	input.Email = strings.TrimSpace(input.Email)
 	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
 
 	if input.Email == "" || input.VerificationCode == "" || input.NewPassword == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Email, verification code and new password are required"})
+		return writeError(c, http.StatusBadRequest, "Email, verification code and new password are required")
 	}
 	if _, err := mail.ParseAddress(input.Email); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid email"})
+		return writeError(c, http.StatusBadRequest, "Invalid email")
 	}
 	if len(input.NewPassword) < 8 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 8 characters"})
+		return writeError(c, http.StatusBadRequest, "New password must be at least 8 characters")
 	}
 	if err := serviceauth.ValidateBcryptPasswordLength(input.NewPassword); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
+		return writeError(c, http.StatusBadRequest, "New password must not exceed 72 bytes")
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).ResetPassword(input.Email, input.VerificationCode, input.NewPassword); err != nil {
@@ -131,20 +131,22 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	userID := getUserID(c)
 	var input serviceauth.ChangePasswordInput
-	if err := c.Bind(&input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
+	if !bindJSON(c, &input, "Invalid request body") {
+		return nil
 	}
 	if input.CurrentPassword == "" || input.NewPassword == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Current and new passwords are required"})
+		return writeError(c, http.StatusBadRequest, "Current and new passwords are required")
 	}
 	if len(input.NewPassword) < 8 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 8 characters"})
+		return writeError(c, http.StatusBadRequest, "New password must be at least 8 characters")
 	}
 	if err := serviceauth.ValidateBcryptPasswordLength(input.NewPassword); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
+		return writeError(c, http.StatusBadRequest, "New password must not exceed 72 bytes")
 	}
 	if err := h.Service.WithContext(c.Request().Context()).ChangePassword(userID, input); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+		return writeServiceError(c, err,
+			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
+		)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "Password changed successfully"})
 }
