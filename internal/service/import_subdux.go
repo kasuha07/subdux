@@ -684,22 +684,22 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			normalizedDraft, nextBillingDate, billingErr := subscriptionservice.NormalizeBillingDraft(subscriptionservice.BillingDraft{
 				BillingType:     incoming.BillingType,
 				RecurrenceType:  incoming.RecurrenceType,
-				IntervalCount:   subscriptionservice.CopyIntPointer(incoming.IntervalCount),
+				IntervalCount:   cloneImportedInt(incoming.IntervalCount),
 				IntervalUnit:    incoming.IntervalUnit,
-				NextBillingDate: subscriptionservice.CopyTimePointer(incoming.NextBillingDate),
-				MonthlyDay:      subscriptionservice.CopyIntPointer(incoming.MonthlyDay),
-				YearlyMonth:     subscriptionservice.CopyIntPointer(incoming.YearlyMonth),
-				YearlyDay:       subscriptionservice.CopyIntPointer(incoming.YearlyDay),
+				NextBillingDate: normalizeImportedDate(incoming.NextBillingDate),
+				MonthlyDay:      cloneImportedInt(incoming.MonthlyDay),
+				YearlyMonth:     cloneImportedInt(incoming.YearlyMonth),
+				YearlyDay:       cloneImportedInt(incoming.YearlyDay),
 			})
 			if billingErr == nil {
 				incoming.BillingType = normalizedDraft.BillingType
 				incoming.RecurrenceType = normalizedDraft.RecurrenceType
-				incoming.IntervalCount = subscriptionservice.CopyIntPointer(normalizedDraft.IntervalCount)
+				incoming.IntervalCount = cloneImportedInt(normalizedDraft.IntervalCount)
 				incoming.IntervalUnit = normalizedDraft.IntervalUnit
-				incoming.MonthlyDay = subscriptionservice.CopyIntPointer(normalizedDraft.MonthlyDay)
-				incoming.YearlyMonth = subscriptionservice.CopyIntPointer(normalizedDraft.YearlyMonth)
-				incoming.YearlyDay = subscriptionservice.CopyIntPointer(normalizedDraft.YearlyDay)
-				incoming.NextBillingDate = subscriptionservice.CopyTimePointer(nextBillingDate)
+				incoming.MonthlyDay = cloneImportedInt(normalizedDraft.MonthlyDay)
+				incoming.YearlyMonth = cloneImportedInt(normalizedDraft.YearlyMonth)
+				incoming.YearlyDay = cloneImportedInt(normalizedDraft.YearlyDay)
+				incoming.NextBillingDate = normalizeImportedDate(nextBillingDate)
 			}
 
 			dedupKey := strings.Join([]string{
@@ -770,7 +770,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			lifecycle := subscriptionservice.LifecycleDraft{
 				Status:      incoming.Status,
 				RenewalMode: incoming.RenewalMode,
-				EndsAt:      subscriptionservice.CopyTimePointer(incoming.EndsAt),
+				EndsAt:      normalizeImportedDate(incoming.EndsAt),
 			}
 			if !subscriptionservice.IsValidStatus(subscriptionservice.NormalizeStatus(lifecycle.Status)) ||
 				!subscriptionservice.IsValidRenewalMode(subscriptionservice.NormalizeRenewalMode(lifecycle.RenewalMode)) {
@@ -805,7 +805,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				Currency:         incoming.Currency,
 				Status:           normalizedLifecycle.Status,
 				RenewalMode:      normalizedLifecycle.RenewalMode,
-				EndsAt:           subscriptionservice.CopyTimePointer(normalizedLifecycle.EndsAt),
+				EndsAt:           normalizeImportedDate(normalizedLifecycle.EndsAt),
 				BillingType:      incoming.BillingType,
 				RecurrenceType:   incoming.RecurrenceType,
 				IntervalCount:    incoming.IntervalCount,

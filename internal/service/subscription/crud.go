@@ -411,20 +411,12 @@ func copyIntPointer(value *int) *int {
 	return &copied
 }
 
-func CopyIntPointer(value *int) *int {
-	return copyIntPointer(value)
-}
-
 func copyTimePointer(value *time.Time) *time.Time {
 	if value == nil {
 		return nil
 	}
 	copied := normalizeDateUTC(*value)
 	return &copied
-}
-
-func CopyTimePointer(value *time.Time) *time.Time {
-	return copyTimePointer(value)
 }
 
 func normalizeSubscriptionForResponse(sub *model.Subscription) {
