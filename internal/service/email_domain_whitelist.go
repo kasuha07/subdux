@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	"gorm.io/gorm"
 )
 
@@ -114,16 +115,16 @@ func extractEmailDomain(email string) (string, error) {
 	}
 
 	if _, err := mail.ParseAddress(normalized); err != nil {
-		return "", ErrInvalidEmail
+		return "", serviceauth.ErrInvalidEmail
 	}
 
 	at := strings.LastIndex(normalized, "@")
 	if at <= 0 || at >= len(normalized)-1 {
-		return "", ErrInvalidEmail
+		return "", serviceauth.ErrInvalidEmail
 	}
 	domain, err := normalizeEmailDomain(normalized[at+1:])
 	if err != nil || domain == "" {
-		return "", ErrInvalidEmail
+		return "", serviceauth.ErrInvalidEmail
 	}
 	return domain, nil
 }
@@ -131,10 +132,10 @@ func extractEmailDomain(email string) (string, error) {
 func sanitizeAndValidateEmail(email string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(email))
 	if normalized == "" {
-		return "", ErrInvalidEmail
+		return "", serviceauth.ErrInvalidEmail
 	}
 	if _, err := mail.ParseAddress(normalized); err != nil {
-		return "", ErrInvalidEmail
+		return "", serviceauth.ErrInvalidEmail
 	}
 	return normalized, nil
 }

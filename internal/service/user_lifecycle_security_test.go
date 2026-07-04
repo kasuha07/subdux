@@ -8,6 +8,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	"gorm.io/gorm"
 )
 
@@ -64,7 +65,7 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 	target := createLifecycleSecurityUser(t, db, "disabled-user", "disabled@example.com")
 
 	adminService := NewAdminService(db)
-	authService := NewAuthService(db)
+	authService := serviceauth.NewService(db)
 	apiKeyService := apikeyservice.NewService(db)
 	calendarService := NewCalendarService(db)
 
@@ -98,8 +99,8 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 		t.Fatal("disabled user refresh token should be revoked")
 	}
 
-	if _, err := authService.RefreshSession(authResp.RefreshToken); !errors.Is(err, ErrInvalidRefreshToken) {
-		t.Fatalf("RefreshSession() error = %v, want %v", err, ErrInvalidRefreshToken)
+	if _, err := authService.RefreshSession(authResp.RefreshToken); !errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
+		t.Fatalf("RefreshSession() error = %v, want %v", err, serviceauth.ErrInvalidRefreshToken)
 	}
 
 	if _, err := apiKeyService.ValidateKey(apiKeyResp.Key); !errors.Is(err, apikeyservice.ErrAPIKeyInvalid) {
@@ -231,7 +232,7 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 	target := createLifecycleSecurityUser(t, db, "delete-user", "delete-user@example.com")
 
 	adminService := NewAdminService(db)
-	authService := NewAuthService(db)
+	authService := serviceauth.NewService(db)
 	apiKeyService := apikeyservice.NewService(db)
 	calendarService := NewCalendarService(db)
 
@@ -385,8 +386,8 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 		}
 	}
 
-	if _, err := authService.RefreshSession(authResp.RefreshToken); !errors.Is(err, ErrInvalidRefreshToken) {
-		t.Fatalf("RefreshSession() after delete error = %v, want %v", err, ErrInvalidRefreshToken)
+	if _, err := authService.RefreshSession(authResp.RefreshToken); !errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
+		t.Fatalf("RefreshSession() after delete error = %v, want %v", err, serviceauth.ErrInvalidRefreshToken)
 	}
 
 	if _, err := apiKeyService.ValidateKey(apiKeyResp.Key); !errors.Is(err, apikeyservice.ErrAPIKeyInvalid) {

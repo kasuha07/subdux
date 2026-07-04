@@ -7,7 +7,8 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
@@ -39,7 +40,7 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
-		service.ReauthOperationChangeEmail,
+		servicereauth.ReauthOperationChangeEmail,
 		c.Request().Header.Get(reauthTicketHeader),
 	); err != nil {
 		return writeReauthError(c, err)
@@ -80,7 +81,7 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {
-	var input service.LoginInput
+	var input serviceauth.LoginInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
@@ -117,7 +118,7 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 
 	resp, err := h.Service.WithContext(c.Request().Context()).RefreshSession(input.RefreshToken)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidRefreshToken) {
+		if errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
 			clearRefreshTokenCookie(c)
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid refresh token"})
 		}

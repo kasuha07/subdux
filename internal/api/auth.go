@@ -5,18 +5,19 @@ import (
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"github.com/labstack/echo/v4"
 )
 
 type AuthHandler struct {
-	Service     *service.AuthService
-	TOTPService *service.TOTPService
-	Reauth      *service.ReauthService
+	Service     *serviceauth.Service
+	TOTPService *serviceauth.TOTPService
+	Reauth      *servicereauth.Service
 }
 
-func NewAuthHandler(s *service.AuthService, totpSvc *service.TOTPService, reauth *service.ReauthService) *AuthHandler {
+func NewAuthHandler(s *serviceauth.Service, totpSvc *serviceauth.TOTPService, reauth *servicereauth.Service) *AuthHandler {
 	return &AuthHandler{Service: s, TOTPService: totpSvc, Reauth: reauth}
 }
 
@@ -54,7 +55,7 @@ func mapAuthUserResponse(user model.User) authUserResponse {
 	}
 }
 
-func mapLoginResponse(resp *service.LoginResponse) loginResponse {
+func mapLoginResponse(resp *serviceauth.LoginResponse) loginResponse {
 	var user *authUserResponse
 	if resp.User != nil {
 		mapped := mapAuthUserResponse(*resp.User)
@@ -70,7 +71,7 @@ func mapLoginResponse(resp *service.LoginResponse) loginResponse {
 	}
 }
 
-func mapAuthResponse(resp *service.AuthResponse) authResponse {
+func mapAuthResponse(resp *serviceauth.AuthResponse) authResponse {
 	return authResponse{
 		Token:       resp.AccessToken,
 		AccessToken: resp.AccessToken,
@@ -78,39 +79,39 @@ func mapAuthResponse(resp *service.AuthResponse) authResponse {
 	}
 }
 
-func writeAuthSuccess(c echo.Context, status int, resp *service.AuthResponse) error {
+func writeAuthSuccess(c echo.Context, status int, resp *serviceauth.AuthResponse) error {
 	setRefreshTokenCookie(c, resp.RefreshToken)
 	return c.JSON(status, mapAuthResponse(resp))
 }
 
-func writeLoginSuccess(c echo.Context, status int, resp *service.LoginResponse) error {
+func writeLoginSuccess(c echo.Context, status int, resp *serviceauth.LoginResponse) error {
 	setRefreshTokenCookie(c, resp.RefreshToken)
 	return c.JSON(status, mapLoginResponse(resp))
 }
 
 func authServiceErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, service.ErrRegistrationDisabled):
+	case errors.Is(err, serviceauth.ErrRegistrationDisabled):
 		return http.StatusForbidden
-	case errors.Is(err, service.ErrEmailDomainNotAllowed):
+	case errors.Is(err, serviceauth.ErrEmailDomainNotAllowed):
 		return http.StatusForbidden
-	case errors.Is(err, service.ErrEmailAlreadyRegistered), errors.Is(err, service.ErrUsernameAlreadyTaken):
+	case errors.Is(err, serviceauth.ErrEmailAlreadyRegistered), errors.Is(err, serviceauth.ErrUsernameAlreadyTaken):
 		return http.StatusConflict
-	case errors.Is(err, service.ErrVerificationCodeTooFrequent):
+	case errors.Is(err, serviceauth.ErrVerificationCodeTooFrequent):
 		return http.StatusTooManyRequests
 	case errors.Is(err, servicesmtp.ErrSMTPRateLimited):
 		return http.StatusTooManyRequests
-	case errors.Is(err, service.ErrUserNotFound):
+	case errors.Is(err, serviceauth.ErrUserNotFound):
 		return http.StatusNotFound
-	case errors.Is(err, service.ErrRegistrationEmailVerificationDisabled),
-		errors.Is(err, service.ErrVerificationCodeRequired),
-		errors.Is(err, service.ErrVerificationCodeInvalid),
-		errors.Is(err, service.ErrVerificationCodeTooManyAttempts),
-		errors.Is(err, service.ErrInvalidEmail),
-		errors.Is(err, service.ErrCurrentPasswordIncorrect),
-		errors.Is(err, service.ErrNewEmailSameAsCurrent),
-		errors.Is(err, service.ErrPasswordTooLong),
-		errors.Is(err, service.ErrSMTPUnavailable):
+	case errors.Is(err, serviceauth.ErrRegistrationEmailVerificationDisabled),
+		errors.Is(err, serviceauth.ErrVerificationCodeRequired),
+		errors.Is(err, serviceauth.ErrVerificationCodeInvalid),
+		errors.Is(err, serviceauth.ErrVerificationCodeTooManyAttempts),
+		errors.Is(err, serviceauth.ErrInvalidEmail),
+		errors.Is(err, serviceauth.ErrCurrentPasswordIncorrect),
+		errors.Is(err, serviceauth.ErrNewEmailSameAsCurrent),
+		errors.Is(err, serviceauth.ErrPasswordTooLong),
+		errors.Is(err, serviceauth.ErrSMTPUnavailable):
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

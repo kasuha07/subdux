@@ -3,19 +3,20 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kasuha07/subdux/internal/pkg"
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
 type ExportHandler struct {
 	Service *service.ExportService
-	Reauth  *service.ReauthService
+	Reauth  *servicereauth.Service
 }
 
-func NewExportHandler(s *service.ExportService, reauth *service.ReauthService) *ExportHandler {
+func NewExportHandler(s *service.ExportService, reauth *servicereauth.Service) *ExportHandler {
 	return &ExportHandler{Service: s, Reauth: reauth}
 }
 
@@ -25,7 +26,7 @@ func (h *ExportHandler) Export(c echo.Context) error {
 	if includeSecrets && c.QueryParam("confirm") != "include_secrets" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "exporting notification secrets requires confirmation"})
 	}
-	operation := service.ReauthOperationForExport(includeSecrets)
+	operation := servicereauth.OperationForExport(includeSecrets)
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		operation,

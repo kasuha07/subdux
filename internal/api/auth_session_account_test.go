@@ -11,7 +11,8 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -22,7 +23,7 @@ func TestLogoutAllRevokesAllUserRefreshTokens(t *testing.T) {
 	user := createHumanOnlyRouteTestUser(t, db)
 	e := newHumanOnlyRouteTestServer(t, db)
 
-	authService := service.NewAuthService(db)
+	authService := serviceauth.NewService(db)
 	first, err := authService.CreateSession(user.ID)
 	if err != nil {
 		t.Fatalf("CreateSession() first error = %v, want nil", err)
@@ -76,11 +77,11 @@ func TestLogoutAllRevokesAllUserRefreshTokens(t *testing.T) {
 		t.Fatalf("response cookies = %#v, want cleared refresh token cookie", cookies)
 	}
 
-	if _, err := authService.RefreshSession(first.RefreshToken); !errors.Is(err, service.ErrInvalidRefreshToken) {
-		t.Fatalf("RefreshSession() first error = %v, want %v", err, service.ErrInvalidRefreshToken)
+	if _, err := authService.RefreshSession(first.RefreshToken); !errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
+		t.Fatalf("RefreshSession() first error = %v, want %v", err, serviceauth.ErrInvalidRefreshToken)
 	}
-	if _, err := authService.RefreshSession(second.RefreshToken); !errors.Is(err, service.ErrInvalidRefreshToken) {
-		t.Fatalf("RefreshSession() second error = %v, want %v", err, service.ErrInvalidRefreshToken)
+	if _, err := authService.RefreshSession(second.RefreshToken); !errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
+		t.Fatalf("RefreshSession() second error = %v, want %v", err, serviceauth.ErrInvalidRefreshToken)
 	}
 }
 
@@ -157,7 +158,7 @@ func TestSendEmailChangeCodeGateRequiresChangeEmailReauthTicket(t *testing.T) {
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
 		_, e, _, token := setup(t)
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 
 		rec := postSendEmailChangeCode(t, e, token, backupTicket, "updated@example.com")
 		if rec.Code != http.StatusBadRequest {
@@ -170,14 +171,14 @@ func TestSendEmailChangeCodeGateRequiresChangeEmailReauthTicket(t *testing.T) {
 
 	t.Run("valid ticket is consumed before send attempt", func(t *testing.T) {
 		_, e, _, token := setup(t)
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationChangeEmail)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationChangeEmail)
 
 		rec := postSendEmailChangeCode(t, e, token, ticket, "updated@example.com")
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), service.ErrSMTPUnavailable.Error()) {
-			t.Fatalf("body = %s, want %q", rec.Body.String(), service.ErrSMTPUnavailable.Error())
+		if !strings.Contains(rec.Body.String(), serviceauth.ErrSMTPUnavailable.Error()) {
+			t.Fatalf("body = %s, want %q", rec.Body.String(), serviceauth.ErrSMTPUnavailable.Error())
 		}
 
 		rec = postSendEmailChangeCode(t, e, token, ticket, "updated-again@example.com")

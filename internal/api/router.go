@@ -14,9 +14,12 @@ import (
 	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	authreauth "github.com/kasuha07/subdux/internal/service/authreauth"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/kasuha07/subdux/internal/version"
@@ -126,12 +129,12 @@ func SetupRoutes(
 	db *gorm.DB,
 	taskMonitor *service.BackgroundTaskMonitor,
 ) (*service.ExchangeRateService, *notificationservice.Service) {
-	authService := service.NewAuthService(db)
+	authService := serviceauth.NewService(db)
 	authService.StartSessionCleanupLoop(ctx)
-	totpService := service.NewTOTPService(db)
+	totpService := serviceauth.NewTOTPService(db)
 	subService := subscriptionservice.NewService(db)
 	adminService := service.NewAdminService(db)
-	reauthService := service.NewReauthService(db, authService)
+	reauthService := servicereauth.NewService(db, authreauth.Adapt(authService))
 	systemSettingsService := systemsettings.NewService(db)
 	iconProxyService := service.NewIconProxyService(db)
 	erService := service.NewExchangeRateService(db)

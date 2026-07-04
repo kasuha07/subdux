@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
 )
@@ -159,7 +159,7 @@ func TestDeletePasskeyGateRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationBackup, currentCode())
+		backupTicket := mintReauthTicketWithCode(t, e, token, servicereauth.ReauthOperationBackup, currentCode())
 		rec := deletePasskey(t, e, token, passkey.ID, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -173,7 +173,7 @@ func TestDeletePasskeyGateRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("valid ticket deletes passkey and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationDeletePasskey, currentCode())
+		ticket := mintReauthTicketWithCode(t, e, token, servicereauth.ReauthOperationDeletePasskey, currentCode())
 		rec := deletePasskey(t, e, token, passkey.ID, ticket)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())

@@ -5,21 +5,22 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
 type oidcSessionResponse struct {
-	Purpose     string                      `json:"purpose"`
-	Token       string                      `json:"token,omitempty"`
-	AccessToken string                      `json:"access_token,omitempty"`
-	User        *authUserResponse           `json:"user,omitempty"`
-	Connected   bool                        `json:"connected,omitempty"`
-	Connection  *service.OIDCConnectionInfo `json:"connection,omitempty"`
-	Error       string                      `json:"error,omitempty"`
+	Purpose     string                          `json:"purpose"`
+	Token       string                          `json:"token,omitempty"`
+	AccessToken string                          `json:"access_token,omitempty"`
+	User        *authUserResponse               `json:"user,omitempty"`
+	Connected   bool                            `json:"connected,omitempty"`
+	Connection  *serviceauth.OIDCConnectionInfo `json:"connection,omitempty"`
+	Error       string                          `json:"error,omitempty"`
 }
 
-func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionResponse {
+func mapOIDCSessionResponse(result *serviceauth.OIDCSessionResult) oidcSessionResponse {
 	var user *authUserResponse
 	if result.User != nil {
 		mapped := mapAuthUserResponse(*result.User)
@@ -37,7 +38,7 @@ func mapOIDCSessionResponse(result *service.OIDCSessionResult) oidcSessionRespon
 	}
 }
 
-func writeOIDCSessionSuccess(c echo.Context, status int, result *service.OIDCSessionResult) error {
+func writeOIDCSessionSuccess(c echo.Context, status int, result *serviceauth.OIDCSessionResult) error {
 	setRefreshTokenCookie(c, result.RefreshToken)
 	return c.JSON(status, mapOIDCSessionResponse(result))
 }
@@ -68,7 +69,7 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 
 	authService := h.Service.WithContext(c.Request().Context())
 	if err := h.Reauth.WithContext(c.Request().Context()).ConsumeOIDCConnect(userID, input.ReauthTicket); err != nil {
-		if !errors.Is(err, service.ErrReauthRequired) {
+		if !errors.Is(err, servicereauth.ErrReauthRequired) {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to load oidc connections"})
 		}
 		return writeReauthError(c, err)

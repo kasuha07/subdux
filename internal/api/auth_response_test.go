@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 )
 
 func TestMapAuthResponseOmitsRefreshToken(t *testing.T) {
-	response := mapAuthResponse(&service.AuthResponse{
+	response := mapAuthResponse(&serviceauth.AuthResponse{
 		AccessToken:  "access-token",
 		RefreshToken: "refresh-token",
 		User: model.User{
@@ -50,7 +50,7 @@ func TestMapLoginResponseOmitsRefreshToken(t *testing.T) {
 		Role:     "user",
 		Status:   "active",
 	}
-	response := mapLoginResponse(&service.LoginResponse{
+	response := mapLoginResponse(&serviceauth.LoginResponse{
 		AccessToken:  "access-token",
 		RefreshToken: "refresh-token",
 		User:         &user,
@@ -84,7 +84,7 @@ func TestMapOIDCSessionResponseOmitsRefreshToken(t *testing.T) {
 		Role:     "user",
 		Status:   "active",
 	}
-	response := mapOIDCSessionResponse(&service.OIDCSessionResult{
+	response := mapOIDCSessionResponse(&serviceauth.OIDCSessionResult{
 		Purpose:      "login",
 		Token:        "access-token",
 		RefreshToken: "refresh-token",

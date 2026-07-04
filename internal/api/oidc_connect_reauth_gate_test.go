@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -103,7 +103,7 @@ func TestOIDCConnectStartGateRequiresReauthWhenUnlinked(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused and spent", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := postOIDCConnectStart(t, e, token, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -122,7 +122,7 @@ func TestOIDCConnectStartGateRequiresReauthWhenUnlinked(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationConnectOIDC)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationConnectOIDC)
 		assertOIDCConnectStartAccepted(t, postOIDCConnectStart(t, e, token, ticket))
 
 		rec := postOIDCConnectStart(t, e, token, ticket)

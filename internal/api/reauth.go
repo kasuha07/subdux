@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/kasuha07/subdux/internal/service"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
@@ -22,10 +22,10 @@ const reauthTicketHeader = "X-Reauth-Ticket"
 // backup download / restore). The password method may itself require a TOTP
 // code when the account has two-factor authentication enabled.
 type ReauthHandler struct {
-	Service *service.ReauthService
+	Service *servicereauth.Service
 }
 
-func NewReauthHandler(s *service.ReauthService) *ReauthHandler {
+func NewReauthHandler(s *servicereauth.Service) *ReauthHandler {
 	return &ReauthHandler{Service: s}
 }
 
@@ -37,11 +37,11 @@ func writeReauthError(c echo.Context, err error) error {
 }
 
 // validateReauthOperation extracts and validates the operation identifier,
-// delegating the set of valid operations to service.IsValidReauthOperation so
+// delegating the set of valid operations to reauth.IsValidReauthOperation so
 // there is a single source of truth.
 func validateReauthOperation(operation string) (string, error) {
-	if !service.IsValidReauthOperation(operation) {
-		return "", service.ErrInvalidReauthOperation
+	if !servicereauth.IsValidReauthOperation(operation) {
+		return "", servicereauth.ErrInvalidReauthOperation
 	}
 	return operation, nil
 }
@@ -186,7 +186,7 @@ func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 	sessionID := getCookieValue(c, oidcReauthSessionCookieName)
 	clearOIDCReauthSessionCookie(c)
 	if sessionID == "" {
-		return writeReauthError(c, service.ErrReauthRequired)
+		return writeReauthError(c, servicereauth.ErrReauthRequired)
 	}
 
 	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyOIDC(getUserID(c), operation, sessionID)

@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/kasuha07/subdux/internal/service"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
@@ -59,7 +59,7 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 	// must back it, so an attacker who steals a live session cannot silently
 	// enroll their own authenticator. The single-use ticket is consumed before
 	// the credential is validated/persisted.
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationAddPasskey, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, servicereauth.ReauthOperationAddPasskey, input.ReauthTicket); err != nil {
 		return writeReauthError(c, err)
 	}
 
@@ -87,7 +87,7 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	// accepted factor policy; the handler only consumes the operation ticket.
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
-		service.ReauthOperationDeletePasskey,
+		servicereauth.ReauthOperationDeletePasskey,
 		c.Request().Header.Get(reauthTicketHeader),
 	); err != nil {
 		return writeReauthError(c, err)

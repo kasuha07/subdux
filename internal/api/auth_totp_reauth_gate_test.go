@@ -12,7 +12,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	authreauth "github.com/kasuha07/subdux/internal/service/authreauth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
 )
@@ -97,7 +99,7 @@ func TestTOTPDisableRequiresDisableTOTPReauthTicket(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationBackup, currentCode())
+		backupTicket := mintReauthTicketWithCode(t, e, token, servicereauth.ReauthOperationBackup, currentCode())
 		rec := postTOTPDisable(t, e, token, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -116,7 +118,7 @@ func TestTOTPDisableRequiresDisableTOTPReauthTicket(t *testing.T) {
 	})
 
 	t.Run("valid ticket disables totp and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationDisableTOTP, currentCode())
+		ticket := mintReauthTicketWithCode(t, e, token, servicereauth.ReauthOperationDisableTOTP, currentCode())
 		rec := postTOTPDisable(t, e, token, ticket)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
@@ -223,9 +225,10 @@ func TestTOTPConfirmIsBoundToCurrentSetupSession(t *testing.T) {
 func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 	reauthDB := newHumanOnlyRouteTestDB(t)
 	user := createReauthGateTestAdmin(t, reauthDB)
-	reauthSvc := service.NewReauthService(reauthDB, service.NewAuthService(reauthDB))
+	authSvc := serviceauth.NewService(reauthDB)
+	reauthSvc := servicereauth.NewService(reauthDB, authreauth.Adapt(authSvc))
 
-	ticket, err := reauthSvc.VerifyPassword(user.ID, service.ReauthOperationEnableTOTP, reauthGateTestPassword, "")
+	ticket, err := reauthSvc.VerifyPassword(user.ID, servicereauth.ReauthOperationEnableTOTP, reauthGateTestPassword, "")
 	if err != nil {
 		t.Fatalf("VerifyPassword() error = %v, want nil", err)
 	}
@@ -239,7 +242,7 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 		t.Fatalf("close broken sql DB error = %v, want nil", err)
 	}
 
-	handler := NewAuthHandler(service.NewAuthService(reauthDB), service.NewTOTPService(brokenDB), reauthSvc)
+	handler := NewAuthHandler(authSvc, serviceauth.NewTOTPService(brokenDB), reauthSvc)
 	body := fmt.Sprintf(`{"reauth_ticket":%q}`, ticket)
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/totp/setup", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

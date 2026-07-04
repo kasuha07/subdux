@@ -5,12 +5,12 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	"github.com/labstack/echo/v4"
 )
 
 func (h *AuthHandler) Register(c echo.Context) error {
-	var input service.RegisterInput
+	var input serviceauth.RegisterInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
@@ -130,7 +130,7 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 
 func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.ChangePasswordInput
+	var input serviceauth.ChangePasswordInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}

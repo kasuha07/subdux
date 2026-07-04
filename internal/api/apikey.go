@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
 type APIKeyHandler struct {
 	Service *apikeyservice.Service
-	Reauth  *service.ReauthService
+	Reauth  *servicereauth.Service
 }
 
-func NewAPIKeyHandler(s *apikeyservice.Service, reauth *service.ReauthService) *APIKeyHandler {
+func NewAPIKeyHandler(s *apikeyservice.Service, reauth *servicereauth.Service) *APIKeyHandler {
 	return &APIKeyHandler{Service: s, Reauth: reauth}
 }
 
@@ -64,7 +64,7 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
-		service.ReauthOperationCreateAPIKey,
+		servicereauth.ReauthOperationCreateAPIKey,
 		c.Request().Header.Get(reauthTicketHeader),
 	); err != nil {
 		return writeReauthError(c, err)
@@ -113,7 +113,7 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
-		service.ReauthOperationDeleteAPIKey,
+		servicereauth.ReauthOperationDeleteAPIKey,
 		c.Request().Header.Get(reauthTicketHeader),
 	); err != nil {
 		return writeReauthError(c, err)

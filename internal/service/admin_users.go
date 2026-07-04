@@ -6,6 +6,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"golang.org/x/crypto/bcrypt"
@@ -36,7 +37,7 @@ func (s *AdminService) DisableUserTOTP(userID uint) error {
 	var user model.User
 	if err := s.DB.Select("id", "role").First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrUserNotFound
+			return serviceauth.ErrUserNotFound
 		}
 		return err
 	}
@@ -60,7 +61,7 @@ func (s *AdminService) DisableUserPasskeys(userID uint) error {
 	var user model.User
 	if err := s.DB.Select("id", "role").First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrUserNotFound
+			return serviceauth.ErrUserNotFound
 		}
 		return err
 	}

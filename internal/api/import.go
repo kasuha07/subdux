@@ -7,6 +7,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
@@ -14,10 +15,10 @@ const maxImportRequestBodyBytes int64 = 2 * 1024 * 1024
 
 type ImportHandler struct {
 	Service *service.ImportService
-	Reauth  *service.ReauthService
+	Reauth  *servicereauth.Service
 }
 
-func NewImportHandler(s *service.ImportService, reauth *service.ReauthService) *ImportHandler {
+func NewImportHandler(s *service.ImportService, reauth *servicereauth.Service) *ImportHandler {
 	return &ImportHandler{Service: s, Reauth: reauth}
 }
 
@@ -38,7 +39,7 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 		}
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			userID,
-			service.ReauthOperationImportWallos,
+			servicereauth.ReauthOperationImportWallos,
 			c.Request().Header.Get(reauthTicketHeader),
 		); err != nil {
 			return writeReauthError(c, err)
@@ -70,7 +71,7 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 	if req.Confirm {
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			userID,
-			service.ReauthOperationImportSubdux,
+			servicereauth.ReauthOperationImportSubdux,
 			c.Request().Header.Get(reauthTicketHeader),
 		); err != nil {
 			return writeReauthError(c, err)

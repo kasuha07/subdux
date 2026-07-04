@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,7 +19,7 @@ func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationEnableTOTP, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, servicereauth.ReauthOperationEnableTOTP, input.ReauthTicket); err != nil {
 		return writeReauthError(c, err)
 	}
 
@@ -57,7 +58,7 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, service.ReauthOperationDisableTOTP, input.ReauthTicket); err != nil {
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(userID, servicereauth.ReauthOperationDisableTOTP, input.ReauthTicket); err != nil {
 		return writeReauthError(c, err)
 	}
 
@@ -69,13 +70,13 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 
 func writeTOTPServiceError(c echo.Context, err error) error {
 	switch {
-	case errors.Is(err, service.ErrTOTPAlreadyEnabled),
-		errors.Is(err, service.ErrTOTPSetupExpired),
-		errors.Is(err, service.ErrTOTPInvalidCode),
-		errors.Is(err, service.ErrTOTPInvalidPassword),
-		errors.Is(err, service.ErrTOTPInvalidAuthCode):
+	case errors.Is(err, serviceauth.ErrTOTPAlreadyEnabled),
+		errors.Is(err, serviceauth.ErrTOTPSetupExpired),
+		errors.Is(err, serviceauth.ErrTOTPInvalidCode),
+		errors.Is(err, serviceauth.ErrTOTPInvalidPassword),
+		errors.Is(err, serviceauth.ErrTOTPInvalidAuthCode):
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	case errors.Is(err, service.ErrUserNotFound):
+	case errors.Is(err, serviceauth.ErrUserNotFound):
 		return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 	default:
 		return writeInternalServerError(c, err)
@@ -111,7 +112,7 @@ func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 
 	resp, err := h.Service.WithContext(ctx).CreateSession(userID)
 	if err != nil {
-		if errors.Is(err, service.ErrUserNotFound) {
+		if errors.Is(err, serviceauth.ErrUserNotFound) {
 			clearRefreshTokenCookie(c)
 			return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid or expired session"})
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
@@ -340,7 +341,7 @@ func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := putAdminUserRole(t, e, token, target.ID, "admin", backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -351,7 +352,7 @@ func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationChangeUserRole)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationChangeUserRole)
 
 		rec := putAdminUserRole(t, e, token, target.ID, "admin", ticket)
 		if rec.Code != http.StatusOK {
@@ -399,7 +400,7 @@ func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := postAdminUser(t, e, token, "create-admin-wrong", "create-admin-wrong@example.com", "admin", backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -410,7 +411,7 @@ func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationCreateAdminUser)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationCreateAdminUser)
 
 		rec := postAdminUser(t, e, token, "create-admin-valid", "create-admin-valid@example.com", "admin", ticket)
 		if rec.Code != http.StatusCreated {
@@ -461,7 +462,7 @@ func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := deleteAdminUser(t, e, token, target.ID, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -472,7 +473,7 @@ func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationDeleteUser)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationDeleteUser)
 
 		rec := deleteAdminUser(t, e, token, target.ID, ticket)
 		if rec.Code != http.StatusOK {
@@ -510,7 +511,7 @@ func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := postCreateAPIKey(t, e, token, "Script", backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -521,7 +522,7 @@ func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationCreateAPIKey)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationCreateAPIKey)
 
 		rec := postCreateAPIKey(t, e, token, "Script", ticket)
 		if rec.Code != http.StatusCreated {
@@ -571,7 +572,7 @@ func TestReauthPasswordRequiresTOTPWhenEnabled(t *testing.T) {
 	})
 
 	t.Run("missing or invalid totp code cannot mint a ticket", func(t *testing.T) {
-		body := fmt.Sprintf(`{"operation":%q,"password":%q}`, service.ReauthOperationBackup, reauthGateTestPassword)
+		body := fmt.Sprintf(`{"operation":%q,"password":%q}`, servicereauth.ReauthOperationBackup, reauthGateTestPassword)
 		req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -585,7 +586,7 @@ func TestReauthPasswordRequiresTOTPWhenEnabled(t *testing.T) {
 			t.Fatalf("missing code body = %s, want re-authentication required", rec.Body.String())
 		}
 
-		body = fmt.Sprintf(`{"operation":%q,"password":%q,"code":"000000"}`, service.ReauthOperationBackup, reauthGateTestPassword)
+		body = fmt.Sprintf(`{"operation":%q,"password":%q,"code":"000000"}`, servicereauth.ReauthOperationBackup, reauthGateTestPassword)
 		req = httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -606,7 +607,7 @@ func TestReauthPasswordRequiresTOTPWhenEnabled(t *testing.T) {
 			t.Fatalf("GenerateCode() error = %v, want nil", err)
 		}
 
-		ticket := mintReauthTicketWithCode(t, e, token, service.ReauthOperationBackup, code)
+		ticket := mintReauthTicketWithCode(t, e, token, servicereauth.ReauthOperationBackup, code)
 		rec := postBackup(t, e, token, ticket)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("backup status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
@@ -653,7 +654,7 @@ func TestReauthPasswordDisabledForPasskeyAccount(t *testing.T) {
 	})
 
 	t.Run("password step-up is refused", func(t *testing.T) {
-		body := fmt.Sprintf(`{"operation":%q,"password":%q}`, service.ReauthOperationBackup, reauthGateTestPassword)
+		body := fmt.Sprintf(`{"operation":%q,"password":%q}`, servicereauth.ReauthOperationBackup, reauthGateTestPassword)
 		req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -725,7 +726,7 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
 		keyID := createAPIKey(t, "Wrong operation")
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := deleteAPIKey(t, e, token, keyID, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -737,7 +738,7 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
 		keyID := createAPIKey(t, "Delete me")
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationDeleteAPIKey)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationDeleteAPIKey)
 
 		rec := deleteAPIKey(t, e, token, keyID, ticket)
 		if rec.Code != http.StatusOK {
@@ -791,7 +792,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, service.ReauthOperationBackup)
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
 		rec := putAdminSettings(t, e, token, `{"backup_time_of_day":"04:30"}`, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -802,7 +803,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationBackupSchedule)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupSchedule)
 		body := `{"backup_schedule_enabled":true,"backup_time_of_day":"04:30","backup_include_assets":true,"backup_retention_count":3}`
 
 		rec := putAdminSettings(t, e, token, body, ticket)
@@ -861,7 +862,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused on confirm", func(t *testing.T) {
-		subduxTicket := mintReauthTicket(t, e, token, service.ReauthOperationImportSubdux)
+		subduxTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationImportSubdux)
 		rec := postWallosImport(t, e, token, true, subduxTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -872,7 +873,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationImportWallos)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationImportWallos)
 
 		rec := postWallosImport(t, e, token, true, ticket)
 		if rec.Code != http.StatusOK {
@@ -903,7 +904,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 			t.Fatalf("preview status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationImportWallos)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationImportWallos)
 		rec = postWallosImportWithAPIKey(t, e, apiKeyResp.Key, true, ticket)
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("confirm status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
@@ -994,7 +995,7 @@ func TestImportSubduxGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 	})
 
 	t.Run("wrong-operation ticket is refused on confirm", func(t *testing.T) {
-		exportTicket := mintReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+		exportTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 		rec := postSubduxImport(t, e, token, true, exportTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -1005,7 +1006,7 @@ func TestImportSubduxGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 	})
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, service.ReauthOperationImportSubdux)
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationImportSubdux)
 
 		rec := postSubduxImport(t, e, token, true, ticket)
 		if rec.Code != http.StatusOK {

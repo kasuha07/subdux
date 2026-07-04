@@ -25,6 +25,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
@@ -157,13 +158,13 @@ func main() {
 }
 
 func bootstrapInitialAdmin(db *gorm.DB) {
-	input := service.InitialAdminInput{
+	input := serviceauth.InitialAdminInput{
 		Username: envOrDefault("SUBDUX_INITIAL_ADMIN_USERNAME", "admin"),
 		Email:    envOrDefault("SUBDUX_INITIAL_ADMIN_EMAIL", "admin@subdux.local"),
 		Password: strings.TrimSpace(os.Getenv("SUBDUX_INITIAL_ADMIN_PASSWORD")),
 	}
 
-	result, err := service.NewAuthService(db).EnsureInitialAdmin(input)
+	result, err := serviceauth.NewService(db).EnsureInitialAdmin(input)
 	if err != nil {
 		logging.Fatal("failed to initialize admin user", slog.Any("error", err))
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -186,7 +187,7 @@ func TestExportRedactsSecretsUnlessConfirmed(t *testing.T) {
 	token := exportAPITestToken(t, user)
 	e := newExportAPITestServer(t, db)
 
-	redactedTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+	redactedTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 	req := httptest.NewRequest(http.MethodGet, "/api/export", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set(reauthTicketHeader, redactedTicket)
@@ -202,7 +203,7 @@ func TestExportRedactsSecretsUnlessConfirmed(t *testing.T) {
 		t.Fatalf("default export missing secrets_included=false marker: %s", rec.Body.String())
 	}
 
-	secretsTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportSecrets)
+	secretsTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportSecrets)
 	req = httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set(reauthTicketHeader, secretsTicket)
@@ -257,7 +258,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 
-		wrongTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportSecrets)
+		wrongTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportSecrets)
 		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set(reauthTicketHeader, wrongTicket)
@@ -271,7 +272,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 			t.Fatalf("wrong-ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 
-		ticket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+		ticket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 		req = httptest.NewRequest(http.MethodGet, "/api/export", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set(reauthTicketHeader, ticket)
@@ -297,7 +298,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 	})
 
 	t.Run("secret export requires secret-scoped ticket", func(t *testing.T) {
-		redactedTicket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportRedacted)
+		redactedTicket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportRedacted)
 		req := httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set(reauthTicketHeader, redactedTicket)
@@ -311,7 +312,7 @@ func TestExportRequiresValidReauthTicket(t *testing.T) {
 			t.Fatalf("wrong-ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 
-		ticket := mintExportReauthTicket(t, e, token, service.ReauthOperationExportSecrets)
+		ticket := mintExportReauthTicket(t, e, token, servicereauth.ReauthOperationExportSecrets)
 		req = httptest.NewRequest(http.MethodGet, "/api/export?include_secrets=1&confirm=include_secrets", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set(reauthTicketHeader, ticket)
