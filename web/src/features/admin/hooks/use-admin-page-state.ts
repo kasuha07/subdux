@@ -61,8 +61,8 @@ interface UseAdminPageStateResult {
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
   handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
-  handleDisableUserPasskeys: (user: AdminUser) => Promise<void>
-  handleDisableUserTOTP: (user: AdminUser) => Promise<void>
+  handleDisableUserPasskeys: (user: AdminUser, reauthTicket: string) => Promise<void>
+  handleDisableUserTOTP: (user: AdminUser, reauthTicket: string) => Promise<void>
   handleDownloadBackup: (reauthTicket: string) => Promise<boolean>
   handleRefreshRates: () => Promise<void>
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
@@ -308,16 +308,17 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleDisableUserTOTP(user: AdminUser) {
+  async function handleDisableUserTOTP(user: AdminUser, reauthTicket: string) {
     if (user.role === "admin" || !user.totp_enabled) {
-      return
-    }
-    if (!confirm(t("admin.users.disable2FAConfirm"))) {
       return
     }
 
     try {
-      await api.post(`/admin/users/${user.id}/disable-totp`, {})
+      await api.post(
+        `/admin/users/${user.id}/disable-totp`,
+        {},
+        { headers: { "X-Reauth-Ticket": reauthTicket } }
+      )
       setUsers((prev) =>
         prev.map((item) => (item.id === user.id ? { ...item, totp_enabled: false } : item))
       )
@@ -327,16 +328,17 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleDisableUserPasskeys(user: AdminUser) {
+  async function handleDisableUserPasskeys(user: AdminUser, reauthTicket: string) {
     if (user.role === "admin" || user.passkey_count <= 0) {
-      return
-    }
-    if (!confirm(t("admin.users.disablePasskeysConfirm"))) {
       return
     }
 
     try {
-      await api.post(`/admin/users/${user.id}/disable-passkeys`, {})
+      await api.post(
+        `/admin/users/${user.id}/disable-passkeys`,
+        {},
+        { headers: { "X-Reauth-Ticket": reauthTicket } }
+      )
       setUsers((prev) =>
         prev.map((item) => (item.id === user.id ? { ...item, passkey_count: 0 } : item))
       )

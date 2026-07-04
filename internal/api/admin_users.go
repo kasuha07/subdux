@@ -143,6 +143,14 @@ func (h *AdminHandler) DisableUserTOTP(c echo.Context) error {
 		return nil
 	}
 
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		apimw.From(c).UserID,
+		servicereauth.ReauthOperationAdminDisableTOTP,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).DisableUserTOTP(uint(userID)); err != nil {
 		return writeAdminCredentialResetError(c, err)
 	}
@@ -154,6 +162,14 @@ func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
 	userID, ok := httpx.ParseUintParam(c, "id", "invalid user id")
 	if !ok {
 		return nil
+	}
+
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		apimw.From(c).UserID,
+		servicereauth.ReauthOperationAdminDisablePasskeys,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DisableUserPasskeys(uint(userID)); err != nil {

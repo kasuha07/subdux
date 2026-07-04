@@ -27,10 +27,16 @@ const admin = {
     disable2FAConfirm:
       "このユーザーの二段階認証を無効化しますか？リカバリーコードも削除されます。",
     disable2FASuccess: "二段階認証を無効化しました",
+    disable2FAReauthTitle: "2FAリセットの確認",
+    disable2FAReauthDescription:
+      "セキュリティのため、このユーザーの二段階認証を無効化する前に再認証してください。",
     disablePasskeys: "Passkeyを無効化",
     disablePasskeysConfirm:
       "このユーザーのすべてのPasskeyを無効化しますか？保存済み認証情報も削除されます。",
     disablePasskeysSuccess: "Passkeyを無効化しました",
+    disablePasskeysReauthTitle: "Passkeyリセットの確認",
+    disablePasskeysReauthDescription:
+      "セキュリティのため、このユーザーのPasskeyを削除する前に再認証してください。",
     delete: "削除",
     deleteConfirm: "このユーザーを削除しますか？この操作は取り消せません。",
     createUser: "ユーザーを作成",

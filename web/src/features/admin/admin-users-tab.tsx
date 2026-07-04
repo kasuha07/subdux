@@ -51,8 +51,8 @@ interface AdminUsersTabProps {
   onCreateUser: (reauthTicket?: string) => void | Promise<void>
   onConfirmToggleRole: (reauthTicket: string) => void | Promise<void>
   onDeleteUser: (id: number, reauthTicket: string) => void | Promise<void>
-  onDisableUserPasskeys: (user: AdminUser) => void | Promise<void>
-  onDisableUserTOTP: (user: AdminUser) => void | Promise<void>
+  onDisableUserPasskeys: (user: AdminUser, reauthTicket: string) => void | Promise<void>
+  onDisableUserTOTP: (user: AdminUser, reauthTicket: string) => void | Promise<void>
   onNewEmailChange: (value: string) => void
   onNewPasswordChange: (value: string) => void
   onNewRoleChange: (role: "user" | "admin") => void
@@ -89,6 +89,8 @@ export default function AdminUsersTab({
   const { t, i18n } = useTranslation()
   const [createAdminReauthOpen, setCreateAdminReauthOpen] = useState(false)
   const [deleteReauthUser, setDeleteReauthUser] = useState<AdminUser | null>(null)
+  const [disableTOTPReauthUser, setDisableTOTPReauthUser] = useState<AdminUser | null>(null)
+  const [disablePasskeysReauthUser, setDisablePasskeysReauthUser] = useState<AdminUser | null>(null)
 
   function handleCreateClick() {
     if (newRole === "admin") {
@@ -96,6 +98,26 @@ export default function AdminUsersTab({
       return
     }
     void onCreateUser()
+  }
+
+  function handleDisableTOTPClick(user: AdminUser) {
+    if (user.role === "admin" || !user.totp_enabled) {
+      return
+    }
+    if (!confirm(t("admin.users.disable2FAConfirm"))) {
+      return
+    }
+    setDisableTOTPReauthUser(user)
+  }
+
+  function handleDisablePasskeysClick(user: AdminUser) {
+    if (user.role === "admin" || user.passkey_count <= 0) {
+      return
+    }
+    if (!confirm(t("admin.users.disablePasskeysConfirm"))) {
+      return
+    }
+    setDisablePasskeysReauthUser(user)
   }
 
   return (
@@ -248,13 +270,13 @@ export default function AdminUsersTab({
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             disabled={!user.totp_enabled}
-                            onClick={() => void onDisableUserTOTP(user)}
+                            onClick={() => handleDisableTOTPClick(user)}
                           >
                             {t("admin.users.disable2FA")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             disabled={user.passkey_count <= 0}
-                            onClick={() => void onDisableUserPasskeys(user)}
+                            onClick={() => handleDisablePasskeysClick(user)}
                           >
                             {t("admin.users.disablePasskeys")}
                           </DropdownMenuItem>
@@ -323,6 +345,52 @@ export default function AdminUsersTab({
         }}
         title={t("admin.users.deleteReauthTitle")}
         description={t("admin.users.deleteReauthDescription")}
+        confirmVariant="destructive"
+      />
+
+      <ReauthDialog
+        operation="admin_disable_user_totp"
+        open={disableTOTPReauthUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDisableTOTPReauthUser(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          if (!disableTOTPReauthUser) {
+            return
+          }
+          try {
+            await onDisableUserTOTP(disableTOTPReauthUser, ticket)
+          } finally {
+            setDisableTOTPReauthUser(null)
+          }
+        }}
+        title={t("admin.users.disable2FAReauthTitle")}
+        description={t("admin.users.disable2FAReauthDescription")}
+        confirmVariant="destructive"
+      />
+
+      <ReauthDialog
+        operation="admin_disable_user_passkeys"
+        open={disablePasskeysReauthUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDisablePasskeysReauthUser(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          if (!disablePasskeysReauthUser) {
+            return
+          }
+          try {
+            await onDisableUserPasskeys(disablePasskeysReauthUser, ticket)
+          } finally {
+            setDisablePasskeysReauthUser(null)
+          }
+        }}
+        title={t("admin.users.disablePasskeysReauthTitle")}
+        description={t("admin.users.disablePasskeysReauthDescription")}
         confirmVariant="destructive"
       />
     </TabsContent>

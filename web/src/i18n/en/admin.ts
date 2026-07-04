@@ -27,10 +27,16 @@ const admin = {
     disable2FAConfirm:
       "Disable two-factor authentication for this user? Recovery codes will also be removed.",
     disable2FASuccess: "Two-factor authentication disabled",
+    disable2FAReauthTitle: "Confirm 2FA reset",
+    disable2FAReauthDescription:
+      "For security, re-authenticate before disabling two-factor authentication for this user.",
     disablePasskeys: "Disable passkeys",
     disablePasskeysConfirm:
       "Disable all passkeys for this user? The stored passkey credentials will be removed.",
     disablePasskeysSuccess: "Passkeys disabled",
+    disablePasskeysReauthTitle: "Confirm passkey reset",
+    disablePasskeysReauthDescription:
+      "For security, re-authenticate before removing this user's passkeys.",
     delete: "Delete",
     deleteConfirm:
       "Are you sure you want to delete this user? This action cannot be undone.",

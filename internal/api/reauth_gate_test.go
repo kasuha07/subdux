@@ -272,6 +272,32 @@ func deleteAdminUser(t *testing.T, e *echo.Echo, token string, userID uint, tick
 	return rec
 }
 
+func postAdminDisableUserTOTP(t *testing.T, e *echo.Echo, token string, userID uint, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/users/%d/disable-totp", userID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func postAdminDisableUserPasskeys(t *testing.T, e *echo.Echo, token string, userID uint, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/users/%d/disable-passkeys", userID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
@@ -489,6 +515,179 @@ func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
 		}
 
 		rec = deleteAdminUser(t, e, token, target.ID, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestAdminDisableUserTOTPRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	totpSecret := "JBSWY3DPEHPK3PXP"
+	target := model.User{
+		Username:    "disable-totp-target",
+		Email:       "disable-totp-target@example.com",
+		Password:    "x",
+		Role:        "user",
+		Status:      "active",
+		TotpEnabled: true,
+		TotpSecret:  &totpSecret,
+	}
+	if err := db.Create(&target).Error; err != nil {
+		t.Fatalf("failed to create target user: %v", err)
+	}
+	backupCode := model.UserBackupCode{UserID: target.ID, CodeHash: "backup-hash"}
+	if err := db.Create(&backupCode).Error; err != nil {
+		t.Fatalf("failed to create target backup code: %v", err)
+	}
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	assertTOTPStillEnabled := func(t *testing.T) {
+		t.Helper()
+		var stored model.User
+		if err := db.Select("id", "totp_enabled", "totp_secret").First(&stored, target.ID).Error; err != nil {
+			t.Fatalf("failed to reload target user: %v", err)
+		}
+		if !stored.TotpEnabled || stored.TotpSecret == nil {
+			t.Fatalf("target TOTP state = enabled:%t secret:%v, want unchanged", stored.TotpEnabled, stored.TotpSecret)
+		}
+		var count int64
+		if err := db.Model(&model.UserBackupCode{}).Where("user_id = ?", target.ID).Count(&count).Error; err != nil {
+			t.Fatalf("failed to count backup codes: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("target backup code count = %d, want 1", count)
+		}
+	}
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := postAdminDisableUserTOTP(t, e, token, target.ID, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+		assertTOTPStillEnabled(t)
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
+		rec := postAdminDisableUserTOTP(t, e, token, target.ID, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+		assertTOTPStillEnabled(t)
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationAdminDisableTOTP)
+
+		rec := postAdminDisableUserTOTP(t, e, token, target.ID, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var updated model.User
+		if err := db.Select("id", "totp_enabled", "totp_secret").First(&updated, target.ID).Error; err != nil {
+			t.Fatalf("failed to reload target user: %v", err)
+		}
+		if updated.TotpEnabled || updated.TotpSecret != nil {
+			t.Fatalf("target TOTP state = enabled:%t secret:%v, want disabled and cleared", updated.TotpEnabled, updated.TotpSecret)
+		}
+
+		rec = postAdminDisableUserTOTP(t, e, token, target.ID, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestAdminDisableUserPasskeysRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	target := model.User{
+		Username: "disable-passkeys-target",
+		Email:    "disable-passkeys-target@example.com",
+		Password: "x",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&target).Error; err != nil {
+		t.Fatalf("failed to create target user: %v", err)
+	}
+	passkey := model.PasskeyCredential{
+		UserID:       target.ID,
+		Name:         "Laptop",
+		CredentialID: "cred-admin-disable-passkeys",
+		Credential:   []byte("credential"),
+	}
+	if err := db.Create(&passkey).Error; err != nil {
+		t.Fatalf("failed to create target passkey: %v", err)
+	}
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	assertPasskeysStillPresent := func(t *testing.T) {
+		t.Helper()
+		var count int64
+		if err := db.Model(&model.PasskeyCredential{}).Where("user_id = ?", target.ID).Count(&count).Error; err != nil {
+			t.Fatalf("failed to count passkeys: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("target passkey count = %d, want 1", count)
+		}
+	}
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := postAdminDisableUserPasskeys(t, e, token, target.ID, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+		assertPasskeysStillPresent(t)
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
+		rec := postAdminDisableUserPasskeys(t, e, token, target.ID, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+		assertPasskeysStillPresent(t)
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationAdminDisablePasskeys)
+
+		rec := postAdminDisableUserPasskeys(t, e, token, target.ID, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var count int64
+		if err := db.Model(&model.PasskeyCredential{}).Where("user_id = ?", target.ID).Count(&count).Error; err != nil {
+			t.Fatalf("failed to count passkeys: %v", err)
+		}
+		if count != 0 {
+			t.Fatalf("target passkey count = %d, want 0", count)
+		}
+
+		rec = postAdminDisableUserPasskeys(t, e, token, target.ID, ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}

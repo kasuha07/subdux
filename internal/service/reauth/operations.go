@@ -3,24 +3,26 @@ package reauth
 // Operation identifiers scope a ticket to a single sensitive action so a ticket
 // minted for one operation cannot authorize another.
 const (
-	ReauthOperationBackup          = "backup"
-	ReauthOperationBackupSchedule  = "backup_schedule"
-	ReauthOperationRestore         = "restore"
-	ReauthOperationChangeEmail     = "change_email"
-	ReauthOperationAddPasskey      = "add_passkey"
-	ReauthOperationDeletePasskey   = "delete_passkey"
-	ReauthOperationEnableTOTP      = "enable_totp"
-	ReauthOperationDisableTOTP     = "disable_totp"
-	ReauthOperationConnectOIDC     = "connect_oidc"
-	ReauthOperationCreateAPIKey    = "create_api_key"
-	ReauthOperationDeleteAPIKey    = "delete_api_key"
-	ReauthOperationCreateAdminUser = "create_admin_user"
-	ReauthOperationChangeUserRole  = "change_user_role"
-	ReauthOperationDeleteUser      = "delete_user"
-	ReauthOperationExportRedacted  = "export_redacted"
-	ReauthOperationExportSecrets   = "export_secrets"
-	ReauthOperationImportSubdux    = "import_subdux"
-	ReauthOperationImportWallos    = "import_wallos"
+	ReauthOperationBackup               = "backup"
+	ReauthOperationBackupSchedule       = "backup_schedule"
+	ReauthOperationRestore              = "restore"
+	ReauthOperationChangeEmail          = "change_email"
+	ReauthOperationAddPasskey           = "add_passkey"
+	ReauthOperationDeletePasskey        = "delete_passkey"
+	ReauthOperationEnableTOTP           = "enable_totp"
+	ReauthOperationDisableTOTP          = "disable_totp"
+	ReauthOperationConnectOIDC          = "connect_oidc"
+	ReauthOperationCreateAPIKey         = "create_api_key"
+	ReauthOperationDeleteAPIKey         = "delete_api_key"
+	ReauthOperationCreateAdminUser      = "create_admin_user"
+	ReauthOperationChangeUserRole       = "change_user_role"
+	ReauthOperationAdminDisableTOTP     = "admin_disable_user_totp"
+	ReauthOperationAdminDisablePasskeys = "admin_disable_user_passkeys"
+	ReauthOperationDeleteUser           = "delete_user"
+	ReauthOperationExportRedacted       = "export_redacted"
+	ReauthOperationExportSecrets        = "export_secrets"
+	ReauthOperationImportSubdux         = "import_subdux"
+	ReauthOperationImportWallos         = "import_wallos"
 )
 
 // IsValidReauthOperation reports whether operation is a known reauth operation.
@@ -40,6 +42,8 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationDeleteAPIKey,
 		ReauthOperationCreateAdminUser,
 		ReauthOperationChangeUserRole,
+		ReauthOperationAdminDisableTOTP,
+		ReauthOperationAdminDisablePasskeys,
 		ReauthOperationDeleteUser,
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,
