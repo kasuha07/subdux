@@ -192,7 +192,7 @@ func TestSMTPSkipTLSVerifyDefaultsDisabled(t *testing.T) {
 		t.Fatal("GetSettings() should default SMTPSkipTLSVerify to false")
 	}
 
-	systemSettingsSvc := NewSystemSettingsService(db)
+	systemSettingsSvc := systemsettings.NewService(db)
 	if err := systemSettingsSvc.SeedDefaults(); err != nil {
 		t.Fatalf("SeedDefaults() failed: %v", err)
 	}

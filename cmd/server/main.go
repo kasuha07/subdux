@@ -25,6 +25,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -382,7 +383,7 @@ func uploadedAssetContentType(relativePath string) string {
 
 func startNotificationWorkers(
 	ctx context.Context,
-	ns *service.NotificationService,
+	ns *notificationservice.Service,
 	monitor *service.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {

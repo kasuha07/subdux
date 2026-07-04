@@ -15,7 +15,9 @@ import (
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/kasuha07/subdux/internal/version"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -122,23 +124,23 @@ func SetupRoutes(
 	e *echo.Echo,
 	db *gorm.DB,
 	taskMonitor *service.BackgroundTaskMonitor,
-) (*service.ExchangeRateService, *service.NotificationService) {
+) (*service.ExchangeRateService, *notificationservice.Service) {
 	authService := service.NewAuthService(db)
 	authService.StartSessionCleanupLoop(ctx)
 	totpService := service.NewTOTPService(db)
 	subService := service.NewSubscriptionService(db)
 	adminService := service.NewAdminService(db)
 	reauthService := service.NewReauthService(db, authService)
-	systemSettingsService := service.NewSystemSettingsService(db)
+	systemSettingsService := systemsettings.NewService(db)
 	iconProxyService := service.NewIconProxyService(db)
 	erService := service.NewExchangeRateService(db)
 	currencyService := catalogservice.NewCurrencyService(db)
 	categoryService := catalogservice.NewCategoryService(db)
 	paymentMethodService := catalogservice.NewPaymentMethodService(db)
-	validator := service.NewTemplateValidator()
-	renderer := service.NewTemplateRenderer(validator)
-	templateService := service.NewNotificationTemplateService(db, validator)
-	notificationService := service.NewNotificationService(db, templateService, renderer)
+	validator := notificationservice.NewTemplateValidator()
+	renderer := notificationservice.NewTemplateRenderer(validator)
+	templateService := notificationservice.NewNotificationTemplateService(db, validator)
+	notificationService := notificationservice.NewService(db, templateService, renderer)
 	apiKeyService := apikeyservice.NewService(db)
 	auditService := auditservice.NewService(db)
 	calendarService := service.NewCalendarService(db)
@@ -394,7 +396,7 @@ func SetupRoutes(
 	return erService, notificationService
 }
 
-func mcpEnabledMiddleware(settingsService *service.SystemSettingsService) echo.MiddlewareFunc {
+func mcpEnabledMiddleware(settingsService *systemsettings.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			enabled, err := settingsService.IsMCPEnabled()

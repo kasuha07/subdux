@@ -13,6 +13,73 @@ import (
 	"gorm.io/gorm"
 )
 
+func defaultAdminSystemSettings() *SystemSettings {
+	return &SystemSettings{
+		RegistrationEnabled:                  false,
+		RegistrationEmailVerificationEnabled: false,
+		EmailDomainWhitelist:                 "",
+		SiteName:                             "Subdux",
+		SiteURL:                              "",
+		CurrencyAPIKeySet:                    false,
+		ExchangeRateSource:                   "auto",
+		AllowImageUpload:                     true,
+		MaxIconFileSize:                      65536,
+		IconProxyEnabled:                     true,
+		IconProxyDomainWhitelist:             defaultIconProxyDomainWhitelist,
+		MCPEnabled:                           false,
+		AuditEnabled:                         true,
+		SystemProxyEnabled:                   false,
+		SystemProxyType:                      serviceoutbound.SystemProxyTypeHTTP,
+		SystemProxyURLSet:                    false,
+		SSRFProtectionEnabled:                true,
+		SSRFAllowPrivateIP:                   false,
+		SSRFDomainFilterMode:                 serviceoutbound.FilterModeBlacklist,
+		SSRFDomainFilterList:                 "",
+		SSRFIPFilterMode:                     serviceoutbound.FilterModeBlacklist,
+		SSRFIPFilterList:                     "",
+		SSRFFilterResolvedIPs:                true,
+		SMTPEnabled:                          false,
+		SMTPHost:                             "",
+		SMTPPort:                             587,
+		SMTPUsername:                         "",
+		SMTPPasswordSet:                      false,
+		SMTPFromEmail:                        "",
+		SMTPFromName:                         "",
+		SMTPEncryption:                       "starttls",
+		SMTPAuthMethod:                       "auto",
+		SMTPHeloName:                         "",
+		SMTPTimeoutSeconds:                   10,
+		SMTPRateLimitSeconds:                 0,
+		SMTPSkipTLSVerify:                    false,
+		OIDCEnabled:                          false,
+		OIDCProviderName:                     "OIDC",
+		OIDCIssuerURL:                        "",
+		OIDCClientID:                         "",
+		OIDCClientSecretSet:                  false,
+		OIDCRedirectURL:                      "",
+		OIDCScopes:                           "openid profile email",
+		OIDCAutoCreateUser:                   false,
+		OIDCAuthorizeURL:                     "",
+		OIDCTokenURL:                         "",
+		OIDCUserinfoURL:                      "",
+		OIDCAudience:                         "",
+		OIDCResource:                         "",
+		OIDCExtraAuthParams:                  "",
+		OIDCReauthACRMFA:                     "",
+		OIDCReauthACRPhishingResistant:       "",
+		BackupScheduleEnabled:                false,
+		BackupTimeOfDay:                      "03:00",
+		BackupIncludeAssets:                  false,
+		BackupEncryptEnabled:                 false,
+		BackupEncryptionPasswordSet:          false,
+		BackupLocalDir:                       "",
+		BackupRetentionCount:                 7,
+		BackupLastRunAt:                      "",
+		BackupLastStatus:                     "",
+		BackupLastError:                      "",
+	}
+}
+
 func (s *AdminService) GetSettings() (*SystemSettings, error) {
 	settings := defaultAdminSystemSettings()
 
@@ -581,7 +648,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 }
 
 func isSystemSettingEnabled(tx *gorm.DB, key string, defaultValue bool) (bool, error) {
-	return getSystemSettingBool(context.Background(), tx, key, defaultValue)
+	return systemsettings.GetBool(context.Background(), tx, key, defaultValue)
 }
 
 func saveBoolSystemSetting(tx *gorm.DB, key string, enabled bool) error {

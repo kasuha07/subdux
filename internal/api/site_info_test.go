@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,7 +24,7 @@ func TestSiteInfoHandlerGet(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/site-info", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	handler := NewSiteInfoHandler(service.NewSystemSettingsService(db))
+	handler := NewSiteInfoHandler(systemsettings.NewService(db))
 
 	if err := handler.Get(c); err != nil {
 		t.Fatalf("Get() returned error: %v", err)

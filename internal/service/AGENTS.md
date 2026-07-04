@@ -25,7 +25,7 @@ service/
 ├── payment_method.go                # Payment methods and icons
 ├── calendar.go                      # Calendar feed tokens and event generation
 ├── outbound_*.go                    # Outbound policy, settings, clients, proxy, validators
-├── system_settings.go               # Global runtime settings
+├── settings/                        # Global runtime settings helpers/service
 └── *_test.go                        # Focused service behavior and security tests
 ```
 
@@ -41,7 +41,7 @@ service/
 | Detail/actions/reports | `subscription_detail.go`, `subscription_actions*.go`, `subscription_report.go` | Avoid N+1 regressions and stale-action semantics |
 | Notifications | `notification*.go` | Validate config, render templates, enqueue, dispatch, log policy outcomes |
 | Imports/exports | `import_subdux.go`, `import_wallos.go`, `export.go` | Keep dedup, mapping, and size/security behavior tested |
-| Admin settings | `admin_settings.go`, `system_settings.go`, `security_settings.go` | Handle configured-secret flags carefully |
+| Admin settings | `admin_settings.go`, `settings/`, `security_settings.go` | Handle configured-secret flags carefully |
 | Outbound network | `outbound_*.go` | Use central outbound policy/settings/client/validator helpers for OIDC, webhooks, icon proxy, release checks |
 
 ## CONVENTIONS

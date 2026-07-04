@@ -3,15 +3,15 @@ package api
 import (
 	"net/http"
 
-	"github.com/kasuha07/subdux/internal/service"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/labstack/echo/v4"
 )
 
 type SiteInfoHandler struct {
-	Service *service.SystemSettingsService
+	Service *systemsettings.Service
 }
 
-func NewSiteInfoHandler(s *service.SystemSettingsService) *SiteInfoHandler {
+func NewSiteInfoHandler(s *systemsettings.Service) *SiteInfoHandler {
 	return &SiteInfoHandler{Service: s}
 }
 

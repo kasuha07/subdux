@@ -4,15 +4,15 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/kasuha07/subdux/internal/service"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/labstack/echo/v4"
 )
 
 type NotificationTemplateHandler struct {
-	Service *service.NotificationTemplateService
+	Service *notificationservice.NotificationTemplateService
 }
 
-func NewNotificationTemplateHandler(s *service.NotificationTemplateService) *NotificationTemplateHandler {
+func NewNotificationTemplateHandler(s *notificationservice.NotificationTemplateService) *NotificationTemplateHandler {
 	return &NotificationTemplateHandler{Service: s}
 }
 
@@ -44,7 +44,7 @@ func (h *NotificationTemplateHandler) GetTemplate(c echo.Context) error {
 
 func (h *NotificationTemplateHandler) CreateTemplate(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateTemplateInput
+	var input notificationservice.CreateTemplateInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -63,7 +63,7 @@ func (h *NotificationTemplateHandler) UpdateTemplate(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	var input service.UpdateTemplateInput
+	var input notificationservice.UpdateTemplateInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -96,7 +96,7 @@ func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 
 func (h *NotificationTemplateHandler) PreviewTemplate(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateTemplateInput
+	var input notificationservice.CreateTemplateInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}

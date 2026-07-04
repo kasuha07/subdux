@@ -24,6 +24,14 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{DB: db}
 }
 
+func (s *Service) WithContext(ctx context.Context) *Service {
+	clone := *s
+	if s.DB != nil {
+		clone.DB = s.DB.WithContext(ctx)
+	}
+	return &clone
+}
+
 const DefaultIconProxyDomainWhitelist = "google.com\ngstatic.com\nicon.horse"
 
 var DefaultSystemSettings = []model.SystemSetting{

@@ -7,6 +7,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"gorm.io/gorm"
 )
@@ -121,7 +122,7 @@ func TestSeedUserDefaultsIsIdempotent(t *testing.T) {
 		t.Fatal("default notification template should not be empty")
 	}
 
-	validator := NewTemplateValidator()
+	validator := notificationservice.NewTemplateValidator()
 	if err := validator.ValidateFormat(templates[0].Format); err != nil {
 		t.Fatalf("default notification template format is invalid: %v", err)
 	}

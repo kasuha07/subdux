@@ -2,10 +2,11 @@ package service
 
 import (
 	"errors"
-	"github.com/kasuha07/subdux/internal/pkg"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"gorm.io/gorm"
 )
 
@@ -101,13 +102,13 @@ func (s *ExportService) ExportUserData(userID uint, includeSecrets bool) (*UserE
 		channels = []model.NotificationChannel{}
 	} else {
 		for i := range channels {
-			decrypted, err := decryptNotificationChannelConfig(channels[i].Config)
+			decrypted, err := notificationservice.DecryptNotificationChannelConfig(channels[i].Config)
 			if err != nil {
 				return nil, err
 			}
 			channels[i].Config = decrypted
 			if !includeSecrets {
-				sanitizedConfig, _, _ := sanitizeNotificationConfig(channels[i].Type, channels[i].Config)
+				sanitizedConfig, _, _ := notificationservice.SanitizeNotificationConfig(channels[i].Type, channels[i].Config)
 				channels[i].Config = sanitizedConfig
 			}
 		}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"gorm.io/gorm"
 )
 
@@ -101,7 +102,7 @@ func validateSubduxImportData(data SubduxImportData) error {
 }
 
 func canonicalChannelConfig(config string) string {
-	decrypted, err := decryptNotificationChannelConfig(config)
+	decrypted, err := notificationservice.DecryptNotificationChannelConfig(config)
 	if err == nil {
 		config = decrypted
 	}
@@ -124,12 +125,12 @@ func canonicalChannelConfig(config string) string {
 }
 
 func isRedactedNotificationChannelConfig(channelType, config string) bool {
-	parsed, err := parseNotificationConfigMap(config)
+	parsed, err := notificationservice.ParseNotificationConfigMap(config)
 	if err != nil {
 		return false
 	}
 
-	for field := range getNotificationChannelSecretFields(channelType) {
+	for field := range notificationservice.GetNotificationChannelSecretFields(channelType) {
 		raw, ok := parsed[field]
 		if !ok {
 			continue
@@ -299,7 +300,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 		return nil, err
 	}
 
-	validator := NewTemplateValidator()
+	validator := notificationservice.NewTemplateValidator()
 	result := &ImportResult{Errors: []string{}}
 	preview := &SubduxImportPreview{
 		Currencies:     []PreviewCurrencyChange{},
@@ -493,7 +494,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				continue
 			}
 
-			if !isValidChannelType(channelType) {
+			if !notificationservice.IsValidChannelType(channelType) {
 				if confirm {
 					result.Errors = append(result.Errors, fmt.Sprintf("unsupported notification channel type %q", channelType))
 					result.Skipped++
@@ -508,7 +509,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				continue
 			}
 
-			if err := validateChannelConfig(channelType, canonicalConfig, tx); err != nil {
+			if err := notificationservice.ValidateChannelConfig(channelType, canonicalConfig, tx); err != nil {
 				if confirm {
 					result.Errors = append(result.Errors, fmt.Sprintf("invalid config for channel %q: %v", channelType, err))
 					result.Skipped++
@@ -553,7 +554,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				Type:    channelType,
 				Enabled: incoming.Enabled,
 			}
-			encryptedConfig, err := encryptNotificationChannelConfig(canonicalConfig)
+			encryptedConfig, err := notificationservice.EncryptNotificationChannelConfig(canonicalConfig)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to encrypt notification channel %q config: %v", channelType, err))
 				continue
@@ -579,7 +580,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			if incoming.ChannelType != nil {
 				trimmed := strings.TrimSpace(*incoming.ChannelType)
 				if trimmed != "" {
-					if !isValidChannelType(trimmed) {
+					if !notificationservice.IsValidChannelType(trimmed) {
 						if confirm {
 							result.Errors = append(result.Errors, fmt.Sprintf("unsupported notification template channel type %q", trimmed))
 							result.Skipped++

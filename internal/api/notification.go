@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/labstack/echo/v4"
 )
 
 type NotificationHandler struct {
-	Service *service.NotificationService
+	Service *notificationservice.Service
 }
 
 type notificationChannelResponse struct {
@@ -25,7 +25,7 @@ type notificationChannelResponse struct {
 	UpdatedAt                   time.Time `json:"updated_at"`
 }
 
-func NewNotificationHandler(s *service.NotificationService) *NotificationHandler {
+func NewNotificationHandler(s *notificationservice.Service) *NotificationHandler {
 	return &NotificationHandler{Service: s}
 }
 
@@ -41,7 +41,7 @@ func (h *NotificationHandler) ListChannels(c echo.Context) error {
 
 func (h *NotificationHandler) CreateChannel(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateChannelInput
+	var input notificationservice.CreateChannelInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -63,7 +63,7 @@ func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	var input service.UpdateChannelInput
+	var input notificationservice.UpdateChannelInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -118,7 +118,7 @@ func (h *NotificationHandler) GetPolicy(c echo.Context) error {
 
 func (h *NotificationHandler) UpdatePolicy(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.UpdatePolicyInput
+	var input notificationservice.UpdatePolicyInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -146,7 +146,7 @@ func (h *NotificationHandler) ListLogs(c echo.Context) error {
 	return c.JSON(http.StatusOK, logs)
 }
 
-func mapNotificationChannelResponses(channels []model.NotificationChannel, notificationService *service.NotificationService) []notificationChannelResponse {
+func mapNotificationChannelResponses(channels []model.NotificationChannel, notificationService *notificationservice.Service) []notificationChannelResponse {
 	responses := make([]notificationChannelResponse, 0, len(channels))
 	for _, channel := range channels {
 		responses = append(responses, mapNotificationChannelResponse(channel, notificationService))
@@ -154,7 +154,7 @@ func mapNotificationChannelResponses(channels []model.NotificationChannel, notif
 	return responses
 }
 
-func mapNotificationChannelResponse(channel model.NotificationChannel, notificationService *service.NotificationService) notificationChannelResponse {
+func mapNotificationChannelResponse(channel model.NotificationChannel, notificationService *notificationservice.Service) notificationChannelResponse {
 	sanitized, configuredSecretFields, configuredWebhookHeaderKeys := notificationService.SanitizeChannelForResponse(channel)
 	return notificationChannelResponse{
 		ID:                          sanitized.ID,

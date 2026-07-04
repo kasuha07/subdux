@@ -9,6 +9,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +33,7 @@ func TestSystemSettingsServiceSeedDefaultsIsIdempotent(t *testing.T) {
 		t.Fatalf("failed to seed custom site_name: %v", err)
 	}
 
-	svc := NewSystemSettingsService(db)
+	svc := systemsettings.NewService(db)
 	if err := svc.SeedDefaults(); err != nil {
 		t.Fatalf("SeedDefaults() error = %v", err)
 	}
@@ -75,7 +76,7 @@ func TestSystemSettingsServiceSeedDefaultsIsIdempotent(t *testing.T) {
 
 func TestSystemSettingsServiceGetSiteInfo(t *testing.T) {
 	db := newSystemSettingsTestDB(t)
-	svc := NewSystemSettingsService(db)
+	svc := systemsettings.NewService(db)
 
 	siteInfo, err := svc.GetSiteInfo()
 	if err != nil {
@@ -125,33 +126,33 @@ func TestSystemSettingRuntimeHelpers(t *testing.T) {
 		t.Fatalf("failed to seed smtp_password: %v", err)
 	}
 
-	missing, err := getSystemSettingString(ctx, db, "missing_setting", "fallback")
+	missing, err := systemsettings.GetString(ctx, db, "missing_setting", "fallback")
 	if err != nil {
-		t.Fatalf("getSystemSettingString() missing error = %v", err)
+		t.Fatalf("GetString() missing error = %v", err)
 	}
 	if missing != "fallback" {
 		t.Fatalf("missing setting = %q, want fallback", missing)
 	}
 
-	enabled, err := getSystemSettingBool(ctx, db, "mcp_enabled", false)
+	enabled, err := systemsettings.GetBool(ctx, db, "mcp_enabled", false)
 	if err != nil {
-		t.Fatalf("getSystemSettingBool() error = %v", err)
+		t.Fatalf("GetBool() error = %v", err)
 	}
 	if !enabled {
 		t.Fatal("mcp_enabled = false, want true")
 	}
 
-	maxIconFileSize, err := getSystemSettingInt(ctx, db, "max_icon_file_size", 0)
+	maxIconFileSize, err := systemsettings.GetInt(ctx, db, "max_icon_file_size", 0)
 	if err != nil {
-		t.Fatalf("getSystemSettingInt() error = %v", err)
+		t.Fatalf("GetInt() error = %v", err)
 	}
 	if maxIconFileSize != 8192 {
 		t.Fatalf("max_icon_file_size = %d, want 8192", maxIconFileSize)
 	}
 
-	password, err := getSystemSettingString(ctx, db, "smtp_password", "")
+	password, err := systemsettings.GetString(ctx, db, "smtp_password", "")
 	if err != nil {
-		t.Fatalf("getSystemSettingString() smtp_password error = %v", err)
+		t.Fatalf("GetString() smtp_password error = %v", err)
 	}
 	if password != "legacy-password" {
 		t.Fatalf("smtp_password runtime value = %q, want legacy-password", password)

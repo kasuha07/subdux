@@ -54,12 +54,6 @@ func (s *ImportService) WithContext(ctx context.Context) *ImportService {
 	return &clone
 }
 
-func (s *SystemSettingsService) WithContext(ctx context.Context) *SystemSettingsService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
 func (s *IconProxyService) WithContext(ctx context.Context) *IconProxyService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)
