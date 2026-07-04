@@ -1,9 +1,9 @@
-package api
+package mcp
 
 import (
 	"encoding/json"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type mcpToolResult struct {
@@ -50,24 +50,24 @@ func mcpToolExecutionError(message string) *mcpToolResult {
 	}
 }
 
-func (r *mcpToolResult) sdkResult() *mcp.CallToolResult {
+func (r *mcpToolResult) sdkResult() *mcpsdk.CallToolResult {
 	if r == nil {
-		result := &mcp.CallToolResult{}
+		result := &mcpsdk.CallToolResult{}
 		result.SetError(errMissingMCPResult)
 		return result
 	}
 
-	content := make([]mcp.Content, 0, len(r.Content))
+	content := make([]mcpsdk.Content, 0, len(r.Content))
 	for _, item := range r.Content {
 		if item.Type == "text" {
-			content = append(content, &mcp.TextContent{Text: item.Text})
+			content = append(content, &mcpsdk.TextContent{Text: item.Text})
 		}
 	}
 	if len(content) == 0 {
-		content = []mcp.Content{&mcp.TextContent{}}
+		content = []mcpsdk.Content{&mcpsdk.TextContent{}}
 	}
 
-	return &mcp.CallToolResult{
+	return &mcpsdk.CallToolResult{
 		Content:           content,
 		StructuredContent: r.StructuredContent,
 		IsError:           r.IsError,

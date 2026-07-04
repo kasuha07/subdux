@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	mcpapi "github.com/kasuha07/subdux/internal/api/mcp"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	adminservice "github.com/kasuha07/subdux/internal/service/admin"
@@ -178,7 +179,7 @@ func SetupRoutes(
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService, reauthService)
 	importHandler := NewImportHandler(importService, reauthService)
-	mcpHandler := NewMCPHandler(apiKeyService, auditService, subService, erService, currencyService, categoryService, paymentMethodService)
+	mcpHandler := mcpapi.NewMCPHandler(apiKeyService, auditService, subService, erService, currencyService, categoryService, paymentMethodService)
 
 	requireMCPEnabled := mcpEnabledMiddleware(systemSettingsService)
 	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, requestBodyLimitMiddleware(1<<20, nil))

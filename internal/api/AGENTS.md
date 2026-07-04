@@ -21,7 +21,7 @@ api/
 ├── apikey.go, audit.go       # Human API-key and audit views
 ├── calendar.go               # Token management and public feed
 ├── import.go, export.go      # Wallos/Subdux imports and Subdux export
-├── mcp*.go                   # MCP transport, schemas, args, results, tools, search helpers
+├── mcp/                      # MCP transport, schemas, args, results, tools, search helpers
 └── *_test.go                 # Handler, middleware, response, MCP, security tests
 ```
 
@@ -41,9 +41,9 @@ api/
 |------|------|-------|
 | Add route | `router.go` | Wire service and handler in `SetupRoutes` |
 | Add request validation | Handler file | Bind -> normalize/validate -> service call |
-| Add response shape | Handler file or `mcp_results.go` | Prefer explicit response structs for public contracts |
+| Add response shape | Handler file or `mcp/mcp_results.go` | Prefer explicit response structs for public contracts |
 | Change auth boundary | `security_middleware.go`, `router.go` | Add tests for JWT, API-key, human-only, and admin cases |
-| Change MCP behavior | `mcp_handler.go`, `mcp_tools.go`, `mcp_schema.go` | Preserve SDK transport assumptions and header/origin checks |
+| Change MCP behavior | `mcp/mcp_handler.go`, `mcp/mcp_tools.go`, `mcp/mcp_schema.go` | Preserve SDK transport assumptions and header/origin checks |
 | Change imports/exports | `import.go`, `export.go` | Keep request-size and human/API-key boundaries explicit |
 | Change admin API | `admin.go` | Match `service/admin*.go` and frontend `admin` types |
 

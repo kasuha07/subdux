@@ -25,7 +25,7 @@ internal/
 | Task | Start here | Then |
 |------|------------|------|
 | Add HTTP endpoint | `api/router.go` | Handler file -> service method -> tests |
-| Add MCP tool | `api/mcp_tools.go`, `api/mcp_schema.go` | `api/mcp_args.go`, `api/mcp_results.go`, service calls |
+| Add MCP tool | `api/mcp/mcp_tools.go`, `api/mcp/mcp_schema.go` | `api/mcp/mcp_args.go`, `api/mcp/mcp_results.go`, service calls |
 | Change auth/session rules | `api/security_middleware.go`, `pkg/jwt.go` | `service/auth*.go`, API tests |
 | Change API key behavior | `service/apikey.go` | `api/apikey.go`, MCP/API boundary tests |
 | Add or change model field | `model/*_models.go` | `pkg/migration_*.go` if existing data needs migration |

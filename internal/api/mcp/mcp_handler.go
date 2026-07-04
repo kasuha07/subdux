@@ -1,4 +1,4 @@
-package api
+package mcp
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -33,7 +33,7 @@ type MCPHandler struct {
 	currencies     *catalogservice.CurrencyService
 	categories     *catalogservice.CategoryService
 	paymentMethods *catalogservice.PaymentMethodService
-	server         *mcp.Server
+	server         *mcpsdk.Server
 	httpHandler    http.Handler
 }
 
@@ -57,9 +57,9 @@ func NewMCPHandler(
 		paymentMethods: paymentMethods,
 	}
 	handler.server = handler.buildServer()
-	handler.httpHandler = mcp.NewStreamableHTTPHandler(
-		func(*http.Request) *mcp.Server { return handler.server },
-		&mcp.StreamableHTTPOptions{
+	handler.httpHandler = mcpsdk.NewStreamableHTTPHandler(
+		func(*http.Request) *mcpsdk.Server { return handler.server },
+		&mcpsdk.StreamableHTTPOptions{
 			Stateless:                  true,
 			JSONResponse:               true,
 			DisableLocalhostProtection: true,

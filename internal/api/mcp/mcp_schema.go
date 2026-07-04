@@ -1,4 +1,4 @@
-package api
+package mcp
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/kasuha07/subdux/internal/version"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type mcpToolHandler func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError)
@@ -164,12 +164,12 @@ func mcpToolDefinitions() []mcpToolDefinition {
 	}
 }
 
-func (d mcpToolDefinition) sdkTool() *mcp.Tool {
+func (d mcpToolDefinition) sdkTool() *mcpsdk.Tool {
 	annotations := readOnlySDKToolAnnotation()
 	if d.Write {
 		annotations = writeSDKToolAnnotation(d.Name == "delete_subscription")
 	}
-	return &mcp.Tool{
+	return &mcpsdk.Tool{
 		Name:        d.Name,
 		Title:       d.Title,
 		Description: d.Description,
@@ -187,18 +187,18 @@ func mcpToolDefinitionByName(name string) (mcpToolDefinition, bool) {
 	return mcpToolDefinition{}, false
 }
 
-func (h *MCPHandler) buildServer() *mcp.Server {
+func (h *MCPHandler) buildServer() *mcpsdk.Server {
 	info := version.Get()
-	server := mcp.NewServer(
-		&mcp.Implementation{
+	server := mcpsdk.NewServer(
+		&mcpsdk.Implementation{
 			Name:    "subdux",
 			Title:   "Subdux",
 			Version: info.Version,
 		},
-		&mcp.ServerOptions{
+		&mcpsdk.ServerOptions{
 			Instructions: "Use X-API-Key authentication. Read tools require the read scope; write tools require the write scope.",
-			Capabilities: &mcp.ServerCapabilities{
-				Tools: &mcp.ToolCapabilities{},
+			Capabilities: &mcpsdk.ServerCapabilities{
+				Tools: &mcpsdk.ToolCapabilities{},
 			},
 			GetSessionID: func() string { return "" },
 		},
@@ -206,7 +206,7 @@ func (h *MCPHandler) buildServer() *mcp.Server {
 
 	for _, definition := range mcpToolDefinitions() {
 		definition := definition
-		server.AddTool(definition.sdkTool(), func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		server.AddTool(definition.sdkTool(), func(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 			principal, ok := ctx.Value(mcpPrincipalContextKey{}).(*mcpPrincipal)
 			if !ok || principal == nil {
 				return nil, newMCPJSONRPCError(jsonrpc.CodeInvalidRequest, "missing mcp principal").sdkError()
@@ -374,16 +374,16 @@ func sdkBoolPointer(value bool) *bool {
 	return &value
 }
 
-func readOnlySDKToolAnnotation() *mcp.ToolAnnotations {
-	return &mcp.ToolAnnotations{
+func readOnlySDKToolAnnotation() *mcpsdk.ToolAnnotations {
+	return &mcpsdk.ToolAnnotations{
 		ReadOnlyHint:    true,
 		DestructiveHint: sdkBoolPointer(false),
 		OpenWorldHint:   sdkBoolPointer(false),
 	}
 }
 
-func writeSDKToolAnnotation(destructive bool) *mcp.ToolAnnotations {
-	return &mcp.ToolAnnotations{
+func writeSDKToolAnnotation(destructive bool) *mcpsdk.ToolAnnotations {
+	return &mcpsdk.ToolAnnotations{
 		ReadOnlyHint:    false,
 		DestructiveHint: sdkBoolPointer(destructive),
 		OpenWorldHint:   sdkBoolPointer(false),
