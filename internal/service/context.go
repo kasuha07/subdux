@@ -53,18 +53,6 @@ func (s *AdminService) WithContext(ctx context.Context) *AdminService {
 	return &clone
 }
 
-func (s *AuditService) WithContext(ctx context.Context) *AuditService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
-func (s *IdempotencyService) WithContext(ctx context.Context) *IdempotencyService {
-	clone := *s
-	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
 func (s *CalendarService) WithContext(ctx context.Context) *CalendarService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)
@@ -92,11 +80,5 @@ func (s *SystemSettingsService) WithContext(ctx context.Context) *SystemSettings
 func (s *IconProxyService) WithContext(ctx context.Context) *IconProxyService {
 	clone := *s
 	clone.DB = withContext(s.DB, ctx)
-	return &clone
-}
-
-func (s *APIKeyService) WithContext(ctx context.Context) *APIKeyService {
-	clone := *s
-	clone.db = withContext(s.db, ctx)
 	return &clone
 }

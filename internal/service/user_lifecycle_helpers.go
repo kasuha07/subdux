@@ -1,21 +1,12 @@
 package service
 
 import (
-	"errors"
-
-	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"gorm.io/gorm"
 )
 
-var errUserNotActive = errors.New("user is not active")
+var errUserNotActive = userstatus.ErrUserNotActive
 
 func ensureUserActive(tx *gorm.DB, userID uint) error {
-	var user model.User
-	if err := tx.Select("id", "status").First(&user, userID).Error; err != nil {
-		return err
-	}
-	if user.Status != "active" {
-		return errUserNotActive
-	}
-	return nil
+	return userstatus.EnsureActive(tx, userID)
 }

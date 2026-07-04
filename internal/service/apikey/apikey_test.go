@@ -1,37 +1,48 @@
-package service
+package apikey
 
 import (
 	"errors"
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/servicetest"
+	"gorm.io/gorm"
 )
 
-func TestAPIKeyCreateRequiresValidKind(t *testing.T) {
-	db := newTestDB(t)
+func newTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	db := servicetest.NewDB(t)
 	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
 		t.Fatalf("failed to migrate api keys: %v", err)
 	}
-	user := createTestUser(t, db)
-	svc := NewAPIKeyService(db)
+	return db
+}
 
-	if _, err := svc.Create(user.ID, user.Role, CreateAPIKeyInput{Name: "No kind"}); !errors.Is(err, ErrAPIKeyKindRequired) {
+func createTestUser(t *testing.T, db *gorm.DB) model.User {
+	t.Helper()
+	return servicetest.CreateUser(t, db)
+}
+
+func TestCreateRequiresValidKind(t *testing.T) {
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	svc := NewService(db)
+
+	if _, err := svc.Create(user.ID, user.Role, CreateInput{Name: "No kind"}); !errors.Is(err, ErrAPIKeyKindRequired) {
 		t.Fatalf("Create() error = %v, want %v", err, ErrAPIKeyKindRequired)
 	}
-	if _, err := svc.Create(user.ID, user.Role, CreateAPIKeyInput{Name: "Bad kind", KeyKind: "legacy"}); !errors.Is(err, ErrAPIKeyKindInvalid) {
+	if _, err := svc.Create(user.ID, user.Role, CreateInput{Name: "Bad kind", KeyKind: "legacy"}); !errors.Is(err, ErrAPIKeyKindInvalid) {
 		t.Fatalf("Create() error = %v, want %v", err, ErrAPIKeyKindInvalid)
 	}
 }
 
-func TestAPIKeyCreateNormalizesScopesAndRejectsWriteOnly(t *testing.T) {
+func TestCreateNormalizesScopesAndRejectsWriteOnly(t *testing.T) {
 	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
-		t.Fatalf("failed to migrate api keys: %v", err)
-	}
 	user := createTestUser(t, db)
-	svc := NewAPIKeyService(db)
+	svc := NewService(db)
 
-	resp, err := svc.Create(user.ID, user.Role, CreateAPIKeyInput{
+	resp, err := svc.Create(user.ID, user.Role, CreateInput{
 		Name:    "Default read",
 		KeyKind: APIKeyKindMCPClient,
 	})
@@ -42,7 +53,7 @@ func TestAPIKeyCreateNormalizesScopesAndRejectsWriteOnly(t *testing.T) {
 		t.Fatalf("scopes = %q, want %q", got, want)
 	}
 
-	if _, err := svc.Create(user.ID, user.Role, CreateAPIKeyInput{
+	if _, err := svc.Create(user.ID, user.Role, CreateInput{
 		Name:    "Writer",
 		KeyKind: APIKeyKindMCPClient,
 		Scopes:  []string{APIKeyScopeWrite},
@@ -51,15 +62,12 @@ func TestAPIKeyCreateNormalizesScopesAndRejectsWriteOnly(t *testing.T) {
 	}
 }
 
-func TestAPIKeyValidateReturnsKindAndMigratesEmptyKindToAPIIntegration(t *testing.T) {
+func TestValidateReturnsKindAndMigratesEmptyKindToAPIIntegration(t *testing.T) {
 	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.APIKey{}); err != nil {
-		t.Fatalf("failed to migrate api keys: %v", err)
-	}
 	user := createTestUser(t, db)
-	svc := NewAPIKeyService(db)
+	svc := NewService(db)
 
-	resp, err := svc.Create(user.ID, user.Role, CreateAPIKeyInput{
+	resp, err := svc.Create(user.ID, user.Role, CreateInput{
 		Name:    "MCP",
 		KeyKind: APIKeyKindMCPClient,
 		Scopes:  []string{APIKeyScopeRead, APIKeyScopeWrite},
@@ -84,5 +92,26 @@ func TestAPIKeyValidateReturnsKindAndMigratesEmptyKindToAPIIntegration(t *testin
 	}
 	if principal.KeyKind != APIKeyKindAPIIntegration {
 		t.Fatalf("KeyKind = %q, want %q", principal.KeyKind, APIKeyKindAPIIntegration)
+	}
+}
+
+func TestValidateRejectsInactiveUser(t *testing.T) {
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	svc := NewService(db)
+
+	resp, err := svc.Create(user.ID, user.Role, CreateInput{
+		Name:    "CLI",
+		KeyKind: APIKeyKindAPIIntegration,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if err := db.Model(&model.User{}).Where("id = ?", user.ID).Update("status", "disabled").Error; err != nil {
+		t.Fatalf("failed to disable user: %v", err)
+	}
+
+	if _, err := svc.ValidateKey(resp.Key); !errors.Is(err, ErrAPIKeyInvalid) {
+		t.Fatalf("ValidateKey() error = %v, want %v", err, ErrAPIKeyInvalid)
 	}
 }
