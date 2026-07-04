@@ -1,7 +1,6 @@
 package subscription
 
 import (
-	"errors"
 	"strings"
 	"time"
 )
@@ -13,7 +12,7 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 	}
 
 	if draft.NextBillingDate == nil {
-		return draft, nil, errors.New("next_billing_date is required for recurring subscriptions")
+		return draft, nil, ErrNextBillingDateRequiredRecurring
 	}
 
 	switch draft.BillingType {
@@ -29,14 +28,14 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 		switch draft.RecurrenceType {
 		case recurrenceTypeInterval:
 			if draft.IntervalCount == nil || *draft.IntervalCount < 1 {
-				return draft, nil, errors.New("interval_count must be at least 1 for interval recurrence")
+				return draft, nil, ErrIntervalCountTooLow
 			}
 			intervalCount := *draft.IntervalCount
 			draft.IntervalCount = &intervalCount
 
 			draft.IntervalUnit = normalizeIntervalUnit(draft.IntervalUnit)
 			if !isValidIntervalUnit(draft.IntervalUnit) {
-				return draft, nil, errors.New("interval_unit must be one of: day, week, month, year")
+				return draft, nil, ErrIntervalUnitInvalid
 			}
 
 			draft.MonthlyDay = nil
@@ -46,7 +45,7 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 			return draft, &nextBillingDate, nil
 		case recurrenceTypeMonthlyDate:
 			if draft.MonthlyDay == nil || *draft.MonthlyDay < 1 || *draft.MonthlyDay > 31 {
-				return draft, nil, errors.New("monthly_day must be between 1 and 31 for monthly date recurrence")
+				return draft, nil, ErrMonthlyDayInvalid
 			}
 			monthlyDay := *draft.MonthlyDay
 			draft.MonthlyDay = &monthlyDay
@@ -58,10 +57,10 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 			return draft, &nextBillingDate, nil
 		case recurrenceTypeYearlyDate:
 			if draft.YearlyMonth == nil || *draft.YearlyMonth < 1 || *draft.YearlyMonth > 12 {
-				return draft, nil, errors.New("yearly_month must be between 1 and 12 for yearly date recurrence")
+				return draft, nil, ErrYearlyMonthInvalid
 			}
 			if draft.YearlyDay == nil || *draft.YearlyDay < 1 || *draft.YearlyDay > 31 {
-				return draft, nil, errors.New("yearly_day must be between 1 and 31 for yearly date recurrence")
+				return draft, nil, ErrYearlyDayInvalid
 			}
 
 			yearlyMonth := *draft.YearlyMonth
@@ -74,10 +73,10 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 
 			return draft, &nextBillingDate, nil
 		default:
-			return draft, nil, errors.New("recurrence_type must be one of: interval, monthly_date, yearly_date")
+			return draft, nil, ErrRecurrenceTypeInvalid
 		}
 	default:
-		return draft, nil, errors.New("billing_type must be recurring")
+		return draft, nil, ErrBillingTypeMustBeRecurring
 	}
 }
 
@@ -114,7 +113,7 @@ func parseOptionalDateString(value string) (*time.Time, error) {
 
 	parsed, err := time.Parse("2006-01-02", trimmed)
 	if err != nil {
-		return nil, errors.New("invalid date format, expected YYYY-MM-DD")
+		return nil, ErrInvalidDateFormat
 	}
 
 	normalized := normalizeDateUTC(parsed)

@@ -51,11 +51,41 @@ func TestCreateUserRejectsPasswordUnder8Characters(t *testing.T) {
 	}
 }
 
-func TestIsRequestTooLargeError(t *testing.T) {
-	if !isRequestTooLargeError(&http.MaxBytesError{Limit: 1}) {
-		t.Fatal("expected MaxBytesError to be detected")
+func TestCreateUserDuplicateEmailAndUsernameReturnBadRequest(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	tests := []struct {
+		name     string
+		username string
+		email    string
+		wantBody string
+	}{
+		{
+			name:     "duplicate email",
+			username: "duplicate-email",
+			email:    admin.Email,
+			wantBody: "email already registered",
+		},
+		{
+			name:     "duplicate username",
+			username: admin.Username,
+			email:    "duplicate-username@example.com",
+			wantBody: "username already taken",
+		},
 	}
-	if isRequestTooLargeError(nil) {
-		t.Fatal("nil error should not be treated as request-too-large")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := postAdminUser(t, e, token, tt.username, tt.email, "user", "")
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), tt.wantBody) {
+				t.Fatalf("body = %s, want %q", rec.Body.String(), tt.wantBody)
+			}
+		})
 	}
 }

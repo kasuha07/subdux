@@ -11,6 +11,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -20,9 +21,9 @@ const (
 )
 
 var (
-	ErrInvalidIconProxyProvider     = errors.New("invalid icon proxy provider")
-	ErrInvalidIconProxyTargetDomain = errors.New("invalid icon proxy target domain")
-	ErrIconProxyDomainNotAllowed    = errors.New("icon proxy domain is not allowed")
+	ErrInvalidIconProxyProvider     = serviceerr.New(serviceerr.KindInvalid, "invalid icon proxy provider")
+	ErrInvalidIconProxyTargetDomain = serviceerr.New(serviceerr.KindInvalid, "invalid icon proxy target domain")
+	ErrIconProxyDomainNotAllowed    = serviceerr.New(serviceerr.KindForbidden, "icon proxy domain is not allowed")
 )
 
 type Service struct {

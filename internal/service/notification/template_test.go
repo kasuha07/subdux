@@ -2,11 +2,13 @@ package notification
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -194,5 +196,48 @@ func TestPreviewTemplateFallsBackToSampleDataWhenNoSubscription(t *testing.T) {
 	const want = "Netflix Premium|15.99|USD|Entertainment|Credit Card|https://www.netflix.com|Family plan|user@example.com|2026-03-15|auto_renew_reminder|auto_renew|active"
 	if preview != want {
 		t.Fatalf("PreviewTemplate() preview = %q, want %q", preview, want)
+	}
+}
+
+func TestPreviewTemplateRenderedLengthErrorIsBadRequest(t *testing.T) {
+	db := newNotificationTemplatePreviewTestDB(t)
+	svc := NewNotificationTemplateService(db, NewTemplateValidator())
+
+	user := model.User{
+		Username: "preview-long-user",
+		Email:    "preview-long@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	billingDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	subscription := model.Subscription{
+		UserID:          user.ID,
+		Name:            "Long Preview",
+		Amount:          9.99,
+		Currency:        "USD",
+		Notes:           strings.Repeat("x", MaxRenderedLength+1),
+		NextBillingDate: &billingDate,
+	}
+	if err := db.Create(&subscription).Error; err != nil {
+		t.Fatalf("failed to create subscription: %v", err)
+	}
+
+	_, err := svc.PreviewTemplate(user.ID, CreateTemplateInput{
+		Format:   "plaintext",
+		Template: "{{.Remark}}",
+	})
+	if err == nil {
+		t.Fatal("PreviewTemplate() error = nil, want rendered length error")
+	}
+	if kind, ok := serviceerr.KindOf(err); !ok || kind != serviceerr.KindInvalid {
+		t.Fatalf("PreviewTemplate() error kind = %v (ok=%t), want KindInvalid; err = %v", kind, ok, err)
+	}
+	if !strings.Contains(err.Error(), "rendered template exceeds maximum length") {
+		t.Fatalf("PreviewTemplate() error = %q, want rendered length message", err.Error())
 	}
 }

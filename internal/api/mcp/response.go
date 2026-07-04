@@ -1,62 +1,48 @@
 package mcp
 
 import (
-	"strings"
 	"time"
 
-	"github.com/kasuha07/subdux/internal/api/apicontract"
+	"github.com/kasuha07/subdux/internal/api/contract"
 	"github.com/kasuha07/subdux/internal/model"
 )
 
-type subscriptionResponse = apicontract.SubscriptionResponse
-type categoryResponse = apicontract.CategoryResponse
-type paymentMethodResponse = apicontract.PaymentMethodResponse
+type subscriptionResponse = contract.SubscriptionResponse
+type categoryResponse = contract.CategoryResponse
+type paymentMethodResponse = contract.PaymentMethodResponse
 
 func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
-	return apicontract.MapSubscriptionResponse(sub)
+	return contract.MapSubscriptionResponse(sub)
 }
 
 func mapSubscriptionResponses(subs []model.Subscription) []subscriptionResponse {
-	return apicontract.MapSubscriptionResponses(subs)
+	return contract.MapSubscriptionResponses(subs)
 }
 
 func mapCategoryResponse(category model.Category) categoryResponse {
-	return apicontract.MapCategoryResponse(category)
+	return contract.MapCategoryResponse(category)
 }
 
 func mapCategoryResponses(categories []model.Category) []categoryResponse {
-	return apicontract.MapCategoryResponses(categories)
+	return contract.MapCategoryResponses(categories)
 }
 
 func mapPaymentMethodResponse(method model.PaymentMethod) paymentMethodResponse {
-	return apicontract.MapPaymentMethodResponse(method)
+	return contract.MapPaymentMethodResponse(method)
 }
 
 func mapPaymentMethodResponses(methods []model.PaymentMethod) []paymentMethodResponse {
-	return apicontract.MapPaymentMethodResponses(methods)
+	return contract.MapPaymentMethodResponses(methods)
 }
 
 func formatDateOnly(value *time.Time) *string {
-	return apicontract.FormatDateOnly(value)
-}
-
-func isSubscriptionBadRequestError(message string) bool {
-	if message == "payment method not found" || message == "category not found" {
-		return true
-	}
-	return strings.Contains(message, "required") ||
-		strings.Contains(message, "must be") ||
-		strings.Contains(message, "invalid date format") ||
-		strings.Contains(message, "invalid subscription url") ||
-		strings.Contains(message, "no longer supported") ||
-		strings.Contains(message, "read-only") ||
-		strings.Contains(message, "only ")
+	return contract.FormatDateOnly(value)
 }
 
 func validateSubscriptionIcon(icon string) bool {
-	return apicontract.ValidateSubscriptionIcon(icon)
+	return contract.ValidateSubscriptionIcon(icon)
 }
 
 func validateIcon(icon string) bool {
-	return apicontract.ValidateIcon(icon)
+	return contract.ValidateIcon(icon)
 }

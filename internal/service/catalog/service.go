@@ -12,15 +12,32 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"gorm.io/gorm"
 )
 
+// Client-facing catalog errors, typed with a serviceerr.Kind so the transport
+// layer maps them to a status in one place. Messages are preserved verbatim
+// from the inline errors they replace. The "in use" errors remain 400
+// (KindInvalid), matching prior behavior.
 var (
-	ErrCurrencyInUse       = errors.New("currency is in use by existing subscriptions")
-	ErrCategoryInUse       = errors.New("category is in use by existing subscriptions")
-	ErrPaymentMethodInUse  = errors.New("payment method is in use by existing subscriptions")
+	ErrCurrencyInUse       = serviceerr.New(serviceerr.KindInvalid, "currency is in use by existing subscriptions")
+	ErrCategoryInUse       = serviceerr.New(serviceerr.KindInvalid, "category is in use by existing subscriptions")
+	ErrPaymentMethodInUse  = serviceerr.New(serviceerr.KindInvalid, "payment method is in use by existing subscriptions")
 	ErrImageUploadDisabled = serviceutil.ErrImageUploadDisabled
+
+	ErrCategoryNameLength      = serviceerr.New(serviceerr.KindInvalid, "name must be 1-30 characters")
+	ErrCategoryNameExists      = serviceerr.New(serviceerr.KindConflict, "category name already exists")
+	ErrCategoryNotFound        = serviceerr.New(serviceerr.KindNotFound, "category not found")
+	ErrCurrencyCodeLength      = serviceerr.New(serviceerr.KindInvalid, "code must be 1-10 characters")
+	ErrCurrencyCodeUppercase   = serviceerr.New(serviceerr.KindInvalid, "code must contain only uppercase letters")
+	ErrCurrencyCodeExists      = serviceerr.New(serviceerr.KindConflict, "currency code already exists")
+	ErrCurrencyNotFound        = serviceerr.New(serviceerr.KindNotFound, "currency not found")
+	ErrCurrencyPreferredDelete = serviceerr.New(serviceerr.KindInvalid, "cannot delete your preferred currency")
+	ErrPaymentMethodNameLength = serviceerr.New(serviceerr.KindInvalid, "name must be 1-50 characters")
+	ErrPaymentMethodNameExists = serviceerr.New(serviceerr.KindConflict, "payment method name already exists")
+	ErrPaymentMethodNotFound   = serviceerr.New(serviceerr.KindNotFound, "payment method not found")
 )
 
 type CategoryService struct {
@@ -56,13 +73,13 @@ func (s *CategoryService) List(userID uint) ([]model.Category, error) {
 func (s *CategoryService) Create(userID uint, input CreateCategoryInput) (*model.Category, error) {
 	name := strings.TrimSpace(input.Name)
 	if name == "" || len(name) > 30 {
-		return nil, errors.New("name must be 1-30 characters")
+		return nil, ErrCategoryNameLength
 	}
 
 	var existing model.Category
 	err := s.DB.Where("user_id = ? AND name = ?", userID, name).First(&existing).Error
 	if err == nil {
-		return nil, errors.New("category name already exists")
+		return nil, ErrCategoryNameExists
 	}
 
 	category := model.Category{
@@ -82,18 +99,18 @@ func (s *CategoryService) Create(userID uint, input CreateCategoryInput) (*model
 func (s *CategoryService) Update(userID, id uint, input UpdateCategoryInput) (*model.Category, error) {
 	var category model.Category
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&category).Error; err != nil {
-		return nil, errors.New("category not found")
+		return nil, ErrCategoryNotFound
 	}
 
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)
 		if name == "" || len(name) > 30 {
-			return nil, errors.New("name must be 1-30 characters")
+			return nil, ErrCategoryNameLength
 		}
 		var existing model.Category
 		err := s.DB.Where("user_id = ? AND name = ? AND id != ?", userID, name, id).First(&existing).Error
 		if err == nil {
-			return nil, errors.New("category name already exists")
+			return nil, ErrCategoryNameExists
 		}
 		category.Name = name
 		category.NameCustomized = true
@@ -112,7 +129,7 @@ func (s *CategoryService) Update(userID, id uint, input UpdateCategoryInput) (*m
 func (s *CategoryService) Delete(userID, id uint) error {
 	var category model.Category
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&category).Error; err != nil {
-		return errors.New("category not found")
+		return ErrCategoryNotFound
 	}
 
 	var subscriptionsUsingCategory int64
@@ -182,18 +199,18 @@ func (s *CurrencyService) List(userID uint) ([]model.UserCurrency, error) {
 func (s *CurrencyService) Create(userID uint, input CreateCurrencyInput) (*model.UserCurrency, error) {
 	code := strings.ToUpper(strings.TrimSpace(input.Code))
 	if code == "" || len(code) > 10 {
-		return nil, errors.New("code must be 1-10 characters")
+		return nil, ErrCurrencyCodeLength
 	}
 	for _, r := range code {
 		if r < 'A' || r > 'Z' {
-			return nil, errors.New("code must contain only uppercase letters")
+			return nil, ErrCurrencyCodeUppercase
 		}
 	}
 
 	var existing model.UserCurrency
 	err := s.DB.Where("user_id = ? AND code = ?", userID, code).First(&existing).Error
 	if err == nil {
-		return nil, errors.New("currency code already exists")
+		return nil, ErrCurrencyCodeExists
 	}
 
 	currency := model.UserCurrency{
@@ -213,7 +230,7 @@ func (s *CurrencyService) Create(userID uint, input CreateCurrencyInput) (*model
 func (s *CurrencyService) Update(userID, id uint, input UpdateCurrencyInput) (*model.UserCurrency, error) {
 	var currency model.UserCurrency
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&currency).Error; err != nil {
-		return nil, errors.New("currency not found")
+		return nil, ErrCurrencyNotFound
 	}
 	if input.Symbol != nil {
 		currency.Symbol = strings.TrimSpace(*input.Symbol)
@@ -233,10 +250,10 @@ func (s *CurrencyService) Update(userID, id uint, input UpdateCurrencyInput) (*m
 func (s *CurrencyService) Delete(userID, id uint, preferredCurrency string) error {
 	var currency model.UserCurrency
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&currency).Error; err != nil {
-		return errors.New("currency not found")
+		return ErrCurrencyNotFound
 	}
 	if strings.EqualFold(currency.Code, preferredCurrency) {
-		return errors.New("cannot delete your preferred currency")
+		return ErrCurrencyPreferredDelete
 	}
 
 	var subscriptionsUsingCurrency int64
@@ -300,13 +317,13 @@ func (s *PaymentMethodService) List(userID uint) ([]model.PaymentMethod, error) 
 func (s *PaymentMethodService) Create(userID uint, input CreatePaymentMethodInput) (*model.PaymentMethod, error) {
 	name := strings.TrimSpace(input.Name)
 	if name == "" || len(name) > 50 {
-		return nil, errors.New("name must be 1-50 characters")
+		return nil, ErrPaymentMethodNameLength
 	}
 
 	var existing model.PaymentMethod
 	err := s.DB.Where("user_id = ? AND name = ?", userID, name).First(&existing).Error
 	if err == nil {
-		return nil, errors.New("payment method name already exists")
+		return nil, ErrPaymentMethodNameExists
 	}
 
 	method := model.PaymentMethod{
@@ -327,7 +344,7 @@ func (s *PaymentMethodService) Create(userID uint, input CreatePaymentMethodInpu
 func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethodInput) (*model.PaymentMethod, error) {
 	method, err := s.GetByID(userID, id)
 	if err != nil {
-		return nil, errors.New("payment method not found")
+		return nil, ErrPaymentMethodNotFound
 	}
 
 	oldIcon := method.Icon
@@ -336,13 +353,13 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)
 		if name == "" || len(name) > 50 {
-			return nil, errors.New("name must be 1-50 characters")
+			return nil, ErrPaymentMethodNameLength
 		}
 
 		var existing model.PaymentMethod
 		err := s.DB.Where("user_id = ? AND name = ? AND id != ?", userID, name, id).First(&existing).Error
 		if err == nil {
-			return nil, errors.New("payment method name already exists")
+			return nil, ErrPaymentMethodNameExists
 		}
 		method.Name = name
 		method.NameCustomized = true
@@ -372,7 +389,7 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 func (s *PaymentMethodService) Delete(userID, id uint) error {
 	method, err := s.GetByID(userID, id)
 	if err != nil {
-		return errors.New("payment method not found")
+		return ErrPaymentMethodNotFound
 	}
 
 	var subscriptionsUsingMethod int64
@@ -440,7 +457,7 @@ func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, fi
 
 	method, err := s.GetByID(userID, methodID)
 	if err != nil {
-		return "", errors.New("payment method not found")
+		return "", ErrPaymentMethodNotFound
 	}
 
 	sanitized, ext, err := serviceutil.SanitizeUploadedIcon(file, filename, maxSize)

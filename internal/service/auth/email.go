@@ -12,6 +12,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -29,20 +30,20 @@ const (
 )
 
 var (
-	ErrRegistrationDisabled                  = errors.New("registration is disabled")
-	ErrRegistrationEmailVerificationDisabled = errors.New("registration email verification is disabled")
-	ErrVerificationCodeRequired              = errors.New("verification code is required")
-	ErrVerificationCodeInvalid               = errors.New("invalid or expired verification code")
-	ErrVerificationCodeTooManyAttempts       = errors.New("verification code has too many failed attempts, request a new code")
-	ErrVerificationCodeTooFrequent           = errors.New("please wait before requesting another verification code")
-	ErrInvalidEmail                          = errors.New("invalid email")
-	ErrSMTPUnavailable                       = errors.New("email service is unavailable")
-	ErrEmailAlreadyRegistered                = errors.New("email already registered")
-	ErrUsernameAlreadyTaken                  = errors.New("username already taken")
-	ErrUserNotFound                          = errors.New("user not found")
-	ErrCurrentPasswordIncorrect              = errors.New("current password is incorrect")
-	ErrNewEmailSameAsCurrent                 = errors.New("new email must be different from current email")
-	ErrPasswordTooLong                       = errors.New("password must not exceed 72 bytes")
+	ErrRegistrationDisabled                  = serviceerr.New(serviceerr.KindForbidden, "registration is disabled")
+	ErrRegistrationEmailVerificationDisabled = serviceerr.New(serviceerr.KindInvalid, "registration email verification is disabled")
+	ErrVerificationCodeRequired              = serviceerr.New(serviceerr.KindInvalid, "verification code is required")
+	ErrVerificationCodeInvalid               = serviceerr.New(serviceerr.KindInvalid, "invalid or expired verification code")
+	ErrVerificationCodeTooManyAttempts       = serviceerr.New(serviceerr.KindInvalid, "verification code has too many failed attempts, request a new code")
+	ErrVerificationCodeTooFrequent           = serviceerr.New(serviceerr.KindTooMany, "please wait before requesting another verification code")
+	ErrInvalidEmail                          = serviceerr.New(serviceerr.KindInvalid, "invalid email")
+	ErrSMTPUnavailable                       = serviceerr.New(serviceerr.KindInvalid, "email service is unavailable")
+	ErrEmailAlreadyRegistered                = serviceerr.New(serviceerr.KindConflict, "email already registered")
+	ErrUsernameAlreadyTaken                  = serviceerr.New(serviceerr.KindConflict, "username already taken")
+	ErrUserNotFound                          = serviceerr.New(serviceerr.KindNotFound, "user not found")
+	ErrCurrentPasswordIncorrect              = serviceerr.New(serviceerr.KindInvalid, "current password is incorrect")
+	ErrNewEmailSameAsCurrent                 = serviceerr.New(serviceerr.KindInvalid, "new email must be different from current email")
+	ErrPasswordTooLong                       = serviceerr.New(serviceerr.KindInvalid, "password must not exceed 72 bytes")
 )
 
 type RegistrationConfig struct {

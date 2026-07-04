@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/pkg"
 	exporter "github.com/kasuha07/subdux/internal/service/exporter"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
@@ -21,10 +23,10 @@ func NewExportHandler(s *exporter.Service, reauth *servicereauth.Service) *Expor
 }
 
 func (h *ExportHandler) Export(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	includeSecrets := c.QueryParam("include_secrets") == "1"
 	if includeSecrets && c.QueryParam("confirm") != "include_secrets" {
-		return writeError(c, http.StatusBadRequest, "exporting notification secrets requires confirmation")
+		return httpx.WriteError(c, http.StatusBadRequest, "exporting notification secrets requires confirmation")
 	}
 	operation := servicereauth.OperationForExport(includeSecrets)
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -37,12 +39,12 @@ func (h *ExportHandler) Export(c echo.Context) error {
 
 	data, err := h.Service.WithContext(c.Request().Context()).ExportUserData(userID, includeSecrets)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	out, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return writeError(c, http.StatusInternalServerError, "failed to encode export")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed to encode export")
 	}
 
 	date := pkg.NowUTC().Format("2006-01-02")

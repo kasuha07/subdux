@@ -14,6 +14,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -23,8 +24,8 @@ const (
 )
 
 var (
-	ErrInvalidSMTPRateLimit = errors.New("smtp rate limit must be between 0 and 86400 seconds")
-	ErrSMTPRateLimited      = errors.New("smtp send rate limit exceeded, please wait before trying again")
+	ErrInvalidSMTPRateLimit = serviceerr.New(serviceerr.KindInvalid, "smtp rate limit must be between 0 and 86400 seconds")
+	ErrSMTPRateLimited      = serviceerr.New(serviceerr.KindTooMany, "smtp send rate limit exceeded, please wait before trying again")
 	smtpRateLimitMu         sync.Mutex
 )
 

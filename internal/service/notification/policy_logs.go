@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +43,7 @@ func (s *Service) UpdatePolicy(userID uint, input UpdatePolicyInput) (*model.Not
 
 	if input.DaysBefore != nil {
 		if *input.DaysBefore < 0 || *input.DaysBefore > maxNotificationDaysBefore {
-			return nil, fmt.Errorf("days_before must be between 0 and %d", maxNotificationDaysBefore)
+			return nil, serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("days_before must be between 0 and %d", maxNotificationDaysBefore))
 		}
 		policy.DaysBefore = *input.DaysBefore
 	}

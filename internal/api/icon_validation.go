@@ -1,11 +1,11 @@
 package api
 
-import "github.com/kasuha07/subdux/internal/api/apicontract"
+import "github.com/kasuha07/subdux/internal/api/contract"
 
 func validateIcon(icon string) bool {
-	return apicontract.ValidateIcon(icon)
+	return contract.ValidateIcon(icon)
 }
 
 func validateSubscriptionIcon(icon string) bool {
-	return apicontract.ValidateSubscriptionIcon(icon)
+	return contract.ValidateSubscriptionIcon(icon)
 }

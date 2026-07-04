@@ -10,6 +10,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -22,11 +23,11 @@ const (
 )
 
 var (
-	ErrTOTPAlreadyEnabled  = errors.New("two-factor authentication is already enabled")
-	ErrTOTPSetupExpired    = errors.New("two-factor setup expired, start again")
-	ErrTOTPInvalidCode     = errors.New("invalid verification code")
-	ErrTOTPInvalidPassword = errors.New("invalid password")
-	ErrTOTPInvalidAuthCode = errors.New("invalid authentication code")
+	ErrTOTPAlreadyEnabled  = serviceerr.New(serviceerr.KindInvalid, "two-factor authentication is already enabled")
+	ErrTOTPSetupExpired    = serviceerr.New(serviceerr.KindInvalid, "two-factor setup expired, start again")
+	ErrTOTPInvalidCode     = serviceerr.New(serviceerr.KindInvalid, "invalid verification code")
+	ErrTOTPInvalidPassword = serviceerr.New(serviceerr.KindInvalid, "invalid password")
+	ErrTOTPInvalidAuthCode = serviceerr.New(serviceerr.KindInvalid, "invalid authentication code")
 )
 
 type totpSetupSession struct {

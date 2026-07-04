@@ -11,15 +11,16 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/yeka/zip"
 )
 
 var (
 	sqliteFileHeader          = []byte("SQLite format 3\x00")
-	ErrInvalidBackup          = errors.New("invalid backup file")
-	ErrBackupPasswordRequired = errors.New("backup is encrypted; a password is required")
-	ErrBackupInvalidPassword  = errors.New("invalid backup password")
+	ErrInvalidBackup          = serviceerr.New(serviceerr.KindInvalid, "invalid backup file")
+	ErrBackupPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "backup is encrypted; a password is required")
+	ErrBackupInvalidPassword  = serviceerr.New(serviceerr.KindInvalid, "invalid backup password")
 )
 
 type restorePayload struct {

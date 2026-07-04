@@ -10,6 +10,8 @@ import (
 	"math"
 	"path/filepath"
 	"strings"
+
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 )
 
 const (
@@ -19,12 +21,15 @@ const (
 	iconUploadInvalidICOError      = "ICO file must contain at least one valid PNG image"
 )
 
+// Icon-upload validation errors are typed so the transport layer maps them to a
+// status without message matching: the four validation failures are 400
+// (KindInvalid) and the administrator-disabled case is 403 (KindForbidden).
 var (
-	ErrIconUploadUnsupportedType = errors.New(iconUploadUnsupportedTypeError)
-	ErrIconUploadSizeLimit       = errors.New(iconUploadSizeLimitError)
-	ErrIconUploadContentMismatch = errors.New(iconUploadContentMismatchError)
-	ErrIconUploadInvalidICO      = errors.New(iconUploadInvalidICOError)
-	ErrImageUploadDisabled       = errors.New("image uploads are disabled by administrator")
+	ErrIconUploadUnsupportedType = serviceerr.New(serviceerr.KindInvalid, iconUploadUnsupportedTypeError)
+	ErrIconUploadSizeLimit       = serviceerr.New(serviceerr.KindInvalid, iconUploadSizeLimitError)
+	ErrIconUploadContentMismatch = serviceerr.New(serviceerr.KindInvalid, iconUploadContentMismatchError)
+	ErrIconUploadInvalidICO      = serviceerr.New(serviceerr.KindInvalid, iconUploadInvalidICOError)
+	ErrImageUploadDisabled       = serviceerr.New(serviceerr.KindForbidden, "image uploads are disabled by administrator")
 )
 
 // SanitizeIconFile validates an icon file and returns a re-encoded safe image.

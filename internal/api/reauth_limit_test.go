@@ -14,7 +14,7 @@ import (
 
 // createReauthTestAdmin creates an active admin user for exercising the
 // step-up re-auth endpoints, which sit behind the human-session reauth group
-// (JWT-or-API-key auth followed by HumanSessionOnlyMiddleware).
+// (JWT-or-API-key auth followed by apimw.HumanSessionOnlyMiddleware).
 func createReauthTestAdmin(t *testing.T, db *gorm.DB) model.User {
 	t.Helper()
 

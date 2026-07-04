@@ -220,7 +220,7 @@ func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 	}
 
 	if user.Status == "disabled" {
-		return nil, errors.New("account is disabled")
+		return nil, ErrAccountDisabled
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {

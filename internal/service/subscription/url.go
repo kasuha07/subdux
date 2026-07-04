@@ -1,13 +1,10 @@
 package subscription
 
 import (
-	"errors"
 	"net/url"
 	"strings"
 	"unicode"
 )
-
-var ErrInvalidSubscriptionURL = errors.New("subscription url must be a valid http or https URL")
 
 func normalizeSubscriptionURL(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)

@@ -1,19 +1,19 @@
 package iconproxy
 
 import (
-	"errors"
 	"net"
 	"sort"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/settings"
 )
 
 const DefaultDomainWhitelist = settings.DefaultIconProxyDomainWhitelist
 
 var (
-	ErrInvalidIconProxyDomainWhitelist = errors.New("invalid icon proxy domain whitelist")
-	ErrIconProxyDomainWhitelistTooLong = errors.New("icon proxy domain whitelist is too long")
+	ErrInvalidIconProxyDomainWhitelist = serviceerr.New(serviceerr.KindInvalid, "invalid icon proxy domain whitelist")
+	ErrIconProxyDomainWhitelistTooLong = serviceerr.New(serviceerr.KindInvalid, "icon proxy domain whitelist is too long")
 )
 
 func NormalizeDomainWhitelist(raw string) (string, error) {

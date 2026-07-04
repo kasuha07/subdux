@@ -2,7 +2,6 @@ package outbound
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -30,11 +30,11 @@ const (
 )
 
 var (
-	ErrInvalidSSRFFilterMode       = errors.New("ssrf filter mode must be blacklist or whitelist")
-	ErrInvalidSSRFDomainFilterList = errors.New("invalid ssrf domain filter list")
-	ErrSSRFDomainFilterListTooLong = errors.New("ssrf domain filter list is too long")
-	ErrInvalidSSRFIPFilterList     = errors.New("invalid ssrf ip filter list")
-	ErrSSRFIPFilterListTooLong     = errors.New("ssrf ip filter list is too long")
+	ErrInvalidSSRFFilterMode       = serviceerr.New(serviceerr.KindInvalid, "ssrf filter mode must be blacklist or whitelist")
+	ErrInvalidSSRFDomainFilterList = serviceerr.New(serviceerr.KindInvalid, "invalid ssrf domain filter list")
+	ErrSSRFDomainFilterListTooLong = serviceerr.New(serviceerr.KindInvalid, "ssrf domain filter list is too long")
+	ErrInvalidSSRFIPFilterList     = serviceerr.New(serviceerr.KindInvalid, "invalid ssrf ip filter list")
+	ErrSSRFIPFilterListTooLong     = serviceerr.New(serviceerr.KindInvalid, "ssrf ip filter list is too long")
 )
 
 type Policy struct {

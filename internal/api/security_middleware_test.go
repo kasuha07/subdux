@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
@@ -38,10 +38,10 @@ func TestLoginAccountKeyReadsFormEncodedBody(t *testing.T) {
 		"identifier=Alice%40Example.com&password=secret",
 	)
 
-	got := loginAccountKey(c)
+	got := apimw.LoginAccountKey(c)
 	want := "alice@example.com"
 	if got != want {
-		t.Fatalf("loginAccountKey() = %q, want %q", got, want)
+		t.Fatalf("apimw.LoginAccountKey() = %q, want %q", got, want)
 	}
 }
 
@@ -53,10 +53,10 @@ func TestRegisterAccountKeyReadsFormEncodedBody(t *testing.T) {
 		"email=Test%2Balias%40Example.com&username=alice",
 	)
 
-	got := registerAccountKey(c)
+	got := apimw.RegisterAccountKey(c)
 	want := "email:test+alias@example.com"
 	if got != want {
-		t.Fatalf("registerAccountKey() = %q, want %q", got, want)
+		t.Fatalf("apimw.RegisterAccountKey() = %q, want %q", got, want)
 	}
 }
 
@@ -68,139 +68,17 @@ func TestEmailAccountKeyReadsFormEncodedBody(t *testing.T) {
 		"email=Recover%40Example.com",
 	)
 
-	got := emailAccountKey(c)
+	got := apimw.EmailAccountKey(c)
 	want := "email:recover@example.com"
 	if got != want {
-		t.Fatalf("emailAccountKey() = %q, want %q", got, want)
+		t.Fatalf("apimw.EmailAccountKey() = %q, want %q", got, want)
 	}
 }
 
 func TestReadRequestBodyAndRestorePreservesBodyForDownstream(t *testing.T) {
-	body := `{"identifier":"Alice@example.com","password":"secret"}`
-	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/auth/login", echo.MIMEApplicationJSON, body)
-
-	readBody, err := readRequestBodyAndRestore(c, 1024)
-	if err != nil {
-		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
-	}
-	if string(readBody) != body {
-		t.Fatalf("readRequestBodyAndRestore() body = %q, want %q", string(readBody), body)
-	}
-
-	downstreamBody, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
-	}
-	if string(downstreamBody) != body {
-		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
-	}
-}
-
-func TestReadRequestBodyAndRestoreSkipsLargeFixedLengthBody(t *testing.T) {
-	body := strings.Repeat("a", 128)
-	c := newSecurityMiddlewareTestContext(http.MethodPost, "/api/auth/login", echo.MIMETextPlain, body)
-
-	readBody, err := readRequestBodyAndRestore(c, 32)
-	if err != nil {
-		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
-	}
-	if len(readBody) != 0 {
-		t.Fatalf("readRequestBodyAndRestore() returned %d bytes, want 0", len(readBody))
-	}
-
-	downstreamBody, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
-	}
-	if string(downstreamBody) != body {
-		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
-	}
-}
-
-func TestReadRequestBodyAndRestoreDoesNotTrustContentLengthForLimiterReads(t *testing.T) {
-	body := strings.Repeat("z", 128)
-
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
-	req.ContentLength = 1
-	req.Header.Set(echo.HeaderContentType, echo.MIMETextPlain)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	readBody, err := readRequestBodyAndRestore(c, 32)
-	if err != nil {
-		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
-	}
-	if len(readBody) != 0 {
-		t.Fatalf("readRequestBodyAndRestore() returned %d bytes, want 0", len(readBody))
-	}
-
-	downstreamBody, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
-	}
-	if string(downstreamBody) != body {
-		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
-	}
-}
-
-func TestReadRequestBodyAndRestoreSkipsLargeUnknownLengthBody(t *testing.T) {
-	body := strings.Repeat("x", 64)
-
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
-	req.ContentLength = -1
-	req.Header.Set(echo.HeaderContentType, echo.MIMETextPlain)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	readBody, err := readRequestBodyAndRestore(c, 32)
-	if err != nil {
-		t.Fatalf("readRequestBodyAndRestore() error = %v, want nil", err)
-	}
-	if len(readBody) != 0 {
-		t.Fatalf("readRequestBodyAndRestore() returned %d bytes, want 0", len(readBody))
-	}
-
-	downstreamBody, err := io.ReadAll(c.Request().Body)
-	if err != nil {
-		t.Fatalf("downstream io.ReadAll() error = %v, want nil", err)
-	}
-	if string(downstreamBody) != body {
-		t.Fatalf("downstream body = %q, want %q", string(downstreamBody), body)
-	}
-}
-
-func TestRequiredAPIKeyScopeUsesReadForRegularGetRoute(t *testing.T) {
-	c := newSecurityMiddlewareTestContext(http.MethodGet, "/api/subscriptions", "", "")
-	c.SetPath("/api/subscriptions")
-
-	got := requiredAPIKeyScope(c)
-	if got != apikeyservice.APIKeyScopeRead {
-		t.Fatalf("requiredAPIKeyScope() = %q, want %q", got, apikeyservice.APIKeyScopeRead)
-	}
-}
-
-func TestIsAPIKeyRouteAllowed(t *testing.T) {
-	tests := []struct {
-		path string
-		want bool
-	}{
-		{path: "/api/subscriptions", want: true},
-		{path: "/api/auth", want: false},
-		{path: "/api/auth/me", want: true},
-		{path: "/api/auth/totp/setup", want: false},
-		{path: "/api/auth/passkeys/register/start", want: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			got := isAPIKeyRouteAllowed(tt.path)
-			if got != tt.want {
-				t.Fatalf("isAPIKeyRouteAllowed(%q) = %v, want %v", tt.path, got, tt.want)
-			}
-		})
-	}
+	// Internal-helper coverage lives in the apimw package's internal test
+	// (security_internal_test.go); this package exercises the middleware through
+	// its exported surface only.
 }
 
 func TestHumanSessionOnlyMiddlewareBlocksAPIKeyPrincipal(t *testing.T) {
@@ -214,21 +92,21 @@ func TestHumanSessionOnlyMiddlewareBlocksAPIKeyPrincipal(t *testing.T) {
 	})
 
 	calledNext := false
-	middleware := HumanSessionOnlyMiddleware(func(c echo.Context) error {
+	middleware := apimw.HumanSessionOnlyMiddleware(func(c echo.Context) error {
 		calledNext = true
 		return c.NoContent(http.StatusNoContent)
 	})
 
 	if err := middleware(c); err != nil {
-		t.Fatalf("HumanSessionOnlyMiddleware() error = %v, want nil", err)
+		t.Fatalf("apimw.HumanSessionOnlyMiddleware() error = %v, want nil", err)
 	}
 
 	if calledNext {
-		t.Fatal("HumanSessionOnlyMiddleware() called next handler for api key principal, want blocked")
+		t.Fatal("apimw.HumanSessionOnlyMiddleware() called next handler for api key principal, want blocked")
 	}
 
 	if got := c.Response().Status; got != http.StatusForbidden {
-		t.Fatalf("HumanSessionOnlyMiddleware() status = %d, want %d", got, http.StatusForbidden)
+		t.Fatalf("apimw.HumanSessionOnlyMiddleware() status = %d, want %d", got, http.StatusForbidden)
 	}
 }
 
@@ -242,21 +120,21 @@ func TestHumanSessionOnlyMiddlewareAllowsHumanSession(t *testing.T) {
 	})
 
 	calledNext := false
-	middleware := HumanSessionOnlyMiddleware(func(c echo.Context) error {
+	middleware := apimw.HumanSessionOnlyMiddleware(func(c echo.Context) error {
 		calledNext = true
 		return c.NoContent(http.StatusNoContent)
 	})
 
 	if err := middleware(c); err != nil {
-		t.Fatalf("HumanSessionOnlyMiddleware() error = %v, want nil", err)
+		t.Fatalf("apimw.HumanSessionOnlyMiddleware() error = %v, want nil", err)
 	}
 
 	if !calledNext {
-		t.Fatal("HumanSessionOnlyMiddleware() blocked human session, want allowed")
+		t.Fatal("apimw.HumanSessionOnlyMiddleware() blocked human session, want allowed")
 	}
 
 	if got := c.Response().Status; got != http.StatusNoContent {
-		t.Fatalf("HumanSessionOnlyMiddleware() status = %d, want %d", got, http.StatusNoContent)
+		t.Fatalf("apimw.HumanSessionOnlyMiddleware() status = %d, want %d", got, http.StatusNoContent)
 	}
 }
 
@@ -654,21 +532,21 @@ func TestAPIKeyScopeMiddlewareBlocksAuthNamespaceRoot(t *testing.T) {
 	})
 
 	calledNext := false
-	middleware := APIKeyScopeMiddleware(func(c echo.Context) error {
+	middleware := apimw.APIKeyScopeMiddleware(func(c echo.Context) error {
 		calledNext = true
 		return c.NoContent(http.StatusNoContent)
 	})
 
 	if err := middleware(c); err != nil {
-		t.Fatalf("APIKeyScopeMiddleware() error = %v, want nil", err)
+		t.Fatalf("apimw.APIKeyScopeMiddleware() error = %v, want nil", err)
 	}
 
 	if calledNext {
-		t.Fatal("APIKeyScopeMiddleware() called next handler for /api/auth, want blocked")
+		t.Fatal("apimw.APIKeyScopeMiddleware() called next handler for /api/auth, want blocked")
 	}
 
 	if got := c.Response().Status; got != http.StatusForbidden {
-		t.Fatalf("APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusForbidden)
+		t.Fatalf("apimw.APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusForbidden)
 	}
 }
 
@@ -683,21 +561,21 @@ func TestAPIKeyScopeMiddlewareBlocksRestrictedAuthRoutes(t *testing.T) {
 	})
 
 	calledNext := false
-	middleware := APIKeyScopeMiddleware(func(c echo.Context) error {
+	middleware := apimw.APIKeyScopeMiddleware(func(c echo.Context) error {
 		calledNext = true
 		return c.NoContent(http.StatusNoContent)
 	})
 
 	if err := middleware(c); err != nil {
-		t.Fatalf("APIKeyScopeMiddleware() error = %v, want nil", err)
+		t.Fatalf("apimw.APIKeyScopeMiddleware() error = %v, want nil", err)
 	}
 
 	if calledNext {
-		t.Fatal("APIKeyScopeMiddleware() called next handler for restricted auth route, want blocked")
+		t.Fatal("apimw.APIKeyScopeMiddleware() called next handler for restricted auth route, want blocked")
 	}
 
 	if got := c.Response().Status; got != http.StatusForbidden {
-		t.Fatalf("APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusForbidden)
+		t.Fatalf("apimw.APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusForbidden)
 	}
 }
 
@@ -712,20 +590,20 @@ func TestAPIKeyScopeMiddlewareAllowsAuthMeRoute(t *testing.T) {
 	})
 
 	calledNext := false
-	middleware := APIKeyScopeMiddleware(func(c echo.Context) error {
+	middleware := apimw.APIKeyScopeMiddleware(func(c echo.Context) error {
 		calledNext = true
 		return c.NoContent(http.StatusNoContent)
 	})
 
 	if err := middleware(c); err != nil {
-		t.Fatalf("APIKeyScopeMiddleware() error = %v, want nil", err)
+		t.Fatalf("apimw.APIKeyScopeMiddleware() error = %v, want nil", err)
 	}
 
 	if !calledNext {
-		t.Fatal("APIKeyScopeMiddleware() blocked /api/auth/me for api key, want allowed")
+		t.Fatal("apimw.APIKeyScopeMiddleware() blocked /api/auth/me for api key, want allowed")
 	}
 
 	if got := c.Response().Status; got != http.StatusNoContent {
-		t.Fatalf("APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusNoContent)
+		t.Fatalf("apimw.APIKeyScopeMiddleware() status = %d, want %d", got, http.StatusNoContent)
 	}
 }

@@ -82,7 +82,7 @@ func normalizeLifecycleDraft(
 		draft.Status = subscriptionStatusActive
 	}
 	if !isValidSubscriptionStatus(draft.Status) {
-		return draft, errors.New("status must be one of: active, ended")
+		return draft, ErrStatusInvalid
 	}
 
 	draft.RenewalMode = normalizeRenewalMode(draft.RenewalMode)
@@ -94,7 +94,7 @@ func normalizeLifecycleDraft(
 		}
 	}
 	if !isValidRenewalMode(draft.RenewalMode) {
-		return draft, errors.New("renewal_mode must be one of: auto_renew, manual_renew, cancel_at_period_end")
+		return draft, ErrRenewalModeInvalid
 	}
 
 	if draft.EndsAt != nil {
@@ -118,7 +118,7 @@ func normalizeLifecycleDraft(
 		draft.EndsAt = nil
 	case renewalModeCancelAtPeriodEnd:
 		if nextBillingDate == nil {
-			return draft, errors.New("next_billing_date is required for cancel_at_period_end subscriptions")
+			return draft, ErrNextBillingDateRequiredCancelAtEnd
 		}
 		endsAt := normalizeDateUTC(*nextBillingDate)
 		draft.EndsAt = &endsAt

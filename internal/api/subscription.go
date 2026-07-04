@@ -3,9 +3,10 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strings"
 
-	"github.com/kasuha07/subdux/internal/api/apicontract"
+	"github.com/kasuha07/subdux/internal/api/apimw"
+	"github.com/kasuha07/subdux/internal/api/contract"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/model"
 	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
@@ -22,7 +23,7 @@ func NewSubscriptionHandler(s *subscriptionservice.Service, er *exchangerate.Ser
 	return &SubscriptionHandler{Service: s, ERService: er}
 }
 
-type subscriptionResponse = apicontract.SubscriptionResponse
+type subscriptionResponse = contract.SubscriptionResponse
 
 type subscriptionDetailResponse struct {
 	Subscription     subscriptionResponse                                     `json:"subscription"`
@@ -34,7 +35,7 @@ type subscriptionDetailResponse struct {
 }
 
 func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
-	return apicontract.MapSubscriptionResponse(sub)
+	return contract.MapSubscriptionResponse(sub)
 }
 
 func mapSubscriptionDetailResponse(detail subscriptionservice.SubscriptionDetail) subscriptionDetailResponse {
@@ -49,36 +50,36 @@ func mapSubscriptionDetailResponse(detail subscriptionservice.SubscriptionDetail
 }
 
 func mapSubscriptionResponses(subs []model.Subscription) []subscriptionResponse {
-	return apicontract.MapSubscriptionResponses(subs)
+	return contract.MapSubscriptionResponses(subs)
 }
 
 func (h *SubscriptionHandler) List(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	subs, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, mapSubscriptionResponses(subs))
 }
 
 func (h *SubscriptionHandler) GetByID(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "Invalid ID")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
 	if !ok {
 		return nil
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).GetByID(userID, uint(id))
 	if err != nil {
-		return writeError(c, http.StatusNotFound, "Subscription not found")
+		return httpx.WriteError(c, http.StatusNotFound, "Subscription not found")
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "Invalid ID")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
 	if !ok {
 		return nil
 	}
@@ -86,105 +87,89 @@ func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
 	detail, err := h.Service.WithContext(c.Request().Context()).GetDetail(userID, uint(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return writeError(c, http.StatusNotFound, "Subscription not found")
+			return httpx.WriteError(c, http.StatusNotFound, "Subscription not found")
 		}
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionDetailResponse(*detail))
 }
 
 func (h *SubscriptionHandler) Create(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var input subscriptionservice.CreateSubscriptionInput
-	if !bindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "Invalid request body") {
 		return nil
 	}
 
 	if input.Name == "" {
-		return writeError(c, http.StatusBadRequest, "Name is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "Name is required")
 	}
 	if input.Amount < 0 {
-		return writeError(c, http.StatusBadRequest, "Amount must not be negative")
+		return httpx.WriteError(c, http.StatusBadRequest, "Amount must not be negative")
 	}
 	if !validateSubscriptionIcon(input.Icon) {
-		return writeError(c, http.StatusBadRequest, "Invalid icon value")
+		return httpx.WriteError(c, http.StatusBadRequest, "Invalid icon value")
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
-				return isSubscriptionBadRequestError(err.Error())
-			}),
-		)
+		return err
 	}
 
 	return c.JSON(http.StatusCreated, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) Update(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "Invalid ID")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
 	if !ok {
 		return nil
 	}
 
 	var input subscriptionservice.UpdateSubscriptionInput
-	if !bindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "Invalid request body") {
 		return nil
 	}
 	if input.Amount != nil && *input.Amount < 0 {
-		return writeError(c, http.StatusBadRequest, "Amount must not be negative")
+		return httpx.WriteError(c, http.StatusBadRequest, "Amount must not be negative")
 	}
 	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
-		return writeError(c, http.StatusBadRequest, "Invalid icon value")
+		return httpx.WriteError(c, http.StatusBadRequest, "Invalid icon value")
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
-				return isSubscriptionBadRequestError(err.Error())
-			}),
-		)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
 }
 
 func (h *SubscriptionHandler) Delete(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "Invalid ID")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
 	if !ok {
 		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
-				return isSubscriptionBadRequestError(err.Error())
-			}),
-		)
+		return err
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "Invalid ID")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
 	if !ok {
 		return nil
 	}
 
 	sub, err := h.Service.WithContext(c.Request().Context()).MarkManualRenewed(userID, uint(id))
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
-				return isSubscriptionBadRequestError(err.Error())
-			}),
-		)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, mapSubscriptionResponse(*sub))
@@ -195,55 +180,47 @@ func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 // lifecycle in memory only; this endpoint is the explicit repair entry that
 // forces those transitions to disk without waiting for the background sweep.
 func (h *SubscriptionHandler) Reconcile(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	svc := h.Service.WithContext(c.Request().Context())
 
 	if err := svc.ReconcileUserLifecycle(userID); err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	subs, err := svc.List(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, mapSubscriptionResponses(subs))
 }
 
 func (h *SubscriptionHandler) ActionCenter(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	center, err := h.Service.WithContext(c.Request().Context()).GetActionCenter(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, center)
 }
 
 func (h *SubscriptionHandler) SnoozeAction(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var input subscriptionservice.SnoozeSubscriptionActionInput
-	if !bindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "Invalid request body") {
 		return nil
 	}
 
 	snooze, err := h.Service.WithContext(c.Request().Context()).SnoozeAction(userID, input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorMessage(http.StatusNotFound, "subscription not found"),
-			serviceErrorFunc(http.StatusBadRequest, func(err error) bool {
-				message := err.Error()
-				return isSubscriptionBadRequestError(message) ||
-					strings.Contains(message, "action key") ||
-					strings.Contains(message, "snooze")
-			}),
-		)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, snooze)
 }
 
 func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "Invalid ID")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
 	if !ok {
 		return nil
 	}
@@ -252,30 +229,27 @@ func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 
 	fileHeader, err := c.FormFile("icon")
 	if err != nil {
-		return writeError(c, http.StatusBadRequest, "no file provided")
+		return httpx.WriteError(c, http.StatusBadRequest, "no file provided")
 	}
 
 	maxSize := svc.GetMaxIconFileSize()
 
 	src, err := fileHeader.Open()
 	if err != nil {
-		return writeError(c, http.StatusInternalServerError, "failed to read file")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed to read file")
 	}
 	defer src.Close()
 
 	iconPath, err := svc.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusForbidden, isIconUploadForbiddenError),
-			serviceErrorFunc(http.StatusBadRequest, isIconUploadBadRequestError),
-		)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"icon": iconPath})
 }
 
 func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	ctx := c.Request().Context()
 	erService := h.ERService.WithContext(ctx)
 
@@ -284,13 +258,13 @@ func (h *SubscriptionHandler) Dashboard(c echo.Context) error {
 
 	summary, err := h.Service.WithContext(ctx).GetDashboardSummary(userID, targetCurrency, erService)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, summary)
 }
 
 func (h *SubscriptionHandler) AnalyticsReport(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	ctx := c.Request().Context()
 	erService := h.ERService.WithContext(ctx)
 
@@ -299,20 +273,7 @@ func (h *SubscriptionHandler) AnalyticsReport(c echo.Context) error {
 
 	report, err := h.Service.WithContext(ctx).GetAnalyticsReport(userID, targetCurrency, erService)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, report)
-}
-
-func isSubscriptionBadRequestError(message string) bool {
-	if message == "payment method not found" || message == "category not found" {
-		return true
-	}
-	return strings.Contains(message, "required") ||
-		strings.Contains(message, "must be") ||
-		strings.Contains(message, "invalid date format") ||
-		strings.Contains(message, "invalid subscription url") ||
-		strings.Contains(message, "no longer supported") ||
-		strings.Contains(message, "read-only") ||
-		strings.Contains(message, "only ")
 }

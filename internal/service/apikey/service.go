@@ -13,20 +13,21 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrAPIKeyNotFound     = errors.New("api key not found")
-	ErrAPIKeyNameRequired = errors.New("api key name is required")
-	ErrAPIKeyNameTooLong  = errors.New("api key name must be 100 characters or less")
-	ErrAPIKeyExpired      = errors.New("api key has expired")
-	ErrAPIKeyInvalid      = errors.New("invalid api key")
-	ErrAPIKeyLimitReached = errors.New("maximum number of api keys reached")
-	ErrAPIKeyScopeInvalid = errors.New("invalid api key scopes")
-	ErrAPIKeyKindRequired = errors.New("api key kind is required")
-	ErrAPIKeyKindInvalid  = errors.New("invalid api key kind")
+	ErrAPIKeyNotFound     = serviceerr.New(serviceerr.KindNotFound, "api key not found")
+	ErrAPIKeyNameRequired = serviceerr.New(serviceerr.KindInvalid, "api key name is required")
+	ErrAPIKeyNameTooLong  = serviceerr.New(serviceerr.KindInvalid, "api key name must be 100 characters or less")
+	ErrAPIKeyExpired      = serviceerr.New(serviceerr.KindUnauthorized, "api key has expired")
+	ErrAPIKeyInvalid      = serviceerr.New(serviceerr.KindUnauthorized, "invalid api key")
+	ErrAPIKeyLimitReached = serviceerr.New(serviceerr.KindConflict, "maximum number of api keys reached")
+	ErrAPIKeyScopeInvalid = serviceerr.New(serviceerr.KindInvalid, "invalid api key scopes")
+	ErrAPIKeyKindRequired = serviceerr.New(serviceerr.KindInvalid, "api key kind is required")
+	ErrAPIKeyKindInvalid  = serviceerr.New(serviceerr.KindInvalid, "invalid api key kind")
 )
 
 const maxKeysPerUser = 5

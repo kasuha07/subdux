@@ -7,11 +7,16 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrInvalidRefreshToken = errors.New("invalid refresh token")
+	ErrInvalidRefreshToken = serviceerr.New(serviceerr.KindUnauthorized, "invalid refresh token")
+	// ErrAccountDisabled is returned when a session is requested for a
+	// non-active account. It is 401 (KindUnauthorized): the credential is valid
+	// but the principal may no longer sign in.
+	ErrAccountDisabled = serviceerr.New(serviceerr.KindUnauthorized, "account is disabled")
 )
 
 func (s *Service) CreateSession(userID uint) (*AuthResponse, error) {
@@ -20,7 +25,7 @@ func (s *Service) CreateSession(userID uint) (*AuthResponse, error) {
 		return nil, err
 	}
 	if user.Status != "active" {
-		return nil, errors.New("account is disabled")
+		return nil, ErrAccountDisabled
 	}
 	return s.issueAuthResponse(*user)
 }

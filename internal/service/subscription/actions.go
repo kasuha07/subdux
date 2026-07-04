@@ -1,8 +1,6 @@
 package subscription
 
 import (
-	"errors"
-
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"gorm.io/gorm"
@@ -22,25 +20,25 @@ func (s *Service) MarkManualRenewed(userID, id uint) (*model.Subscription, error
 	}
 
 	if normalizeStatus(sub.Status) != subscriptionStatusActive {
-		return nil, errors.New("only active subscriptions can be marked as renewed")
+		return nil, ErrOnlyActiveCanRenew
 	}
 	if normalizeRenewalMode(sub.RenewalMode) != renewalModeManualRenew {
-		return nil, errors.New("only manual_renew subscriptions can be marked as renewed")
+		return nil, ErrOnlyManualRenewCanRenew
 	}
 	if normalizeBillingType(sub.BillingType) != billingTypeRecurring {
-		return nil, errors.New("only recurring subscriptions can be marked as renewed")
+		return nil, ErrOnlyRecurringCanRenew
 	}
 	if sub.NextBillingDate == nil {
-		return nil, errors.New("next_billing_date is required to mark subscription as renewed")
+		return nil, ErrNextBillingDateRequiredMark
 	}
 	if !isRecurringScheduleValid(*sub) {
-		return nil, errors.New("subscription recurrence settings are invalid")
+		return nil, ErrRecurrenceSettingsInvalid
 	}
 	before := *sub
 
 	nextBillingDate, ok := nextRecurringOccurrenceAfter(*sub, *sub.NextBillingDate)
 	if !ok {
-		return nil, errors.New("failed to calculate next billing date")
+		return nil, ErrNextBillingDateCalcFailed
 	}
 
 	var updated model.Subscription

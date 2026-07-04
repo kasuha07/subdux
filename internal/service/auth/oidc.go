@@ -598,7 +598,7 @@ func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityCla
 		}
 
 		if user.Status == "disabled" {
-			return OIDCSessionResult{}, errors.New("account is disabled")
+			return OIDCSessionResult{}, ErrAccountDisabled
 		}
 
 		email := strings.TrimSpace(claims.Email)
@@ -639,7 +639,7 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 		return OIDCSessionResult{}, err
 	}
 	if user.Status == "disabled" {
-		return OIDCSessionResult{}, errors.New("account is disabled")
+		return OIDCSessionResult{}, ErrAccountDisabled
 	}
 
 	email := strings.TrimSpace(claims.Email)
@@ -714,7 +714,7 @@ func (s *Service) finishOIDCReauth(userID uint, operation string, claims *oidcId
 		return OIDCSessionResult{}, err
 	}
 	if user.Status == "disabled" {
-		return OIDCSessionResult{}, errors.New("account is disabled")
+		return OIDCSessionResult{}, ErrAccountDisabled
 	}
 
 	var connection model.OIDCConnection

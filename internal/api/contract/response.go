@@ -1,4 +1,4 @@
-package apicontract
+package contract
 
 import (
 	"time"

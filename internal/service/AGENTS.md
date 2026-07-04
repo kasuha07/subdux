@@ -1,7 +1,7 @@
 # Service Layer - Business Logic
 
 **Updated:** 2026-07-04
-**Commit:** a478d6a
+**Commit:** b895c6b
 **Branch:** main
 
 ## OVERVIEW
@@ -37,6 +37,7 @@ service/
 ├── settings/        # Global runtime/system/security settings helpers
 ├── smtp/            # SMTP runtime config and sender
 ├── subscription/    # CRUD, billing, lifecycle, events, actions, dashboard, reports, reminders
+├── serviceerr/      # Typed service error vocabulary mapped to HTTP in api/error_handler.go
 └── userstatus/      # Active-user checks shared by auth-sensitive services
 ```
 
@@ -59,6 +60,7 @@ service/
 | Icon proxy/upload helpers | `iconproxy/`, `serviceutil/` | Keep domain policy and upload validation centralized |
 | System/security settings | `settings/`, `admin/` | Handle configured-secret flags carefully; do not clear secrets on placeholder input |
 | Backup/restore | `backup/` | Keep archive extraction, path safety, and restore semantics tested |
+| Typed service errors | `serviceerr/` | Add or reuse `Kind`-based errors instead of transport-specific status logic |
 | Shared service tests | `servicetest/` | Reuse `NewDB` and user helpers instead of copying test setup |
 
 ## CONVENTIONS
@@ -89,6 +91,12 @@ func NewService(db *gorm.DB) *Service {
 - `UpdateXInput` generally uses pointer fields so nil means "unchanged".
 - Keep HTTP-specific binding and content-type decisions in handlers.
 - Keep semantic normalization, deduplication, policy checks, and persistence rules in services.
+
+### Errors
+
+- Use `serviceerr.New` / `serviceerr.Wrap` for client-facing service errors that need stable transport mapping.
+- Preserve existing external error text unless the contract is intentionally changing.
+- Keep HTTP status selection out of services; `internal/api/error_handler.go` is the transport boundary.
 
 ### Security And Data Ownership
 
@@ -146,6 +154,7 @@ Run race tests for notification/background/lease/concurrency changes when feasib
 - Trusting handler validation for security-critical service behavior.
 - Losing user scoping on list/detail/update/delete queries.
 - Reimplementing outbound HTTP clients, proxy dialers, URL validation, tokens, or background leases ad hoc.
+- Returning transport-specific status logic from service code instead of typed `serviceerr` values.
 - Clearing configured secrets because a form sends an empty placeholder.
 - Duplicating reauth factor policy outside `reauth/`.
 - Adding notification, MCP, import/export, backup/restore, or outbound behavior without corresponding validation and tests.

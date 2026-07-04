@@ -2,10 +2,10 @@ package reauth
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -25,12 +25,12 @@ import (
 
 // ErrInvalidReauthOperation is returned when a caller supplies an unknown
 // operation identifier.
-var ErrInvalidReauthOperation = errors.New("invalid reauth operation")
+var ErrInvalidReauthOperation = serviceerr.New(serviceerr.KindInvalid, "invalid reauth operation")
 
 // ErrReauthRequired is returned by Consume when no valid ticket backs the
 // request (missing, expired, already used, or scoped to another user or
 // operation). It deliberately does not distinguish these cases.
-var ErrReauthRequired = errors.New("re-authentication required")
+var ErrReauthRequired = serviceerr.New(serviceerr.KindInvalid, "re-authentication required")
 
 // ErrPasswordReauthDisabled is returned when the password (knowledge) factor is
 // not an accepted reauth method for the account. This is the case when the user
@@ -38,13 +38,13 @@ var ErrReauthRequired = errors.New("re-authentication required")
 // with the passkey itself (or, if TOTP is also enrolled, password+TOTP). The
 // error is distinct from ErrReauthRequired so the caller can steer the user to a
 // stronger factor rather than implying a wrong password.
-var ErrPasswordReauthDisabled = errors.New("password re-authentication is not available for this account; use a passkey")
+var ErrPasswordReauthDisabled = serviceerr.New(serviceerr.KindInvalid, "password re-authentication is not available for this account; use a passkey")
 
 // ErrOIDCReauthInsufficient is returned when an OIDC step-up succeeds but the
 // provider login did not prove a strong enough assurance level for the account's
 // enrolled factors (e.g. a TOTP account needs OIDC-2 MFA, a passkey account needs
 // OIDC-3 phishing-resistant). The user can fall back to another accepted method.
-var ErrOIDCReauthInsufficient = errors.New("your provider sign-in did not prove strong enough authentication for this account; use a passkey or another method")
+var ErrOIDCReauthInsufficient = serviceerr.New(serviceerr.KindInvalid, "your provider sign-in did not prove strong enough authentication for this account; use a passkey or another method")
 
 // Service verifies a re-authentication factor and manages the resulting
 // tickets. Passkey verification is delegated to AuthService, which owns the

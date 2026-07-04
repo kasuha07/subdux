@@ -7,13 +7,18 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
-var ErrAdminCredentialResetForbidden = errors.New("cannot disable credentials for an admin user")
+var (
+	ErrAdminCredentialResetForbidden = serviceerr.New(serviceerr.KindInvalid, "cannot disable credentials for an admin user")
+	ErrAdminEmailAlreadyRegistered   = serviceerr.New(serviceerr.KindInvalid, "email already registered")
+	ErrAdminUsernameAlreadyTaken     = serviceerr.New(serviceerr.KindInvalid, "username already taken")
+)
 
 type AdminUserListItem struct {
 	model.User
@@ -74,22 +79,22 @@ func (s *Service) DisableUserPasskeys(userID uint) error {
 
 func (s *Service) ChangeUserRole(userID uint, role string) error {
 	if role != "admin" && role != "user" {
-		return errors.New("invalid role")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid role")
 	}
 	// Prevent demoting the first user (ID=1) to regular user
 	if userID == 1 && role == "user" {
-		return errors.New("cannot change the first user's role to regular user")
+		return serviceerr.New(serviceerr.KindInvalid, "cannot change the first user's role to regular user")
 	}
 	return s.DB.Model(&model.User{}).Where("id = ?", userID).Update("role", role).Error
 }
 
 func (s *Service) ChangeUserStatus(userID uint, status string) error {
 	if status != "active" && status != "disabled" {
-		return errors.New("invalid status")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid status")
 	}
 	// Prevent disabling the first user (ID=1)
 	if userID == 1 && status == "disabled" {
-		return errors.New("cannot disable the first user")
+		return serviceerr.New(serviceerr.KindInvalid, "cannot disable the first user")
 	}
 
 	return s.DB.Transaction(func(tx *gorm.DB) error {
@@ -113,7 +118,7 @@ func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
 func (s *Service) DeleteUser(userID uint) error {
 	// Prevent deleting the first user (ID=1)
 	if userID == 1 {
-		return errors.New("cannot delete the first user")
+		return serviceerr.New(serviceerr.KindInvalid, "cannot delete the first user")
 	}
 
 	var subscriptionIcons []string
@@ -167,10 +172,10 @@ func (s *Service) CreateUser(input CreateUserInput) (*model.User, error) {
 
 	var existing model.User
 	if err := s.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
-		return nil, errors.New("email already registered")
+		return nil, ErrAdminEmailAlreadyRegistered
 	}
 	if err := s.DB.Where("username = ?", input.Username).First(&existing).Error; err == nil {
-		return nil, errors.New("username already taken")
+		return nil, ErrAdminUsernameAlreadyTaken
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)

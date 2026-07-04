@@ -2,13 +2,13 @@ package notification
 
 import (
 	"encoding/json"
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 )
 
 var notificationChannelSecretFields = map[string]map[string]struct{}{
@@ -65,7 +65,7 @@ func parseNotificationConfigMap(raw string) (map[string]interface{}, error) {
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
-		return nil, fmt.Errorf("config must be valid JSON")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "config must be valid JSON")
 	}
 	if parsed == nil {
 		parsed = map[string]interface{}{}

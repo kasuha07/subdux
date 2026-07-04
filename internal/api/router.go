@@ -2,13 +2,11 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	mcpapi "github.com/kasuha07/subdux/internal/api/mcp"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
@@ -17,6 +15,7 @@ import (
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	authreauth "github.com/kasuha07/subdux/internal/service/authreauth"
+	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	calendarservice "github.com/kasuha07/subdux/internal/service/calendar"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
@@ -24,111 +23,14 @@ import (
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	importer "github.com/kasuha07/subdux/internal/service/importer"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
-	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
-	"github.com/kasuha07/subdux/internal/version"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
-
-func getUserID(c echo.Context) uint {
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(*pkg.JWTClaims)
-	return claims.UserID
-}
-
-func getUserRole(c echo.Context) string {
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(*pkg.JWTClaims)
-	if getAuthType(c) == pkg.AuthTypeAPIKey {
-		// API keys are machine principals and should not be granted human role
-		// privileges. Treat as least-privilege "user" for legacy role checks.
-		return "user"
-	}
-	if strings.TrimSpace(claims.Role) == "" {
-		return "user"
-	}
-	return claims.Role
-}
-
-func getAuthType(c echo.Context) string {
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(*pkg.JWTClaims)
-	if claims.AuthType != "" {
-		return claims.AuthType
-	}
-	if len(claims.Scopes) > 0 {
-		return pkg.AuthTypeAPIKey
-	}
-	return pkg.AuthTypeUser
-}
-
-func hasAPIKeyScope(c echo.Context, scope string) bool {
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(*pkg.JWTClaims)
-	for _, candidate := range claims.Scopes {
-		if candidate == scope {
-			return true
-		}
-	}
-	return false
-}
-
-func getAPIKeyKind(c echo.Context) string {
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(*pkg.JWTClaims)
-	return apikeyservice.NormalizePersistedAPIKeyKind(claims.KeyKind)
-}
-
-func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if getUserRole(c) != "admin" {
-			return writeError(c, 403, "admin access required")
-		}
-		return next(c)
-	}
-}
-
-// JWTOrAPIKeyMiddleware accepts either a Bearer JWT token or an X-API-Key header.
-// JWT is tried first; if no Authorization header is present, it falls back to API key.
-func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *apikeyservice.Service) echo.MiddlewareFunc {
-	jwtMiddleware := echojwt.WithConfig(jwtConfig)
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			// If the request has an Authorization header, use JWT auth
-			if c.Request().Header.Get("Authorization") != "" {
-				return jwtMiddleware(next)(c)
-			}
-
-			// Otherwise, try API key
-			key := c.Request().Header.Get("X-API-Key")
-			if key == "" {
-				return writeError(c, http.StatusUnauthorized, "authorization required")
-			}
-
-			principal, err := apiKeyService.WithContext(c.Request().Context()).ValidateKey(key)
-			if err != nil {
-				return writeError(c, http.StatusUnauthorized, err.Error())
-			}
-
-			claims := &pkg.JWTClaims{
-				UserID:   principal.UserID,
-				AuthType: pkg.AuthTypeAPIKey,
-				KeyID:    principal.KeyID,
-				KeyKind:  principal.KeyKind,
-				Scopes:   principal.Scopes,
-			}
-			token := &jwt.Token{Claims: claims}
-			c.Set("user", token)
-
-			return next(c)
-		}
-	}
-}
 
 func SetupRoutes(
 	ctx context.Context,
@@ -136,6 +38,13 @@ func SetupRoutes(
 	db *gorm.DB,
 	taskMonitor *serviceutil.BackgroundTaskMonitor,
 ) (*exchangerate.Service, *notificationservice.Service) {
+	// Route all handler-returned errors through the single typed-error handler.
+	// Handlers signal failures by returning *serviceerr.Error (or a wrapped
+	// cause); the handler renders the frozen {"error": message} envelope with a
+	// Kind-derived status. Echo's own HTTPErrors (jwt 401, 404, 405) are
+	// delegated to the previous default so their behavior is unchanged.
+	e.HTTPErrorHandler = APIErrorHandler(e.HTTPErrorHandler)
+
 	authService := serviceauth.NewService(db)
 	authService.StartSessionCleanupLoop(ctx)
 	totpService := serviceauth.NewTOTPService(db)
@@ -163,7 +72,7 @@ func SetupRoutes(
 
 	authHandler := NewAuthHandler(authService, totpService, reauthService)
 	subHandler := NewSubscriptionHandler(subService, erService)
-	adminHandler := NewAdminHandler(adminService, taskMonitor, reauthService)
+	adminHandler := NewAdminHandler(adminService, taskMonitor, reauthService, servicebackup.NewService(db))
 	reauthHandler := NewReauthHandler(reauthService)
 	siteInfoHandler := NewSiteInfoHandler(systemSettingsService)
 	iconProxyHandler := NewIconProxyHandler(iconProxyService)
@@ -179,17 +88,18 @@ func SetupRoutes(
 	calendarHandler := NewCalendarHandler(calendarService)
 	exportHandler := NewExportHandler(exportService, reauthService)
 	importHandler := NewImportHandler(importService, reauthService)
+	versionHandler := NewVersionHandler(db)
 	mcpHandler := mcpapi.NewMCPHandler(apiKeyService, auditService, subService, erService, currencyService, categoryService, paymentMethodService)
 
-	requireMCPEnabled := mcpEnabledMiddleware(systemSettingsService)
-	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, requestBodyLimitMiddleware(1<<20, nil))
+	requireMCPEnabled := apimw.MCPEnabledMiddleware(systemSettingsService)
+	e.POST("/mcp", mcpHandler.HandlePost, requireMCPEnabled, apimw.RequestBodyLimitMiddleware(1<<20, nil))
 	e.GET("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
 	e.PUT("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
 	e.PATCH("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
 	e.DELETE("/mcp", mcpHandler.MethodNotAllowed, requireMCPEnabled)
 
 	api := e.Group("/api")
-	api.Use(requestBodyLimitMiddleware(1<<20, func(c echo.Context) bool {
+	api.Use(apimw.RequestBodyLimitMiddleware(1<<20, func(c echo.Context) bool {
 		path := c.Path()
 		if path == "" {
 			path = c.Request().URL.Path
@@ -197,54 +107,25 @@ func SetupRoutes(
 		return path == "/api/admin/restore" || path == "/api/import/wallos" || path == "/api/import/subdux"
 	}))
 
-	authIPLimiter := authIPRateLimit(30, time.Minute)
-	loginAccountLimiter := authAccountRateLimit(10, time.Minute, loginAccountKey)
-	registerAccountLimiter := authAccountRateLimit(6, 10*time.Minute, registerAccountKey)
-	passwordAccountLimiter := authAccountRateLimit(6, 10*time.Minute, emailAccountKey)
-	totpAccountLimiter := authAccountRateLimit(8, 5*time.Minute, totpAccountKey)
-	refreshTokenLimiter := authAccountRateLimit(20, time.Minute, refreshTokenAccountKey)
-	iconProxyLimiter := authIPRateLimit(600, time.Minute)
-	reauthIPLimiter := authIPRateLimit(30, time.Minute)
-	reauthUserLimiter := authAccountRateLimit(6, 10*time.Minute, authenticatedUserAccountKey)
-	emailChangeUserLimiter := authAccountRateLimit(6, 10*time.Minute, authenticatedUserAccountKey)
+	authIPLimiter := apimw.AuthIPRateLimit(30, time.Minute)
+	loginAccountLimiter := apimw.AuthAccountRateLimit(10, time.Minute, apimw.LoginAccountKey)
+	registerAccountLimiter := apimw.AuthAccountRateLimit(6, 10*time.Minute, apimw.RegisterAccountKey)
+	passwordAccountLimiter := apimw.AuthAccountRateLimit(6, 10*time.Minute, apimw.EmailAccountKey)
+	totpAccountLimiter := apimw.AuthAccountRateLimit(8, 5*time.Minute, apimw.TOTPAccountKey)
+	refreshTokenLimiter := apimw.AuthAccountRateLimit(20, time.Minute, apimw.RefreshTokenAccountKey)
+	iconProxyLimiter := apimw.AuthIPRateLimit(600, time.Minute)
+	reauthIPLimiter := apimw.AuthIPRateLimit(30, time.Minute)
+	reauthUserLimiter := apimw.AuthAccountRateLimit(6, 10*time.Minute, apimw.AuthenticatedUserAccountKey)
+	emailChangeUserLimiter := apimw.AuthAccountRateLimit(6, 10*time.Minute, apimw.AuthenticatedUserAccountKey)
 
-	api.GET("/version", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, version.Get())
-	})
+	api.GET("/version", versionHandler.Get)
 
-	api.GET("/version/latest", func(c echo.Context) error {
-		client := serviceoutbound.NewOutboundHTTPClient(db, 10*time.Second)
-		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
-			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
-		if err != nil {
-			return writeError(c, http.StatusInternalServerError, "failed to create request")
-		}
-		req.Header.Set("Accept", "application/vnd.github+json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return writeError(c, http.StatusBadGateway, "failed to fetch latest release")
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return writeError(c, http.StatusBadGateway, "github api returned non-200")
-		}
-
-		var release struct {
-			TagName string `json:"tag_name"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-			return writeError(c, http.StatusInternalServerError, "failed to parse response")
-		}
-
-		return c.JSON(http.StatusOK, echo.Map{"tag_name": release.TagName})
-	})
+	api.GET("/version/latest", versionHandler.GetLatest)
 
 	api.GET("/icon-proxy/:provider", iconProxyHandler.Get, iconProxyLimiter)
 
 	auth := api.Group("/auth")
-	auth.Use(requestBodyLimitMiddleware(maxAuthRequestBodyBytes, nil))
+	auth.Use(apimw.RequestBodyLimitMiddleware(apimw.MaxAuthRequestBodyBytes, nil))
 	auth.GET("/register/config", authHandler.GetRegistrationConfig)
 	auth.POST("/register/send-code", authHandler.SendRegisterVerificationCode, authIPLimiter, registerAccountLimiter)
 	auth.POST("/register", authHandler.Register, authIPLimiter, registerAccountLimiter)
@@ -269,13 +150,13 @@ func SetupRoutes(
 	}
 
 	protected := api.Group("")
-	protected.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
-	protected.Use(APIKeyScopeMiddleware)
+	protected.Use(apimw.JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
+	protected.Use(apimw.APIKeyScopeMiddleware)
 
 	humanProtected := api.Group("")
-	humanProtected.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
-	humanProtected.Use(HumanSessionOnlyMiddleware)
-	humanProtected.Use(APIKeyScopeMiddleware)
+	humanProtected.Use(apimw.JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
+	humanProtected.Use(apimw.HumanSessionOnlyMiddleware)
+	humanProtected.Use(apimw.APIKeyScopeMiddleware)
 
 	// Reauth ("step-up") is a generic capability, not admin-only: any human
 	// session can prove presence and mint an operation-scoped ticket. Which
@@ -283,9 +164,9 @@ func SetupRoutes(
 	// It therefore lives on a human-session-only group mirroring humanProtected,
 	// not under /admin.
 	reauth := api.Group("/reauth")
-	reauth.Use(JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
-	reauth.Use(HumanSessionOnlyMiddleware)
-	reauth.Use(APIKeyScopeMiddleware)
+	reauth.Use(apimw.JWTOrAPIKeyMiddleware(jwtConfig, apiKeyService))
+	reauth.Use(apimw.HumanSessionOnlyMiddleware)
+	reauth.Use(apimw.APIKeyScopeMiddleware)
 	reauth.GET("/methods", reauthHandler.Methods)
 	reauth.POST("/password", reauthHandler.VerifyPassword, reauthIPLimiter, reauthUserLimiter)
 	reauth.POST("/passkey/start", reauthHandler.BeginPasskey, reauthIPLimiter, reauthUserLimiter)
@@ -326,7 +207,7 @@ func SetupRoutes(
 	admin := api.Group("/admin")
 
 	admin.Use(echojwt.WithConfig(jwtConfig))
-	admin.Use(AdminMiddleware)
+	admin.Use(apimw.AdminMiddleware)
 
 	admin.GET("/users", adminHandler.ListUsers)
 	admin.POST("/users", adminHandler.CreateUser)
@@ -344,7 +225,7 @@ func SetupRoutes(
 	admin.POST("/backup", adminHandler.BackupDB)
 	admin.POST("/backup/run", adminHandler.RunBackupNow)
 	admin.GET("/backup/local", adminHandler.ListLocalBackups)
-	admin.POST("/restore", adminHandler.RestoreDB, requestBodyLimitMiddleware(32<<20, nil))
+	admin.POST("/restore", adminHandler.RestoreDB, apimw.RequestBodyLimitMiddleware(32<<20, nil))
 	admin.GET("/exchange-rates/status", erHandler.GetStatus)
 	admin.POST("/exchange-rates/refresh", erHandler.RefreshRates)
 
@@ -397,27 +278,12 @@ func SetupRoutes(
 	humanProtected.DELETE("/calendar/tokens/:id", calendarHandler.DeleteToken)
 
 	humanProtected.GET("/export", exportHandler.Export)
-	humanProtected.POST("/import/subdux", importHandler.ImportSubdux, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
-	protected.POST("/import/wallos", importHandler.ImportWallos, requestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
+	humanProtected.POST("/import/subdux", importHandler.ImportSubdux, apimw.RequestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
+	protected.POST("/import/wallos", importHandler.ImportWallos, apimw.RequestBodyLimitMiddleware(maxImportRequestBodyBytes, nil))
 
 	api.GET("/calendar/feed", calendarHandler.GetCalendarFeed)
 
 	api.GET("/site-info", siteInfoHandler.Get)
 
 	return erService, notificationService
-}
-
-func mcpEnabledMiddleware(settingsService *systemsettings.Service) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			enabled, err := settingsService.IsMCPEnabled()
-			if err != nil {
-				return writeError(c, http.StatusInternalServerError, "failed to read mcp settings")
-			}
-			if !enabled {
-				return writeError(c, http.StatusNotFound, "mcp is not enabled")
-			}
-			return next(c)
-		}
-	}
 }

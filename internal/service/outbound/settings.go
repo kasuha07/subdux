@@ -1,13 +1,12 @@
 package outbound
 
 import (
-	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
@@ -18,8 +17,8 @@ const (
 )
 
 var (
-	ErrInvalidSystemProxyType = errors.New("system proxy type must be http or socks5")
-	ErrInvalidSystemProxyURL  = errors.New("system proxy url must include a host")
+	ErrInvalidSystemProxyType = serviceerr.New(serviceerr.KindInvalid, "system proxy type must be http or socks5")
+	ErrInvalidSystemProxyURL  = serviceerr.New(serviceerr.KindInvalid, "system proxy url must include a host")
 )
 
 type SystemProxyConfig struct {
@@ -157,11 +156,11 @@ func NormalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) 
 	switch normalizedType {
 	case SystemProxyTypeHTTP:
 		if parsed.Scheme != "http" {
-			return nil, fmt.Errorf("system proxy url must start with http://")
+			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system proxy url must start with http://", ErrInvalidSystemProxyURL)
 		}
 	case SystemProxyTypeSOCKS5:
 		if parsed.Scheme != "socks5" && parsed.Scheme != "socks5h" {
-			return nil, fmt.Errorf("system proxy url must start with socks5://")
+			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system proxy url must start with socks5://", ErrInvalidSystemProxyURL)
 		}
 		parsed.Scheme = "socks5"
 	}
@@ -169,7 +168,7 @@ func NormalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) 
 	if parsed.Port() != "" {
 		port, err := net.LookupPort("tcp", parsed.Port())
 		if err != nil || port < 1 || port > 65535 {
-			return nil, fmt.Errorf("system proxy url port is invalid")
+			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system proxy url port is invalid", ErrInvalidSystemProxyURL)
 		}
 	}
 

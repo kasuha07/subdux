@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/kasuha07/subdux/internal/api/apimw"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
@@ -34,13 +36,14 @@ func NewReauthHandler(s *servicereauth.Service) *ReauthHandler {
 	return &ReauthHandler{Service: s}
 }
 
-// writeReauthError maps reauth service errors to HTTP 400 with the error
-// message. It never returns 401, so a failed re-auth attempt does not trip the
-// frontend's token-refresh/logout flow.
+// writeReauthError maps reauth failures to HTTP 400 with the error message. It
+// never returns 401, so a failed re-auth attempt does not trip the frontend's
+// token-refresh/logout flow, and never 500, so the (client-correctable) step-up
+// stays a bad-request from the caller's perspective. This all-400 policy is
+// specific to the reauth group and is why these do not flow through the central
+// Kind-based handler.
 func writeReauthError(c echo.Context, err error) error {
-	return writeServiceError(c, err,
-		serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
-	)
+	return httpx.WriteError(c, http.StatusBadRequest, err.Error())
 }
 
 // validateReauthOperation extracts and validates the operation identifier,
@@ -59,9 +62,9 @@ func (h *ReauthHandler) Methods(c echo.Context) error {
 		return writeReauthError(c, err)
 	}
 
-	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(getUserID(c), operation)
+	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(apimw.From(c).UserID, operation)
 	if err != nil {
-		return writeError(c, http.StatusInternalServerError, "failed to load re-authentication methods")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed to load re-authentication methods")
 	}
 	return c.JSON(http.StatusOK, methods)
 }
@@ -74,7 +77,7 @@ type reauthPasswordInput struct {
 
 func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 	var input reauthPasswordInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -83,7 +86,7 @@ func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 	}
 
 	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyPassword(
-		getUserID(c), operation, input.Password, input.Code,
+		apimw.From(c).UserID, operation, input.Password, input.Code,
 	)
 	if err != nil {
 		return writeReauthError(c, err)
@@ -97,7 +100,7 @@ type reauthPasskeyStartInput struct {
 
 func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 	var input reauthPasskeyStartInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -106,7 +109,7 @@ func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskey(
-		getUserID(c), operation, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme(),
+		apimw.From(c).UserID, operation, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme(),
 	)
 	if err != nil {
 		return writeReauthError(c, err)
@@ -122,7 +125,7 @@ type reauthPasskeyFinishInput struct {
 
 func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 	var input reauthPasskeyFinishInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -130,16 +133,16 @@ func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 		return writeReauthError(c, err)
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return writeError(c, http.StatusBadRequest, "session_id and credential are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "session_id and credential are required")
 	}
 
 	parsedResponse, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return writeError(c, http.StatusBadRequest, "invalid credential payload")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid credential payload")
 	}
 
 	ticket, err := h.Service.WithContext(c.Request().Context()).FinishPasskey(
-		getUserID(c), operation, input.SessionID, parsedResponse,
+		apimw.From(c).UserID, operation, input.SessionID, parsedResponse,
 		c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme(),
 	)
 	if err != nil {
@@ -158,7 +161,7 @@ type reauthOIDCStartInput struct {
 // result back to the opener.
 func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	var input reauthOIDCStartInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -166,7 +169,7 @@ func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 		return writeReauthError(c, err)
 	}
 
-	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDC(getUserID(c), operation)
+	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDC(apimw.From(c).UserID, operation)
 	if err != nil {
 		return writeReauthError(c, err)
 	}
@@ -182,7 +185,7 @@ type reauthOIDCFinishInput struct {
 // The cookie is always cleared, so a failed attempt cannot be replayed.
 func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 	var input reauthOIDCFinishInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -190,13 +193,13 @@ func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 		return writeReauthError(c, err)
 	}
 
-	sessionID := getCookieValue(c, oidcReauthSessionCookieName)
-	clearOIDCReauthSessionCookie(c)
+	sessionID := apimw.GetCookieValue(c, apimw.OIDCReauthSessionCookieName)
+	apimw.ClearOIDCReauthSessionCookie(c)
 	if sessionID == "" {
 		return writeReauthError(c, servicereauth.ErrReauthRequired)
 	}
 
-	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyOIDC(getUserID(c), operation, sessionID)
+	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyOIDC(apimw.From(c).UserID, operation, sessionID)
 	if err != nil {
 		return writeReauthError(c, err)
 	}

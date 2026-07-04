@@ -1,9 +1,10 @@
 package notification
 
 import (
-	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 )
 
 // Constants for template validation limits
@@ -48,11 +49,11 @@ func NewTemplateValidator() *TemplateValidator {
 func (v *TemplateValidator) ValidateTemplate(tmplStr string) error {
 	// Check template length
 	if len(tmplStr) == 0 {
-		return errors.New("template cannot be empty")
+		return serviceerr.New(serviceerr.KindInvalid, "template cannot be empty")
 	}
 
 	if len(tmplStr) > MaxTemplateLength {
-		return fmt.Errorf("template length %d exceeds maximum %d", len(tmplStr), MaxTemplateLength)
+		return serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template length %d exceeds maximum %d", len(tmplStr), MaxTemplateLength))
 	}
 
 	if _, err := parseTemplateActions(tmplStr); err != nil {
@@ -69,7 +70,7 @@ func (v *TemplateValidator) ValidateFormat(format string) error {
 	case "plaintext", "markdown", "html":
 		return nil
 	default:
-		return fmt.Errorf("invalid format %q: must be 'plaintext', 'markdown', or 'html'", format)
+		return serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("invalid format %q: must be 'plaintext', 'markdown', or 'html'", format))
 	}
 }
 
@@ -79,7 +80,7 @@ func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
 		openOffset := strings.Index(tmplStr[idx:], "{{")
 		closeOffset := strings.Index(tmplStr[idx:], "}}")
 		if closeOffset != -1 && (openOffset == -1 || closeOffset < openOffset) {
-			return nil, errors.New("template parse error: unexpected closing delimiter \"}}\"")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "template parse error: unexpected closing delimiter \"}}\"")
 		}
 		if openOffset == -1 {
 			break
@@ -88,7 +89,7 @@ func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
 		open := idx + openOffset
 		actionCloseOffset := strings.Index(tmplStr[open+2:], "}}")
 		if actionCloseOffset == -1 {
-			return nil, errors.New("template parse error: unclosed template action")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "template parse error: unclosed template action")
 		}
 
 		close := open + 2 + actionCloseOffset
@@ -111,21 +112,21 @@ func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
 
 func parseTemplateVariable(action string) (string, error) {
 	if action == "" {
-		return "", errors.New("template parse error: empty template action is not allowed")
+		return "", serviceerr.New(serviceerr.KindInvalid, "template parse error: empty template action is not allowed")
 	}
 	if !strings.HasPrefix(action, ".") {
-		return "", fmt.Errorf("template parse error: unsupported directive %q", action)
+		return "", serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template parse error: unsupported directive %q", action))
 	}
 	if strings.ContainsAny(action, " \t\r\n|()") {
-		return "", fmt.Errorf("template parse error: unsupported directive %q", action)
+		return "", serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template parse error: unsupported directive %q", action))
 	}
 
 	varName := strings.TrimPrefix(action, ".")
 	if varName == "" {
-		return "", errors.New("template parse error: empty placeholder is not allowed")
+		return "", serviceerr.New(serviceerr.KindInvalid, "template parse error: empty placeholder is not allowed")
 	}
 	if _, ok := allowedTemplateVariables[varName]; !ok {
-		return "", fmt.Errorf("template parse error: unsupported placeholder %q", action)
+		return "", serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template parse error: unsupported placeholder %q", action))
 	}
 	return varName, nil
 }

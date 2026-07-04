@@ -39,7 +39,7 @@ func (s *Service) UploadSubscriptionIcon(userID, subID uint, file io.Reader, fil
 
 	sub, err := s.GetByID(userID, subID)
 	if err != nil {
-		return "", errors.New("subscription not found")
+		return "", ErrSubscriptionNotFound
 	}
 
 	sanitized, ext, err := serviceutil.SanitizeUploadedIcon(file, filename, maxSize)

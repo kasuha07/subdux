@@ -1,87 +1,97 @@
 # Subdux — Subscription Tracker
 
-**Generated:** 2026-06-27 11:32 UTC
-**Commit:** 0967e52
+**Updated:** 2026-07-04
+**Commit:** b895c6b
 **Branch:** main
 
 ## PROJECT OVERVIEW
 
-Go 1.26.4 + React 19 monorepo. Subdux builds as a single binary with the Vite frontend embedded into the Go server. It tracks recurring subscriptions, renewal actions, reports, calendar feeds, multi-currency costs, notification delivery, imports/exports, API keys, MCP access, and human-account authentication through password, TOTP, passkey, and OIDC flows.
+Go 1.26.4 + React 19 monorepo. Subdux builds as a single binary with the Vite frontend embedded into the Go server. It tracks recurring subscriptions, renewal actions, reports, calendar feeds, multi-currency costs, notifications, imports/exports, API keys, MCP access, admin settings, backup/restore, and human-account authentication through password, TOTP, passkey, and OIDC flows.
 
 **Stack:** Echo v4 + GORM on SQLite, `modelcontextprotocol/go-sdk`, React 19 + React Router 7, Vite 8, Tailwind v4, Shadcn-style local UI primitives, i18next, Bun.
 
-## STRUCTURE
+This root file is intentionally an index. Read the nearest child `AGENTS.md` before editing a specific area.
 
-```
+## AGENTS Hierarchy
+
+```text
 subdux/
-├── cmd/server/main.go       # Entry point; serves API plus embedded web/dist
-├── frontend.go              # //go:embed all:web/dist
-├── internal/                # Go backend; see internal/AGENTS.md
-│   ├── api/                 # Echo handlers, route wiring, middleware, MCP endpoint
-│   ├── service/             # Business logic, notification pipeline, imports, audit, MCP helpers
-│   ├── model/               # GORM models split by domain
-│   └── pkg/                 # DB, JWT, migrations, logging, crypto, timezone helpers
-├── web/                     # React frontend; see web/AGENTS.md
-│   └── src/
-│       ├── features/        # auth, dashboard, actions, reports, calendar, settings, admin
-│       ├── components/ui/   # Shadcn-style primitives; do not edit generated primitives casually
-│       └── lib/             # API client, brand icons, formatting, safety helpers, tests
-├── skill/                   # Auxiliary Subdux helper skill/scripts
-├── Makefile                 # Frontend-first build, lint/test/check targets
-└── Dockerfile               # Multi-stage frontend + Go build, distroless runtime
+├── AGENTS.md
+├── internal/
+│   ├── AGENTS.md
+│   ├── api/
+│   │   ├── AGENTS.md
+│   │   ├── apimw/AGENTS.md
+│   │   └── mcp/AGENTS.md
+│   ├── service/AGENTS.md
+│   ├── model/AGENTS.md
+│   └── pkg/AGENTS.md
+└── web/
+    ├── AGENTS.md
+    └── src/features/
+        ├── AGENTS.md
+        ├── settings/AGENTS.md
+        └── admin/AGENTS.md
 ```
 
-## WHERE TO LOOK
+| Scope | File | Use when |
+|------|------|----------|
+| Repository-wide rules | `AGENTS.md` | Build/test/commit policy, top-level boundaries, how the AGENTS tree is organized |
+| Backend index | `internal/AGENTS.md` | Any Go backend work; choose the right backend child doc first |
+| API layer | `internal/api/AGENTS.md` | Routes, handlers, HTTP contracts, API error mapping |
+| API middleware | `internal/api/apimw/AGENTS.md` | JWT/API-key auth, principal derivation, rate limits, body/origin/security headers |
+| MCP transport | `internal/api/mcp/AGENTS.md` | MCP tool schema, transport, idempotent write tools, audit behavior |
+| Service layer | `internal/service/AGENTS.md` | Business logic, package boundaries, service-level validation and tests |
+| Models | `internal/model/AGENTS.md` | GORM structs and schema-shape changes |
+| Infrastructure | `internal/pkg/AGENTS.md` | Migrations, DB setup, JWT, logging, crypto, timezone, runtime permissions |
+| Frontend index | `web/AGENTS.md` | Any React/web work; choose feature vs shared-layer guidance |
+| Feature index | `web/src/features/AGENTS.md` | Route/page ownership across auth, dashboard, subscriptions, actions, reports, calendar, settings, admin |
+| Settings feature | `web/src/features/settings/AGENTS.md` | User settings, API keys, audit, import/export, notification settings |
+| Admin feature | `web/src/features/admin/AGENTS.md` | Admin users/settings/SMTP/OIDC/backup/reauth flows |
 
-| Task | Location | Notes |
-|------|----------|-------|
-| Add backend endpoint | `internal/api/router.go` -> handler -> service | Keep route wiring in `SetupRoutes`; see `internal/api/AGENTS.md` |
-| Add business logic | `internal/service/` | Services own behavior and persistence decisions; see `internal/service/AGENTS.md` |
-| Add or change models | `internal/model/` + migrations in `internal/pkg/` when needed | GORM models are domain-split; avoid raw SQL in app logic |
-| Modify auth/session behavior | `internal/service/auth*.go`, `internal/api/auth*.go`, `internal/pkg/jwt.go` | Distinguish human sessions from API-key principals |
-| Modify API keys or MCP | `internal/service/apikey.go`, `internal/api/apikey.go`, `internal/api/mcp*.go` | MCP is served at `/mcp` and requires MCP-capable API keys |
-| Add frontend page | `web/src/features/{domain}/` + lazy route in `web/src/App.tsx` | Current routes: dashboard, actions, reports, calendar, settings, admin |
-| Add settings UI | `web/src/features/settings/` | See `web/src/features/settings/AGENTS.md` |
-| Add admin UI | `web/src/features/admin/` | See `web/src/features/admin/AGENTS.md` |
-| Add notification channel | `internal/service/notification*.go` + settings UI form pieces | Cover validation, delivery, templates/logs, and frontend config |
-| Import/export changes | `internal/service/import_*.go`, `internal/service/export.go`, `internal/api/import.go`, `internal/api/export.go` | Keep payload limits and human/API-key boundaries explicit |
+## Repo Map
 
-## BUILD & DEPLOYMENT
+| Area | Primary entry points |
+|------|----------------------|
+| Backend | `cmd/server/main.go`, `internal/`, `frontend.go` |
+| Frontend | `web/src/App.tsx`, `web/src/features/`, `web/src/lib/api.ts` |
+| Shared build/release | `Makefile`, `Dockerfile`, `internal/version/` |
+| Project helpers | `skill/` |
+
+## Global Rules
+
+- Read the nearest child `AGENTS.md` before editing. Child guidance narrows local structure; root policy still applies.
+- Keep the layered flow: `internal/api` handlers and middleware -> `internal/service/*` business logic -> `internal/model` + `internal/pkg`.
+- API keys are machine principals. Human-only account, audit, export, calendar-token, credential, and API-key management flows must stay behind human-session boundaries.
+- Keep MCP narrower than REST. New MCP tools need explicit schema, bounded inputs, API-key auth, and trust-boundary review.
+- Frontend feature code should stay under `web/src/features/{domain}` and authenticated network calls must go through `web/src/lib/api.ts`.
+- Keep user-facing text translated in `en`, `zh-CN`, and `ja`.
+
+## Build And Validation
 
 **Build sequence:** frontend first (`web/dist`) -> Go embed -> single `subdux` binary.
 
 ```bash
 make build          # bun install + web build, then go build with version ldflags
 make dev            # tmux session: Go server plus Vite dev server
+make frontend-deps  # bun install
 make frontend       # bun install + bun run build
 make frontend-lint  # bun install + bun run lint
+make fmt            # gofmt -w on all Go files outside web/
+make fmt-check      # fail if any Go file needs gofmt
 make test           # frontend build, then go test ./...
 make vet            # frontend build, then go vet ./...
 make check          # gofmt check, frontend lint/build, go vet, go test
 make docker         # multi-stage Docker image
 ```
 
-**Version injection:** `Makefile` injects `VERSION`, `COMMIT`, and `BUILD_DATE` into `internal/version/` with `-ldflags`.
+Useful repo-level validation:
 
-**Single binary:** API is under `/api/*`, MCP is `/mcp`, calendar feed is `/api/calendar/feed`, uploaded assets are under `/uploads/*`, and the SPA is served from `/`.
-
-## COMMANDS
-
-**Backend:**
 ```bash
-go run ./cmd/server
-go test ./...
-go vet ./...
-go build -o subdux ./cmd/server
-```
-
-**Frontend:**
-```bash
-cd web
-bun run dev
-bun run build
-bun run lint
-bun run test
+git diff --check
+go list ./internal/service/...
+make check
+cd web && bun run test
 ```
 
 ## COMMIT MESSAGE REQUIREMENTS
@@ -106,62 +116,14 @@ feat(import): add Wallos import
 - Tests: add service and handler coverage for duplicate import rows
 ```
 
-## CONVENTIONS
-
-**Backend:**
-- Keep the layered flow: `api/` handlers -> `service/` logic -> `model/` + `pkg/` infrastructure.
-- Validate and map HTTP input in handlers; keep business behavior in services.
-- Use GORM APIs for persistence. Do not add raw SQL unless there is a narrowly justified migration/helper need.
-- Keep middleware setup centralized in `internal/api/router.go`.
-- Treat API keys as machine principals. Human-only account, credential, export, audit, calendar-token, and API-key management routes should stay behind `HumanSessionOnlyMiddleware`.
-- Keep MCP deliberately narrower than the full REST API. MCP tools should use the `/mcp` entrypoint, API-key auth, bounded request sizes, audit where appropriate, and explicit input schemas/results.
-- For outbound HTTP (OIDC discovery, webhooks, icon proxy, release checks), use the existing safe outbound/client settings rather than ad hoc clients.
-- Respect system timezone behavior through OS/TZ configuration; there is no per-user timezone model.
-
-**Frontend:**
-- Keep feature-folder structure under `web/src/features/{domain}/`.
-- Use local component state and feature hooks. Do not introduce global state libraries or React context without a strong local precedent.
-- Use existing `web/src/components/ui/*` primitives and app components; do not import Radix primitives directly in feature code.
-- Route API calls through `web/src/lib/api.ts` so JWT/session handling, API-key behavior, and 401 redirects stay consistent.
-- Keep i18n coverage in en, zh-CN, and ja for user-facing text.
-- For icons/buttons, prefer existing icon libraries and local brand-icon helpers over new bespoke assets.
-
-## ANTI-PATTERNS
-
-**Backend:**
-- Raw SQL in request/business code.
-- Service-to-service calls that bypass handler composition or shared helpers.
-- New middleware scattered outside `router.go`.
-- Granting admin/human privileges to API-key principals.
-- Expanding MCP to sensitive human-account/admin/export surfaces without an explicit trust-boundary review.
-
-**Frontend:**
-- Editing `web/src/components/ui/*` for one-off feature behavior.
-- Importing Radix primitives directly.
-- Adding context/state libraries for ordinary page state.
-- Duplicating auth/session or fetch behavior outside `lib/api.ts`.
-- Adding visible feature explanations where a direct, usable control would be clearer.
-
-## TESTING
-
-- Current test surface: backend Go tests across `internal/api`, `internal/service`, and `internal/pkg`; frontend Vitest tests under `web/src/lib`.
-- Prefer focused tests for changed behavior first, then broader regression commands.
-- Useful validation batch for meaningful changes:
-
-```bash
-git diff --check
-make check
-cd web && bun run test
-```
-
-- For backend-only low-risk changes, at least run `go test ./...`; for frontend-only changes, run `cd web && bun run lint && bun run build && bun run test`.
-- For security/auth/MCP changes, include targeted negative tests for rejected principals, missing scopes, bad origins/content types, malformed payloads, and privilege boundaries.
-
 ## NOTES
 
 - **Monorepo but not workspace:** no `go.work` and no package.json workspaces; Go and web tooling are coordinated by repo convention and `Makefile`.
 - **Data directory:** default `data/` at repo/runtime root; override with `DATA_PATH`. SQLite DB and uploaded assets live below that data path.
 - **Embedded assets:** `frontend.go` embeds `web/dist/`; build the frontend before compiling the production Go binary.
+- **Service layout:** `internal/service/` is package-oriented; the parent package should only keep thin compatibility facades when a refactor needs them.
+- **Version injection:** `Makefile` injects `VERSION`, `COMMIT`, and `BUILD_DATE` into `internal/version/` with `-ldflags`.
+- **Single binary:** API is under `/api/*`, MCP is `/mcp`, calendar feed is `/api/calendar/feed`, uploaded assets are under `/uploads/*`, and the SPA is served from `/`.
 - **Runtime bind:** server defaults to `:8080` unless `PORT` is set.
 - **Timezone support:** system timezone only via `TZ` or OS default. No per-user timezone support.
 ---

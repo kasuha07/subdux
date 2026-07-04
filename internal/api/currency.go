@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
@@ -45,55 +47,50 @@ func NewCurrencyHandler(s *catalogservice.CurrencyService, er *exchangerate.Serv
 }
 
 func (h *CurrencyHandler) List(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	currencies, err := h.Service.WithContext(c.Request().Context()).List(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, mapUserCurrencyResponses(currencies))
 }
 
 func (h *CurrencyHandler) Create(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var input catalogservice.CreateCurrencyInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	if input.Code == "" {
-		return writeError(c, http.StatusBadRequest, "code is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "code is required")
 	}
 	currency, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorMessage(http.StatusConflict, "currency code already exists"),
-			serviceErrorMessage(http.StatusBadRequest, "code must be 1-10 characters", "code must contain only uppercase letters"),
-		)
+		return err
 	}
 	return c.JSON(http.StatusCreated, mapUserCurrencyResponse(*currency))
 }
 
 func (h *CurrencyHandler) Update(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "invalid id")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
 	if !ok {
 		return nil
 	}
 	var input catalogservice.UpdateCurrencyInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	currency, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorMessage(http.StatusNotFound, "currency not found"),
-		)
+		return err
 	}
 	return c.JSON(http.StatusOK, mapUserCurrencyResponse(*currency))
 }
 
 func (h *CurrencyHandler) Delete(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "invalid id")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
 	if !ok {
 		return nil
 	}
@@ -102,26 +99,22 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 	erService := h.ERService.WithContext(ctx)
 	pref, err := erService.GetUserPreference(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	if err := svc.Delete(userID, uint(id), pref.PreferredCurrency); err != nil {
-		return writeServiceError(c, err,
-			serviceErrorMessage(http.StatusNotFound, "currency not found"),
-			serviceErrorMessage(http.StatusBadRequest, "cannot delete your preferred currency"),
-			serviceError(http.StatusBadRequest, catalogservice.ErrCurrencyInUse),
-		)
+		return err
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
 
 func (h *CurrencyHandler) Reorder(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var items []catalogservice.ReorderItem
-	if !bindJSON(c, &items, "invalid request body") {
+	if !httpx.BindJSON(c, &items, "invalid request body") {
 		return nil
 	}
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
 }

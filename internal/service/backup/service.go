@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/yeka/zip"
@@ -46,10 +47,10 @@ const (
 )
 
 var (
-	ErrInvalidBackupTimeOfDay           = errors.New("backup time of day must be in HH:MM 24-hour format")
-	ErrInvalidBackupRetentionCount      = errors.New("backup retention count must be between 1 and 1000")
-	ErrInvalidBackupLocalDir            = errors.New("backup local directory must be an absolute path or a clean relative path without '..' segments")
-	ErrBackupEncryptionPasswordRequired = errors.New("encryption password is required when backup encryption is enabled")
+	ErrInvalidBackupTimeOfDay           = serviceerr.New(serviceerr.KindInvalid, "backup time of day must be in HH:MM 24-hour format")
+	ErrInvalidBackupRetentionCount      = serviceerr.New(serviceerr.KindInvalid, "backup retention count must be between 1 and 1000")
+	ErrInvalidBackupLocalDir            = serviceerr.New(serviceerr.KindInvalid, "backup local directory must be an absolute path or a clean relative path without '..' segments")
+	ErrBackupEncryptionPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "encryption password is required when backup encryption is enabled")
 )
 
 var backupTimeOfDayPattern = regexp.MustCompile(`^([01]\d|2[0-3]):([0-5]\d)$`)
@@ -83,6 +84,19 @@ type Service struct {
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{DB: db}
+}
+
+// WithContext returns a shallow copy of the service whose DB handle is bound to
+// ctx, mirroring the other domain services so callers (e.g. the admin handler)
+// can scope a backup operation to the request context without reaching into the
+// underlying *gorm.DB.
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s.DB == nil {
+		return s
+	}
+	clone := *s
+	clone.DB = s.DB.WithContext(ctx)
+	return &clone
 }
 
 // writeBackupZipFromDB writes a backup archive at archivePath containing the

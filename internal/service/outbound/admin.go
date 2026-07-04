@@ -2,16 +2,16 @@ package outbound
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
-var ErrInvalidSSRFTestTarget = errors.New("ssrf test target must be a valid hostname or ip address")
+var ErrInvalidSSRFTestTarget = serviceerr.New(serviceerr.KindInvalid, "ssrf test target must be a valid hostname or ip address")
 
 type SSRFTestInput struct {
 	Target string

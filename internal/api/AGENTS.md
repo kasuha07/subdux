@@ -1,101 +1,79 @@
-# API Layer - HTTP Handlers
+# API Layer
 
-**Generated:** 2026-06-27 11:32 UTC
-**Commit:** 0967e52
+**Updated:** 2026-07-04
+**Commit:** b895c6b
 **Branch:** main
 
 ## OVERVIEW
 
-Echo v4 API layer for REST, calendar feed, icon proxy, site/version info, and MCP over Streamable HTTP. Handlers bind and validate request input, derive principals from JWT/API keys, delegate to services, and map service/model results to stable JSON responses.
+Echo v4 API layer for REST endpoints, calendar feed, icon proxy, site/version info, and MCP over Streamable HTTP. Handlers bind and validate HTTP input, derive principals through `apimw`, call service packages, and map results to stable JSON contracts.
+
+## LOCAL AGENTS INDEX
+
+| Scope | File | Use when |
+|------|------|----------|
+| API layer | `internal/api/AGENTS.md` | Route wiring, handlers, response mapping, HTTP error handling |
+| Middleware and principals | `internal/api/apimw/AGENTS.md` | JWT/API-key auth, rate limits, human/admin gates, request guards |
+| MCP transport | `internal/api/mcp/AGENTS.md` | Tool schemas, SDK transport, MCP write idempotency |
 
 ## STRUCTURE
 
-```
+```text
 api/
-├── router.go                 # SetupRoutes, service wiring, route groups, middleware
-├── security_middleware.go    # Human-session, API-key scope, request/body/origin guards
-├── auth*.go                  # Registration, login, refresh sessions, TOTP, passkey, OIDC
-├── subscription*.go          # CRUD, dashboard, detail, actions, reports response mapping
-├── notification*.go          # Channels, policies, logs, templates
-├── admin*.go                 # Users, stats, settings, backup/restore, background tasks
-├── apikey.go, audit.go       # Human API-key and audit views
-├── calendar.go               # Token management and public feed
-├── import.go, export.go      # Wallos/Subdux imports and Subdux export
-├── mcp/                      # MCP transport, schemas, args, results, tools, search helpers
-└── *_test.go                 # Handler, middleware, response, MCP, security tests
+├── router.go                 # SetupRoutes, service wiring, route groups, middleware order
+├── apimw/                    # JWT/API-key auth, principals, rate limits, body/origin/security middleware
+├── contract/                 # Shared request/response contract helpers such as icon validation
+├── httpx/                    # Common HTTP error/JSON helpers and transient SQLite helpers
+├── error_handler.go          # Central Echo error handler for typed service errors
+├── version.go                # /api/version and /api/version/latest
+├── auth*.go                  # Registration, login, refresh, TOTP, passkey, OIDC, account session flows
+├── reauth.go                 # Shared /api/reauth step-up endpoints
+├── subscription*.go          # CRUD, detail, dashboard, actions, reports, icon upload
+├── notification*.go          # Channels and templates
+├── admin*.go                 # Users, settings, SMTP, backup/restore, background tasks
+├── apikey.go, audit.go       # Human API-key and audit surfaces
+├── calendar.go               # Calendar token management and public feed
+├── import.go, export.go      # Subdux/Wallos import and Subdux export
+├── mcp/                      # MCP transport, schema, tool implementations, search, idempotency
+└── *_test.go                 # Handler, contract, boundary, security, and route tests
 ```
 
-## ROUTE GROUPS
+## ROUTE OWNERSHIP
 
-- `/api/auth/*`: public auth, registration, password reset, refresh, passkey login, OIDC login/callback/session.
-- `/api/version`, `/api/version/latest`, `/api/site-info`, `/api/icon-proxy/:provider`: public utility endpoints with their own limits where needed.
-- Protected REST routes: subscriptions, dashboard, actions, reports, exchange rates, currencies, categories, payment methods, notifications, and imports.
-- Human-only routes: account credential changes, passkey/OIDC connection management, API keys, user audit events, calendar token management, and export.
-- `/api/admin/*`: admin JWT routes for users, stats, settings, SMTP test, backup/restore, exchange-rate refresh, audit events, and background tasks.
-- `/api/calendar/feed`: public calendar feed authenticated by calendar token.
-- `/mcp`: MCP POST endpoint; non-POST methods return method-not-allowed style responses.
+- Public auth routes live under `/api/auth/*`.
+- Shared step-up routes live under `/api/reauth/*`.
+- Public utility routes include `/api/version`, `/api/version/latest`, `/api/site-info`, and `/api/icon-proxy/:provider`.
+- Protected REST routes cover subscriptions, dashboard, actions, reports, exchange rates, currencies, categories, payment methods, notifications, and imports.
+- Human-only routes cover account changes, passkeys, OIDC connections, API keys, audit events, calendar token management, and export.
+- Admin JWT routes live under `/api/admin/*`.
+- Public calendar feed is `/api/calendar/feed`.
+- MCP lives at `/mcp` and is handled separately from REST.
 
 ## WHERE TO LOOK
 
-| Task | File | Notes |
-|------|------|-------|
-| Add route | `router.go` | Wire service and handler in `SetupRoutes` |
-| Add request validation | Handler file | Bind -> normalize/validate -> service call |
-| Add response shape | Handler file or `mcp/mcp_results.go` | Prefer explicit response structs for public contracts |
-| Change auth boundary | `security_middleware.go`, `router.go` | Add tests for JWT, API-key, human-only, and admin cases |
-| Change MCP behavior | `mcp/mcp_handler.go`, `mcp/mcp_tools.go`, `mcp/mcp_schema.go` | Preserve SDK transport assumptions and header/origin checks |
-| Change imports/exports | `import.go`, `export.go` | Keep request-size and human/API-key boundaries explicit |
-| Change admin API | `admin.go` | Match `service/admin*.go` and frontend `admin` types |
+| Task | Start here | Notes |
+|------|------------|-------|
+| Add or move a route | `router.go` | Keep service construction and middleware order in `SetupRoutes` |
+| Change handler request validation | Matching handler file | Bind -> normalize/validate -> service call |
+| Change principal or auth boundary | `apimw/` + `router.go` | Add JWT, API-key, human-only, and admin negative tests |
+| Change API error/status mapping | `error_handler.go`, `internal/service/serviceerr/` | Preserve the frozen `{ "error": "..." }` envelope |
+| Change shared JSON/HTTP helpers | `httpx/`, `contract/` | Keep API contract wording stable unless intentional |
+| Change MCP behavior | `mcp/` | Preserve SDK transport assumptions and MCP-specific checks |
+| Change import/export API | `import.go`, `export.go` | Keep request-size and human/API-key boundaries explicit |
+| Change admin API | `admin.go` | Match frontend admin DTOs and corresponding service package behavior |
 
 ## CONVENTIONS
 
-### Handler Pattern
-
-```go
-func (h *XHandler) Create(c echo.Context) error {
-    userID := getUserID(c)
-    var input service.CreateXInput
-    if err := c.Bind(&input); err != nil {
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid input"})
-    }
-    // Validate HTTP-level fields here.
-    result, err := h.service.Create(userID, input)
-    if err != nil {
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-    }
-    return c.JSON(http.StatusOK, result)
-}
-```
-
 - Handlers own HTTP input validation, status codes, and response mapping.
-- Services own behavior and persistence decisions.
-- Use `getUserID`, `getUserRole`, `getAuthType`, `hasAPIKeyScope`, and `getAPIKeyKind` instead of reparsing claims.
-- Keep handler DTOs private unless there is an established shared type.
-
-### Auth And API Keys
-
-- `JWTOrAPIKeyMiddleware` accepts Bearer JWT first, then `X-API-Key`.
-- API-key principals carry `AuthTypeAPIKey`, key ID, key kind, and scopes.
-- API keys are machine principals. `getUserRole` intentionally does not grant human role privileges to API keys.
-- Human-only routes must return the established human-session error rather than falling through to admin or generic auth behavior.
-
-### MCP
-
-- MCP is gated by the system setting plus `/mcp` middleware.
-- Keep `X-API-Key`, `Origin`, `Content-Type`, `Accept`, and protocol-version checks in front of the SDK handler.
-- Use explicit schemas/args/result helpers; do not let MCP expose broad internal structs by accident.
-- Current MCP surface is intentionally subscription/settings-reference oriented; do not add admin, export, account, calendar-token, or notification-CRUD tools casually.
+- Services own business rules, persistence, and semantic validation.
+- Use `apimw.From(c)` for request identity instead of reparsing JWT claims or headers.
+- Return typed `serviceerr.Error` values from service calls and let `APIErrorHandler` decide HTTP status.
+- Use shared helpers in `httpx` and `contract` for stable error envelopes and validation logic.
+- Keep handler DTOs private unless there is already an explicit cross-file contract type.
+- Do not expose raw models or secrets when a response mapper already exists.
 
 ## TESTING
 
-- Add handler tests in `internal/api/*_test.go` for response contracts and boundary behavior.
-- For MCP changes, test the real `/mcp` request path and SDK-backed behavior rather than preserving old manual-dispatch semantics.
+- Add focused handler tests in `internal/api/*_test.go`.
 - For auth/security changes, include negative tests for API keys, missing scopes, cross-origin requests, bad content types, and human-only/admin-only routes.
-
-## ANTI-PATTERNS
-
-- Direct DB access from handlers.
-- Business validation in handlers when it belongs in service logic.
-- New middleware outside `router.go`/existing middleware files.
-- Returning raw models that expose secrets or internal-only fields.
-- Treating API keys as equivalent to human sessions.
+- For MCP changes, test the real `/mcp` path and SDK-backed behavior instead of reviving manual dispatch shortcuts.

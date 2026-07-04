@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
@@ -41,9 +42,9 @@ func TestLogoutAllRevokesAllUserRefreshTokens(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/logout-all", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.AddCookie(&http.Cookie{
-		Name:  refreshTokenCookieName,
+		Name:  apimw.RefreshTokenCookieName,
 		Value: first.RefreshToken,
-		Path:  authRefreshPath,
+		Path:  apimw.AuthRefreshPath,
 	})
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -68,7 +69,7 @@ func TestLogoutAllRevokesAllUserRefreshTokens(t *testing.T) {
 	cookies := rec.Result().Cookies()
 	cleared := false
 	for _, cookie := range cookies {
-		if cookie.Name == refreshTokenCookieName && cookie.Path == authRefreshPath && cookie.MaxAge < 0 {
+		if cookie.Name == apimw.RefreshTokenCookieName && cookie.Path == apimw.AuthRefreshPath && cookie.MaxAge < 0 {
 			cleared = true
 			break
 		}

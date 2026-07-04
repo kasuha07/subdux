@@ -1,83 +1,55 @@
 # Go Backend
 
-**Generated:** 2026-06-27 11:32 UTC
-**Commit:** 0967e52
+**Updated:** 2026-07-04
+**Commit:** b895c6b
 **Branch:** main
 
 ## OVERVIEW
 
-Layered Go backend for Subdux. HTTP entry points live in `api/`, business behavior in `service/`, persistence structs in `model/`, and shared runtime infrastructure in `pkg/`.
+Layered Go backend for Subdux. `internal/` is split into HTTP transport (`api/`), business logic (`service/`), GORM models (`model/`), and shared infrastructure (`pkg/`). Read the nearest child `AGENTS.md` before changing a specific backend area.
 
-The backend now covers subscriptions, lifecycle/action workflows, analytics reports, notifications, imports/exports, audit, API keys, MCP, calendar feeds, admin settings, OIDC, passkeys, TOTP, safe outbound HTTP, and background-task monitoring.
+## BACKEND AGENTS INDEX
+
+| Scope | File | Use when |
+|------|------|----------|
+| Backend index | `internal/AGENTS.md` | Cross-cutting backend work or choosing the right child guide |
+| HTTP API | `internal/api/AGENTS.md` | Route wiring, handlers, response mapping, HTTP error handling |
+| API middleware | `internal/api/apimw/AGENTS.md` | JWT/API-key auth, request principals, rate limits, body/origin guards |
+| MCP transport | `internal/api/mcp/AGENTS.md` | MCP schemas, tools, SDK transport, idempotent writes |
+| Business logic | `internal/service/AGENTS.md` | Domain services, package boundaries, validation, concurrency |
+| Persistence structs | `internal/model/AGENTS.md` | GORM model changes and schema shape |
+| Shared infra | `internal/pkg/AGENTS.md` | DB setup, migrations, JWT, logging, crypto, timezone, runtime permissions |
 
 ## STRUCTURE
 
-```
+```text
 internal/
-├── api/       # Echo route setup, handlers, middleware, MCP transport boundary
-├── service/   # Business logic, validation helpers, outbox/dispatch, imports, reports
-├── model/     # Domain-split GORM structs: auth, settings, subscription, notification, audit
-└── pkg/       # SQLite setup, migrations, JWT, logging, crypto, timezone, runtime permissions
+├── api/       # Echo handlers, route wiring, middleware, HTTP helpers, MCP transport
+├── service/   # Package-oriented business logic and shared service helpers
+├── model/     # Domain-split GORM structs
+├── pkg/       # DB, migrations, JWT, logging, crypto, timezone, permissions
+└── version/   # ldflags-injected build metadata
 ```
 
-## WHERE TO LOOK
+## BACKEND-WIDE RULES
 
-| Task | Start here | Then |
-|------|------------|------|
-| Add HTTP endpoint | `api/router.go` | Handler file -> service method -> tests |
-| Add MCP tool | `api/mcp/mcp_tools.go`, `api/mcp/mcp_schema.go` | `api/mcp/mcp_args.go`, `api/mcp/mcp_results.go`, service calls |
-| Change auth/session rules | `api/security_middleware.go`, `pkg/jwt.go` | `service/auth*.go`, API tests |
-| Change API key behavior | `service/apikey.go` | `api/apikey.go`, MCP/API boundary tests |
-| Add or change model field | `model/*_models.go` | `pkg/migration_*.go` if existing data needs migration |
-| Change notification delivery | `service/notification*.go` | Channel-specific tests and settings UI |
-| Change imports/exports | `service/import_*.go`, `service/export.go` | `api/import.go`, `api/export.go`, payload-limit tests |
-| Change admin settings | `service/admin_settings.go`, `service/system_settings.go` | `api/admin.go`, frontend admin settings |
-| Change DB/runtime config | `pkg/database.go`, `pkg/schema_migrations.go` | `DATA_PATH`, runtime permission helpers |
+- Keep the flow explicit: `api` request parsing and auth boundary checks -> `service/*` business logic -> `model` + `pkg`.
+- Prefer focused service subpackages over adding more business logic to the parent `internal/service` package.
+- Use GORM APIs in request/business code. Raw SQL belongs only in narrowly justified migration/helper code.
+- API keys are machine principals. Human-only account, audit, export, calendar-token, and credential flows must stay behind human-session-only middleware.
+- MCP stays API-key based and narrower than REST. New MCP surfaces need schema, request limits, audit review, and trust-boundary review.
+- Model shape changes usually imply matching service logic, API mappers, and often a migration under `internal/pkg/migrations/`.
+- Use typed service errors from `internal/service/serviceerr/` and let `internal/api/error_handler.go` own HTTP status mapping.
 
-## CONVENTIONS
+## VALIDATION
 
-### Layering
-- `api/` owns HTTP shape: route registration, request binding, auth middleware, status codes, response DTOs.
-- `service/` owns business rules, persistence behavior, domain validation, background work, and reusable helpers.
-- `model/` contains GORM structs and JSON tags; keep models domain-split.
-- `pkg/` contains infrastructure used across domains. Keep app-specific business rules out of `pkg/`.
-
-### Auth Boundaries
-- Ordinary protected REST routes use `JWTOrAPIKeyMiddleware` plus scope checks.
-- Human-only routes use `HumanSessionOnlyMiddleware`; keep account credentials, API-key management, audit access, calendar token management, and export behind it.
-- Admin routes use JWT plus `AdminMiddleware`. Do not grant admin privileges to API-key principals.
-- MCP is a separate `/mcp` entrypoint and should stay API-key based, bounded, audited where appropriate, and narrower than REST.
-
-### Persistence
-- Use GORM APIs for request/business logic.
-- Use migrations in `pkg/` for non-trivial existing-data changes; do not rely on `AutoMigrate` for destructive or semantic migration work.
-- Default data path is `data/`; override with `DATA_PATH`. SQLite DB and uploaded assets live under the data path.
-- Respect the existing SQLite hardening helpers and connection settings before adding new concurrency behavior.
-
-### Errors And Responses
-- Use the shared handler response style already present in `api/`.
-- Avoid leaking internal structs directly when a handler has an existing response mapper.
-- Preserve current JSON field names and response shapes unless intentionally changing API contract.
-
-## TESTING
-
-- Backend tests live under `internal/api`, `internal/service`, and `internal/pkg`.
-- Prefer focused table-driven tests near the changed package, then run broader checks.
-
-Useful backend validation:
+Useful backend commands:
 
 ```bash
 gofmt -w $(find . -path './web' -prune -o -name '*.go' -print)
-go test ./...
+go list ./internal/service/...
+go test -count=1 ./internal/...
 go vet ./...
 ```
 
-For auth, API-key, MCP, import/export, backup/restore, or outbound HTTP changes, add negative controls for rejected principals, missing scopes, unsafe URLs, bad content types, oversized payloads, and privilege-boundary failures.
-
-## ANTI-PATTERNS
-
-- Raw SQL in request/business logic.
-- Service-to-service calls that make ownership and testing unclear.
-- Middleware setup outside `api/router.go`.
-- API-key principals receiving human-only or admin capabilities.
-- Expanding MCP into admin, export, credential, notification-CRUD, or account-management surfaces without an explicit trust-boundary review.
+For auth, API-key, MCP, import/export, backup/restore, outbound HTTP, or migration changes, add negative-path tests for rejected principals, unsafe URLs, malformed payloads, stale reauth tickets, or bad migration state.

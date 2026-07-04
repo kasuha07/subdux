@@ -21,7 +21,7 @@ func (s *Service) ListChannels(userID uint) ([]model.NotificationChannel, error)
 func (s *Service) CreateChannel(userID uint, input CreateChannelInput) (*model.NotificationChannel, error) {
 	channelType := strings.ToLower(strings.TrimSpace(input.Type))
 	if !isValidChannelType(channelType) {
-		return nil, errors.New("invalid channel type, must be one of: smtp, resend, telegram, webhook, gotify, ntfy, bark, serverchan, feishu, wecom, dingtalk, pushdeer, pushplus, pushover, napcat")
+		return nil, ErrInvalidChannelType
 	}
 	if input.Enabled {
 		if err := s.ensureEnabledChannelLimit(userID); err != nil {
@@ -60,7 +60,7 @@ func (s *Service) UpdateChannel(userID, channelID uint, input UpdateChannelInput
 	var channel model.NotificationChannel
 	if err := s.DB.Where("id = ? AND user_id = ?", channelID, userID).First(&channel).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("channel not found")
+			return nil, ErrChannelNotFound
 		}
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (s *Service) ensureEnabledChannelLimit(userID uint) error {
 		return err
 	}
 	if enabledCount >= maxEnabledNotificationChannels {
-		return fmt.Errorf("you can enable at most %d notification channels", maxEnabledNotificationChannels)
+		return errTooManyEnabledChannels()
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (s *Service) DeleteChannel(userID, channelID uint) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("channel not found")
+		return ErrChannelNotFound
 	}
 	return nil
 }
@@ -144,14 +144,14 @@ func (s *Service) TestChannel(userID, channelID uint) error {
 	var channel model.NotificationChannel
 	if err := s.DB.Where("id = ? AND user_id = ?", channelID, userID).First(&channel).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("channel not found")
+			return ErrChannelNotFound
 		}
 		return err
 	}
 
 	var user model.User
 	if err := s.DB.Select("email").First(&user, userID).Error; err != nil {
-		return errors.New("failed to load user")
+		return notificationUserFixableMessage("failed to load user", err)
 	}
 
 	testSubName := "Test Subscription"
@@ -171,8 +171,11 @@ func (s *Service) TestChannel(userID, channelID uint) error {
 
 	message, err := s.renderNotificationMessage(userID, channel.Type, templateData)
 	if err != nil {
-		return fmt.Errorf("failed to render notification message: %w", err)
+		return notificationUserFixableError(fmt.Errorf("failed to render notification message: %w", err))
 	}
 
-	return s.dispatchNotificationChannel(channel, user.Email, message, testSubscription.URL)
+	if err := s.dispatchNotificationChannel(channel, user.Email, message, testSubscription.URL); err != nil {
+		return notificationUserFixableError(err)
+	}
+	return nil
 }

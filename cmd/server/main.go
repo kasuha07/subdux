@@ -21,6 +21,7 @@ import (
 
 	subdux "github.com/kasuha07/subdux"
 	"github.com/kasuha07/subdux/internal/api"
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
@@ -65,7 +66,7 @@ func main() {
 	e.HideBanner = true
 
 	e.Use(logging.RequestLogger())
-	e.Use(api.SecurityHeadersMiddleware)
+	e.Use(apimw.SecurityHeadersMiddleware)
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
 			logging.FromContext(c.Request().Context()).Error("recovered from panic",

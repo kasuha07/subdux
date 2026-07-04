@@ -344,7 +344,7 @@ func (s *Service) validateCategory(userID, categoryID uint) error {
 	var category model.Category
 	if err := s.DB.Where("id = ? AND user_id = ?", categoryID, userID).First(&category).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("category not found")
+			return ErrCategoryNotFound
 		}
 		return err
 	}
@@ -355,7 +355,7 @@ func (s *Service) validatePaymentMethod(userID, paymentMethodID uint) error {
 	var method model.PaymentMethod
 	if err := s.DB.Where("id = ? AND user_id = ?", paymentMethodID, userID).First(&method).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("payment method not found")
+			return ErrPaymentMethodNotFound
 		}
 		return err
 	}

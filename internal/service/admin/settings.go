@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"gorm.io/gorm"
@@ -650,7 +650,7 @@ func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 		}
 		if registrationEmailVerificationEnabled {
 			if _, err := servicesmtp.LoadRuntimeConfig(tx); err != nil {
-				return errors.New("smtp settings must be valid when registration email verification is enabled")
+				return serviceerr.New(serviceerr.KindInvalid, "smtp settings must be valid when registration email verification is enabled")
 			}
 		}
 

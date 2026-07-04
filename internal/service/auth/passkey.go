@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +38,7 @@ const (
 // ErrNoPasskeyRegistered signals that a user attempted passkey re-authentication
 // without having any registered passkey. Callers surface this so the UI can
 // direct the user to register one first.
-var ErrNoPasskeyRegistered = errors.New("no passkey registered for this account")
+var ErrNoPasskeyRegistered = serviceerr.New(serviceerr.KindInvalid, "no passkey registered for this account")
 
 type passkeySession struct {
 	Kind   passkeySessionKind
@@ -416,7 +417,7 @@ func (s *Service) resolvePasskeyUser(rawID, userHandle []byte) (*model.User, err
 				return nil, errors.New("user not found")
 			}
 			if user.Status == "disabled" {
-				return nil, errors.New("account is disabled")
+				return nil, ErrAccountDisabled
 			}
 			return user, nil
 		}
@@ -436,7 +437,7 @@ func (s *Service) resolvePasskeyUser(rawID, userHandle []byte) (*model.User, err
 		return nil, errors.New("user not found")
 	}
 	if user.Status == "disabled" {
-		return nil, errors.New("account is disabled")
+		return nil, ErrAccountDisabled
 	}
 	return user, nil
 }

@@ -4,36 +4,34 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 )
 
-func TestIsIconUploadBadRequestError(t *testing.T) {
-	tests := []struct {
-		err  error
-		want bool
-	}{
-		{err: errors.New("subscription not found"), want: true},
-		{err: errors.New("payment method not found"), want: true},
-		{err: serviceutil.ErrIconUploadSizeLimit, want: true},
-		{err: serviceutil.ErrIconUploadUnsupportedType, want: true},
-		{err: serviceutil.ErrIconUploadContentMismatch, want: true},
-		{err: serviceutil.ErrIconUploadInvalidICO, want: true},
-		{err: serviceutil.ErrImageUploadDisabled, want: false},
-		{err: errors.New("failed to save icon file"), want: false},
+// The former isIconUploadBadRequestError/isIconUploadForbiddenError helpers
+// classified icon-upload failures by message. That responsibility now lives in
+// the typed serviceerr.Kind carried by each sentinel and the single central
+// error handler. These tests lock the Kind of each icon-upload sentinel so the
+// resulting HTTP status cannot drift.
+func TestIconUploadSentinelKinds(t *testing.T) {
+	badRequest := []error{
+		serviceutil.ErrIconUploadSizeLimit,
+		serviceutil.ErrIconUploadUnsupportedType,
+		serviceutil.ErrIconUploadContentMismatch,
+		serviceutil.ErrIconUploadInvalidICO,
 	}
-
-	for _, tt := range tests {
-		if got := isIconUploadBadRequestError(tt.err); got != tt.want {
-			t.Fatalf("isIconUploadBadRequestError(%v) = %v, want %v", tt.err, got, tt.want)
+	for _, err := range badRequest {
+		kind, ok := serviceerr.KindOf(err)
+		if !ok || kind != serviceerr.KindInvalid {
+			t.Fatalf("KindOf(%v) = %v, ok=%v; want KindInvalid", err, kind, ok)
 		}
 	}
-}
 
-func TestIsIconUploadForbiddenError(t *testing.T) {
-	if !isIconUploadForbiddenError(serviceutil.ErrImageUploadDisabled) {
-		t.Fatalf("isIconUploadForbiddenError(%v) = false, want true", serviceutil.ErrImageUploadDisabled)
+	if kind, ok := serviceerr.KindOf(serviceutil.ErrImageUploadDisabled); !ok || kind != serviceerr.KindForbidden {
+		t.Fatalf("KindOf(ErrImageUploadDisabled) = %v, ok=%v; want KindForbidden", kind, ok)
 	}
-	if isIconUploadForbiddenError(serviceutil.ErrIconUploadUnsupportedType) {
-		t.Fatalf("isIconUploadForbiddenError(%v) = true, want false", serviceutil.ErrIconUploadUnsupportedType)
+
+	if _, ok := serviceerr.KindOf(errors.New("failed to save icon file")); ok {
+		t.Fatal("plain internal error should not classify as a typed service error")
 	}
 }

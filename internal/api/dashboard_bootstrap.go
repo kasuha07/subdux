@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
@@ -53,34 +54,34 @@ type dashboardBootstrapResponse struct {
 }
 
 func (h *DashboardBootstrapHandler) Get(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	ctx := c.Request().Context()
 
 	erService := h.ExchangeRates.WithContext(ctx)
 	pref, err := erService.GetUserPreference(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	subs, summary, err := h.Subscriptions.WithContext(ctx).
 		SubscriptionsWithSummary(userID, pref.PreferredCurrency, erService)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	categories, err := h.Categories.WithContext(ctx).List(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	paymentMethods, err := h.PaymentMethods.WithContext(ctx).List(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	currencies, err := h.Currencies.WithContext(ctx).List(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 
 	return c.JSON(http.StatusOK, dashboardBootstrapResponse{

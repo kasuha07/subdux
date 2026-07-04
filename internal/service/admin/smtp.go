@@ -9,13 +9,14 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 )
 
 func (s *Service) SendSMTPTestEmail(userID uint, recipientOverride string) error {
 	cfg, err := servicesmtp.LoadRuntimeConfig(s.DB)
 	if err != nil {
-		return err
+		return normalizeSMTPTestError(err)
 	}
 
 	recipient := strings.TrimSpace(recipientOverride)
@@ -28,11 +29,11 @@ func (s *Service) SendSMTPTestEmail(userID uint, recipientOverride string) error
 	}
 
 	if recipient == "" {
-		return errors.New("recipient email is required for smtp test")
+		return serviceerr.New(serviceerr.KindInvalid, "recipient email is required for smtp test")
 	}
 
 	if _, err := mail.ParseAddress(recipient); err != nil {
-		return errors.New("invalid recipient email")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid recipient email")
 	}
 
 	subject := "Subdux SMTP Test"
@@ -40,8 +41,22 @@ func (s *Service) SendSMTPTestEmail(userID uint, recipientOverride string) error
 	message := servicesmtp.BuildMessage(cfg.FromEmail, cfg.FromName, recipient, subject, body)
 
 	if err := servicesmtp.Send(*cfg, recipient, message); err != nil {
-		return err
+		return normalizeSMTPTestError(err)
 	}
 
 	return nil
+}
+
+// Preserve the SMTP test route's client-facing contract under the centralized
+// API error handler: SMTP misconfiguration and delivery/debug failures should
+// stay visible as 4xx, while already-typed errors (for example rate limits)
+// keep their original status mapping.
+func normalizeSMTPTestError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, ok := serviceerr.KindOf(err); ok {
+		return err
+	}
+	return serviceerr.Wrap(serviceerr.KindInvalid, err.Error(), err)
 }

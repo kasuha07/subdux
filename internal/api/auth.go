@@ -1,13 +1,10 @@
 package api
 
 import (
-	"errors"
-	"net/http"
-
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
-	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"github.com/labstack/echo/v4"
 )
 
@@ -80,48 +77,11 @@ func mapAuthResponse(resp *serviceauth.AuthResponse) authResponse {
 }
 
 func writeAuthSuccess(c echo.Context, status int, resp *serviceauth.AuthResponse) error {
-	setRefreshTokenCookie(c, resp.RefreshToken)
+	apimw.SetRefreshTokenCookie(c, resp.RefreshToken)
 	return c.JSON(status, mapAuthResponse(resp))
 }
 
 func writeLoginSuccess(c echo.Context, status int, resp *serviceauth.LoginResponse) error {
-	setRefreshTokenCookie(c, resp.RefreshToken)
+	apimw.SetRefreshTokenCookie(c, resp.RefreshToken)
 	return c.JSON(status, mapLoginResponse(resp))
-}
-
-func authServiceErrorStatus(err error) int {
-	switch {
-	case errors.Is(err, serviceauth.ErrRegistrationDisabled):
-		return http.StatusForbidden
-	case errors.Is(err, serviceauth.ErrEmailDomainNotAllowed):
-		return http.StatusForbidden
-	case errors.Is(err, serviceauth.ErrEmailAlreadyRegistered), errors.Is(err, serviceauth.ErrUsernameAlreadyTaken):
-		return http.StatusConflict
-	case errors.Is(err, serviceauth.ErrVerificationCodeTooFrequent):
-		return http.StatusTooManyRequests
-	case errors.Is(err, servicesmtp.ErrSMTPRateLimited):
-		return http.StatusTooManyRequests
-	case errors.Is(err, serviceauth.ErrUserNotFound):
-		return http.StatusNotFound
-	case errors.Is(err, serviceauth.ErrRegistrationEmailVerificationDisabled),
-		errors.Is(err, serviceauth.ErrVerificationCodeRequired),
-		errors.Is(err, serviceauth.ErrVerificationCodeInvalid),
-		errors.Is(err, serviceauth.ErrVerificationCodeTooManyAttempts),
-		errors.Is(err, serviceauth.ErrInvalidEmail),
-		errors.Is(err, serviceauth.ErrCurrentPasswordIncorrect),
-		errors.Is(err, serviceauth.ErrNewEmailSameAsCurrent),
-		errors.Is(err, serviceauth.ErrPasswordTooLong),
-		errors.Is(err, serviceauth.ErrSMTPUnavailable):
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
-}
-
-func writeAuthServiceError(c echo.Context, err error) error {
-	status := authServiceErrorStatus(err)
-	if status == http.StatusInternalServerError {
-		return writeInternalServerError(c, err)
-	}
-	return writeError(c, status, err.Error())
 }

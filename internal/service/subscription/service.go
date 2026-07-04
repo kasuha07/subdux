@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -185,7 +186,7 @@ type BillingDraft = billingDraft
 
 func validateNotifyDaysBefore(value int) error {
 	if value < 0 || value > MaxNotificationDaysBefore {
-		return fmt.Errorf("notify_days_before must be between 0 and %d", MaxNotificationDaysBefore)
+		return serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("notify_days_before must be between 0 and %d", MaxNotificationDaysBefore))
 	}
 	return nil
 }

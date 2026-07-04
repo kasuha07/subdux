@@ -1,4 +1,4 @@
-package api
+package apimw
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/pkg"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/labstack/echo/v4"
@@ -89,7 +90,7 @@ func (l *fixedWindowLimiter) maybeCleanup(now time.Time) {
 	}
 }
 
-func authIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
+func AuthIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 	limiter := newFixedWindowLimiter(limit, window)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -99,7 +100,7 @@ func authIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 			}
 
 			if !limiter.Allow("ip:" + clientIP) {
-				return writeError(c, http.StatusTooManyRequests, "too many attempts, please try again later")
+				return httpx.WriteError(c, http.StatusTooManyRequests, "too many attempts, please try again later")
 			}
 
 			return next(c)
@@ -110,11 +111,11 @@ func authIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 type accountKeyExtractor func(c echo.Context) string
 
 const (
-	maxAuthRequestBodyBytes    int64 = 128 << 10 // 128 KiB
+	MaxAuthRequestBodyBytes    int64 = 128 << 10 // 128 KiB
 	maxAccountKeyReadBodyBytes int64 = 8 << 10   // 8 KiB
 )
 
-func authAccountRateLimit(limit int, window time.Duration, extractor accountKeyExtractor) echo.MiddlewareFunc {
+func AuthAccountRateLimit(limit int, window time.Duration, extractor accountKeyExtractor) echo.MiddlewareFunc {
 	limiter := newFixedWindowLimiter(limit, window)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -124,7 +125,7 @@ func authAccountRateLimit(limit int, window time.Duration, extractor accountKeyE
 			}
 
 			if !limiter.Allow("acct:" + accountKey) {
-				return writeError(c, http.StatusTooManyRequests, "too many attempts for this account, please try again later")
+				return httpx.WriteError(c, http.StatusTooManyRequests, "too many attempts for this account, please try again later")
 			}
 
 			return next(c)
@@ -209,11 +210,11 @@ func readRequestBodyAndRestore(c echo.Context, maxBytes int64) ([]byte, error) {
 	return body, nil
 }
 
-func loginAccountKey(c echo.Context) string {
+func LoginAccountKey(c echo.Context) string {
 	return strings.ToLower(strings.TrimSpace(readInputField(c, "identifier")))
 }
 
-func registerAccountKey(c echo.Context) string {
+func RegisterAccountKey(c echo.Context) string {
 	email := strings.ToLower(strings.TrimSpace(readInputField(c, "email")))
 	if email != "" {
 		return "email:" + email
@@ -227,7 +228,7 @@ func registerAccountKey(c echo.Context) string {
 	return ""
 }
 
-func emailAccountKey(c echo.Context) string {
+func EmailAccountKey(c echo.Context) string {
 	email := strings.ToLower(strings.TrimSpace(readInputField(c, "email")))
 	if email == "" {
 		return ""
@@ -235,7 +236,7 @@ func emailAccountKey(c echo.Context) string {
 	return "email:" + email
 }
 
-func totpAccountKey(c echo.Context) string {
+func TOTPAccountKey(c echo.Context) string {
 	totpToken := strings.TrimSpace(readInputField(c, "totp_token"))
 	if totpToken == "" {
 		return ""
@@ -249,11 +250,11 @@ func totpAccountKey(c echo.Context) string {
 	return "totp:" + hex.EncodeToString(hash[:8])
 }
 
-// authenticatedUserAccountKey keys authenticated human-session limiters on the
+// AuthenticatedUserAccountKey keys authenticated human-session limiters on the
 // verified JWT principal instead of request-body fields. This bounds abuse by
 // an attacker who already holds a live session. Returns "" (skip) if the token
 // is somehow absent, which cannot happen behind the authenticated route groups.
-func authenticatedUserAccountKey(c echo.Context) string {
+func AuthenticatedUserAccountKey(c echo.Context) string {
 	token, ok := c.Get("user").(*jwt.Token)
 	if !ok || token == nil {
 		return ""
@@ -265,10 +266,10 @@ func authenticatedUserAccountKey(c echo.Context) string {
 	return "user:" + strconv.FormatUint(uint64(claims.UserID), 10)
 }
 
-func refreshTokenAccountKey(c echo.Context) string {
+func RefreshTokenAccountKey(c echo.Context) string {
 	refreshToken := strings.TrimSpace(readInputField(c, "refresh_token"))
 	if refreshToken == "" {
-		refreshToken = getCookieValue(c, refreshTokenCookieName)
+		refreshToken = GetCookieValue(c, RefreshTokenCookieName)
 	}
 	if refreshToken == "" {
 		return ""
@@ -278,12 +279,12 @@ func refreshTokenAccountKey(c echo.Context) string {
 
 func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if getAuthType(c) != pkg.AuthTypeAPIKey {
+		if From(c).AuthType != pkg.AuthTypeAPIKey {
 			return next(c)
 		}
 
-		if getAPIKeyKind(c) != apikeyservice.APIKeyKindAPIIntegration {
-			return writeError(c, http.StatusForbidden, "api key kind cannot access this endpoint")
+		if From(c).KeyKind != apikeyservice.APIKeyKindAPIIntegration {
+			return httpx.WriteError(c, http.StatusForbidden, "api key kind cannot access this endpoint")
 		}
 
 		path := c.Path()
@@ -292,23 +293,23 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if !isAPIKeyRouteAllowed(path) {
-			return writeError(c, http.StatusForbidden, "api key cannot access this endpoint")
+			return httpx.WriteError(c, http.StatusForbidden, "api key cannot access this endpoint")
 		}
 
 		requiredScope := requiredAPIKeyScope(c)
 
-		if hasAPIKeyScope(c, requiredScope) {
+		if From(c).HasScope(requiredScope) {
 			return next(c)
 		}
 
-		return writeError(c, http.StatusForbidden, "api key does not have required scope")
+		return httpx.WriteError(c, http.StatusForbidden, "api key does not have required scope")
 	}
 }
 
 func HumanSessionOnlyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if getAuthType(c) == pkg.AuthTypeAPIKey {
-			return writeError(c, http.StatusForbidden, "human session required")
+		if From(c).AuthType == pkg.AuthTypeAPIKey {
+			return httpx.WriteError(c, http.StatusForbidden, "human session required")
 		}
 		return next(c)
 	}
@@ -390,7 +391,7 @@ func isHTTPSRequest(c echo.Context) bool {
 	return false
 }
 
-func requestBodyLimitMiddleware(maxBytes int64, skipper func(echo.Context) bool) echo.MiddlewareFunc {
+func RequestBodyLimitMiddleware(maxBytes int64, skipper func(echo.Context) bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if skipper != nil && skipper(c) {

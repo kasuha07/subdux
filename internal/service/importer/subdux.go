@@ -2,19 +2,19 @@ package importer
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
 
-var ErrInvalidSubduxImportFormat = errors.New("invalid subdux export format")
-var ErrSubduxImportTooLarge = errors.New("subdux export file is too large")
+var ErrInvalidSubduxImportFormat = serviceerr.New(serviceerr.KindInvalid, "invalid subdux export format")
+var ErrSubduxImportTooLarge = serviceerr.New(serviceerr.KindInvalid, "subdux export file is too large")
 
 const maxSubduxImportItemsPerCollection = 5000
 

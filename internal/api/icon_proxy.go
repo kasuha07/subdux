@@ -3,7 +3,9 @@ package api
 import (
 	"net/http"
 
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,10 +21,7 @@ func (h *IconProxyHandler) Get(c echo.Context) error {
 	svc := h.Service.WithContext(c.Request().Context())
 	resolution, err := svc.Resolve(c.Param("provider"), c.QueryParam("domain"))
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceError(http.StatusBadRequest, iconproxy.ErrInvalidIconProxyProvider, iconproxy.ErrInvalidIconProxyTargetDomain),
-			serviceError(http.StatusForbidden, iconproxy.ErrIconProxyDomainNotAllowed),
-		)
+		return err
 	}
 
 	if !resolution.Proxy {
@@ -31,11 +30,13 @@ func (h *IconProxyHandler) Get(c echo.Context) error {
 
 	resp, err := svc.Fetch(c.Request().Context(), resolution)
 	if err != nil {
-		forbiddenError := serviceError(http.StatusForbidden, iconproxy.ErrIconProxyDomainNotAllowed, iconproxy.ErrInvalidIconProxyTargetDomain)
-		if forbiddenError.matches(err) {
-			return writeServiceError(c, err, forbiddenError)
+		// A typed policy error (e.g. domain not allowed) is mapped by the central
+		// handler. Any other Fetch failure is an upstream/gateway problem, not an
+		// internal fault, so it keeps its dedicated 502.
+		if _, ok := serviceerr.KindOf(err); ok {
+			return err
 		}
-		return writeError(c, http.StatusBadGateway, "failed to fetch icon")
+		return httpx.WriteError(c, http.StatusBadGateway, "failed to fetch icon")
 	}
 	defer resp.Body.Close()
 

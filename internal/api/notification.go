@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/model"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/labstack/echo/v4"
@@ -30,113 +32,102 @@ func NewNotificationHandler(s *notificationservice.Service) *NotificationHandler
 }
 
 func (h *NotificationHandler) ListChannels(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	svc := h.Service.WithContext(c.Request().Context())
 	channels, err := svc.ListChannels(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, mapNotificationChannelResponses(channels, h.Service))
 }
 
 func (h *NotificationHandler) CreateChannel(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var input notificationservice.CreateChannelInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 	if input.Type == "" {
-		return writeError(c, http.StatusBadRequest, "type is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "type is required")
 	}
 
 	channel, err := h.Service.WithContext(c.Request().Context()).CreateChannel(userID, input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
-		)
+		return err
 	}
 	return c.JSON(http.StatusCreated, mapNotificationChannelResponse(*channel, h.Service))
 }
 
 func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "invalid id")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
 	if !ok {
 		return nil
 	}
 
 	var input notificationservice.UpdateChannelInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 
 	channel, err := h.Service.WithContext(c.Request().Context()).UpdateChannel(userID, uint(id), input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorMessage(http.StatusNotFound, "channel not found"),
-			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
-		)
+		return err
 	}
 	return c.JSON(http.StatusOK, mapNotificationChannelResponse(*channel, h.Service))
 }
 
 func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "invalid id")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
 	if !ok {
 		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeleteChannel(userID, uint(id)); err != nil {
-		return writeServiceError(c, err,
-			serviceErrorMessage(http.StatusNotFound, "channel not found"),
-		)
+		return err
 	}
 	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *NotificationHandler) TestChannel(c echo.Context) error {
-	userID := getUserID(c)
-	id, ok := parseUintParam(c, "id", "invalid id")
+	userID := apimw.From(c).UserID
+	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
 	if !ok {
 		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).TestChannel(userID, uint(id)); err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
-		)
+		return err
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "test notification sent"})
 }
 
 func (h *NotificationHandler) GetPolicy(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	policy, err := h.Service.WithContext(c.Request().Context()).GetPolicy(userID)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, policy)
 }
 
 func (h *NotificationHandler) UpdatePolicy(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var input notificationservice.UpdatePolicyInput
-	if !bindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid request body") {
 		return nil
 	}
 
 	policy, err := h.Service.WithContext(c.Request().Context()).UpdatePolicy(userID, input)
 	if err != nil {
-		return writeServiceError(c, err,
-			serviceErrorFunc(http.StatusBadRequest, func(error) bool { return true }),
-		)
+		return err
 	}
 	return c.JSON(http.StatusOK, policy)
 }
 
 func (h *NotificationHandler) ListLogs(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	limit := 50
 	if q := c.QueryParam("limit"); q != "" {
 		if v, err := strconv.Atoi(q); err == nil {
@@ -146,7 +137,7 @@ func (h *NotificationHandler) ListLogs(c echo.Context) error {
 
 	logs, err := h.Service.WithContext(c.Request().Context()).ListLogs(userID, limit)
 	if err != nil {
-		return writeInternalServerError(c, err)
+		return err
 	}
 	return c.JSON(http.StatusOK, logs)
 }

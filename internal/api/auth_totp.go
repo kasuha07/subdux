@@ -3,8 +3,9 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strings"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
+	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/pkg"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
@@ -12,7 +13,7 @@ import (
 )
 
 func (h *AuthHandler) SetupTOTP(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationEnableTOTP,
@@ -29,16 +30,16 @@ func (h *AuthHandler) SetupTOTP(c echo.Context) error {
 }
 
 func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	var input struct {
 		SessionID string `json:"session_id"`
 		Code      string `json:"code"`
 	}
-	if !bindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "Invalid request body") {
 		return nil
 	}
 	if input.SessionID == "" || input.Code == "" {
-		return writeError(c, http.StatusBadRequest, "session_id and code are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "session_id and code are required")
 	}
 
 	backupCodes, err := h.TOTPService.WithContext(c.Request().Context()).ConfirmSetup(userID, input.SessionID, input.Code)
@@ -49,7 +50,7 @@ func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 }
 
 func (h *AuthHandler) DisableTOTP(c echo.Context) error {
-	userID := getUserID(c)
+	userID := apimw.From(c).UserID
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 		userID,
 		servicereauth.ReauthOperationDisableTOTP,
@@ -65,16 +66,7 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 }
 
 func writeTOTPServiceError(c echo.Context, err error) error {
-	return writeServiceError(c, err,
-		serviceError(http.StatusBadRequest,
-			serviceauth.ErrTOTPAlreadyEnabled,
-			serviceauth.ErrTOTPSetupExpired,
-			serviceauth.ErrTOTPInvalidCode,
-			serviceauth.ErrTOTPInvalidPassword,
-			serviceauth.ErrTOTPInvalidAuthCode,
-		),
-		serviceError(http.StatusNotFound, serviceauth.ErrUserNotFound),
-	)
+	return err
 }
 
 type verifyTOTPLoginInput struct {
@@ -84,37 +76,37 @@ type verifyTOTPLoginInput struct {
 
 func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 	var input verifyTOTPLoginInput
-	if !bindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "Invalid request body") {
 		return nil
 	}
 	if input.TotpToken == "" || input.Code == "" {
-		return writeError(c, http.StatusBadRequest, "Token and code are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "Token and code are required")
 	}
 
 	userID, err := pkg.ValidateTOTPPendingToken(input.TotpToken)
 	if err != nil {
-		clearRefreshTokenCookie(c)
-		return writeError(c, http.StatusUnauthorized, "Invalid or expired session")
+		apimw.ClearRefreshTokenCookie(c)
+		return httpx.WriteError(c, http.StatusUnauthorized, "Invalid or expired session")
 	}
 
 	ctx := c.Request().Context()
 	totpSvc := h.TOTPService.WithContext(ctx)
 	if !totpSvc.VerifyLogin(userID, input.Code) && !totpSvc.VerifyBackupCode(userID, input.Code) {
-		clearRefreshTokenCookie(c)
-		return writeError(c, http.StatusUnauthorized, "Invalid code")
+		apimw.ClearRefreshTokenCookie(c)
+		return httpx.WriteError(c, http.StatusUnauthorized, "Invalid code")
 	}
 
 	resp, err := h.Service.WithContext(ctx).CreateSession(userID)
 	if err != nil {
 		if errors.Is(err, serviceauth.ErrUserNotFound) {
-			clearRefreshTokenCookie(c)
-			return writeError(c, http.StatusUnauthorized, "Invalid or expired session")
+			apimw.ClearRefreshTokenCookie(c)
+			return httpx.WriteError(c, http.StatusUnauthorized, "Invalid or expired session")
 		}
-		if strings.Contains(strings.ToLower(err.Error()), "disabled") {
-			clearRefreshTokenCookie(c)
-			return writeError(c, http.StatusUnauthorized, "account is disabled")
+		if errors.Is(err, serviceauth.ErrAccountDisabled) {
+			apimw.ClearRefreshTokenCookie(c)
+			return httpx.WriteError(c, http.StatusUnauthorized, "account is disabled")
 		}
-		return writeError(c, http.StatusInternalServerError, "failed to create session")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed to create session")
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)

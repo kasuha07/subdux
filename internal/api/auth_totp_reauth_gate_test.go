@@ -251,7 +251,9 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set(reauthTicketHeader, ticket)
 	rec := httptest.NewRecorder()
-	c := echo.New().NewContext(req, rec)
+	e := echo.New()
+	e.HTTPErrorHandler = APIErrorHandler(e.HTTPErrorHandler)
+	c := e.NewContext(req, rec)
 	c.Set("user", &jwt.Token{
 		Claims: &pkg.JWTClaims{
 			UserID:   user.ID,
@@ -262,8 +264,10 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 		},
 	})
 
+	// Handlers now signal failures by returning an error; the central handler
+	// renders the response. Drive it here as the router would.
 	if err := handler.SetupTOTP(c); err != nil {
-		t.Fatalf("SetupTOTP() error = %v, want nil", err)
+		e.HTTPErrorHandler(err, c)
 	}
 
 	if rec.Code != http.StatusInternalServerError {

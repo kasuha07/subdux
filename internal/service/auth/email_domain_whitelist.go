@@ -7,13 +7,14 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrInvalidEmailDomainWhitelist = errors.New("invalid email domain whitelist")
-	ErrEmailDomainWhitelistTooLong = errors.New("email domain whitelist is too long")
-	ErrEmailDomainNotAllowed       = errors.New("email domain is not allowed")
+	ErrInvalidEmailDomainWhitelist = serviceerr.New(serviceerr.KindInvalid, "invalid email domain whitelist")
+	ErrEmailDomainWhitelistTooLong = serviceerr.New(serviceerr.KindInvalid, "email domain whitelist is too long")
+	ErrEmailDomainNotAllowed       = serviceerr.New(serviceerr.KindForbidden, "email domain is not allowed")
 )
 
 func NormalizeEmailDomainWhitelist(raw string) (string, error) {

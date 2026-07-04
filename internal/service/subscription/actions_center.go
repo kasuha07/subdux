@@ -177,7 +177,7 @@ func (s *Service) SnoozeAction(userID uint, input SnoozeSubscriptionActionInput)
 	var sub model.Subscription
 	if err := s.DB.Where("id = ? AND user_id = ?", subscriptionID, userID).First(&sub).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("subscription not found")
+			return nil, ErrSubscriptionNotFound
 		}
 		return nil, err
 	}
@@ -582,11 +582,11 @@ func subscriptionActionKey(subscriptionID uint, actionType, qualifier string) st
 func parseActionSubscriptionID(key string) (uint, error) {
 	parts := strings.Split(strings.TrimSpace(key), ":")
 	if len(parts) < 3 || parts[0] != "subscription" {
-		return 0, errors.New("invalid action key")
+		return 0, ErrInvalidActionKey
 	}
 	var id uint
 	if _, err := fmt.Sscanf(parts[1], "%d", &id); err != nil || id == 0 {
-		return 0, errors.New("invalid action key")
+		return 0, ErrInvalidActionKey
 	}
 	return id, nil
 }
@@ -598,11 +598,11 @@ func resolveActionSnoozeUntil(input SnoozeSubscriptionActionInput) (time.Time, e
 			return time.Time{}, err
 		}
 		if parsed == nil {
-			return time.Time{}, errors.New("snooze date is required")
+			return time.Time{}, ErrSnoozeDateRequired
 		}
 		snoozedUntil := normalizeDateUTC(*parsed)
 		if !snoozedUntil.After(normalizeDateUTC(pkg.NowInSystemTimezone())) {
-			return time.Time{}, errors.New("snooze date must be in the future")
+			return time.Time{}, ErrSnoozeDateMustBeFuture
 		}
 		return snoozedUntil, nil
 	}

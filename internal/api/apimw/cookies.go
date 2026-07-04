@@ -1,4 +1,4 @@
-package api
+package apimw
 
 import (
 	"net/http"
@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	refreshTokenCookieName = "refresh_token"
-	authRefreshPath        = "/api/auth/refresh"
+	RefreshTokenCookieName = "refresh_token"
+	AuthRefreshPath        = "/api/auth/refresh"
 
-	oidcSessionCookieName = "oidc_session"
+	OIDCSessionCookieName = "oidc_session"
 	oidcSessionCookiePath = "/api/auth/oidc/session"
 	oidcSessionCookieTTL  = 3 * time.Minute
 
@@ -21,11 +21,11 @@ const (
 	// finish endpoint so it is never sent on the ordinary login/connect session
 	// path, and vice versa. It carries the result-session id minted by the OIDC
 	// callback for a step-up flow.
-	oidcReauthSessionCookieName = "oidc_reauth_session"
+	OIDCReauthSessionCookieName = "oidc_reauth_session"
 	oidcReauthSessionCookiePath = "/api/reauth/oidc"
 )
 
-func setRefreshTokenCookie(c echo.Context, token string) {
+func SetRefreshTokenCookie(c echo.Context, token string) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return
@@ -34,9 +34,9 @@ func setRefreshTokenCookie(c echo.Context, token string) {
 	ttl := pkg.GetRefreshTokenTTL()
 	// #nosec G124 -- Secure is set for HTTPS/TLS and intentionally remains false on local HTTP development.
 	c.SetCookie(&http.Cookie{
-		Name:     refreshTokenCookieName,
+		Name:     RefreshTokenCookieName,
 		Value:    token,
-		Path:     authRefreshPath,
+		Path:     AuthRefreshPath,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   shouldUseSecureCookies(c),
@@ -45,11 +45,11 @@ func setRefreshTokenCookie(c echo.Context, token string) {
 	})
 }
 
-func clearRefreshTokenCookie(c echo.Context) {
-	clearCookie(c, refreshTokenCookieName, authRefreshPath)
+func ClearRefreshTokenCookie(c echo.Context) {
+	clearCookie(c, RefreshTokenCookieName, AuthRefreshPath)
 }
 
-func setOIDCSessionCookie(c echo.Context, sessionID string) {
+func SetOIDCSessionCookie(c echo.Context, sessionID string) {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return
@@ -57,7 +57,7 @@ func setOIDCSessionCookie(c echo.Context, sessionID string) {
 
 	// #nosec G124 -- Secure is set for HTTPS/TLS and intentionally remains false on local HTTP development.
 	c.SetCookie(&http.Cookie{
-		Name:     oidcSessionCookieName,
+		Name:     OIDCSessionCookieName,
 		Value:    sessionID,
 		Path:     oidcSessionCookiePath,
 		HttpOnly: true,
@@ -68,11 +68,11 @@ func setOIDCSessionCookie(c echo.Context, sessionID string) {
 	})
 }
 
-func clearOIDCSessionCookie(c echo.Context) {
-	clearCookie(c, oidcSessionCookieName, oidcSessionCookiePath)
+func ClearOIDCSessionCookie(c echo.Context) {
+	clearCookie(c, OIDCSessionCookieName, oidcSessionCookiePath)
 }
 
-func setOIDCReauthSessionCookie(c echo.Context, sessionID string) {
+func SetOIDCReauthSessionCookie(c echo.Context, sessionID string) {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return
@@ -80,7 +80,7 @@ func setOIDCReauthSessionCookie(c echo.Context, sessionID string) {
 
 	// #nosec G124 -- Secure is set for HTTPS/TLS and intentionally remains false on local HTTP development.
 	c.SetCookie(&http.Cookie{
-		Name:     oidcReauthSessionCookieName,
+		Name:     OIDCReauthSessionCookieName,
 		Value:    sessionID,
 		Path:     oidcReauthSessionCookiePath,
 		HttpOnly: true,
@@ -91,11 +91,11 @@ func setOIDCReauthSessionCookie(c echo.Context, sessionID string) {
 	})
 }
 
-func clearOIDCReauthSessionCookie(c echo.Context) {
-	clearCookie(c, oidcReauthSessionCookieName, oidcReauthSessionCookiePath)
+func ClearOIDCReauthSessionCookie(c echo.Context) {
+	clearCookie(c, OIDCReauthSessionCookieName, oidcReauthSessionCookiePath)
 }
 
-func getCookieValue(c echo.Context, name string) string {
+func GetCookieValue(c echo.Context, name string) string {
 	cookie, err := c.Cookie(name)
 	if err != nil {
 		return ""

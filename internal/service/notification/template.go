@@ -54,7 +54,7 @@ func (s *NotificationTemplateService) GetTemplate(userID, templateID uint) (*mod
 	var tmpl model.NotificationTemplate
 	if err := s.DB.Where("id = ? AND user_id = ?", templateID, userID).First(&tmpl).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("template not found")
+			return nil, ErrTemplateNotFound
 		}
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (s *NotificationTemplateService) CreateTemplate(userID uint, input CreateTe
 	if input.ChannelType != nil {
 		channelType := strings.ToLower(strings.TrimSpace(*input.ChannelType))
 		if !isValidChannelType(channelType) {
-			return nil, errors.New("invalid channel type")
+			return nil, ErrInvalidChannelTypeForTemplate
 		}
 		input.ChannelType = &channelType
 	}
@@ -90,9 +90,9 @@ func (s *NotificationTemplateService) CreateTemplate(userID uint, input CreateTe
 	query.Count(&count)
 	if count > 0 {
 		if input.ChannelType == nil {
-			return nil, errors.New("default template already exists")
+			return nil, ErrDefaultTemplateExists
 		}
-		return nil, errors.New("template for this channel type already exists")
+		return nil, ErrChannelTemplateExists
 	}
 
 	tmpl := model.NotificationTemplate{
@@ -114,7 +114,7 @@ func (s *NotificationTemplateService) UpdateTemplate(userID, templateID uint, in
 	var tmpl model.NotificationTemplate
 	if err := s.DB.Where("id = ? AND user_id = ?", templateID, userID).First(&tmpl).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("template not found")
+			return nil, ErrTemplateNotFound
 		}
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (s *NotificationTemplateService) DeleteTemplate(userID, templateID uint) er
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("template not found")
+		return ErrTemplateNotFound
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func (s *NotificationTemplateService) GetTemplateForChannel(userID uint, channel
 	err = s.DB.Where("user_id = ? AND channel_type IS NULL", userID).First(&tmpl).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("no template configured (default or channel-specific)")
+			return nil, ErrNoTemplateForChannel
 		}
 		return nil, err
 	}
@@ -217,7 +217,11 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", err
 		}
-		return renderer.RenderTemplate(input.Template, templateData)
+		preview, renderErr := renderer.RenderTemplate(input.Template, templateData)
+		if renderErr != nil {
+			return "", notificationUserFixableError(renderErr)
+		}
+		return preview, nil
 	}
 
 	candidate := subscriptionservice.ReminderCandidateFromPreviewSubscription(sub, pkg.Now(), templateData.DaysUntil)
@@ -253,5 +257,9 @@ func (s *NotificationTemplateService) PreviewTemplate(userID uint, input CreateT
 		templateData.UserEmail = user.Email
 	}
 
-	return renderer.RenderTemplate(input.Template, templateData)
+	preview, err := renderer.RenderTemplate(input.Template, templateData)
+	if err != nil {
+		return "", notificationUserFixableError(err)
+	}
+	return preview, nil
 }

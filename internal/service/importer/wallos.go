@@ -2,7 +2,6 @@ package importer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
@@ -104,7 +104,7 @@ type WallosImportResponse struct {
 
 const maxWallosImportItems = 5000
 
-var ErrWallosImportTooLarge = errors.New("wallos import file is too large")
+var ErrWallosImportTooLarge = serviceerr.New(serviceerr.KindInvalid, "wallos import file is too large")
 
 // currencySymbols maps currency symbols to candidate currency codes.
 // Ambiguous symbols (e.g. ¥ for JPY/CNY, $ for USD/CAD/AUD) list multiple candidates;
