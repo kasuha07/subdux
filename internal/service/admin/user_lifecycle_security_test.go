@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"errors"
@@ -65,7 +65,7 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 	_ = createLifecycleSecurityUser(t, db, "admin", "admin@example.com")
 	target := createLifecycleSecurityUser(t, db, "disabled-user", "disabled@example.com")
 
-	adminService := NewAdminService(db)
+	adminService := NewService(db)
 	authService := serviceauth.NewService(db)
 	apiKeyService := apikeyservice.NewService(db)
 	calendarService := calendarservice.NewService(db)
@@ -135,7 +135,7 @@ func TestAdminCanDisableRegularUserCredentialFactors(t *testing.T) {
 		t.Fatalf("failed to create passkey: %v", err)
 	}
 
-	adminService := NewAdminService(db)
+	adminService := NewService(db)
 	if err := adminService.DisableUserTOTP(target.ID); err != nil {
 		t.Fatalf("DisableUserTOTP() error = %v", err)
 	}
@@ -190,7 +190,7 @@ func TestAdminCannotDisableAdminCredentialFactors(t *testing.T) {
 		t.Fatalf("failed to create passkey: %v", err)
 	}
 
-	adminService := NewAdminService(db)
+	adminService := NewService(db)
 	if err := adminService.DisableUserTOTP(target.ID); !errors.Is(err, ErrAdminCredentialResetForbidden) {
 		t.Fatalf("DisableUserTOTP() error = %v, want %v", err, ErrAdminCredentialResetForbidden)
 	}
@@ -232,7 +232,7 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 	_ = createLifecycleSecurityUser(t, db, "admin", "admin@example.com")
 	target := createLifecycleSecurityUser(t, db, "delete-user", "delete-user@example.com")
 
-	adminService := NewAdminService(db)
+	adminService := NewService(db)
 	authService := serviceauth.NewService(db)
 	apiKeyService := apikeyservice.NewService(db)
 	calendarService := calendarservice.NewService(db)

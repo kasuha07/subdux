@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ func TestUpdateSettingsEmailDomainWhitelistNormalization(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	svc := NewAdminService(db)
+	svc := NewService(db)
 	input := " @Example.com.;foo.com\nexample.com;sub.example.com "
 	if err := svc.UpdateSettings(UpdateSettingsInput{
 		EmailDomainWhitelist: &input,
@@ -39,7 +39,7 @@ func TestUpdateSettingsEmailDomainWhitelistValidationError(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	svc := NewAdminService(db)
+	svc := NewService(db)
 	input := "http://example.com"
 	err := svc.UpdateSettings(UpdateSettingsInput{
 		EmailDomainWhitelist: &input,

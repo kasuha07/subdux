@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kasuha07/subdux/internal/service"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 )
 
@@ -19,7 +18,7 @@ func TestIsIconUploadBadRequestError(t *testing.T) {
 		{err: serviceutil.ErrIconUploadUnsupportedType, want: true},
 		{err: serviceutil.ErrIconUploadContentMismatch, want: true},
 		{err: serviceutil.ErrIconUploadInvalidICO, want: true},
-		{err: service.ErrImageUploadDisabled, want: false},
+		{err: serviceutil.ErrImageUploadDisabled, want: false},
 		{err: errors.New("failed to save icon file"), want: false},
 	}
 
@@ -31,8 +30,8 @@ func TestIsIconUploadBadRequestError(t *testing.T) {
 }
 
 func TestIsIconUploadForbiddenError(t *testing.T) {
-	if !isIconUploadForbiddenError(service.ErrImageUploadDisabled) {
-		t.Fatalf("isIconUploadForbiddenError(%v) = false, want true", service.ErrImageUploadDisabled)
+	if !isIconUploadForbiddenError(serviceutil.ErrImageUploadDisabled) {
+		t.Fatalf("isIconUploadForbiddenError(%v) = false, want true", serviceutil.ErrImageUploadDisabled)
 	}
 	if isIconUploadForbiddenError(serviceutil.ErrIconUploadUnsupportedType) {
 		t.Fatalf("isIconUploadForbiddenError(%v) = true, want false", serviceutil.ErrIconUploadUnsupportedType)

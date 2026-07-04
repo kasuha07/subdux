@@ -1,4 +1,4 @@
-package service
+package catalog_test
 
 import (
 	"context"
@@ -94,28 +94,5 @@ func TestWithContextPreservesParentHandle(t *testing.T) {
 	// The parent service must still operate on a live handle.
 	if _, err := svc.WithContext(context.Background()).List(uint(1)); err != nil {
 		t.Fatalf("parent service handle was disturbed by clone: %v", err)
-	}
-}
-
-// TestWithContextSharesStatefulCache confirms that a context-bound clone of a
-// service that owns in-memory state (ExchangeRateService's rate cache) shares
-// that state with its parent rather than copying it. Otherwise a cache warmed
-// on one request would be invisible to the next.
-func TestWithContextSharesStatefulCache(t *testing.T) {
-	db := newContextCancellationTestDB(t)
-	parent := NewExchangeRateService(db)
-
-	clone := parent.WithContext(context.Background())
-	if clone.cache != parent.cache {
-		t.Fatal("WithContext duplicated the rate cache; clone must share the parent's *rateCache")
-	}
-
-	// A write through the clone's cache is visible through the parent.
-	clone.cache.mu.Lock()
-	clone.cache.rates[rateCacheKey("EUR")] = 0.9
-	clone.cache.mu.Unlock()
-
-	if got := parent.Convert(100, "USD", "EUR"); got != 90 {
-		t.Fatalf("parent.Convert via shared cache = %v, want 90", got)
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -16,10 +16,10 @@ import (
 
 type SubscriptionHandler struct {
 	Service   *subscriptionservice.Service
-	ERService *service.ExchangeRateService
+	ERService *exchangerate.Service
 }
 
-func NewSubscriptionHandler(s *subscriptionservice.Service, er *service.ExchangeRateService) *SubscriptionHandler {
+func NewSubscriptionHandler(s *subscriptionservice.Service, er *exchangerate.Service) *SubscriptionHandler {
 	return &SubscriptionHandler{Service: s, ERService: er}
 }
 

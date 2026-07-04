@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"context"
@@ -7,12 +7,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type AdminService struct {
+type Service struct {
 	DB *gorm.DB
 }
 
-func NewAdminService(db *gorm.DB) *AdminService {
-	return &AdminService{DB: db}
+func NewService(db *gorm.DB) *Service {
+	return &Service{DB: db}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	clone := *s
+	if s.DB != nil {
+		clone.DB = s.DB.WithContext(ctx)
+	}
+	return &clone
 }
 
 type ChangeRoleInput struct {
@@ -176,7 +184,7 @@ type CreateUserInput struct {
 	Role     string `json:"role"`
 }
 
-func (s *AdminService) TestSSRF(input SSRFTestInput) (*SSRFTestResult, error) {
+func (s *Service) TestSSRF(input SSRFTestInput) (*SSRFTestResult, error) {
 	requestContext := context.Background()
 	if s != nil && s.DB != nil && s.DB.Statement != nil && s.DB.Statement.Context != nil {
 		requestContext = s.DB.Statement.Context

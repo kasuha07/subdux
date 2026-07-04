@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
@@ -29,7 +29,7 @@ type MCPHandler struct {
 	audit          *auditservice.Service
 	idempotency    *idempotencyservice.Service
 	subscriptions  *subscriptionservice.Service
-	exchangeRates  *service.ExchangeRateService
+	exchangeRates  *exchangerate.Service
 	currencies     *catalogservice.CurrencyService
 	categories     *catalogservice.CategoryService
 	paymentMethods *catalogservice.PaymentMethodService
@@ -41,7 +41,7 @@ func NewMCPHandler(
 	apiKeys *apikeyservice.Service,
 	audit *auditservice.Service,
 	subscriptions *subscriptionservice.Service,
-	exchangeRates *service.ExchangeRateService,
+	exchangeRates *exchangerate.Service,
 	currencies *catalogservice.CurrencyService,
 	categories *catalogservice.CategoryService,
 	paymentMethods *catalogservice.PaymentMethodService,

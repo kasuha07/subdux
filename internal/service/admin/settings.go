@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
+	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
@@ -27,7 +28,7 @@ func defaultAdminSystemSettings() *SystemSettings {
 		AllowImageUpload:                     true,
 		MaxIconFileSize:                      65536,
 		IconProxyEnabled:                     true,
-		IconProxyDomainWhitelist:             defaultIconProxyDomainWhitelist,
+		IconProxyDomainWhitelist:             iconproxy.DefaultDomainWhitelist,
 		MCPEnabled:                           false,
 		AuditEnabled:                         true,
 		SystemProxyEnabled:                   false,
@@ -82,7 +83,7 @@ func defaultAdminSystemSettings() *SystemSettings {
 	}
 }
 
-func (s *AdminService) GetSettings() (*SystemSettings, error) {
+func (s *Service) GetSettings() (*SystemSettings, error) {
 	settings := defaultAdminSystemSettings()
 
 	var items []model.SystemSetting
@@ -246,7 +247,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 	return settings, nil
 }
 
-func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
+func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if input.RegistrationEnabled != nil {
 			if err := saveBoolSystemSetting(tx, "registration_enabled", *input.RegistrationEnabled); err != nil {
@@ -313,7 +314,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.IconProxyDomainWhitelist != nil {
-			normalized, err := normalizeIconProxyDomainWhitelist(*input.IconProxyDomainWhitelist)
+			normalized, err := iconproxy.NormalizeDomainWhitelist(*input.IconProxyDomainWhitelist)
 			if err != nil {
 				return err
 			}

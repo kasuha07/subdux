@@ -1,4 +1,4 @@
-package service
+package exporter
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/servicetest"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +42,7 @@ func newExportTestDB(t *testing.T) *gorm.DB {
 
 func TestExportUserDataRedactsNotificationSecretsByDefault(t *testing.T) {
 	db := newExportTestDB(t)
-	user := createTestUser(t, db)
+	user := servicetest.CreateUser(t, db)
 	secretConfig := `{"url":"https://example.com/hook","secret":"webhook-secret","headers":{"X-Token":"header-secret"}}`
 	encryptedConfig, err := pkg.EncryptNotificationChannelConfig(secretConfig)
 	if err != nil {
@@ -56,7 +57,7 @@ func TestExportUserDataRedactsNotificationSecretsByDefault(t *testing.T) {
 		t.Fatalf("failed to create channel: %v", err)
 	}
 
-	data, err := NewExportService(db).ExportUserData(user.ID, false)
+	data, err := NewService(db).ExportUserData(user.ID, false)
 	if err != nil {
 		t.Fatalf("ExportUserData() error = %v", err)
 	}
@@ -88,7 +89,7 @@ func TestExportUserDataRedactsNotificationSecretsByDefault(t *testing.T) {
 
 func TestExportUserDataCanIncludeNotificationSecrets(t *testing.T) {
 	db := newExportTestDB(t)
-	user := createTestUser(t, db)
+	user := servicetest.CreateUser(t, db)
 	secretConfig := `{"api_key":"resend-secret","from_email":"from@example.com","to_email":"to@example.com"}`
 	encryptedConfig, err := pkg.EncryptNotificationChannelConfig(secretConfig)
 	if err != nil {
@@ -103,7 +104,7 @@ func TestExportUserDataCanIncludeNotificationSecrets(t *testing.T) {
 		t.Fatalf("failed to create channel: %v", err)
 	}
 
-	data, err := NewExportService(db).ExportUserData(user.ID, true)
+	data, err := NewService(db).ExportUserData(user.ID, true)
 	if err != nil {
 		t.Fatalf("ExportUserData() error = %v", err)
 	}

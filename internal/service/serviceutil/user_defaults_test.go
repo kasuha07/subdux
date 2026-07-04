@@ -1,4 +1,4 @@
-package service
+package serviceutil_test
 
 import (
 	"path/filepath"

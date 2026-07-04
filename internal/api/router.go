@@ -11,13 +11,17 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
-	"github.com/kasuha07/subdux/internal/service"
+	adminservice "github.com/kasuha07/subdux/internal/service/admin"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	authreauth "github.com/kasuha07/subdux/internal/service/authreauth"
 	calendarservice "github.com/kasuha07/subdux/internal/service/calendar"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
+	exporter "github.com/kasuha07/subdux/internal/service/exporter"
+	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
+	importer "github.com/kasuha07/subdux/internal/service/importer"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
@@ -130,16 +134,16 @@ func SetupRoutes(
 	e *echo.Echo,
 	db *gorm.DB,
 	taskMonitor *serviceutil.BackgroundTaskMonitor,
-) (*service.ExchangeRateService, *notificationservice.Service) {
+) (*exchangerate.Service, *notificationservice.Service) {
 	authService := serviceauth.NewService(db)
 	authService.StartSessionCleanupLoop(ctx)
 	totpService := serviceauth.NewTOTPService(db)
 	subService := subscriptionservice.NewService(db)
-	adminService := service.NewAdminService(db)
+	adminService := adminservice.NewService(db)
 	reauthService := servicereauth.NewService(db, authreauth.Adapt(authService))
 	systemSettingsService := systemsettings.NewService(db)
-	iconProxyService := service.NewIconProxyService(db)
-	erService := service.NewExchangeRateService(db)
+	iconProxyService := iconproxy.NewService(db)
+	erService := exchangerate.NewService(db)
 	currencyService := catalogservice.NewCurrencyService(db)
 	categoryService := catalogservice.NewCategoryService(db)
 	paymentMethodService := catalogservice.NewPaymentMethodService(db)
@@ -150,8 +154,8 @@ func SetupRoutes(
 	apiKeyService := apikeyservice.NewService(db)
 	auditService := auditservice.NewService(db)
 	calendarService := calendarservice.NewService(db)
-	exportService := service.NewExportService(db)
-	importService := service.NewImportService(db)
+	exportService := exporter.NewService(db)
+	importService := importer.NewService(db)
 	if err := systemSettingsService.SeedDefaults(); err != nil {
 		logging.Error("failed to seed default system settings", slog.Any("error", err))
 	}

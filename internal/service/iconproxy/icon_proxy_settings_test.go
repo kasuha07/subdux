@@ -1,4 +1,4 @@
-package service
+package iconproxy
 
 import (
 	"context"
@@ -6,55 +6,54 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	"gorm.io/gorm"
 )
 
-func TestUpdateSettingsIconProxyDomainWhitelistNormalization(t *testing.T) {
-	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
-		t.Fatalf("failed to migrate system settings table: %v", err)
-	}
+type testRoundTripper func(*http.Request) (*http.Response, error)
 
-	svc := NewAdminService(db)
-	input := " icon.horse ;WWW.Google.com\ngoogle.com "
-	if err := svc.UpdateSettings(UpdateSettingsInput{
-		IconProxyDomainWhitelist: &input,
-	}); err != nil {
-		t.Fatalf("UpdateSettings() error = %v", err)
-	}
+func (fn testRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
 
-	settings, err := svc.GetSettings()
+func newTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	dbPath := filepath.Join(t.TempDir(), "subdux-iconproxy-test.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
-		t.Fatalf("GetSettings() error = %v", err)
+		t.Fatalf("failed to open test database: %v", err)
+	}
+	return db
+}
+
+func TestNormalizeDomainWhitelistSortsAndDeduplicates(t *testing.T) {
+	input := " icon.horse ;WWW.Google.com\ngoogle.com "
+	got, err := NormalizeDomainWhitelist(input)
+	if err != nil {
+		t.Fatalf("NormalizeDomainWhitelist() error = %v", err)
 	}
 
 	want := "google.com\nicon.horse\nwww.google.com"
-	if settings.IconProxyDomainWhitelist != want {
-		t.Fatalf("IconProxyDomainWhitelist = %q, want %q", settings.IconProxyDomainWhitelist, want)
+	if got != want {
+		t.Fatalf("NormalizeDomainWhitelist() = %q, want %q", got, want)
 	}
 }
 
-func TestUpdateSettingsIconProxyDomainWhitelistValidationError(t *testing.T) {
-	db := newTestDB(t)
-	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
-		t.Fatalf("failed to migrate system settings table: %v", err)
-	}
-
-	svc := NewAdminService(db)
-	input := "https://www.google.com"
-	err := svc.UpdateSettings(UpdateSettingsInput{
-		IconProxyDomainWhitelist: &input,
-	})
+func TestNormalizeDomainWhitelistRejectsURL(t *testing.T) {
+	_, err := NormalizeDomainWhitelist("https://www.google.com")
 	if !errors.Is(err, ErrInvalidIconProxyDomainWhitelist) {
-		t.Fatalf("UpdateSettings() error = %v, want %v", err, ErrInvalidIconProxyDomainWhitelist)
+		t.Fatalf("NormalizeDomainWhitelist() error = %v, want %v", err, ErrInvalidIconProxyDomainWhitelist)
 	}
 }
 
-func TestIconProxyServiceResolveUsesRedirectWhenDisabled(t *testing.T) {
+func TestServiceResolveUsesRedirectWhenDisabled(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
 		t.Fatalf("failed to migrate system settings table: %v", err)
@@ -62,11 +61,11 @@ func TestIconProxyServiceResolveUsesRedirectWhenDisabled(t *testing.T) {
 	if err := db.Create(&model.SystemSetting{Key: "icon_proxy_enabled", Value: "false"}).Error; err != nil {
 		t.Fatalf("failed to seed icon_proxy_enabled: %v", err)
 	}
-	if err := db.Create(&model.SystemSetting{Key: "icon_proxy_domain_whitelist", Value: defaultIconProxyDomainWhitelist}).Error; err != nil {
+	if err := db.Create(&model.SystemSetting{Key: "icon_proxy_domain_whitelist", Value: DefaultDomainWhitelist}).Error; err != nil {
 		t.Fatalf("failed to seed icon_proxy_domain_whitelist: %v", err)
 	}
 
-	svc := NewIconProxyService(db)
+	svc := NewService(db)
 	resolution, err := svc.Resolve("google", "example.com")
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
@@ -83,7 +82,7 @@ func TestIconProxyServiceResolveUsesRedirectWhenDisabled(t *testing.T) {
 	}
 }
 
-func TestIconProxyServiceResolveRejectsDisallowedUpstreamHost(t *testing.T) {
+func TestServiceResolveRejectsDisallowedUpstreamHost(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
 		t.Fatalf("failed to migrate system settings table: %v", err)
@@ -95,7 +94,7 @@ func TestIconProxyServiceResolveRejectsDisallowedUpstreamHost(t *testing.T) {
 		t.Fatalf("failed to seed icon_proxy_domain_whitelist: %v", err)
 	}
 
-	svc := NewIconProxyService(db)
+	svc := NewService(db)
 	_, err := svc.Resolve("google", "example.com")
 	if !errors.Is(err, ErrIconProxyDomainNotAllowed) {
 		t.Fatalf("Resolve() error = %v, want %v", err, ErrIconProxyDomainNotAllowed)
@@ -103,12 +102,12 @@ func TestIconProxyServiceResolveRejectsDisallowedUpstreamHost(t *testing.T) {
 }
 
 func TestIsIconProxyDomainAllowedAllowsGoogleRedirectCompat(t *testing.T) {
-	if !isIconProxyDomainAllowed("t2.gstatic.com", "google.com\nicon.horse") {
-		t.Fatal("isIconProxyDomainAllowed() should allow *.gstatic.com when google.com is whitelisted")
+	if !IsDomainAllowed("t2.gstatic.com", "google.com\nicon.horse") {
+		t.Fatal("IsDomainAllowed() should allow *.gstatic.com when google.com is whitelisted")
 	}
 }
 
-func TestIconProxyServiceFetchStreamsWhenUpstreamAllowed(t *testing.T) {
+func TestServiceFetchStreamsWhenUpstreamAllowed(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
 		t.Fatalf("failed to migrate system settings table: %v", err)
@@ -116,7 +115,7 @@ func TestIconProxyServiceFetchStreamsWhenUpstreamAllowed(t *testing.T) {
 	if err := db.Create(&model.SystemSetting{Key: "icon_proxy_enabled", Value: "true"}).Error; err != nil {
 		t.Fatalf("failed to seed icon_proxy_enabled: %v", err)
 	}
-	if err := db.Create(&model.SystemSetting{Key: "icon_proxy_domain_whitelist", Value: defaultIconProxyDomainWhitelist}).Error; err != nil {
+	if err := db.Create(&model.SystemSetting{Key: "icon_proxy_domain_whitelist", Value: DefaultDomainWhitelist}).Error; err != nil {
 		t.Fatalf("failed to seed icon_proxy_domain_whitelist: %v", err)
 	}
 
@@ -125,9 +124,9 @@ func TestIconProxyServiceFetchStreamsWhenUpstreamAllowed(t *testing.T) {
 	})
 	defer restoreLookup()
 
-	svc := NewIconProxyService(db)
+	svc := NewService(db)
 	svc.httpClient = &http.Client{
-		Transport: notificationTestRoundTripper(func(req *http.Request) (*http.Response, error) {
+		Transport: testRoundTripper(func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header: http.Header{

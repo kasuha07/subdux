@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	importer "github.com/kasuha07/subdux/internal/service/importer"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
@@ -14,11 +14,11 @@ import (
 const maxImportRequestBodyBytes int64 = 2 * 1024 * 1024
 
 type ImportHandler struct {
-	Service *service.ImportService
+	Service *importer.Service
 	Reauth  *servicereauth.Service
 }
 
-func NewImportHandler(s *service.ImportService, reauth *servicereauth.Service) *ImportHandler {
+func NewImportHandler(s *importer.Service, reauth *servicereauth.Service) *ImportHandler {
 	return &ImportHandler{Service: s, Reauth: reauth}
 }
 
@@ -26,7 +26,7 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 	userID := getUserID(c)
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxImportRequestBodyBytes)
 
-	var req service.WallosImportRequest
+	var req importer.WallosImportRequest
 	if err := c.Bind(&req); err != nil {
 		if strings.Contains(err.Error(), "request body too large") {
 			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{"error": "import file is too large"})
@@ -48,7 +48,7 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 
 	result, err := h.Service.WithContext(c.Request().Context()).ImportFromWallos(userID, req.Data, req.Confirm)
 	if err != nil {
-		if errors.Is(err, service.ErrWallosImportTooLarge) {
+		if errors.Is(err, importer.ErrWallosImportTooLarge) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -61,7 +61,7 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 	userID := getUserID(c)
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxImportRequestBodyBytes)
 
-	var req service.SubduxImportRequest
+	var req importer.SubduxImportRequest
 	if err := c.Bind(&req); err != nil {
 		if strings.Contains(err.Error(), "request body too large") {
 			return c.JSON(http.StatusRequestEntityTooLarge, echo.Map{"error": "import file is too large"})
@@ -80,7 +80,7 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 
 	result, err := h.Service.WithContext(c.Request().Context()).ImportFromSubdux(userID, req.Data, req.Confirm)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidSubduxImportFormat) || errors.Is(err, service.ErrSubduxImportTooLarge) {
+		if errors.Is(err, importer.ErrInvalidSubduxImportFormat) || errors.Is(err, importer.ErrSubduxImportTooLarge) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)

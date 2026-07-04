@@ -4,15 +4,15 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/kasuha07/subdux/internal/service"
+	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	"github.com/labstack/echo/v4"
 )
 
 type IconProxyHandler struct {
-	Service *service.IconProxyService
+	Service *iconproxy.Service
 }
 
-func NewIconProxyHandler(s *service.IconProxyService) *IconProxyHandler {
+func NewIconProxyHandler(s *iconproxy.Service) *IconProxyHandler {
 	return &IconProxyHandler{Service: s}
 }
 
@@ -21,9 +21,9 @@ func (h *IconProxyHandler) Get(c echo.Context) error {
 	resolution, err := svc.Resolve(c.Param("provider"), c.QueryParam("domain"))
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidIconProxyProvider), errors.Is(err, service.ErrInvalidIconProxyTargetDomain):
+		case errors.Is(err, iconproxy.ErrInvalidIconProxyProvider), errors.Is(err, iconproxy.ErrInvalidIconProxyTargetDomain):
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		case errors.Is(err, service.ErrIconProxyDomainNotAllowed):
+		case errors.Is(err, iconproxy.ErrIconProxyDomainNotAllowed):
 			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
 		default:
 			return writeInternalServerError(c, err)
@@ -36,8 +36,8 @@ func (h *IconProxyHandler) Get(c echo.Context) error {
 
 	resp, err := svc.Fetch(c.Request().Context(), resolution)
 	if err != nil {
-		if errors.Is(err, service.ErrIconProxyDomainNotAllowed) ||
-			errors.Is(err, service.ErrInvalidIconProxyTargetDomain) {
+		if errors.Is(err, iconproxy.ErrIconProxyDomainNotAllowed) ||
+			errors.Is(err, iconproxy.ErrInvalidIconProxyTargetDomain) {
 			return c.JSON(http.StatusForbidden, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusBadGateway, echo.Map{"error": "failed to fetch icon"})

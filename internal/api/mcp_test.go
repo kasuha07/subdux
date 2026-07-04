@@ -15,10 +15,10 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
@@ -74,7 +74,7 @@ func newMCPTestHandler(db *gorm.DB) *MCPHandler {
 		apikeyservice.NewService(db),
 		auditservice.NewService(db),
 		subscriptionservice.NewService(db),
-		service.NewExchangeRateService(db),
+		exchangerate.NewService(db),
 		catalogservice.NewCurrencyService(db),
 		catalogservice.NewCategoryService(db),
 		catalogservice.NewPaymentMethodService(db),

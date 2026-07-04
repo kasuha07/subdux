@@ -1,4 +1,4 @@
-package service
+package exchangerate
 
 import (
 	"io"
@@ -11,7 +11,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 )
 
-func TestExchangeRateServiceDerivesConversionsFromUSDBaseRates(t *testing.T) {
+func TestServiceDerivesConversionsFromUSDBaseRates(t *testing.T) {
 	db := newTestDB(t)
 	if err := db.AutoMigrate(&model.ExchangeRate{}); err != nil {
 		t.Fatalf("failed to migrate exchange rate table: %v", err)
@@ -25,7 +25,7 @@ func TestExchangeRateServiceDerivesConversionsFromUSDBaseRates(t *testing.T) {
 		t.Fatalf("failed to seed USD exchange rates: %v", err)
 	}
 
-	svc := NewExchangeRateService(db)
+	svc := NewService(db)
 
 	if got := svc.Convert(10, "EUR", "CNY"); got != 90 {
 		t.Fatalf("Convert(EUR->CNY) = %v, want 90", got)
@@ -55,7 +55,7 @@ func TestListRatesReturnsStoredUSDTargetRates(t *testing.T) {
 		t.Fatalf("failed to seed USD exchange rates: %v", err)
 	}
 
-	svc := NewExchangeRateService(db)
+	svc := NewService(db)
 	rates, err := svc.ListRates()
 	if err != nil {
 		t.Fatalf("ListRates() error = %v", err)
@@ -90,7 +90,7 @@ func TestRefreshRatesStoresOnlyUSDBaseRates(t *testing.T) {
 		commonCurrencies = originalCurrencies
 	}()
 
-	svc := NewExchangeRateService(db)
+	svc := NewService(db)
 	svc.httpClient = &http.Client{Transport: exchangeRateTestRoundTripper(func(req *http.Request) (*http.Response, error) {
 		if got := req.URL.Query().Get("base_currency"); got != "USD" {
 			t.Fatalf("base_currency query = %q, want USD", got)

@@ -1,4 +1,4 @@
-package service
+package importer
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/servicetest"
 	"gorm.io/gorm"
 )
 
@@ -100,8 +101,8 @@ func sampleSubduxImportData() SubduxImportData {
 
 func TestImportFromSubduxPreviewDoesNotWrite(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	resp, err := svc.ImportFromSubdux(user.ID, sampleSubduxImportData(), false)
 	if err != nil {
@@ -148,8 +149,8 @@ func TestImportFromSubduxPreviewDoesNotWrite(t *testing.T) {
 
 func TestImportFromSubduxConfirmImportsAndUpdates(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	if err := db.Create(&model.UserPreference{UserID: user.ID, PreferredCurrency: "EUR"}).Error; err != nil {
 		t.Fatalf("failed to seed preference: %v", err)
@@ -213,8 +214,8 @@ func TestImportFromSubduxConfirmImportsAndUpdates(t *testing.T) {
 
 func TestImportFromSubduxReimportIsIdempotent(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 	data := sampleSubduxImportData()
 
 	if _, err := svc.ImportFromSubdux(user.ID, data, true); err != nil {
@@ -258,8 +259,8 @@ func TestImportFromSubduxReimportIsIdempotent(t *testing.T) {
 
 func TestImportFromSubduxInvalidFormat(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	_, err := svc.ImportFromSubdux(user.ID, SubduxImportData{}, false)
 	if !errors.Is(err, ErrInvalidSubduxImportFormat) {
@@ -269,8 +270,8 @@ func TestImportFromSubduxInvalidFormat(t *testing.T) {
 
 func TestImportFromSubduxTooLarge(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	data := SubduxImportData{
 		Currencies:     make([]model.UserCurrency, maxSubduxImportItemsPerCollection+1),
@@ -287,8 +288,8 @@ func TestImportFromSubduxTooLarge(t *testing.T) {
 
 func TestImportFromSubduxSkipsInvalidChannelType(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	data := sampleSubduxImportData()
 	data.Notifications.Channels = append(data.Notifications.Channels, model.NotificationChannel{
@@ -318,8 +319,8 @@ func TestImportFromSubduxSkipsInvalidChannelType(t *testing.T) {
 
 func TestImportFromSubduxChannelCanonicalIdempotent(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	if err := db.Create(&model.NotificationChannel{
 		UserID:  user.ID,
@@ -361,8 +362,8 @@ func TestImportFromSubduxChannelCanonicalIdempotent(t *testing.T) {
 
 func TestImportFromSubduxSkipsRedactedNotificationChannels(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	data := sampleSubduxImportData()
 	secretsIncluded := false
@@ -408,8 +409,8 @@ func TestImportFromSubduxSkipsRedactedNotificationChannels(t *testing.T) {
 
 func TestImportFromSubduxLegacyExportWithoutSecretsMarkerStillValidatesChannels(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	data := sampleSubduxImportData()
 	data.SecretsIncluded = nil
@@ -443,8 +444,8 @@ func TestImportFromSubduxLegacyExportWithoutSecretsMarkerStillValidatesChannels(
 
 func TestImportFromWallosTooLarge(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	data := make([]WallosSubscription, maxWallosImportItems+1)
 	_, err := svc.ImportFromWallos(user.ID, data, false)

@@ -1,4 +1,4 @@
-package service
+package iconproxy
 
 import (
 	"errors"
@@ -9,14 +9,14 @@ import (
 	"github.com/kasuha07/subdux/internal/service/settings"
 )
 
-const defaultIconProxyDomainWhitelist = settings.DefaultIconProxyDomainWhitelist
+const DefaultDomainWhitelist = settings.DefaultIconProxyDomainWhitelist
 
 var (
 	ErrInvalidIconProxyDomainWhitelist = errors.New("invalid icon proxy domain whitelist")
 	ErrIconProxyDomainWhitelistTooLong = errors.New("icon proxy domain whitelist is too long")
 )
 
-func normalizeIconProxyDomainWhitelist(raw string) (string, error) {
+func NormalizeDomainWhitelist(raw string) (string, error) {
 	domains, err := parseIconProxyDomainWhitelist(raw)
 	if err != nil {
 		return "", err
@@ -88,7 +88,7 @@ func normalizeIconProxyDomain(raw string) (string, error) {
 	return domain, nil
 }
 
-func isIconProxyDomainAllowed(hostname string, whitelist string) bool {
+func IsDomainAllowed(hostname string, whitelist string) bool {
 	allowedDomains, err := parseIconProxyDomainWhitelist(whitelist)
 	if err != nil || len(allowedDomains) == 0 {
 		return false

@@ -12,7 +12,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	adminservice "github.com/kasuha07/subdux/internal/service/admin"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -41,7 +41,7 @@ func TestUpdateSettingsRejectsInvalidEmailDomainWhitelist(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.UpdateSettings(c); err != nil {
 		t.Fatalf("UpdateSettings() returned error: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestUpdateSettingsRejectsTooLongEmailDomainWhitelist(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.UpdateSettings(c); err != nil {
 		t.Fatalf("UpdateSettings() returned error: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestUpdateSettingsRejectsInvalidIconProxyDomainWhitelist(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.UpdateSettings(c); err != nil {
 		t.Fatalf("UpdateSettings() returned error: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestUpdateSettingsRejectsInvalidSSRFFilterMode(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.UpdateSettings(c); err != nil {
 		t.Fatalf("UpdateSettings() returned error: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestUpdateSettingsRejectsInvalidSSRFIPFilterList(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.UpdateSettings(c); err != nil {
 		t.Fatalf("UpdateSettings() returned error: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestAdminHandlerTestSSRFReturnsPolicyResult(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.TestSSRF(c); err != nil {
 		t.Fatalf("TestSSRF() returned error: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestAdminHandlerTestSSRFReturnsPolicyResult(t *testing.T) {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
 
-	var result service.SSRFTestResult
+	var result adminservice.SSRFTestResult
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestAdminHandlerTestSSRFRejectsInvalidTarget(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.TestSSRF(c); err != nil {
 		t.Fatalf("TestSSRF() returned error: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestUpdateSettingsRejectsTooLongIconProxyDomainWhitelist(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	db := newAdminSettingsTestDB(t)
-	handler := &AdminHandler{Service: service.NewAdminService(db)}
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
 	if err := handler.UpdateSettings(c); err != nil {
 		t.Fatalf("UpdateSettings() returned error: %v", err)
 	}

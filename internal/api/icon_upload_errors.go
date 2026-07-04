@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 
-	"github.com/kasuha07/subdux/internal/service"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 )
 
@@ -27,5 +26,5 @@ func isIconUploadBadRequestError(err error) bool {
 }
 
 func isIconUploadForbiddenError(err error) bool {
-	return errors.Is(err, service.ErrImageUploadDisabled)
+	return errors.Is(err, serviceutil.ErrImageUploadDisabled)
 }

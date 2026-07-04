@@ -1,4 +1,4 @@
-package service
+package exchangerate
 
 import (
 	"io"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
-	"gorm.io/gorm"
 )
 
 type exchangeRateTestRoundTripper func(*http.Request) (*http.Response, error)
@@ -39,7 +38,7 @@ func TestRefreshRatesDecryptsEncryptedCurrencyAPIKey(t *testing.T) {
 	}()
 
 	callCount := 0
-	svc := NewExchangeRateService(db)
+	svc := NewService(db)
 	svc.httpClient = &http.Client{Transport: exchangeRateTestRoundTripper(func(req *http.Request) (*http.Response, error) {
 		callCount++
 		if got := req.Header.Get("apikey"); got != "secret-api-key" {
@@ -78,7 +77,7 @@ func TestRefreshRatesMigratesLegacyPlaintextCurrencyAPIKey(t *testing.T) {
 		commonCurrencies = originalCurrencies
 	}()
 
-	svc := NewExchangeRateService(db)
+	svc := NewService(db)
 	svc.httpClient = &http.Client{Transport: exchangeRateTestRoundTripper(func(req *http.Request) (*http.Response, error) {
 		if got := req.Header.Get("apikey"); got != "legacy-secret" {
 			t.Fatalf("apikey header = %q, want %q", got, "legacy-secret")
@@ -104,14 +103,5 @@ func TestRefreshRatesMigratesLegacyPlaintextCurrencyAPIKey(t *testing.T) {
 	}
 	if !strings.HasPrefix(stored.Value, "enc:v1:") {
 		t.Fatalf("currencyapi_key value = %q, want encrypted prefix", stored.Value)
-	}
-}
-
-func seedSystemSetting(t *testing.T, db *gorm.DB, key string, value string) {
-	t.Helper()
-	if err := db.Where("key = ?", key).
-		Assign(model.SystemSetting{Value: value}).
-		FirstOrCreate(&model.SystemSetting{Key: key}).Error; err != nil {
-		t.Fatalf("failed to seed setting %q: %v", key, err)
 	}
 }

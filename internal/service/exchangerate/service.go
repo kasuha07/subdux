@@ -1,4 +1,4 @@
-package service
+package exchangerate
 
 import (
 	"context"
@@ -36,18 +36,18 @@ func newRateCache() *rateCache {
 	return &rateCache{rates: make(map[string]float64)}
 }
 
-type ExchangeRateService struct {
+type Service struct {
 	DB         *gorm.DB
 	httpClient *http.Client
 	cache      *rateCache
 }
 
-func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
+func NewService(db *gorm.DB) *Service {
 	client, err := serviceoutbound.BuildHTTPClientWithTimeout(context.Background(), db, serviceoutbound.PurposeExchangeRate, 30*time.Second)
 	if err != nil {
 		client = serviceoutbound.NewOutboundHTTPClient(db, 30*time.Second)
 	}
-	s := &ExchangeRateService{
+	s := &Service{
 		DB:         db,
 		httpClient: client,
 		cache:      newRateCache(),
@@ -60,7 +60,7 @@ func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 // bound to ctx, so GORM cancels in-flight queries when ctx is cancelled (client
 // disconnect or write-timeout). The cache pointer and HTTP client are shared
 // across clones.
-func (s *ExchangeRateService) WithContext(ctx context.Context) *ExchangeRateService {
+func (s *Service) WithContext(ctx context.Context) *Service {
 	clone := *s
 	clone.DB = s.DB.WithContext(ctx)
 	return &clone
@@ -70,7 +70,7 @@ func rateCacheKey(target string) string {
 	return strings.ToLower(target)
 }
 
-func (s *ExchangeRateService) loadCacheFromDB() {
+func (s *Service) loadCacheFromDB() {
 	var rates []model.ExchangeRate
 	s.DB.Find(&rates)
 	s.cache.mu.Lock()
@@ -87,7 +87,7 @@ type UpdatePreferenceInput struct {
 	PreferredCurrency string `json:"preferred_currency"`
 }
 
-func (s *ExchangeRateService) GetUserPreference(userID uint) (*model.UserPreference, error) {
+func (s *Service) GetUserPreference(userID uint) (*model.UserPreference, error) {
 	var pref model.UserPreference
 	err := s.DB.Where("user_id = ?", userID).First(&pref).Error
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *ExchangeRateService) GetUserPreference(userID uint) (*model.UserPrefere
 	return &pref, nil
 }
 
-func (s *ExchangeRateService) UpdateUserPreference(userID uint, input UpdatePreferenceInput) (*model.UserPreference, error) {
+func (s *Service) UpdateUserPreference(userID uint, input UpdatePreferenceInput) (*model.UserPreference, error) {
 	currency := strings.ToUpper(strings.TrimSpace(input.PreferredCurrency))
 	if currency == "" {
 		currency = "USD"
@@ -121,7 +121,7 @@ func (s *ExchangeRateService) UpdateUserPreference(userID uint, input UpdatePref
 	return s.GetUserPreference(userID)
 }
 
-func (s *ExchangeRateService) Convert(amount float64, from, to string) float64 {
+func (s *Service) Convert(amount float64, from, to string) float64 {
 	from = normalizeCurrencyCode(from)
 	to = normalizeCurrencyCode(to)
 	if from == to {
@@ -135,7 +135,7 @@ func (s *ExchangeRateService) Convert(amount float64, from, to string) float64 {
 	return amount * rate
 }
 
-func (s *ExchangeRateService) GetRate(base, target string) (float64, bool) {
+func (s *Service) GetRate(base, target string) (float64, bool) {
 	base = normalizeCurrencyCode(base)
 	target = normalizeCurrencyCode(target)
 	if base == target {
@@ -154,7 +154,7 @@ func (s *ExchangeRateService) GetRate(base, target string) (float64, bool) {
 	return targetPerUSD / basePerUSD, true
 }
 
-func (s *ExchangeRateService) getUSDBaseRate(currency string) (float64, bool) {
+func (s *Service) getUSDBaseRate(currency string) (float64, bool) {
 	currency = normalizeCurrencyCode(currency)
 	if currency == usdCurrencyCode {
 		return 1.0, true
@@ -186,7 +186,7 @@ type ExchangeRateInfo struct {
 	FetchedAt      time.Time `json:"fetched_at"`
 }
 
-func (s *ExchangeRateService) ListRates() ([]ExchangeRateInfo, error) {
+func (s *Service) ListRates() ([]ExchangeRateInfo, error) {
 	var rates []model.ExchangeRate
 	query := s.DB.Where("LOWER(target_currency) <> ?", usdCurrencyCodeLower).Order("target_currency ASC")
 	if err := query.Find(&rates).Error; err != nil {
@@ -215,7 +215,7 @@ type RateStatus struct {
 	RateCount     int64      `json:"rate_count"`
 }
 
-func (s *ExchangeRateService) GetStatus() (*RateStatus, error) {
+func (s *Service) GetStatus() (*RateStatus, error) {
 	var count int64
 	s.DB.Model(&model.ExchangeRate{}).
 		Where("LOWER(target_currency) <> ?", usdCurrencyCodeLower).
@@ -235,7 +235,7 @@ func (s *ExchangeRateService) GetStatus() (*RateStatus, error) {
 	return status, nil
 }
 
-func (s *ExchangeRateService) RefreshRates() error {
+func (s *Service) RefreshRates() error {
 	source := "auto"
 	var sourceSetting model.SystemSetting
 	if err := s.DB.Where("key = ?", "exchange_rate_source").First(&sourceSetting).Error; err == nil && sourceSetting.Value != "" {
@@ -286,7 +286,7 @@ func (s *ExchangeRateService) RefreshRates() error {
 
 var commonCurrencies = []string{"usd", "eur", "gbp", "jpy", "cny", "cad", "aud", "chf", "hkd", "sgd", "krw", "inr", "brl", "mxn", "rub", "twd", "thb", "try", "nzd", "sek", "nok", "dkk", "pln", "czk", "huf", "ils", "php", "myr", "idr", "vnd", "zar"}
 
-func (s *ExchangeRateService) fetchFromFree() error {
+func (s *Service) fetchFromFree() error {
 	base := usdCurrencyCodeLower
 	now := pkg.NowUTC()
 	var allRates []model.ExchangeRate
@@ -315,7 +315,7 @@ func (s *ExchangeRateService) fetchFromFree() error {
 	return s.saveRates(allRates)
 }
 
-func (s *ExchangeRateService) fetchFreeBase(base string) (map[string]float64, error) {
+func (s *Service) fetchFreeBase(base string) (map[string]float64, error) {
 	url := fmt.Sprintf("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/%s.min.json", base)
 	fallbackURL := fmt.Sprintf("https://latest.currency-api.pages.dev/v1/currencies/%s.min.json", base)
 
@@ -353,7 +353,7 @@ func (s *ExchangeRateService) fetchFreeBase(base string) (map[string]float64, er
 	return filtered, nil
 }
 
-func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
+func (s *Service) fetchFromPremium(apiKey string) error {
 	base := usdCurrencyCodeLower
 	now := pkg.NowUTC()
 	var allRates []model.ExchangeRate
@@ -413,7 +413,7 @@ func (s *ExchangeRateService) fetchFromPremium(apiKey string) error {
 	return s.saveRates(allRates)
 }
 
-func (s *ExchangeRateService) getTargetCurrencies(base string) []string {
+func (s *Service) getTargetCurrencies(base string) []string {
 	targets := make(map[string]bool)
 	for _, c := range commonCurrencies {
 		if c != base {
@@ -446,7 +446,7 @@ func (s *ExchangeRateService) getTargetCurrencies(base string) []string {
 	return result
 }
 
-func (s *ExchangeRateService) saveRates(rates []model.ExchangeRate) error {
+func (s *Service) saveRates(rates []model.ExchangeRate) error {
 	usdRates := make([]model.ExchangeRate, 0, len(rates))
 	for _, r := range rates {
 		target := strings.ToLower(strings.TrimSpace(r.TargetCurrency))
@@ -497,7 +497,7 @@ func normalizeCurrencyCode(currency string) string {
 	return strings.ToUpper(strings.TrimSpace(currency))
 }
 
-func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
+func (s *Service) httpGet(url string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -531,7 +531,7 @@ func (s *ExchangeRateService) httpGet(url string) ([]byte, error) {
 	return buf[:n], nil
 }
 
-func (s *ExchangeRateService) outboundHTTPClient() *http.Client {
+func (s *Service) outboundHTTPClient() *http.Client {
 	if s.httpClient != nil {
 		return s.httpClient
 	}
@@ -542,7 +542,7 @@ func (s *ExchangeRateService) outboundHTTPClient() *http.Client {
 	return client
 }
 
-func (s *ExchangeRateService) StartBackgroundRefresh(
+func (s *Service) StartBackgroundRefresh(
 	ctx context.Context,
 	monitor *serviceutil.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,

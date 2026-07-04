@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/kasuha07/subdux/internal/service"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 )
@@ -17,7 +17,7 @@ import (
 // table once, and returns one response.
 type DashboardBootstrapHandler struct {
 	Subscriptions  *subscriptionservice.Service
-	ExchangeRates  *service.ExchangeRateService
+	ExchangeRates  *exchangerate.Service
 	Currencies     *catalogservice.CurrencyService
 	Categories     *catalogservice.CategoryService
 	PaymentMethods *catalogservice.PaymentMethodService
@@ -25,7 +25,7 @@ type DashboardBootstrapHandler struct {
 
 func NewDashboardBootstrapHandler(
 	subscriptions *subscriptionservice.Service,
-	exchangeRates *service.ExchangeRateService,
+	exchangeRates *exchangerate.Service,
 	currencies *catalogservice.CurrencyService,
 	categories *catalogservice.CategoryService,
 	paymentMethods *catalogservice.PaymentMethodService,

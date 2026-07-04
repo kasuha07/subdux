@@ -1,4 +1,4 @@
-package service
+package importer
 
 import (
 	"encoding/json"
@@ -296,7 +296,7 @@ func templateKey(template model.NotificationTemplate) string {
 	}, "|")
 }
 
-func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, confirm bool) (*SubduxImportResponse, error) {
+func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm bool) (*SubduxImportResponse, error) {
 	if err := validateSubduxImportData(data); err != nil {
 		return nil, err
 	}

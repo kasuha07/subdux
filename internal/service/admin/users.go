@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"errors"
@@ -21,7 +21,7 @@ type AdminUserListItem struct {
 	PasskeyCount      int64 `gorm:"column:passkey_count"`
 }
 
-func (s *AdminService) ListUsers() ([]AdminUserListItem, error) {
+func (s *Service) ListUsers() ([]AdminUserListItem, error) {
 	var users []AdminUserListItem
 	err := s.DB.Model(&model.User{}).
 		Select("users.id, users.username, users.email, users.role, users.status, users.totp_enabled, users.created_at, COUNT(DISTINCT subscriptions.id) AS subscription_count, COUNT(DISTINCT passkey_credentials.id) AS passkey_count").
@@ -33,7 +33,7 @@ func (s *AdminService) ListUsers() ([]AdminUserListItem, error) {
 	return users, err
 }
 
-func (s *AdminService) DisableUserTOTP(userID uint) error {
+func (s *Service) DisableUserTOTP(userID uint) error {
 	var user model.User
 	if err := s.DB.Select("id", "role").First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -57,7 +57,7 @@ func (s *AdminService) DisableUserTOTP(userID uint) error {
 	})
 }
 
-func (s *AdminService) DisableUserPasskeys(userID uint) error {
+func (s *Service) DisableUserPasskeys(userID uint) error {
 	var user model.User
 	if err := s.DB.Select("id", "role").First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -72,7 +72,7 @@ func (s *AdminService) DisableUserPasskeys(userID uint) error {
 	return s.DB.Where("user_id = ?", userID).Delete(&model.PasskeyCredential{}).Error
 }
 
-func (s *AdminService) ChangeUserRole(userID uint, role string) error {
+func (s *Service) ChangeUserRole(userID uint, role string) error {
 	if role != "admin" && role != "user" {
 		return errors.New("invalid role")
 	}
@@ -83,7 +83,7 @@ func (s *AdminService) ChangeUserRole(userID uint, role string) error {
 	return s.DB.Model(&model.User{}).Where("id = ?", userID).Update("role", role).Error
 }
 
-func (s *AdminService) ChangeUserStatus(userID uint, status string) error {
+func (s *Service) ChangeUserStatus(userID uint, status string) error {
 	if status != "active" && status != "disabled" {
 		return errors.New("invalid status")
 	}
@@ -110,7 +110,7 @@ func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
 		Updates(map[string]interface{}{"revoked_at": &now}).Error
 }
 
-func (s *AdminService) DeleteUser(userID uint) error {
+func (s *Service) DeleteUser(userID uint) error {
 	// Prevent deleting the first user (ID=1)
 	if userID == 1 {
 		return errors.New("cannot delete the first user")
@@ -148,7 +148,7 @@ func (s *AdminService) DeleteUser(userID uint) error {
 	return nil
 }
 
-func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
+func (s *Service) CreateUser(input CreateUserInput) (*model.User, error) {
 	if input.Username == "" || input.Email == "" || input.Password == "" {
 		return nil, errors.New("username, email and password are required")
 	}

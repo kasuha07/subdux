@@ -1,4 +1,4 @@
-package service
+package iconproxy
 
 import (
 	"context"
@@ -25,12 +25,12 @@ var (
 	ErrIconProxyDomainNotAllowed    = errors.New("icon proxy domain is not allowed")
 )
 
-type IconProxyService struct {
+type Service struct {
 	DB         *gorm.DB
 	httpClient *http.Client
 }
 
-type IconProxyResolution struct {
+type Resolution struct {
 	Proxy        bool
 	Provider     string
 	TargetDomain string
@@ -39,18 +39,26 @@ type IconProxyResolution struct {
 	AllowedHosts string
 }
 
-func NewIconProxyService(db *gorm.DB) *IconProxyService {
+func NewService(db *gorm.DB) *Service {
 	client, err := serviceoutbound.BuildHTTPClientWithTimeout(context.Background(), db, serviceoutbound.PurposeIconProxy, 10*time.Second)
 	if err != nil {
 		client = serviceoutbound.NewOutboundHTTPClient(db, 10*time.Second)
 	}
-	return &IconProxyService{
+	return &Service{
 		DB:         db,
 		httpClient: client,
 	}
 }
 
-func (s *IconProxyService) Resolve(provider string, rawDomain string) (*IconProxyResolution, error) {
+func (s *Service) WithContext(ctx context.Context) *Service {
+	clone := *s
+	if s.DB != nil {
+		clone.DB = s.DB.WithContext(ctx)
+	}
+	return &clone
+}
+
+func (s *Service) Resolve(provider string, rawDomain string) (*Resolution, error) {
 	spec, err := getIconProxyProviderSpec(provider)
 	if err != nil {
 		return nil, err
@@ -62,9 +70,9 @@ func (s *IconProxyService) Resolve(provider string, rawDomain string) (*IconProx
 	}
 
 	enabled := s.getBoolSetting("icon_proxy_enabled", true)
-	allowedHosts := s.getStringSetting("icon_proxy_domain_whitelist", defaultIconProxyDomainWhitelist)
+	allowedHosts := s.getStringSetting("icon_proxy_domain_whitelist", DefaultDomainWhitelist)
 
-	resolution := &IconProxyResolution{
+	resolution := &Resolution{
 		Proxy:        enabled,
 		Provider:     spec.Provider,
 		TargetDomain: targetDomain,
@@ -73,14 +81,14 @@ func (s *IconProxyService) Resolve(provider string, rawDomain string) (*IconProx
 		AllowedHosts: allowedHosts,
 	}
 
-	if enabled && !isIconProxyDomainAllowed(spec.UpstreamHost, allowedHosts) {
+	if enabled && !IsDomainAllowed(spec.UpstreamHost, allowedHosts) {
 		return nil, ErrIconProxyDomainNotAllowed
 	}
 
 	return resolution, nil
 }
 
-func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResolution) (*http.Response, error) {
+func (s *Service) Fetch(ctx context.Context, resolution *Resolution) (*http.Response, error) {
 	if resolution == nil || resolution.UpstreamURL == "" {
 		return nil, errors.New("invalid icon proxy request")
 	}
@@ -91,7 +99,7 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 	}
 
 	client := s.outboundHTTPClient()
-	if !isIconProxyDomainAllowed(parsed.Hostname(), resolution.AllowedHosts) {
+	if !IsDomainAllowed(parsed.Hostname(), resolution.AllowedHosts) {
 		return nil, ErrIconProxyDomainNotAllowed
 	}
 
@@ -107,7 +115,7 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 		if redirectReq == nil || redirectReq.URL == nil {
 			return errors.New("invalid outbound request")
 		}
-		if !isIconProxyDomainAllowed(redirectReq.URL.Hostname(), resolution.AllowedHosts) {
+		if !IsDomainAllowed(redirectReq.URL.Hostname(), resolution.AllowedHosts) {
 			return ErrIconProxyDomainNotAllowed
 		}
 		if originalCheckRedirect != nil {
@@ -122,7 +130,7 @@ func (s *IconProxyService) Fetch(ctx context.Context, resolution *IconProxyResol
 	return checkedClient.Do(req)
 }
 
-func (s *IconProxyService) outboundHTTPClient() *http.Client {
+func (s *Service) outboundHTTPClient() *http.Client {
 	if s.httpClient != nil {
 		return s.httpClient
 	}
@@ -133,7 +141,7 @@ func (s *IconProxyService) outboundHTTPClient() *http.Client {
 	return client
 }
 
-func (s *IconProxyService) getBoolSetting(key string, defaultValue bool) bool {
+func (s *Service) getBoolSetting(key string, defaultValue bool) bool {
 	var setting model.SystemSetting
 	if err := s.DB.Where("key = ?", key).First(&setting).Error; err != nil {
 		return defaultValue
@@ -141,7 +149,7 @@ func (s *IconProxyService) getBoolSetting(key string, defaultValue bool) bool {
 	return setting.Value == "true"
 }
 
-func (s *IconProxyService) getStringSetting(key string, defaultValue string) string {
+func (s *Service) getStringSetting(key string, defaultValue string) string {
 	var setting model.SystemSetting
 	if err := s.DB.Where("key = ?", key).First(&setting).Error; err != nil {
 		return defaultValue

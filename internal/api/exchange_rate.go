@@ -4,12 +4,12 @@ import (
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	"github.com/labstack/echo/v4"
 )
 
 type ExchangeRateHandler struct {
-	Service *service.ExchangeRateService
+	Service *exchangerate.Service
 }
 
 type userPreferenceResponse struct {
@@ -22,7 +22,7 @@ func mapUserPreferenceResponse(pref model.UserPreference) userPreferenceResponse
 	}
 }
 
-func NewExchangeRateHandler(s *service.ExchangeRateService) *ExchangeRateHandler {
+func NewExchangeRateHandler(s *exchangerate.Service) *ExchangeRateHandler {
 	return &ExchangeRateHandler{Service: s}
 }
 
@@ -78,7 +78,7 @@ func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
 
 func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.UpdatePreferenceInput
+	var input exchangerate.UpdatePreferenceInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}

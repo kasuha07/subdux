@@ -1,4 +1,4 @@
-package service
+package settings_test
 
 import (
 	"context"

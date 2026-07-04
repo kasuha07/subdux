@@ -1,4 +1,4 @@
-package service
+package importer
 
 import (
 	"strings"
@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/service/servicetest"
 )
 
 func TestImportFromSubduxSkipsUnsafeSubscriptionURL(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 	data := sampleSubduxImportData()
 	data.Subscriptions[0].URL = "javascript:alert(1)"
 
@@ -39,8 +40,8 @@ func TestImportFromSubduxSkipsUnsafeSubscriptionURL(t *testing.T) {
 
 func TestImportFromWallosSkipsUnsafeSubscriptionURL(t *testing.T) {
 	db := newImportTestDB(t)
-	user := createTestUser(t, db)
-	svc := NewImportService(db)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
 
 	resp, err := svc.ImportFromWallos(user.ID, []WallosSubscription{{
 		Name:         "Netflix",

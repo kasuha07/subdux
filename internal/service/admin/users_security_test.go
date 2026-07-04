@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"strings"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestAdminCreateUserRejectsPasswordUnder8Characters(t *testing.T) {
-	svc := NewAdminService(newTestDB(t))
+	svc := NewService(newTestDB(t))
 
 	_, err := svc.CreateUser(CreateUserInput{
 		Username: "alice",
@@ -61,7 +61,7 @@ func TestAdminListUsersReportsCredentialFactorState(t *testing.T) {
 		}
 	}
 
-	users, err := NewAdminService(db).ListUsers()
+	users, err := NewService(db).ListUsers()
 	if err != nil {
 		t.Fatalf("ListUsers() error = %v", err)
 	}

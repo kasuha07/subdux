@@ -12,9 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kasuha07/subdux/internal/service"
+	adminservice "github.com/kasuha07/subdux/internal/service/admin"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
+	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
@@ -23,7 +24,7 @@ import (
 )
 
 type AdminHandler struct {
-	Service     *service.AdminService
+	Service     *adminservice.Service
 	TaskMonitor *serviceutil.BackgroundTaskMonitor
 	Reauth      *servicereauth.Service
 }
@@ -61,7 +62,7 @@ const (
 	maxBackupUploadSize = 32 << 20 // 32 MiB
 )
 
-func NewAdminHandler(s *service.AdminService, taskMonitor *serviceutil.BackgroundTaskMonitor, reauth *servicereauth.Service) *AdminHandler {
+func NewAdminHandler(s *adminservice.Service, taskMonitor *serviceutil.BackgroundTaskMonitor, reauth *servicereauth.Service) *AdminHandler {
 	return &AdminHandler{Service: s, TaskMonitor: taskMonitor, Reauth: reauth}
 }
 
@@ -77,7 +78,7 @@ type adminUserResponse struct {
 	SubscriptionCount int64     `json:"subscription_count"`
 }
 
-func mapAdminUserResponse(user service.AdminUserListItem) adminUserResponse {
+func mapAdminUserResponse(user adminservice.AdminUserListItem) adminUserResponse {
 	return adminUserResponse{
 		ID:                user.ID,
 		Username:          user.Username,
@@ -91,7 +92,7 @@ func mapAdminUserResponse(user service.AdminUserListItem) adminUserResponse {
 	}
 }
 
-func mapAdminUserResponses(users []service.AdminUserListItem) []adminUserResponse {
+func mapAdminUserResponses(users []adminservice.AdminUserListItem) []adminUserResponse {
 	responses := make([]adminUserResponse, len(users))
 	for i, user := range users {
 		responses[i] = mapAdminUserResponse(user)
@@ -108,7 +109,7 @@ func (h *AdminHandler) ListUsers(c echo.Context) error {
 }
 
 func (h *AdminHandler) CreateUser(c echo.Context) error {
-	var input service.CreateUserInput
+	var input adminservice.CreateUserInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -139,7 +140,7 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, mapAdminUserResponse(service.AdminUserListItem{User: *user}))
+	return c.JSON(http.StatusCreated, mapAdminUserResponse(adminservice.AdminUserListItem{User: *user}))
 }
 
 func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
@@ -148,7 +149,7 @@ func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
 	}
 
-	var input service.ChangeRoleInput
+	var input adminservice.ChangeRoleInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -178,7 +179,7 @@ func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid user id"})
 	}
 
-	var input service.ChangeStatusInput
+	var input adminservice.ChangeStatusInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -218,7 +219,7 @@ func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
 
 func writeAdminCredentialResetError(c echo.Context, err error) error {
 	if errors.Is(err, serviceauth.ErrUserNotFound) ||
-		errors.Is(err, service.ErrAdminCredentialResetForbidden) {
+		errors.Is(err, adminservice.ErrAdminCredentialResetForbidden) {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	return writeInternalServerError(c, err)
@@ -263,7 +264,7 @@ func (h *AdminHandler) GetSettings(c echo.Context) error {
 }
 
 func (h *AdminHandler) UpdateSettings(c echo.Context) error {
-	var input service.UpdateSettingsInput
+	var input adminservice.UpdateSettingsInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -292,8 +293,8 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input); err != nil {
 		if errors.Is(err, serviceauth.ErrInvalidEmailDomainWhitelist) ||
 			errors.Is(err, serviceauth.ErrEmailDomainWhitelistTooLong) ||
-			errors.Is(err, service.ErrInvalidIconProxyDomainWhitelist) ||
-			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) ||
+			errors.Is(err, iconproxy.ErrInvalidIconProxyDomainWhitelist) ||
+			errors.Is(err, iconproxy.ErrIconProxyDomainWhitelistTooLong) ||
 			errors.Is(err, servicesmtp.ErrInvalidSMTPRateLimit) ||
 			errors.Is(err, serviceoutbound.ErrInvalidSystemProxyType) ||
 			errors.Is(err, serviceoutbound.ErrInvalidSystemProxyURL) ||
@@ -315,7 +316,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 }
 
 func (h *AdminHandler) TestSSRF(c echo.Context) error {
-	var input service.SSRFTestInput
+	var input adminservice.SSRFTestInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}

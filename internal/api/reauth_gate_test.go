@@ -12,7 +12,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	adminservice "github.com/kasuha07/subdux/internal/service/admin"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
@@ -782,7 +782,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 
-		settings, err := service.NewAdminService(db).GetSettings()
+		settings, err := adminservice.NewService(db).GetSettings()
 		if err != nil {
 			t.Fatalf("GetSettings() error = %v", err)
 		}
@@ -811,7 +811,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 		}
 
-		settings, err := service.NewAdminService(db).GetSettings()
+		settings, err := adminservice.NewService(db).GetSettings()
 		if err != nil {
 			t.Fatalf("GetSettings() error = %v", err)
 		}

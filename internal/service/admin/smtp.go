@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 )
 
-func (s *AdminService) SendSMTPTestEmail(userID uint, recipientOverride string) error {
+func (s *Service) SendSMTPTestEmail(userID uint, recipientOverride string) error {
 	cfg, err := servicesmtp.LoadRuntimeConfig(s.DB)
 	if err != nil {
 		return err

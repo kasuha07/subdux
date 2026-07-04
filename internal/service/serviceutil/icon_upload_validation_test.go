@@ -1,4 +1,4 @@
-package service
+package serviceutil_test
 
 import (
 	"bytes"
@@ -153,8 +153,8 @@ func TestUploadSubscriptionIconBlockedWhenImageUploadDisabled(t *testing.T) {
 
 	svc := subscriptionservice.NewService(db)
 	_, err := svc.UploadSubscriptionIcon(user.ID, sub.ID, bytes.NewReader(mustEncodePNG(t, 16, 16)), "demo.png", 65536)
-	if !errors.Is(err, ErrImageUploadDisabled) {
-		t.Fatalf("UploadSubscriptionIcon() error = %v, want %v", err, ErrImageUploadDisabled)
+	if !errors.Is(err, serviceutil.ErrImageUploadDisabled) {
+		t.Fatalf("UploadSubscriptionIcon() error = %v, want %v", err, serviceutil.ErrImageUploadDisabled)
 	}
 }
 
@@ -182,8 +182,8 @@ func TestUploadPaymentMethodIconBlockedWhenImageUploadDisabled(t *testing.T) {
 
 	svc := catalogservice.NewPaymentMethodService(db)
 	_, err := svc.UploadPaymentMethodIcon(user.ID, method.ID, bytes.NewReader(mustEncodePNG(t, 16, 16)), "card.png", 65536)
-	if !errors.Is(err, ErrImageUploadDisabled) {
-		t.Fatalf("UploadPaymentMethodIcon() error = %v, want %v", err, ErrImageUploadDisabled)
+	if !errors.Is(err, serviceutil.ErrImageUploadDisabled) {
+		t.Fatalf("UploadPaymentMethodIcon() error = %v, want %v", err, serviceutil.ErrImageUploadDisabled)
 	}
 }
 

@@ -12,8 +12,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -117,7 +117,7 @@ func TestDashboardBootstrapAggregatesEverySectionWithoutWriting(t *testing.T) {
 
 	handler := NewDashboardBootstrapHandler(
 		subService,
-		service.NewExchangeRateService(db),
+		exchangerate.NewService(db),
 		catalogservice.NewCurrencyService(db),
 		catalogservice.NewCategoryService(db),
 		catalogservice.NewPaymentMethodService(db),

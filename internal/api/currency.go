@@ -6,14 +6,14 @@ import (
 	"strconv"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	"github.com/labstack/echo/v4"
 )
 
 type CurrencyHandler struct {
 	Service   *catalogservice.CurrencyService
-	ERService *service.ExchangeRateService
+	ERService *exchangerate.Service
 }
 
 type userCurrencyResponse struct {
@@ -42,7 +42,7 @@ func mapUserCurrencyResponses(currencies []model.UserCurrency) []userCurrencyRes
 	return responses
 }
 
-func NewCurrencyHandler(s *catalogservice.CurrencyService, er *service.ExchangeRateService) *CurrencyHandler {
+func NewCurrencyHandler(s *catalogservice.CurrencyService, er *exchangerate.Service) *CurrencyHandler {
 	return &CurrencyHandler{Service: s, ERService: er}
 }
 

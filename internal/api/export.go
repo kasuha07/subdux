@@ -6,17 +6,17 @@ import (
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	exporter "github.com/kasuha07/subdux/internal/service/exporter"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
 type ExportHandler struct {
-	Service *service.ExportService
+	Service *exporter.Service
 	Reauth  *servicereauth.Service
 }
 
-func NewExportHandler(s *service.ExportService, reauth *servicereauth.Service) *ExportHandler {
+func NewExportHandler(s *exporter.Service, reauth *servicereauth.Service) *ExportHandler {
 	return &ExportHandler{Service: s, Reauth: reauth}
 }
 

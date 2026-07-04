@@ -1,6 +1,7 @@
-package service
+package exporter
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -10,12 +11,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type ExportService struct {
+type Service struct {
 	DB *gorm.DB
 }
 
-func NewExportService(db *gorm.DB) *ExportService {
-	return &ExportService{DB: db}
+func NewService(db *gorm.DB) *Service {
+	return &Service{DB: db}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	clone := *s
+	if s.DB != nil {
+		clone.DB = s.DB.WithContext(ctx)
+	}
+	return &clone
 }
 
 type UserExportData struct {
@@ -43,7 +52,7 @@ type UserNotificationExport struct {
 	Templates []model.NotificationTemplate `json:"templates"`
 }
 
-func (s *ExportService) ExportUserData(userID uint, includeSecrets bool) (*UserExportData, error) {
+func (s *Service) ExportUserData(userID uint, includeSecrets bool) (*UserExportData, error) {
 	var user model.User
 	if err := s.DB.First(&user, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

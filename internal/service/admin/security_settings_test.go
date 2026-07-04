@@ -1,4 +1,4 @@
-package service
+package admin
 
 import (
 	"errors"
@@ -21,7 +21,7 @@ func TestUpdateSettingsEncryptsSMTPPasswordAndDecryptsOnRead(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	service := NewAdminService(db)
+	service := NewService(db)
 
 	enabled := true
 	host := "smtp.example.com"
@@ -69,7 +69,7 @@ func TestUpdateSettingsEncryptsCurrencyAPIKey(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	service := NewAdminService(db)
+	service := NewService(db)
 	apiKey := "currency-api-secret"
 	if err := service.UpdateSettings(UpdateSettingsInput{CurrencyAPIKey: &apiKey}); err != nil {
 		t.Fatalf("UpdateSettings() failed: %v", err)
@@ -171,7 +171,7 @@ func TestSMTPSkipTLSVerifyDefaultsDisabled(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	adminSvc := NewAdminService(db)
+	adminSvc := NewService(db)
 	settings, err := adminSvc.GetSettings()
 	if err != nil {
 		t.Fatalf("GetSettings() failed: %v", err)
@@ -220,7 +220,7 @@ func TestUpdateSettingsPersistsSMTPRateLimit(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	svc := NewAdminService(db)
+	svc := NewService(db)
 	rateLimitSeconds := int64(30)
 	if err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds}); err != nil {
 		t.Fatalf("UpdateSettings() failed: %v", err)
@@ -241,7 +241,7 @@ func TestUpdateSettingsRejectsInvalidSMTPRateLimit(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	svc := NewAdminService(db)
+	svc := NewService(db)
 	rateLimitSeconds := int64(-1)
 	err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds})
 	if !errors.Is(err, servicesmtp.ErrInvalidSMTPRateLimit) {
@@ -255,7 +255,7 @@ func TestUpdateSettingsClearsSSRFIPFilterList(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	svc := NewAdminService(db)
+	svc := NewService(db)
 
 	ipList := "10.0.0.0/8\n192.168.0.0/16"
 	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &ipList}); err != nil {
@@ -298,7 +298,7 @@ func TestUpdateSettingsClearsSSRFDomainFilterList(t *testing.T) {
 		t.Fatalf("failed to migrate system settings table: %v", err)
 	}
 
-	svc := NewAdminService(db)
+	svc := NewService(db)
 
 	domainList := "example.com\ninternal.test"
 	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &domainList}); err != nil {

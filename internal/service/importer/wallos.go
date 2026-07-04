@@ -1,6 +1,7 @@
-package service
+package importer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -15,12 +16,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type ImportService struct {
+type Service struct {
 	DB *gorm.DB
 }
 
-func NewImportService(db *gorm.DB) *ImportService {
-	return &ImportService{DB: db}
+func NewService(db *gorm.DB) *Service {
+	return &Service{DB: db}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	clone := *s
+	if s.DB != nil {
+		clone.DB = s.DB.WithContext(ctx)
+	}
+	return &clone
 }
 
 type WallosSubscription struct {
@@ -285,7 +294,7 @@ func parseEnabled(s string) bool {
 // errPreviewRollback is a sentinel error used to trigger transaction rollback in preview mode.
 var errPreviewRollback = fmt.Errorf("preview rollback")
 
-func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription, confirm bool) (*WallosImportResponse, error) {
+func (s *Service) ImportFromWallos(userID uint, data []WallosSubscription, confirm bool) (*WallosImportResponse, error) {
 	if len(data) > maxWallosImportItems {
 		return nil, ErrWallosImportTooLarge
 	}
