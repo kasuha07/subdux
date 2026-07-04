@@ -8,6 +8,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"gorm.io/gorm"
 )
 
@@ -56,7 +57,7 @@ func TestSystemSettingsServiceSeedDefaultsIsIdempotent(t *testing.T) {
 	}
 
 	var ssrfProtectionEnabled model.SystemSetting
-	if err := db.Where("key = ?", ssrfProtectionEnabledKey).First(&ssrfProtectionEnabled).Error; err != nil {
+	if err := db.Where("key = ?", serviceoutbound.ProtectionEnabledKey).First(&ssrfProtectionEnabled).Error; err != nil {
 		t.Fatalf("failed to load ssrf_protection_enabled: %v", err)
 	}
 	if ssrfProtectionEnabled.Value != "true" {
@@ -64,7 +65,7 @@ func TestSystemSettingsServiceSeedDefaultsIsIdempotent(t *testing.T) {
 	}
 
 	var ssrfFilterResolvedIPs model.SystemSetting
-	if err := db.Where("key = ?", ssrfFilterResolvedIPsKey).First(&ssrfFilterResolvedIPs).Error; err != nil {
+	if err := db.Where("key = ?", serviceoutbound.FilterResolvedIPsKey).First(&ssrfFilterResolvedIPs).Error; err != nil {
 		t.Fatalf("failed to load ssrf_filter_resolved_ips: %v", err)
 	}
 	if ssrfFilterResolvedIPs.Value != "true" {

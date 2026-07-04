@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
@@ -85,8 +86,8 @@ func (s *CalendarService) ValidateToken(token string) (uint, error) {
 		}
 	}
 
-	if err := ensureUserActive(s.DB, ct.UserID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, errUserNotActive) {
+	if err := userstatus.EnsureActive(s.DB, ct.UserID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, userstatus.ErrUserNotActive) {
 			return 0, errors.New("invalid token")
 		}
 		return 0, err

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"gorm.io/gorm"
 )
 
@@ -39,9 +40,9 @@ type IconProxyResolution struct {
 }
 
 func NewIconProxyService(db *gorm.DB) *IconProxyService {
-	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), db, outboundPurposeIconProxy, 10*time.Second)
+	client, err := serviceoutbound.BuildHTTPClientWithTimeout(context.Background(), db, serviceoutbound.PurposeIconProxy, 10*time.Second)
 	if err != nil {
-		client = NewOutboundHTTPClient(db, 10*time.Second)
+		client = serviceoutbound.NewOutboundHTTPClient(db, 10*time.Second)
 	}
 	return &IconProxyService{
 		DB:         db,
@@ -125,9 +126,9 @@ func (s *IconProxyService) outboundHTTPClient() *http.Client {
 	if s.httpClient != nil {
 		return s.httpClient
 	}
-	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeIconProxy, 10*time.Second)
+	client, err := serviceoutbound.BuildHTTPClientWithTimeout(context.Background(), s.DB, serviceoutbound.PurposeIconProxy, 10*time.Second)
 	if err != nil {
-		return NewOutboundHTTPClient(s.DB, 10*time.Second)
+		return serviceoutbound.NewOutboundHTTPClient(s.DB, 10*time.Second)
 	}
 	return client
 }

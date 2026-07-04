@@ -15,6 +15,7 @@ import (
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"github.com/kasuha07/subdux/internal/version"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -199,7 +200,7 @@ func SetupRoutes(
 	})
 
 	api.GET("/version/latest", func(c echo.Context) error {
-		client := service.NewOutboundHTTPClient(db, 10*time.Second)
+		client := serviceoutbound.NewOutboundHTTPClient(db, 10*time.Second)
 		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
 			"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
 		if err != nil {

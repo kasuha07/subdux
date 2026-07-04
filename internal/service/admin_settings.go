@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +21,7 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 
 	for _, item := range items {
 		settingValue := item.Value
-		decryptedValue, decryptErr := decryptSystemSettingValueIfNeeded(item.Key, item.Value)
+		decryptedValue, decryptErr := systemsettings.DecryptValueIfNeeded(item.Key, item.Value)
 		if decryptErr == nil {
 			settingValue = decryptedValue
 		}
@@ -56,32 +58,32 @@ func (s *AdminService) GetSettings() (*SystemSettings, error) {
 		case "system_proxy_enabled":
 			settings.SystemProxyEnabled = settingValue == "true"
 		case "system_proxy_type":
-			if normalizedType, err := normalizeSystemProxyType(settingValue); err == nil {
+			if normalizedType, err := serviceoutbound.NormalizeSystemProxyType(settingValue); err == nil {
 				settings.SystemProxyType = normalizedType
 			}
 		case "system_proxy_url":
 			settings.SystemProxyURLSet = strings.TrimSpace(settingValue) != ""
-		case ssrfProtectionEnabledKey:
+		case serviceoutbound.ProtectionEnabledKey:
 			settings.SSRFProtectionEnabled = settingValue == "true"
-		case ssrfAllowPrivateIPKey:
+		case serviceoutbound.AllowPrivateIPKey:
 			settings.SSRFAllowPrivateIP = settingValue == "true"
-		case ssrfDomainFilterModeKey:
-			if mode, err := normalizeSSRFFilterMode(settingValue); err == nil {
+		case serviceoutbound.DomainFilterModeKey:
+			if mode, err := serviceoutbound.NormalizeFilterMode(settingValue); err == nil {
 				settings.SSRFDomainFilterMode = mode
 			}
-		case ssrfDomainFilterListKey:
-			if normalized, err := normalizeSSRFDomainFilterList(settingValue); err == nil {
+		case serviceoutbound.DomainFilterListKey:
+			if normalized, err := serviceoutbound.NormalizeDomainFilterList(settingValue); err == nil {
 				settings.SSRFDomainFilterList = normalized
 			}
-		case ssrfIPFilterModeKey:
-			if mode, err := normalizeSSRFFilterMode(settingValue); err == nil {
+		case serviceoutbound.IPFilterModeKey:
+			if mode, err := serviceoutbound.NormalizeFilterMode(settingValue); err == nil {
 				settings.SSRFIPFilterMode = mode
 			}
-		case ssrfIPFilterListKey:
-			if normalized, err := normalizeSSRFIPFilterList(settingValue); err == nil {
+		case serviceoutbound.IPFilterListKey:
+			if normalized, err := serviceoutbound.NormalizeIPFilterList(settingValue); err == nil {
 				settings.SSRFIPFilterList = normalized
 			}
-		case ssrfFilterResolvedIPsKey:
+		case serviceoutbound.FilterResolvedIPsKey:
 			settings.SSRFFilterResolvedIPs = settingValue == "true"
 		case "smtp_enabled":
 			settings.SMTPEnabled = settingValue == "true"
@@ -263,7 +265,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			}
 		}
 
-		if err := validateIncomingSystemProxySettings(tx, input); err != nil {
+		if err := serviceoutbound.ValidateIncomingSystemProxySettings(tx, input.SystemProxyEnabled, input.SystemProxyType, input.SystemProxyURL); err != nil {
 			return err
 		}
 
@@ -274,7 +276,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.SystemProxyType != nil {
-			normalizedType, err := normalizeSystemProxyType(*input.SystemProxyType)
+			normalizedType, err := serviceoutbound.NormalizeSystemProxyType(*input.SystemProxyType)
 			if err != nil {
 				return err
 			}
@@ -284,21 +286,21 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.SystemProxyURL != nil {
-			normalizedType := systemProxyTypeHTTP
+			normalizedType := serviceoutbound.SystemProxyTypeHTTP
 			if input.SystemProxyType != nil {
 				var err error
-				normalizedType, err = normalizeSystemProxyType(*input.SystemProxyType)
+				normalizedType, err = serviceoutbound.NormalizeSystemProxyType(*input.SystemProxyType)
 				if err != nil {
 					return err
 				}
-			} else if existingCfg, err := loadSystemProxyConfig(tx); err == nil {
+			} else if existingCfg, err := serviceoutbound.LoadSystemProxyConfig(tx); err == nil {
 				normalizedType = existingCfg.Type
 			}
 
 			trimmedURL := strings.TrimSpace(*input.SystemProxyURL)
 			value := ""
 			if trimmedURL != "" {
-				normalizedURL, err := normalizeSystemProxyURL(normalizedType, trimmedURL)
+				normalizedURL, err := serviceoutbound.NormalizeSystemProxyURL(normalizedType, trimmedURL)
 				if err != nil {
 					return err
 				}
@@ -311,64 +313,69 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			}
 		}
 
-		if err := validateSSRFProtectionSettings(input); err != nil {
+		if err := serviceoutbound.ValidatePolicyUpdate(
+			input.SSRFDomainFilterMode,
+			input.SSRFIPFilterMode,
+			input.SSRFDomainFilterList,
+			input.SSRFIPFilterList,
+		); err != nil {
 			return err
 		}
 
 		if input.SSRFProtectionEnabled != nil {
-			if err := saveBoolSystemSetting(tx, ssrfProtectionEnabledKey, *input.SSRFProtectionEnabled); err != nil {
+			if err := saveBoolSystemSetting(tx, serviceoutbound.ProtectionEnabledKey, *input.SSRFProtectionEnabled); err != nil {
 				return err
 			}
 		}
 
 		if input.SSRFAllowPrivateIP != nil {
-			if err := saveBoolSystemSetting(tx, ssrfAllowPrivateIPKey, *input.SSRFAllowPrivateIP); err != nil {
+			if err := saveBoolSystemSetting(tx, serviceoutbound.AllowPrivateIPKey, *input.SSRFAllowPrivateIP); err != nil {
 				return err
 			}
 		}
 
 		if input.SSRFDomainFilterMode != nil {
-			normalizedMode, err := normalizeSSRFFilterMode(*input.SSRFDomainFilterMode)
+			normalizedMode, err := serviceoutbound.NormalizeFilterMode(*input.SSRFDomainFilterMode)
 			if err != nil {
 				return err
 			}
-			if err := saveStringSystemSetting(tx, ssrfDomainFilterModeKey, normalizedMode); err != nil {
+			if err := saveStringSystemSetting(tx, serviceoutbound.DomainFilterModeKey, normalizedMode); err != nil {
 				return err
 			}
 		}
 
 		if input.SSRFDomainFilterList != nil {
-			normalizedList, err := normalizeSSRFDomainFilterList(*input.SSRFDomainFilterList)
+			normalizedList, err := serviceoutbound.NormalizeDomainFilterList(*input.SSRFDomainFilterList)
 			if err != nil {
 				return err
 			}
-			if err := saveStringSystemSetting(tx, ssrfDomainFilterListKey, normalizedList); err != nil {
+			if err := saveStringSystemSetting(tx, serviceoutbound.DomainFilterListKey, normalizedList); err != nil {
 				return err
 			}
 		}
 
 		if input.SSRFIPFilterMode != nil {
-			normalizedMode, err := normalizeSSRFFilterMode(*input.SSRFIPFilterMode)
+			normalizedMode, err := serviceoutbound.NormalizeFilterMode(*input.SSRFIPFilterMode)
 			if err != nil {
 				return err
 			}
-			if err := saveStringSystemSetting(tx, ssrfIPFilterModeKey, normalizedMode); err != nil {
+			if err := saveStringSystemSetting(tx, serviceoutbound.IPFilterModeKey, normalizedMode); err != nil {
 				return err
 			}
 		}
 
 		if input.SSRFIPFilterList != nil {
-			normalizedList, err := normalizeSSRFIPFilterList(*input.SSRFIPFilterList)
+			normalizedList, err := serviceoutbound.NormalizeIPFilterList(*input.SSRFIPFilterList)
 			if err != nil {
 				return err
 			}
-			if err := saveStringSystemSetting(tx, ssrfIPFilterListKey, normalizedList); err != nil {
+			if err := saveStringSystemSetting(tx, serviceoutbound.IPFilterListKey, normalizedList); err != nil {
 				return err
 			}
 		}
 
 		if input.SSRFFilterResolvedIPs != nil {
-			if err := saveBoolSystemSetting(tx, ssrfFilterResolvedIPsKey, *input.SSRFFilterResolvedIPs); err != nil {
+			if err := saveBoolSystemSetting(tx, serviceoutbound.FilterResolvedIPsKey, *input.SSRFFilterResolvedIPs); err != nil {
 				return err
 			}
 		}
@@ -440,7 +447,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.SMTPRateLimitSeconds != nil {
-			rateLimitSeconds, err := normalizeSMTPRateLimitSeconds(*input.SMTPRateLimitSeconds)
+			rateLimitSeconds, err := servicesmtp.NormalizeRateLimitSeconds(*input.SMTPRateLimitSeconds)
 			if err != nil {
 				return err
 			}
@@ -564,7 +571,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 			return err
 		}
 		if registrationEmailVerificationEnabled {
-			if _, err := loadSMTPRuntimeConfig(tx); err != nil {
+			if _, err := servicesmtp.LoadRuntimeConfig(tx); err != nil {
 				return errors.New("smtp settings must be valid when registration email verification is enabled")
 			}
 		}

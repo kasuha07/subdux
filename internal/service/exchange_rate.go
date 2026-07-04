@@ -13,6 +13,8 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -39,9 +41,9 @@ type ExchangeRateService struct {
 }
 
 func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
-	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), db, outboundPurposeExchangeRate, 30*time.Second)
+	client, err := serviceoutbound.BuildHTTPClientWithTimeout(context.Background(), db, serviceoutbound.PurposeExchangeRate, 30*time.Second)
 	if err != nil {
-		client = NewOutboundHTTPClient(db, 30*time.Second)
+		client = serviceoutbound.NewOutboundHTTPClient(db, 30*time.Second)
 	}
 	s := &ExchangeRateService{
 		DB:         db,
@@ -241,7 +243,7 @@ func (s *ExchangeRateService) RefreshRates() error {
 	var apiKey string
 	var keySetting model.SystemSetting
 	if err := s.DB.Where("key = ?", "currencyapi_key").First(&keySetting).Error; err == nil {
-		decryptedKey, decryptErr := decryptSystemSettingValueIfNeeded("currencyapi_key", keySetting.Value)
+		decryptedKey, decryptErr := systemsettings.DecryptValueIfNeeded("currencyapi_key", keySetting.Value)
 		switch {
 		case decryptErr == nil:
 			apiKey = strings.TrimSpace(decryptedKey)
@@ -252,7 +254,7 @@ func (s *ExchangeRateService) RefreshRates() error {
 		}
 
 		if !pkg.IsSystemSettingEncrypted(keySetting.Value) && apiKey != "" {
-			encryptedKey, encryptErr := encryptSystemSettingValueIfNeeded("currencyapi_key", apiKey)
+			encryptedKey, encryptErr := systemsettings.EncryptValueIfNeeded("currencyapi_key", apiKey)
 			if encryptErr == nil {
 				_ = s.DB.Model(&model.SystemSetting{}).Where("key = ?", "currencyapi_key").Update("value", encryptedKey).Error
 			}
@@ -531,9 +533,9 @@ func (s *ExchangeRateService) outboundHTTPClient() *http.Client {
 	if s.httpClient != nil {
 		return s.httpClient
 	}
-	client, err := buildOutboundHTTPClientWithTimeout(context.Background(), s.DB, outboundPurposeExchangeRate, 30*time.Second)
+	client, err := serviceoutbound.BuildHTTPClientWithTimeout(context.Background(), s.DB, serviceoutbound.PurposeExchangeRate, 30*time.Second)
 	if err != nil {
-		return NewOutboundHTTPClient(s.DB, 30*time.Second)
+		return serviceoutbound.NewOutboundHTTPClient(s.DB, 30*time.Second)
 	}
 	return client
 }

@@ -14,24 +14,25 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 )
 
 func TestSanitizeUploadedIconRejectsExtensionMismatch(t *testing.T) {
 	pngData := mustEncodePNG(t, 16, 16)
 
-	_, _, err := sanitizeUploadedIcon(bytes.NewReader(pngData), "logo.ico", 65536)
+	_, _, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(pngData), "logo.ico", 65536)
 	if err == nil {
 		t.Fatal("sanitizeUploadedIcon() expected mismatch error")
 	}
-	if !errors.Is(err, ErrIconUploadContentMismatch) {
-		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, ErrIconUploadContentMismatch)
+	if !errors.Is(err, serviceutil.ErrIconUploadContentMismatch) {
+		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, serviceutil.ErrIconUploadContentMismatch)
 	}
 }
 
 func TestSanitizeUploadedIconAcceptsICOAndStripsTrailingPayload(t *testing.T) {
 	icoWithPayload := append(mustEncodeICOWithPNG(t, 32, 32), []byte("smuggled-payload")...)
 
-	sanitized, ext, err := sanitizeUploadedIcon(bytes.NewReader(icoWithPayload), "logo.ico", 65536)
+	sanitized, ext, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(icoWithPayload), "logo.ico", 65536)
 	if err != nil {
 		t.Fatalf("sanitizeUploadedIcon() error = %v", err)
 	}
@@ -41,7 +42,7 @@ func TestSanitizeUploadedIconAcceptsICOAndStripsTrailingPayload(t *testing.T) {
 	if strings.Contains(string(sanitized), "smuggled-payload") {
 		t.Fatal("sanitizeUploadedIcon() should strip trailing payload bytes")
 	}
-	if !hasICOSignature(sanitized) {
+	if !serviceutil.HasICOSignature(sanitized) {
 		t.Fatal("sanitizeUploadedIcon() should preserve ico container format")
 	}
 }
@@ -54,12 +55,12 @@ func TestSanitizeUploadedIconRejectsICOWithoutPNGImage(t *testing.T) {
 	binary.LittleEndian.PutUint32(invalidICO[18:22], 22)
 	copy(invalidICO[22:], []byte("notapng!"))
 
-	_, _, err := sanitizeUploadedIcon(bytes.NewReader(invalidICO), "logo.ico", 65536)
+	_, _, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(invalidICO), "logo.ico", 65536)
 	if err == nil {
 		t.Fatal("sanitizeUploadedIcon() expected invalid ico error")
 	}
-	if !errors.Is(err, ErrIconUploadInvalidICO) {
-		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, ErrIconUploadInvalidICO)
+	if !errors.Is(err, serviceutil.ErrIconUploadInvalidICO) {
+		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, serviceutil.ErrIconUploadInvalidICO)
 	}
 }
 
@@ -96,7 +97,7 @@ func TestUploadSubscriptionIconAcceptsICO(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read saved icon: %v", err)
 	}
-	if !hasICOSignature(saved) {
+	if !serviceutil.HasICOSignature(saved) {
 		t.Fatal("saved icon should be ico")
 	}
 }
@@ -239,7 +240,7 @@ func TestSanitizeUploadedIconSanitizesJPEG(t *testing.T) {
 		t.Fatalf("failed to encode jpeg: %v", err)
 	}
 
-	sanitized, ext, err := sanitizeUploadedIcon(bytes.NewReader(jpegBytes.Bytes()), "photo.jpeg", 65536)
+	sanitized, ext, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(jpegBytes.Bytes()), "photo.jpeg", 65536)
 	if err != nil {
 		t.Fatalf("sanitizeUploadedIcon() error = %v", err)
 	}

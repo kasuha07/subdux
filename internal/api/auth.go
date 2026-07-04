@@ -6,6 +6,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"github.com/labstack/echo/v4"
 )
 
@@ -97,7 +98,7 @@ func authServiceErrorStatus(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, service.ErrVerificationCodeTooFrequent):
 		return http.StatusTooManyRequests
-	case errors.Is(err, service.ErrSMTPRateLimited):
+	case errors.Is(err, servicesmtp.ErrSMTPRateLimited):
 		return http.StatusTooManyRequests
 	case errors.Is(err, service.ErrUserNotFound):
 		return http.StatusNotFound

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
@@ -45,13 +46,13 @@ func defaultAdminSystemSettings() *SystemSettings {
 		MCPEnabled:                           false,
 		AuditEnabled:                         true,
 		SystemProxyEnabled:                   false,
-		SystemProxyType:                      systemProxyTypeHTTP,
+		SystemProxyType:                      serviceoutbound.SystemProxyTypeHTTP,
 		SystemProxyURLSet:                    false,
 		SSRFProtectionEnabled:                true,
 		SSRFAllowPrivateIP:                   false,
-		SSRFDomainFilterMode:                 ssrfFilterModeBlacklist,
+		SSRFDomainFilterMode:                 serviceoutbound.FilterModeBlacklist,
 		SSRFDomainFilterList:                 "",
-		SSRFIPFilterMode:                     ssrfFilterModeBlacklist,
+		SSRFIPFilterMode:                     serviceoutbound.FilterModeBlacklist,
 		SSRFIPFilterList:                     "",
 		SSRFFilterResolvedIPs:                true,
 		SMTPEnabled:                          false,

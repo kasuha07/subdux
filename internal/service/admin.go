@@ -2,9 +2,8 @@ package service
 
 import (
 	"context"
-	"strings"
-	"time"
 
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"gorm.io/gorm"
 )
 
@@ -183,47 +182,25 @@ func (s *AdminService) TestSSRF(input SSRFTestInput) (*SSRFTestResult, error) {
 		requestContext = s.DB.Statement.Context
 	}
 
-	host, err := normalizeSSRFTestTarget(input.Target)
+	result, err := serviceoutbound.TestSSRF(requestContext, s.DB, serviceoutbound.SSRFTestInput{
+		Target: input.Target,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	cfg := outboundPolicyForDB(s.DB)
-	proxyMediated := ssrfTestUsesOutboundProxy(s.DB)
-	result := &SSRFTestResult{
-		Target:                  strings.TrimSpace(input.Target),
-		Host:                    host,
-		ProtectionEnabled:       cfg.Enabled,
-		AllowPrivateIP:          cfg.AllowPrivateIP,
-		DomainFilterMode:        cfg.DomainFilterMode,
-		IPFilterMode:            cfg.IPFilterMode,
-		FilterResolvedIPs:       cfg.FilterResolvedIP,
-		ProxyMediated:           proxyMediated,
-		ResolvedIPFilterApplied: cfg.Enabled && cfg.FilterResolvedIP && !proxyMediated,
-		ResolvedIPs:             []string{},
-	}
-
-	if proxyMediated {
-		if err := validateOutboundHostForPurpose(host, "ssrf test target", s.DB, outboundPurposeAdminTest); err != nil {
-			result.Allowed = false
-			result.Reason = err.Error()
-			return result, nil
-		}
-		result.Allowed = true
-		result.Reason = ssrfTestAllowedReason(cfg)
-		return result, nil
-	}
-
-	ctx, cancel := context.WithTimeout(requestContext, 2*time.Second)
-	defer cancel()
-	ips, err := resolveSafeOutboundHostIPs(ctx, "ip", host, "ssrf test target", s.DB)
-	if err != nil {
-		result.Allowed = false
-		result.Reason = err.Error()
-		return result, nil
-	}
-	result.ResolvedIPs = stringifyIPs(ips)
-	result.Allowed = true
-	result.Reason = ssrfTestAllowedReason(cfg)
-	return result, nil
+	return &SSRFTestResult{
+		Target:                  result.Target,
+		Host:                    result.Host,
+		Allowed:                 result.Allowed,
+		Reason:                  result.Reason,
+		ResolvedIPs:             result.ResolvedIPs,
+		ProtectionEnabled:       result.ProtectionEnabled,
+		AllowPrivateIP:          result.AllowPrivateIP,
+		DomainFilterMode:        result.DomainFilterMode,
+		IPFilterMode:            result.IPFilterMode,
+		FilterResolvedIPs:       result.FilterResolvedIPs,
+		ProxyMediated:           result.ProxyMediated,
+		ResolvedIPFilterApplied: result.ResolvedIPFilterApplied,
+	}, nil
 }

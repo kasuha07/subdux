@@ -7,6 +7,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"gorm.io/gorm"
 )
 
@@ -64,10 +65,10 @@ func TestSeedUserDefaultsIsIdempotent(t *testing.T) {
 	db := newTestDB(t)
 	user := createTestUser(t, db)
 
-	if err := SeedUserDefaults(db, user.ID); err != nil {
+	if err := serviceutil.SeedUserDefaults(db, user.ID); err != nil {
 		t.Fatalf("first seed failed: %v", err)
 	}
-	if err := SeedUserDefaults(db, user.ID); err != nil {
+	if err := serviceutil.SeedUserDefaults(db, user.ID); err != nil {
 		t.Fatalf("second seed failed: %v", err)
 	}
 
@@ -132,7 +133,7 @@ func TestSeedUserDefaultsIsIdempotent(t *testing.T) {
 func TestCategoryAndPaymentMethodCustomizeFlags(t *testing.T) {
 	db := newTestDB(t)
 	user := createTestUser(t, db)
-	if err := SeedUserDefaults(db, user.ID); err != nil {
+	if err := serviceutil.SeedUserDefaults(db, user.ID); err != nil {
 		t.Fatalf("seed defaults failed: %v", err)
 	}
 

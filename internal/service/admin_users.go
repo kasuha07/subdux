@@ -6,6 +6,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -187,7 +188,7 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
-		return SeedUserDefaults(tx, user.ID)
+		return serviceutil.SeedUserDefaults(tx, user.ID)
 	}); err != nil {
 		return nil, err
 	}

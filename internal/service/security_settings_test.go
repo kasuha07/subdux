@@ -8,6 +8,9 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 )
 
 func TestValidateBcryptPasswordLength(t *testing.T) {
@@ -61,7 +64,7 @@ func TestUpdateSettingsEncryptsSMTPPasswordAndDecryptsOnRead(t *testing.T) {
 		t.Fatalf("expected encrypted smtp password prefix, got %q", stored.Value)
 	}
 
-	cfg, err := loadSMTPRuntimeConfig(db)
+	cfg, err := servicesmtp.LoadRuntimeConfig(db)
 	if err != nil {
 		t.Fatalf("loadSMTPRuntimeConfig() failed: %v", err)
 	}
@@ -95,7 +98,7 @@ func TestUpdateSettingsEncryptsCurrencyAPIKey(t *testing.T) {
 		t.Fatalf("expected encrypted currency API key prefix, got %q", stored.Value)
 	}
 
-	decrypted, err := decryptSystemSettingValueIfNeeded("currencyapi_key", stored.Value)
+	decrypted, err := systemsettings.DecryptValueIfNeeded("currencyapi_key", stored.Value)
 	if err != nil {
 		t.Fatalf("decryptSystemSettingValueIfNeeded() failed: %v", err)
 	}
@@ -126,7 +129,7 @@ func TestLoadSMTPRuntimeConfigSupportsLegacyPlaintextPassword(t *testing.T) {
 		}
 	}
 
-	cfg, err := loadSMTPRuntimeConfig(db)
+	cfg, err := servicesmtp.LoadRuntimeConfig(db)
 	if err != nil {
 		t.Fatalf("loadSMTPRuntimeConfig() failed: %v", err)
 	}
@@ -165,7 +168,7 @@ func TestLoadSMTPRuntimeConfigReturnsDecryptErrorForInvalidEncryptedPassword(t *
 		}
 	}
 
-	_, err := loadSMTPRuntimeConfig(db)
+	_, err := servicesmtp.LoadRuntimeConfig(db)
 	if err == nil {
 		t.Fatal("loadSMTPRuntimeConfig() error = nil, want decrypt error")
 	}
@@ -214,7 +217,7 @@ func TestSMTPSkipTLSVerifyDefaultsDisabled(t *testing.T) {
 			t.Fatalf("failed to seed setting %q: %v", entry.Key, err)
 		}
 	}
-	cfg, err := loadSMTPRuntimeConfig(db)
+	cfg, err := servicesmtp.LoadRuntimeConfig(db)
 	if err != nil {
 		t.Fatalf("loadSMTPRuntimeConfig() failed: %v", err)
 	}
@@ -253,8 +256,8 @@ func TestUpdateSettingsRejectsInvalidSMTPRateLimit(t *testing.T) {
 	svc := NewAdminService(db)
 	rateLimitSeconds := int64(-1)
 	err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds})
-	if !errors.Is(err, ErrInvalidSMTPRateLimit) {
-		t.Fatalf("UpdateSettings() error = %v, want %v", err, ErrInvalidSMTPRateLimit)
+	if !errors.Is(err, servicesmtp.ErrInvalidSMTPRateLimit) {
+		t.Fatalf("UpdateSettings() error = %v, want %v", err, servicesmtp.ErrInvalidSMTPRateLimit)
 	}
 }
 
@@ -293,7 +296,7 @@ func TestUpdateSettingsClearsSSRFIPFilterList(t *testing.T) {
 	}
 
 	var stored model.SystemSetting
-	if err := db.Where("key = ?", ssrfIPFilterListKey).First(&stored).Error; err != nil {
+	if err := db.Where("key = ?", serviceoutbound.IPFilterListKey).First(&stored).Error; err != nil {
 		t.Fatalf("failed to read stored ssrf ip filter list: %v", err)
 	}
 	if stored.Value != "" {
@@ -346,22 +349,22 @@ func TestReserveSMTPRateLimitSlotRejectsTooFrequentAttempts(t *testing.T) {
 	restoreClock := pkg.SetNowForTest(start)
 	t.Cleanup(restoreClock)
 
-	cfg := smtpRuntimeConfig{
+	cfg := servicesmtp.RuntimeConfig{
 		RateLimitSeconds: 60,
 		RateLimitDB:      db,
 	}
-	if err := reserveSMTPRateLimitSlot(cfg); err != nil {
+	if err := servicesmtp.ReserveRateLimitSlot(cfg); err != nil {
 		t.Fatalf("first reserveSMTPRateLimitSlot() error = %v", err)
 	}
-	if err := reserveSMTPRateLimitSlot(cfg); !errors.Is(err, ErrSMTPRateLimited) {
-		t.Fatalf("second reserveSMTPRateLimitSlot() error = %v, want %v", err, ErrSMTPRateLimited)
+	if err := servicesmtp.ReserveRateLimitSlot(cfg); !errors.Is(err, servicesmtp.ErrSMTPRateLimited) {
+		t.Fatalf("second reserveSMTPRateLimitSlot() error = %v, want %v", err, servicesmtp.ErrSMTPRateLimited)
 	}
 
 	restoreClock()
 	restoreClock = pkg.SetNowForTest(start.Add(61 * time.Second))
 	t.Cleanup(restoreClock)
 
-	if err := reserveSMTPRateLimitSlot(cfg); err != nil {
+	if err := servicesmtp.ReserveRateLimitSlot(cfg); err != nil {
 		t.Fatalf("reserveSMTPRateLimitSlot() after interval error = %v", err)
 	}
 }

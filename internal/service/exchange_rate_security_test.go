@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +25,7 @@ func TestRefreshRatesDecryptsEncryptedCurrencyAPIKey(t *testing.T) {
 		t.Fatalf("failed to migrate exchange rate security tables: %v", err)
 	}
 
-	encryptedKey, err := encryptSystemSettingValueIfNeeded("currencyapi_key", "secret-api-key")
+	encryptedKey, err := systemsettings.EncryptValueIfNeeded("currencyapi_key", "secret-api-key")
 	if err != nil {
 		t.Fatalf("encryptSystemSettingValueIfNeeded() error = %v, want nil", err)
 	}

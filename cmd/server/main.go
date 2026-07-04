@@ -25,6 +25,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -515,7 +516,7 @@ func startSubscriptionLifecycleSweep(
 		ctx = context.Background()
 	}
 
-	ownerID := service.NewBackgroundTaskOwnerID()
+	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 
 	if monitor != nil {
 		monitor.Register(
@@ -586,7 +587,7 @@ func startScheduledBackupWorker(
 		ctx = context.Background()
 	}
 
-	ownerID := service.NewBackgroundTaskOwnerID()
+	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 
 	if monitor != nil {
 		monitor.Register(

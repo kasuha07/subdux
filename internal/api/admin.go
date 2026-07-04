@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/service"
+	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
+	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"github.com/labstack/echo/v4"
 )
 
@@ -280,14 +282,14 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 			errors.Is(err, service.ErrEmailDomainWhitelistTooLong) ||
 			errors.Is(err, service.ErrInvalidIconProxyDomainWhitelist) ||
 			errors.Is(err, service.ErrIconProxyDomainWhitelistTooLong) ||
-			errors.Is(err, service.ErrInvalidSMTPRateLimit) ||
-			errors.Is(err, service.ErrInvalidSystemProxyType) ||
-			errors.Is(err, service.ErrInvalidSystemProxyURL) ||
-			errors.Is(err, service.ErrInvalidSSRFFilterMode) ||
-			errors.Is(err, service.ErrInvalidSSRFDomainFilterList) ||
-			errors.Is(err, service.ErrSSRFDomainFilterListTooLong) ||
-			errors.Is(err, service.ErrInvalidSSRFIPFilterList) ||
-			errors.Is(err, service.ErrSSRFIPFilterListTooLong) ||
+			errors.Is(err, servicesmtp.ErrInvalidSMTPRateLimit) ||
+			errors.Is(err, serviceoutbound.ErrInvalidSystemProxyType) ||
+			errors.Is(err, serviceoutbound.ErrInvalidSystemProxyURL) ||
+			errors.Is(err, serviceoutbound.ErrInvalidSSRFFilterMode) ||
+			errors.Is(err, serviceoutbound.ErrInvalidSSRFDomainFilterList) ||
+			errors.Is(err, serviceoutbound.ErrSSRFDomainFilterListTooLong) ||
+			errors.Is(err, serviceoutbound.ErrInvalidSSRFIPFilterList) ||
+			errors.Is(err, serviceoutbound.ErrSSRFIPFilterListTooLong) ||
 			errors.Is(err, service.ErrInvalidBackupTimeOfDay) ||
 			errors.Is(err, service.ErrInvalidBackupRetentionCount) ||
 			errors.Is(err, service.ErrInvalidBackupLocalDir) ||
@@ -308,7 +310,7 @@ func (h *AdminHandler) TestSSRF(c echo.Context) error {
 
 	result, err := h.Service.WithContext(c.Request().Context()).TestSSRF(input)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidSSRFTestTarget) {
+		if errors.Is(err, serviceoutbound.ErrInvalidSSRFTestTarget) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -328,7 +330,7 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 	currentUserID := getUserID(c)
 
 	if err := h.Service.WithContext(c.Request().Context()).SendSMTPTestEmail(currentUserID, input.RecipientEmail); err != nil {
-		if errors.Is(err, service.ErrSMTPRateLimited) {
+		if errors.Is(err, servicesmtp.ErrSMTPRateLimited) {
 			return c.JSON(http.StatusTooManyRequests, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})

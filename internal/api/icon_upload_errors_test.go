@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/service"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 )
 
 func TestIsIconUploadBadRequestError(t *testing.T) {
@@ -14,10 +15,10 @@ func TestIsIconUploadBadRequestError(t *testing.T) {
 	}{
 		{err: errors.New("subscription not found"), want: true},
 		{err: errors.New("payment method not found"), want: true},
-		{err: service.ErrIconUploadSizeLimit, want: true},
-		{err: service.ErrIconUploadUnsupportedType, want: true},
-		{err: service.ErrIconUploadContentMismatch, want: true},
-		{err: service.ErrIconUploadInvalidICO, want: true},
+		{err: serviceutil.ErrIconUploadSizeLimit, want: true},
+		{err: serviceutil.ErrIconUploadUnsupportedType, want: true},
+		{err: serviceutil.ErrIconUploadContentMismatch, want: true},
+		{err: serviceutil.ErrIconUploadInvalidICO, want: true},
 		{err: service.ErrImageUploadDisabled, want: false},
 		{err: errors.New("failed to save icon file"), want: false},
 	}
@@ -33,7 +34,7 @@ func TestIsIconUploadForbiddenError(t *testing.T) {
 	if !isIconUploadForbiddenError(service.ErrImageUploadDisabled) {
 		t.Fatalf("isIconUploadForbiddenError(%v) = false, want true", service.ErrImageUploadDisabled)
 	}
-	if isIconUploadForbiddenError(service.ErrIconUploadUnsupportedType) {
-		t.Fatalf("isIconUploadForbiddenError(%v) = true, want false", service.ErrIconUploadUnsupportedType)
+	if isIconUploadForbiddenError(serviceutil.ErrIconUploadUnsupportedType) {
+		t.Fatalf("isIconUploadForbiddenError(%v) = true, want false", serviceutil.ErrIconUploadUnsupportedType)
 	}
 }
