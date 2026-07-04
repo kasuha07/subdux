@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 )
 
 func TestSanitizeUploadedIconRejectsExtensionMismatch(t *testing.T) {
@@ -116,7 +117,7 @@ func TestUploadPaymentMethodIconAcceptsICO(t *testing.T) {
 		t.Fatalf("failed to create payment method: %v", err)
 	}
 
-	svc := NewPaymentMethodService(db)
+	svc := catalogservice.NewPaymentMethodService(db)
 	iconValue, err := svc.UploadPaymentMethodIcon(user.ID, method.ID, bytes.NewReader(mustEncodeICOWithPNG(t, 24, 24)), "card.ico", 65536)
 	if err != nil {
 		t.Fatalf("UploadPaymentMethodIcon() error = %v", err)
@@ -177,7 +178,7 @@ func TestUploadPaymentMethodIconBlockedWhenImageUploadDisabled(t *testing.T) {
 		t.Fatalf("failed to disable image upload: %v", err)
 	}
 
-	svc := NewPaymentMethodService(db)
+	svc := catalogservice.NewPaymentMethodService(db)
 	_, err := svc.UploadPaymentMethodIcon(user.ID, method.ID, bytes.NewReader(mustEncodePNG(t, 16, 16)), "card.png", 65536)
 	if !errors.Is(err, ErrImageUploadDisabled) {
 		t.Fatalf("UploadPaymentMethodIcon() error = %v, want %v", err, ErrImageUploadDisabled)

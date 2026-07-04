@@ -6,6 +6,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"gorm.io/gorm"
 )
 
@@ -135,10 +136,10 @@ func TestCategoryAndPaymentMethodCustomizeFlags(t *testing.T) {
 		t.Fatalf("seed defaults failed: %v", err)
 	}
 
-	categoryService := NewCategoryService(db)
-	paymentMethodService := NewPaymentMethodService(db)
+	categoryService := catalogservice.NewCategoryService(db)
+	paymentMethodService := catalogservice.NewPaymentMethodService(db)
 
-	customCategory, err := categoryService.Create(user.ID, CreateCategoryInput{
+	customCategory, err := categoryService.Create(user.ID, catalogservice.CreateCategoryInput{
 		Name:         "My Custom Category",
 		DisplayOrder: 99,
 	})
@@ -157,7 +158,7 @@ func TestCategoryAndPaymentMethodCustomizeFlags(t *testing.T) {
 		t.Fatalf("query seeded category failed: %v", err)
 	}
 	renamedCategory := "Streaming"
-	updatedCategory, err := categoryService.Update(user.ID, seededCategory.ID, UpdateCategoryInput{Name: &renamedCategory})
+	updatedCategory, err := categoryService.Update(user.ID, seededCategory.ID, catalogservice.UpdateCategoryInput{Name: &renamedCategory})
 	if err != nil {
 		t.Fatalf("rename seeded category failed: %v", err)
 	}
@@ -168,7 +169,7 @@ func TestCategoryAndPaymentMethodCustomizeFlags(t *testing.T) {
 		t.Fatalf("renamed category name = %q, want %q", updatedCategory.Name, renamedCategory)
 	}
 
-	customMethod, err := paymentMethodService.Create(user.ID, CreatePaymentMethodInput{
+	customMethod, err := paymentMethodService.Create(user.ID, catalogservice.CreatePaymentMethodInput{
 		Name:      "My Wallet",
 		SortOrder: 99,
 	})
@@ -187,7 +188,7 @@ func TestCategoryAndPaymentMethodCustomizeFlags(t *testing.T) {
 		t.Fatalf("query seeded payment method failed: %v", err)
 	}
 	renamedMethod := "My Card"
-	updatedMethod, err := paymentMethodService.Update(user.ID, seededMethod.ID, UpdatePaymentMethodInput{Name: &renamedMethod})
+	updatedMethod, err := paymentMethodService.Update(user.ID, seededMethod.ID, catalogservice.UpdatePaymentMethodInput{Name: &renamedMethod})
 	if err != nil {
 		t.Fatalf("rename seeded payment method failed: %v", err)
 	}

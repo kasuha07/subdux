@@ -13,6 +13,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -116,9 +117,9 @@ func TestDashboardBootstrapAggregatesEverySectionWithoutWriting(t *testing.T) {
 	handler := NewDashboardBootstrapHandler(
 		subService,
 		service.NewExchangeRateService(db),
-		service.NewCurrencyService(db),
-		service.NewCategoryService(db),
-		service.NewPaymentMethodService(db),
+		catalogservice.NewCurrencyService(db),
+		catalogservice.NewCategoryService(db),
+		catalogservice.NewPaymentMethodService(db),
 	)
 
 	e := echo.New()

@@ -6,12 +6,12 @@ import (
 	"strconv"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 )
 
 type PaymentMethodHandler struct {
-	Service *service.PaymentMethodService
+	Service *catalogservice.PaymentMethodService
 }
 
 type paymentMethodResponse struct {
@@ -42,7 +42,7 @@ func mapPaymentMethodResponses(methods []model.PaymentMethod) []paymentMethodRes
 	return responses
 }
 
-func NewPaymentMethodHandler(s *service.PaymentMethodService) *PaymentMethodHandler {
+func NewPaymentMethodHandler(s *catalogservice.PaymentMethodService) *PaymentMethodHandler {
 	return &PaymentMethodHandler{Service: s}
 }
 
@@ -57,7 +57,7 @@ func (h *PaymentMethodHandler) List(c echo.Context) error {
 
 func (h *PaymentMethodHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreatePaymentMethodInput
+	var input catalogservice.CreatePaymentMethodInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -90,7 +90,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	var input service.UpdatePaymentMethodInput
+	var input catalogservice.UpdatePaymentMethodInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -126,7 +126,7 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 		if err.Error() == "payment method not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
-		if errors.Is(err, service.ErrPaymentMethodInUse) {
+		if errors.Is(err, catalogservice.ErrPaymentMethodInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -136,7 +136,7 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 
 func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 	userID := getUserID(c)
-	var items []service.ReorderItem
+	var items []catalogservice.ReorderItem
 	if err := c.Bind(&items); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}

@@ -11,6 +11,10 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
 	"github.com/labstack/echo/v4"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -20,31 +24,31 @@ const (
 )
 
 type MCPHandler struct {
-	apiKeys        *service.APIKeyService
-	audit          *service.AuditService
-	idempotency    *service.IdempotencyService
+	apiKeys        *apikeyservice.Service
+	audit          *auditservice.Service
+	idempotency    *idempotencyservice.Service
 	subscriptions  *service.SubscriptionService
 	exchangeRates  *service.ExchangeRateService
-	currencies     *service.CurrencyService
-	categories     *service.CategoryService
-	paymentMethods *service.PaymentMethodService
+	currencies     *catalogservice.CurrencyService
+	categories     *catalogservice.CategoryService
+	paymentMethods *catalogservice.PaymentMethodService
 	server         *mcp.Server
 	httpHandler    http.Handler
 }
 
 func NewMCPHandler(
-	apiKeys *service.APIKeyService,
-	audit *service.AuditService,
+	apiKeys *apikeyservice.Service,
+	audit *auditservice.Service,
 	subscriptions *service.SubscriptionService,
 	exchangeRates *service.ExchangeRateService,
-	currencies *service.CurrencyService,
-	categories *service.CategoryService,
-	paymentMethods *service.PaymentMethodService,
+	currencies *catalogservice.CurrencyService,
+	categories *catalogservice.CategoryService,
+	paymentMethods *catalogservice.PaymentMethodService,
 ) *MCPHandler {
 	handler := &MCPHandler{
 		apiKeys:        apiKeys,
 		audit:          audit,
-		idempotency:    service.NewIdempotencyService(subscriptions.DB),
+		idempotency:    idempotencyservice.NewService(subscriptions.DB),
 		subscriptions:  subscriptions,
 		exchangeRates:  exchangeRates,
 		currencies:     currencies,
@@ -148,7 +152,7 @@ func (h *MCPHandler) authenticate(c echo.Context) (*mcpPrincipal, int, error) {
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
-	if principal.KeyKind != service.APIKeyKindMCPClient {
+	if principal.KeyKind != apikeyservice.APIKeyKindMCPClient {
 		return nil, http.StatusForbidden, errors.New("api key kind cannot access mcp")
 	}
 

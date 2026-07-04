@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/service"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 )
 
@@ -16,17 +17,17 @@ import (
 type DashboardBootstrapHandler struct {
 	Subscriptions  *service.SubscriptionService
 	ExchangeRates  *service.ExchangeRateService
-	Currencies     *service.CurrencyService
-	Categories     *service.CategoryService
-	PaymentMethods *service.PaymentMethodService
+	Currencies     *catalogservice.CurrencyService
+	Categories     *catalogservice.CategoryService
+	PaymentMethods *catalogservice.PaymentMethodService
 }
 
 func NewDashboardBootstrapHandler(
 	subscriptions *service.SubscriptionService,
 	exchangeRates *service.ExchangeRateService,
-	currencies *service.CurrencyService,
-	categories *service.CategoryService,
-	paymentMethods *service.PaymentMethodService,
+	currencies *catalogservice.CurrencyService,
+	categories *catalogservice.CategoryService,
+	paymentMethods *catalogservice.PaymentMethodService,
 ) *DashboardBootstrapHandler {
 	return &DashboardBootstrapHandler{
 		Subscriptions:  subscriptions,

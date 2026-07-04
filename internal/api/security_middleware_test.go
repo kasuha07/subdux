@@ -14,6 +14,8 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -174,8 +176,8 @@ func TestRequiredAPIKeyScopeUsesReadForRegularGetRoute(t *testing.T) {
 	c.SetPath("/api/subscriptions")
 
 	got := requiredAPIKeyScope(c)
-	if got != service.APIKeyScopeRead {
-		t.Fatalf("requiredAPIKeyScope() = %q, want %q", got, service.APIKeyScopeRead)
+	if got != apikeyservice.APIKeyScopeRead {
+		t.Fatalf("requiredAPIKeyScope() = %q, want %q", got, apikeyservice.APIKeyScopeRead)
 	}
 }
 
@@ -207,7 +209,7 @@ func TestHumanSessionOnlyMiddlewareBlocksAPIKeyPrincipal(t *testing.T) {
 	c.Set("user", &jwt.Token{
 		Claims: &pkg.JWTClaims{
 			AuthType: pkg.AuthTypeAPIKey,
-			Scopes:   []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+			Scopes:   []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 		},
 	})
 
@@ -261,10 +263,10 @@ func TestHumanSessionOnlyMiddlewareAllowsHumanSession(t *testing.T) {
 func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	user := createHumanOnlyRouteTestUser(t, db)
-	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+	apiKeyResp, err := apikeyservice.NewService(db).Create(user.ID, user.Role, apikeyservice.CreateInput{
 		Name:    "Agent",
-		KeyKind: service.APIKeyKindAPIIntegration,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
@@ -438,10 +440,10 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 func TestMCPClientAPIKeyCannotAccessRESTBusinessRoutes(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	user := createHumanOnlyRouteTestUser(t, db)
-	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+	apiKeyResp, err := apikeyservice.NewService(db).Create(user.ID, user.Role, apikeyservice.CreateInput{
 		Name:    "MCP",
-		KeyKind: service.APIKeyKindMCPClient,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
@@ -474,13 +476,13 @@ func TestAuditEventsUserEndpointOnlyReturnsOwnEvents(t *testing.T) {
 		EventID:      "own",
 		UserID:       user.ID,
 		KeyID:        1,
-		KeyKind:      service.APIKeyKindMCPClient,
-		ScopeUsed:    service.APIKeyScopeWrite,
-		Transport:    service.AuditTransportMCP,
+		KeyKind:      apikeyservice.APIKeyKindMCPClient,
+		ScopeUsed:    apikeyservice.APIKeyScopeWrite,
+		Transport:    auditservice.TransportMCP,
 		ToolName:     "create_subscription",
-		ResourceType: service.AuditResourceSubscription,
+		ResourceType: auditservice.ResourceSubscription,
 		Action:       "create",
-		Status:       service.AuditStatusSuccess,
+		Status:       auditservice.StatusSuccess,
 		OccurredAt:   pkg.NowUTC(),
 	}).Error; err != nil {
 		t.Fatalf("failed to create own audit event: %v", err)
@@ -489,13 +491,13 @@ func TestAuditEventsUserEndpointOnlyReturnsOwnEvents(t *testing.T) {
 		EventID:      "other",
 		UserID:       other.ID,
 		KeyID:        2,
-		KeyKind:      service.APIKeyKindMCPClient,
-		ScopeUsed:    service.APIKeyScopeWrite,
-		Transport:    service.AuditTransportMCP,
+		KeyKind:      apikeyservice.APIKeyKindMCPClient,
+		ScopeUsed:    apikeyservice.APIKeyScopeWrite,
+		Transport:    auditservice.TransportMCP,
 		ToolName:     "delete_subscription",
-		ResourceType: service.AuditResourceSubscription,
+		ResourceType: auditservice.ResourceSubscription,
 		Action:       "delete",
-		Status:       service.AuditStatusSuccess,
+		Status:       auditservice.StatusSuccess,
 		OccurredAt:   pkg.NowUTC(),
 	}).Error; err != nil {
 		t.Fatalf("failed to create other audit event: %v", err)
@@ -542,10 +544,10 @@ func TestHumanOnlyRoutesAllowHumanSession(t *testing.T) {
 func TestAPIKeyAllowedRoutesStillAcceptAPIKeyPrincipal(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	user := createHumanOnlyRouteTestUser(t, db)
-	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+	apiKeyResp, err := apikeyservice.NewService(db).Create(user.ID, user.Role, apikeyservice.CreateInput{
 		Name:    "Reader",
-		KeyKind: service.APIKeyKindAPIIntegration,
-		Scopes:  []string{service.APIKeyScopeRead},
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
@@ -647,7 +649,7 @@ func TestAPIKeyScopeMiddlewareBlocksAuthNamespaceRoot(t *testing.T) {
 	c.Set("user", &jwt.Token{
 		Claims: &pkg.JWTClaims{
 			AuthType: pkg.AuthTypeAPIKey,
-			Scopes:   []string{service.APIKeyScopeWrite},
+			Scopes:   []string{apikeyservice.APIKeyScopeWrite},
 		},
 	})
 
@@ -676,7 +678,7 @@ func TestAPIKeyScopeMiddlewareBlocksRestrictedAuthRoutes(t *testing.T) {
 	c.Set("user", &jwt.Token{
 		Claims: &pkg.JWTClaims{
 			AuthType: pkg.AuthTypeAPIKey,
-			Scopes:   []string{service.APIKeyScopeWrite},
+			Scopes:   []string{apikeyservice.APIKeyScopeWrite},
 		},
 	})
 
@@ -705,7 +707,7 @@ func TestAPIKeyScopeMiddlewareAllowsAuthMeRoute(t *testing.T) {
 	c.Set("user", &jwt.Token{
 		Claims: &pkg.JWTClaims{
 			AuthType: pkg.AuthTypeAPIKey,
-			Scopes:   []string{service.APIKeyScopeRead},
+			Scopes:   []string{apikeyservice.APIKeyScopeRead},
 		},
 	})
 

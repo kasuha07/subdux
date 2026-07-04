@@ -15,7 +15,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/labstack/echo/v4"
 )
 
@@ -282,7 +282,7 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
-		if getAPIKeyKind(c) != service.APIKeyKindAPIIntegration {
+		if getAPIKeyKind(c) != apikeyservice.APIKeyKindAPIIntegration {
 			return c.JSON(http.StatusForbidden, echo.Map{"error": "api key kind cannot access this endpoint"})
 		}
 
@@ -333,10 +333,10 @@ func requiredAPIKeyScope(c echo.Context) string {
 	}
 
 	if isReadOnlyMethod(c.Request().Method) {
-		return service.APIKeyScopeRead
+		return apikeyservice.APIKeyScopeRead
 	}
 
-	return service.APIKeyScopeWrite
+	return apikeyservice.APIKeyScopeWrite
 }
 
 func isReadOnlyMethod(method string) bool {

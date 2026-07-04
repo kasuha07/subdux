@@ -8,6 +8,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	"gorm.io/gorm"
 )
 
@@ -105,7 +106,7 @@ func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpP
 
 	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
 		ToolName:     "create_subscription",
-		ResourceType: service.AuditResourceSubscription,
+		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
 			created, err := service.NewSubscriptionService(tx).Create(userID, input)
 			if err != nil {
@@ -140,7 +141,7 @@ func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpP
 
 	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
 		ToolName:     "update_subscription",
-		ResourceType: service.AuditResourceSubscription,
+		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
 			txService := service.NewSubscriptionService(tx)
 			existing, err := txService.GetByID(userID, id)
@@ -173,7 +174,7 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 
 	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
 		ToolName:     "delete_subscription",
-		ResourceType: service.AuditResourceSubscription,
+		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
 			txService := service.NewSubscriptionService(tx)
 			existing, err := txService.GetByID(userID, id)
@@ -211,7 +212,7 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 
 	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
 		ToolName:     "mark_subscription_renewed",
-		ResourceType: service.AuditResourceSubscription,
+		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
 			txService := service.NewSubscriptionService(tx)
 			existing, err := txService.GetByID(userID, id)

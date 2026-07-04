@@ -6,12 +6,12 @@ import (
 	"strconv"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 )
 
 type CategoryHandler struct {
-	Service *service.CategoryService
+	Service *catalogservice.CategoryService
 }
 
 type categoryResponse struct {
@@ -40,7 +40,7 @@ func mapCategoryResponses(categories []model.Category) []categoryResponse {
 	return responses
 }
 
-func NewCategoryHandler(s *service.CategoryService) *CategoryHandler {
+func NewCategoryHandler(s *catalogservice.CategoryService) *CategoryHandler {
 	return &CategoryHandler{Service: s}
 }
 
@@ -55,7 +55,7 @@ func (h *CategoryHandler) List(c echo.Context) error {
 
 func (h *CategoryHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateCategoryInput
+	var input catalogservice.CreateCategoryInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -81,7 +81,7 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
-	var input service.UpdateCategoryInput
+	var input catalogservice.UpdateCategoryInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -111,7 +111,7 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 		if err.Error() == "category not found" {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
-		if errors.Is(err, service.ErrCategoryInUse) {
+		if errors.Is(err, catalogservice.ErrCategoryInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -121,7 +121,7 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 
 func (h *CategoryHandler) Reorder(c echo.Context) error {
 	userID := getUserID(c)
-	var items []service.ReorderItem
+	var items []catalogservice.ReorderItem
 	if err := c.Bind(&items); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}

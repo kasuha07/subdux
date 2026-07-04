@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/kasuha07/subdux/internal/version"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -219,9 +219,9 @@ func (h *MCPHandler) buildServer() *mcp.Server {
 				}
 			}
 
-			requiredScope := service.APIKeyScopeRead
+			requiredScope := apikeyservice.APIKeyScopeRead
 			if definition.Write {
-				requiredScope = service.APIKeyScopeWrite
+				requiredScope = apikeyservice.APIKeyScopeWrite
 			}
 			if !mcpPrincipalHasScope(principal, requiredScope) {
 				return mcpToolExecutionError("api key does not have required scope").sdkResult(), nil

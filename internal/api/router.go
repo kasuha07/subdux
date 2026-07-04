@@ -12,6 +12,9 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/kasuha07/subdux/internal/version"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -64,7 +67,7 @@ func hasAPIKeyScope(c echo.Context, scope string) bool {
 func getAPIKeyKind(c echo.Context) string {
 	token := c.Get("user").(*jwt.Token)
 	claims := token.Claims.(*pkg.JWTClaims)
-	return service.NormalizePersistedAPIKeyKind(claims.KeyKind)
+	return apikeyservice.NormalizePersistedAPIKeyKind(claims.KeyKind)
 }
 
 func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -78,7 +81,7 @@ func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 // JWTOrAPIKeyMiddleware accepts either a Bearer JWT token or an X-API-Key header.
 // JWT is tried first; if no Authorization header is present, it falls back to API key.
-func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *service.APIKeyService) echo.MiddlewareFunc {
+func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *apikeyservice.Service) echo.MiddlewareFunc {
 	jwtMiddleware := echojwt.WithConfig(jwtConfig)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -128,15 +131,15 @@ func SetupRoutes(
 	systemSettingsService := service.NewSystemSettingsService(db)
 	iconProxyService := service.NewIconProxyService(db)
 	erService := service.NewExchangeRateService(db)
-	currencyService := service.NewCurrencyService(db)
-	categoryService := service.NewCategoryService(db)
-	paymentMethodService := service.NewPaymentMethodService(db)
+	currencyService := catalogservice.NewCurrencyService(db)
+	categoryService := catalogservice.NewCategoryService(db)
+	paymentMethodService := catalogservice.NewPaymentMethodService(db)
 	validator := service.NewTemplateValidator()
 	renderer := service.NewTemplateRenderer(validator)
 	templateService := service.NewNotificationTemplateService(db, validator)
 	notificationService := service.NewNotificationService(db, templateService, renderer)
-	apiKeyService := service.NewAPIKeyService(db)
-	auditService := service.NewAuditService(db)
+	apiKeyService := apikeyservice.NewService(db)
+	auditService := auditservice.NewService(db)
 	calendarService := service.NewCalendarService(db)
 	exportService := service.NewExportService(db)
 	importService := service.NewImportService(db)

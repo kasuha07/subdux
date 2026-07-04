@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"gorm.io/gorm"
 )
 
@@ -64,7 +65,7 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 
 	adminService := NewAdminService(db)
 	authService := NewAuthService(db)
-	apiKeyService := NewAPIKeyService(db)
+	apiKeyService := apikeyservice.NewService(db)
 	calendarService := NewCalendarService(db)
 
 	authResp, err := authService.CreateSession(target.ID)
@@ -72,9 +73,9 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 
-	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, CreateAPIKeyInput{
+	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, apikeyservice.CreateInput{
 		Name:    "CLI",
-		KeyKind: APIKeyKindAPIIntegration,
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
 	})
 	if err != nil {
 		t.Fatalf("Create() api key error = %v", err)
@@ -101,8 +102,8 @@ func TestDisabledUserCredentialsAreBlocked(t *testing.T) {
 		t.Fatalf("RefreshSession() error = %v, want %v", err, ErrInvalidRefreshToken)
 	}
 
-	if _, err := apiKeyService.ValidateKey(apiKeyResp.Key); !errors.Is(err, ErrAPIKeyInvalid) {
-		t.Fatalf("ValidateKey() error = %v, want %v", err, ErrAPIKeyInvalid)
+	if _, err := apiKeyService.ValidateKey(apiKeyResp.Key); !errors.Is(err, apikeyservice.ErrAPIKeyInvalid) {
+		t.Fatalf("ValidateKey() error = %v, want %v", err, apikeyservice.ErrAPIKeyInvalid)
 	}
 
 	if _, err := calendarService.ValidateToken(calendarToken.Token); err == nil || !strings.Contains(err.Error(), "invalid token") {
@@ -231,7 +232,7 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 
 	adminService := NewAdminService(db)
 	authService := NewAuthService(db)
-	apiKeyService := NewAPIKeyService(db)
+	apiKeyService := apikeyservice.NewService(db)
 	calendarService := NewCalendarService(db)
 
 	preferredCurrency := model.UserPreference{UserID: target.ID, PreferredCurrency: "USD"}
@@ -331,9 +332,9 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 
-	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, CreateAPIKeyInput{
+	apiKeyResp, err := apiKeyService.Create(target.ID, target.Role, apikeyservice.CreateInput{
 		Name:    "CLI",
-		KeyKind: APIKeyKindAPIIntegration,
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
 	})
 	if err != nil {
 		t.Fatalf("Create() api key error = %v", err)
@@ -388,8 +389,8 @@ func TestDeleteUserRemovesUserScopedRecordsAndInvalidatesCredentials(t *testing.
 		t.Fatalf("RefreshSession() after delete error = %v, want %v", err, ErrInvalidRefreshToken)
 	}
 
-	if _, err := apiKeyService.ValidateKey(apiKeyResp.Key); !errors.Is(err, ErrAPIKeyInvalid) {
-		t.Fatalf("ValidateKey() after delete error = %v, want %v", err, ErrAPIKeyInvalid)
+	if _, err := apiKeyService.ValidateKey(apiKeyResp.Key); !errors.Is(err, apikeyservice.ErrAPIKeyInvalid) {
+		t.Fatalf("ValidateKey() after delete error = %v, want %v", err, apikeyservice.ErrAPIKeyInvalid)
 	}
 
 	if _, err := calendarService.ValidateToken(calendarToken.Token); err == nil || !strings.Contains(err.Error(), "invalid token") {

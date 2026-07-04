@@ -13,6 +13,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
@@ -674,10 +675,10 @@ func TestAPIKeyListDoesNotRequireReauthTicket(t *testing.T) {
 	e := newHumanOnlyRouteTestServer(t, db)
 	token := reauthGateTestToken(t, admin)
 
-	_, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+	_, err := apikeyservice.NewService(db).Create(admin.ID, admin.Role, apikeyservice.CreateInput{
 		Name:    "Integration",
-		KeyKind: service.APIKeyKindAPIIntegration,
-		Scopes:  []string{service.APIKeyScopeRead},
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)
@@ -700,10 +701,10 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 
 	createAPIKey := func(t *testing.T, name string) uint {
 		t.Helper()
-		apiKeyResp, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+		apiKeyResp, err := apikeyservice.NewService(db).Create(admin.ID, admin.Role, apikeyservice.CreateInput{
 			Name:    name,
-			KeyKind: service.APIKeyKindAPIIntegration,
-			Scopes:  []string{service.APIKeyScopeRead},
+			KeyKind: apikeyservice.APIKeyKindAPIIntegration,
+			Scopes:  []string{apikeyservice.APIKeyScopeRead},
 		})
 		if err != nil {
 			t.Fatalf("failed to create api key: %v", err)
@@ -888,10 +889,10 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 	})
 
 	t.Run("api key can preview but cannot confirm", func(t *testing.T) {
-		apiKeyResp, err := service.NewAPIKeyService(db).Create(admin.ID, admin.Role, service.CreateAPIKeyInput{
+		apiKeyResp, err := apikeyservice.NewService(db).Create(admin.ID, admin.Role, apikeyservice.CreateInput{
 			Name:    "Integration",
-			KeyKind: service.APIKeyKindAPIIntegration,
-			Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+			KeyKind: apikeyservice.APIKeyKindAPIIntegration,
+			Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 		})
 		if err != nil {
 			t.Fatalf("failed to create api key: %v", err)

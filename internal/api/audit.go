@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	"github.com/labstack/echo/v4"
 )
 
 type AuditHandler struct {
-	Service *service.AuditService
+	Service *auditservice.Service
 }
 
-func NewAuditHandler(s *service.AuditService) *AuditHandler {
+func NewAuditHandler(s *auditservice.Service) *AuditHandler {
 	return &AuditHandler{Service: s}
 }
 
@@ -60,7 +60,7 @@ func (h *AuditHandler) ListAdminEvents(c echo.Context) error {
 	return c.JSON(http.StatusOK, mapAuditEventResponses(events))
 }
 
-func parseAuditEventFilter(c echo.Context, userID *uint) service.AuditEventFilter {
+func parseAuditEventFilter(c echo.Context, userID *uint) auditservice.EventFilter {
 	limit, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("limit")))
 	var before *time.Time
 	if rawBefore := strings.TrimSpace(c.QueryParam("before")); rawBefore != "" {
@@ -68,7 +68,7 @@ func parseAuditEventFilter(c echo.Context, userID *uint) service.AuditEventFilte
 			before = &parsed
 		}
 	}
-	return service.AuditEventFilter{
+	return auditservice.EventFilter{
 		UserID:       userID,
 		Limit:        limit,
 		Before:       before,

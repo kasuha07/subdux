@@ -16,6 +16,9 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -66,25 +69,25 @@ func createMCPTestUser(t *testing.T, db *gorm.DB) model.User {
 
 func newMCPTestHandler(db *gorm.DB) *MCPHandler {
 	return NewMCPHandler(
-		service.NewAPIKeyService(db),
-		service.NewAuditService(db),
+		apikeyservice.NewService(db),
+		auditservice.NewService(db),
 		service.NewSubscriptionService(db),
 		service.NewExchangeRateService(db),
-		service.NewCurrencyService(db),
-		service.NewCategoryService(db),
-		service.NewPaymentMethodService(db),
+		catalogservice.NewCurrencyService(db),
+		catalogservice.NewCategoryService(db),
+		catalogservice.NewPaymentMethodService(db),
 	)
 }
 
 func createMCPAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string) string {
 	t.Helper()
 	if scopes == nil {
-		scopes = []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}
+		scopes = []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}
 	}
 
-	resp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+	resp, err := apikeyservice.NewService(db).Create(user.ID, user.Role, apikeyservice.CreateInput{
 		Name:    "Agent",
-		KeyKind: service.APIKeyKindMCPClient,
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
 		Scopes:  scopes,
 	})
 	if err != nil {
@@ -96,9 +99,9 @@ func createMCPAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string
 func createRESTAPIKey(t *testing.T, db *gorm.DB, user model.User, scopes []string) string {
 	t.Helper()
 
-	resp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+	resp, err := apikeyservice.NewService(db).Create(user.ID, user.Role, apikeyservice.CreateInput{
 		Name:    "Integration",
-		KeyKind: service.APIKeyKindAPIIntegration,
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
 		Scopes:  scopes,
 	})
 	if err != nil {
@@ -197,7 +200,7 @@ func TestMCPRequiresAPIKey(t *testing.T) {
 func TestMCPRejectsAPIIntegrationKey(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
-	apiKey := createRESTAPIKey(t, db, user, []string{service.APIKeyScopeRead, service.APIKeyScopeWrite})
+	apiKey := createRESTAPIKey(t, db, user, []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite})
 	handler := newMCPTestHandler(db)
 
 	rec, _ := performMCPRequest(t, handler, apiKey, map[string]interface{}{
@@ -483,8 +486,8 @@ func TestMCPWriteCreatesLightweightAuditEvent(t *testing.T) {
 	principal := &mcpPrincipal{
 		UserID:  user.ID,
 		KeyID:   7,
-		KeyKind: service.APIKeyKindMCPClient,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 		Request: mcpRequestMetadata{ClientName: "test-client", ClientVersion: "1.0", RequestID: "req-1"},
 	}
 
@@ -509,7 +512,7 @@ func TestMCPWriteCreatesLightweightAuditEvent(t *testing.T) {
 		t.Fatalf("audit event count = %d, want 1", len(events))
 	}
 	event := events[0]
-	if event.ToolName != "create_subscription" || event.Action != "create" || event.Status != service.AuditStatusSuccess {
+	if event.ToolName != "create_subscription" || event.Action != "create" || event.Status != auditservice.StatusSuccess {
 		t.Fatalf("unexpected audit event: %#v", event)
 	}
 	if !strings.Contains(event.AfterSnapshot, `"name":"Claude Pro"`) {
@@ -535,7 +538,7 @@ func TestMCPUpdateAuditRecordsChangedFields(t *testing.T) {
 		t.Fatalf("failed to create subscription: %v", err)
 	}
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
 	result, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
 		"idempotency_key": "update-audit-1",
@@ -578,7 +581,7 @@ func TestMCPDeleteAuditFailureKeepsManagedIconFile(t *testing.T) {
 		t.Fatalf("failed to create subscription: %v", err)
 	}
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
 	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
 		t.Fatalf("failed to drop audit table: %v", err)
@@ -619,7 +622,7 @@ func TestMCPDeleteCleansManagedIconFileAfterAuditCommit(t *testing.T) {
 		t.Fatalf("failed to create subscription: %v", err)
 	}
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
 	result, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"idempotency_key": "delete-commit-1", "id": float64(sub.ID)})
 	if rpcErr != nil {
@@ -650,7 +653,7 @@ func TestMCPWriteSkipsAuditWhenDisabled(t *testing.T) {
 	}
 	user := createMCPTestUser(t, db)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
 	_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
 		"idempotency_key":   "no-audit-1",
@@ -674,7 +677,7 @@ func TestMCPAuditFailureRollsBackWrite(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
 	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
 		t.Fatalf("failed to drop audit table: %v", err)
@@ -900,7 +903,7 @@ func TestMCPSearchSubscriptions(t *testing.T) {
 	if err := db.Create(&otherUser).Error; err != nil {
 		t.Fatalf("failed to create other user: %v", err)
 	}
-	apiKey := createMCPAPIKey(t, db, user, []string{service.APIKeyScopeRead})
+	apiKey := createMCPAPIKey(t, db, user, []string{apikeyservice.APIKeyScopeRead})
 	handler := newMCPTestHandler(db)
 
 	category := model.Category{UserID: user.ID, Name: "Developer Tools"}
@@ -1013,7 +1016,7 @@ func TestMCPSearchSubscriptions(t *testing.T) {
 func TestMCPSearchSubscriptionsMatchesCategoryName(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
-	apiKey := createMCPAPIKey(t, db, user, []string{service.APIKeyScopeRead})
+	apiKey := createMCPAPIKey(t, db, user, []string{apikeyservice.APIKeyScopeRead})
 	handler := newMCPTestHandler(db)
 
 	category := model.Category{UserID: user.ID, Name: "Developer Tools"}
@@ -1208,7 +1211,7 @@ func TestMCPListReferenceToolsReturnStructuredObjects(t *testing.T) {
 func TestMCPReadOnlyAPIKeyCannotWrite(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
-	apiKey := createMCPAPIKey(t, db, user, []string{service.APIKeyScopeRead})
+	apiKey := createMCPAPIKey(t, db, user, []string{apikeyservice.APIKeyScopeRead})
 	handler := newMCPTestHandler(db)
 
 	rec, resp := performMCPRequest(t, handler, apiKey, map[string]interface{}{
@@ -1675,8 +1678,8 @@ func TestMCPCreateReplayDoesNotDuplicate(t *testing.T) {
 	principal := &mcpPrincipal{
 		UserID:  user.ID,
 		KeyID:   7,
-		KeyKind: service.APIKeyKindMCPClient,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 		Request: mcpRequestMetadata{ClientName: "test-client", ClientVersion: "1.0", RequestID: "req-1"},
 	}
 	args := map[string]interface{}{
@@ -1742,8 +1745,8 @@ func TestMCPReusedKeyWithDifferentArgsIsRejected(t *testing.T) {
 	principal := &mcpPrincipal{
 		UserID:  user.ID,
 		KeyID:   7,
-		KeyKind: service.APIKeyKindMCPClient,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 	}
 
 	if _, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
@@ -1784,8 +1787,8 @@ func TestMCPMarkRenewedReplayDoesNotAdvanceTwice(t *testing.T) {
 	principal := &mcpPrincipal{
 		UserID:  user.ID,
 		KeyID:   7,
-		KeyKind: service.APIKeyKindMCPClient,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 	}
 
 	intervalCount := 1
@@ -1848,8 +1851,8 @@ func TestMCPDeleteReplayIsIdempotent(t *testing.T) {
 	principal := &mcpPrincipal{
 		UserID:  user.ID,
 		KeyID:   7,
-		KeyKind: service.APIKeyKindMCPClient,
-		Scopes:  []string{service.APIKeyScopeRead, service.APIKeyScopeWrite},
+		KeyKind: apikeyservice.APIKeyKindMCPClient,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 	}
 
 	intervalCount := 1
@@ -1917,8 +1920,8 @@ func TestMCPIdempotencyKeyIsScopedPerUser(t *testing.T) {
 		"next_billing_date": "2026-06-15",
 	}
 
-	principalA := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
-	principalB := &mcpPrincipal{UserID: otherUser.ID, KeyID: 8, KeyKind: service.APIKeyKindMCPClient, Scopes: []string{service.APIKeyScopeRead, service.APIKeyScopeWrite}}
+	principalA := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
+	principalB := &mcpPrincipal{UserID: otherUser.ID, KeyID: 8, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
 	if _, rpcErr := handler.callCreateSubscription(context.Background(), principalA, args); rpcErr != nil {
 		t.Fatalf("user A callCreateSubscription() rpcErr = %v", rpcErr)

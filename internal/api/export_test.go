@@ -14,6 +14,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -156,10 +157,10 @@ func TestExportBlocksAPIKeyPrincipal(t *testing.T) {
 	db := newExportAPITestDB(t)
 	user := createExportAPITestUser(t, db)
 	seedExportAPITestChannel(t, db, user.ID)
-	apiKeyResp, err := service.NewAPIKeyService(db).Create(user.ID, user.Role, service.CreateAPIKeyInput{
+	apiKeyResp, err := apikeyservice.NewService(db).Create(user.ID, user.Role, apikeyservice.CreateInput{
 		Name:    "Read only",
-		KeyKind: service.APIKeyKindAPIIntegration,
-		Scopes:  []string{service.APIKeyScopeRead},
+		KeyKind: apikeyservice.APIKeyKindAPIIntegration,
+		Scopes:  []string{apikeyservice.APIKeyScopeRead},
 	})
 	if err != nil {
 		t.Fatalf("failed to create api key: %v", err)

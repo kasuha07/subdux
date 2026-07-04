@@ -8,6 +8,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +41,7 @@ func TestWithContextCancelsInFlightQueries(t *testing.T) {
 		t.Fatalf("failed to seed category: %v", err)
 	}
 
-	svc := NewCategoryService(db)
+	svc := catalogservice.NewCategoryService(db)
 
 	// Baseline: a live context returns the seeded data without error.
 	liveCategories, err := svc.WithContext(context.Background()).List(userID)
@@ -61,7 +62,7 @@ func TestWithContextCancelsInFlightQueries(t *testing.T) {
 
 	// A write path must be cancelled too, so slow writes under the 60s write
 	// timeout can be interrupted rather than committed after the client is gone.
-	_, err = svc.WithContext(ctx).Create(userID, CreateCategoryInput{Name: "Should Not Persist"})
+	_, err = svc.WithContext(ctx).Create(userID, catalogservice.CreateCategoryInput{Name: "Should Not Persist"})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Create() with cancelled context error = %v, want context.Canceled", err)
 	}
@@ -82,7 +83,7 @@ func TestWithContextCancelsInFlightQueries(t *testing.T) {
 // service's database handle, so concurrent requests cannot disturb one another.
 func TestWithContextPreservesParentHandle(t *testing.T) {
 	db := newContextCancellationTestDB(t)
-	svc := NewPaymentMethodService(db)
+	svc := catalogservice.NewPaymentMethodService(db)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

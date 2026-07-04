@@ -7,11 +7,12 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service"
+	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/labstack/echo/v4"
 )
 
 type CurrencyHandler struct {
-	Service   *service.CurrencyService
+	Service   *catalogservice.CurrencyService
 	ERService *service.ExchangeRateService
 }
 
@@ -41,7 +42,7 @@ func mapUserCurrencyResponses(currencies []model.UserCurrency) []userCurrencyRes
 	return responses
 }
 
-func NewCurrencyHandler(s *service.CurrencyService, er *service.ExchangeRateService) *CurrencyHandler {
+func NewCurrencyHandler(s *catalogservice.CurrencyService, er *service.ExchangeRateService) *CurrencyHandler {
 	return &CurrencyHandler{Service: s, ERService: er}
 }
 
@@ -56,7 +57,7 @@ func (h *CurrencyHandler) List(c echo.Context) error {
 
 func (h *CurrencyHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateCurrencyInput
+	var input catalogservice.CreateCurrencyInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -82,7 +83,7 @@ func (h *CurrencyHandler) Update(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
-	var input service.UpdateCurrencyInput
+	var input catalogservice.UpdateCurrencyInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
@@ -116,7 +117,7 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 		if err.Error() == "cannot delete your preferred currency" {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
-		if errors.Is(err, service.ErrCurrencyInUse) {
+		if errors.Is(err, catalogservice.ErrCurrencyInUse) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 		}
 		return writeInternalServerError(c, err)
@@ -126,7 +127,7 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 
 func (h *CurrencyHandler) Reorder(c echo.Context) error {
 	userID := getUserID(c)
-	var items []service.ReorderItem
+	var items []catalogservice.ReorderItem
 	if err := c.Bind(&items); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}

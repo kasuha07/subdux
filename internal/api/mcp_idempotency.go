@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
 	"gorm.io/gorm"
 )
 
@@ -84,7 +86,7 @@ func (h *MCPHandler) runIdempotentWrite(
 	)
 
 	txErr := h.subscriptions.WithContext(ctx).DB.Transaction(func(tx *gorm.DB) error {
-		existing, err := service.NewIdempotencyService(tx).Lookup(principal.UserID, key)
+		existing, err := idempotencyservice.NewService(tx).Lookup(principal.UserID, key)
 		if err != nil {
 			return err
 		}
@@ -107,17 +109,17 @@ func (h *MCPHandler) runIdempotentWrite(
 		}
 
 		if auditEnabled {
-			if _, err := service.NewAuditService(tx).Create(service.CreateAuditEventInput{
+			if _, err := auditservice.NewService(tx).Create(auditservice.CreateEventInput{
 				UserID:              principal.UserID,
 				KeyID:               principal.KeyID,
 				KeyKind:             principal.KeyKind,
-				ScopeUsed:           service.APIKeyScopeWrite,
-				Transport:           service.AuditTransportMCP,
+				ScopeUsed:           apikeyservice.APIKeyScopeWrite,
+				Transport:           auditservice.TransportMCP,
 				ToolName:            spec.ToolName,
 				ResourceType:        spec.ResourceType,
 				ResourceID:          outcome.ResourceID,
 				Action:              outcome.Action,
-				Status:              service.AuditStatusSuccess,
+				Status:              auditservice.StatusSuccess,
 				LatencyMS:           time.Since(start).Milliseconds(),
 				ClientName:          principal.Request.ClientName,
 				ClientVersion:       principal.Request.ClientVersion,
@@ -134,7 +136,7 @@ func (h *MCPHandler) runIdempotentWrite(
 		if err != nil {
 			return err
 		}
-		if err := service.NewIdempotencyService(tx).Save(&model.MCPIdempotencyKey{
+		if err := idempotencyservice.NewService(tx).Save(&model.MCPIdempotencyKey{
 			UserID:         principal.UserID,
 			IdempotencyKey: key,
 			KeyID:          principal.KeyID,

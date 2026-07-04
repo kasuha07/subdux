@@ -8,15 +8,16 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service"
+	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/labstack/echo/v4"
 )
 
 type APIKeyHandler struct {
-	Service *service.APIKeyService
+	Service *apikeyservice.Service
 	Reauth  *service.ReauthService
 }
 
-func NewAPIKeyHandler(s *service.APIKeyService, reauth *service.ReauthService) *APIKeyHandler {
+func NewAPIKeyHandler(s *apikeyservice.Service, reauth *service.ReauthService) *APIKeyHandler {
 	return &APIKeyHandler{Service: s, Reauth: reauth}
 }
 
@@ -41,8 +42,8 @@ func mapAPIKeyResponse(key model.APIKey) apiKeyResponse {
 		ID:         key.ID,
 		Name:       key.Name,
 		Prefix:     key.Prefix,
-		KeyKind:    service.NormalizePersistedAPIKeyKind(key.KeyKind),
-		Scopes:     service.ParseAPIKeyScopes(key.Scopes),
+		KeyKind:    apikeyservice.NormalizePersistedAPIKeyKind(key.KeyKind),
+		Scopes:     apikeyservice.ParseAPIKeyScopes(key.Scopes),
 		LastUsedAt: key.LastUsedAt,
 		ExpiresAt:  key.ExpiresAt,
 		CreatedAt:  key.CreatedAt,
@@ -51,7 +52,7 @@ func mapAPIKeyResponse(key model.APIKey) apiKeyResponse {
 
 func (h *APIKeyHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateAPIKeyInput
+	var input apikeyservice.CreateInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
@@ -73,9 +74,9 @@ func (h *APIKeyHandler) Create(c echo.Context) error {
 	resp, err := h.Service.WithContext(c.Request().Context()).Create(userID, role, input)
 	if err != nil {
 		switch err {
-		case service.ErrAPIKeyNameRequired, service.ErrAPIKeyNameTooLong, service.ErrAPIKeyScopeInvalid, service.ErrAPIKeyKindRequired, service.ErrAPIKeyKindInvalid:
+		case apikeyservice.ErrAPIKeyNameRequired, apikeyservice.ErrAPIKeyNameTooLong, apikeyservice.ErrAPIKeyScopeInvalid, apikeyservice.ErrAPIKeyKindRequired, apikeyservice.ErrAPIKeyKindInvalid:
 			return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-		case service.ErrAPIKeyLimitReached:
+		case apikeyservice.ErrAPIKeyLimitReached:
 			return c.JSON(http.StatusConflict, echo.Map{"error": err.Error()})
 		default:
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create api key"})
@@ -119,7 +120,7 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(keyID)); err != nil {
-		if err == service.ErrAPIKeyNotFound {
+		if err == apikeyservice.ErrAPIKeyNotFound {
 			return c.JSON(http.StatusNotFound, echo.Map{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to delete api key"})
