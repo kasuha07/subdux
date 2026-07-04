@@ -1,12 +1,14 @@
-package service
-
-import serviceauth "github.com/kasuha07/subdux/internal/service/auth"
+package auth
 
 const bcryptMaxPasswordBytes = 72
 
+func ValidateBcryptPasswordLength(password string) error {
+	return validateBcryptPasswordLength(password)
+}
+
 func validateBcryptPasswordLength(password string) error {
 	if len([]byte(password)) > bcryptMaxPasswordBytes {
-		return serviceauth.ErrPasswordTooLong
+		return ErrPasswordTooLong
 	}
 	return nil
 }

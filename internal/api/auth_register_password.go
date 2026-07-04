@@ -29,7 +29,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	if len(input.Password) < 8 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must be at least 8 characters"})
 	}
-	if len([]byte(input.Password)) > 72 {
+	if err := serviceauth.ValidateBcryptPasswordLength(input.Password); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Password must not exceed 72 bytes"})
 	}
 
@@ -117,7 +117,7 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	if len(input.NewPassword) < 8 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 8 characters"})
 	}
-	if len([]byte(input.NewPassword)) > 72 {
+	if err := serviceauth.ValidateBcryptPasswordLength(input.NewPassword); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
 	}
 
@@ -140,7 +140,7 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	if len(input.NewPassword) < 8 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must be at least 8 characters"})
 	}
-	if len([]byte(input.NewPassword)) > 72 {
+	if err := serviceauth.ValidateBcryptPasswordLength(input.NewPassword); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password must not exceed 72 bytes"})
 	}
 	if err := h.Service.WithContext(c.Request().Context()).ChangePassword(userID, input); err != nil {

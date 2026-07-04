@@ -184,7 +184,7 @@ func getIconProxyProviderSpec(provider string) (iconProxyProviderSpec, error) {
 func normalizeIconProxyTargetDomain(raw string) (string, error) {
 	domain := strings.ToLower(strings.TrimSpace(raw))
 	domain = strings.TrimRight(domain, ".")
-	if domain == "" || !isValidEmailDomain(domain) {
+	if domain == "" || !isValidDomainName(domain) {
 		return "", ErrInvalidIconProxyTargetDomain
 	}
 	return domain, nil

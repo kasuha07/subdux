@@ -82,7 +82,7 @@ func normalizeIconProxyDomain(raw string) (string, error) {
 		return "", ErrInvalidIconProxyDomainWhitelist
 	}
 
-	if !isValidEmailDomain(domain) {
+	if !isValidDomainName(domain) {
 		return "", ErrInvalidIconProxyDomainWhitelist
 	}
 	return domain, nil
@@ -138,4 +138,34 @@ func expandIconProxyAllowedDomains(domains []string) []string {
 
 	sort.Strings(expanded)
 	return expanded
+}
+
+func isValidDomainName(domain string) bool {
+	if strings.Contains(domain, "..") || strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") {
+		return false
+	}
+
+	labels := strings.Split(domain, ".")
+	if len(labels) < 2 {
+		return false
+	}
+
+	for _, label := range labels {
+		if label == "" || len(label) > 63 {
+			return false
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for i := 0; i < len(label); i++ {
+			ch := label[i]
+			if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
+				continue
+			}
+			return false
+		}
+	}
+
+	tld := labels[len(labels)-1]
+	return len(tld) >= 2
 }

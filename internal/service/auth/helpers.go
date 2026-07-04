@@ -12,8 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const bcryptMaxPasswordBytes = 72
-
 func withContext(db *gorm.DB, ctx context.Context) *gorm.DB {
 	if db == nil {
 		return nil
@@ -43,11 +41,4 @@ func buildOIDCOutboundHTTPClient(ctx context.Context, db *gorm.DB, timeout time.
 
 func validateHTTPURL(rawURL string, fieldLabel string, requireHTTPS bool) (*url.URL, error) {
 	return outbound.ValidateHTTPURL(rawURL, fieldLabel, requireHTTPS)
-}
-
-func validateBcryptPasswordLength(password string) error {
-	if len([]byte(password)) > bcryptMaxPasswordBytes {
-		return ErrPasswordTooLong
-	}
-	return nil
 }

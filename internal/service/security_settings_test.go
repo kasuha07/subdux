@@ -8,23 +8,10 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 )
-
-func TestValidateBcryptPasswordLength(t *testing.T) {
-	valid := strings.Repeat("a", bcryptMaxPasswordBytes)
-	if err := validateBcryptPasswordLength(valid); err != nil {
-		t.Fatalf("expected %d-byte password to pass, got %v", bcryptMaxPasswordBytes, err)
-	}
-
-	tooLong := strings.Repeat("a", bcryptMaxPasswordBytes+1)
-	if err := validateBcryptPasswordLength(tooLong); err != serviceauth.ErrPasswordTooLong {
-		t.Fatalf("expected ErrPasswordTooLong, got %v", err)
-	}
-}
 
 func TestUpdateSettingsEncryptsSMTPPasswordAndDecryptsOnRead(t *testing.T) {
 	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")

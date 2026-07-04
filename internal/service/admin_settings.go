@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
@@ -260,7 +261,7 @@ func (s *AdminService) UpdateSettings(input UpdateSettingsInput) error {
 		}
 
 		if input.EmailDomainWhitelist != nil {
-			normalized, err := normalizeEmailDomainWhitelist(*input.EmailDomainWhitelist)
+			normalized, err := serviceauth.NormalizeEmailDomainWhitelist(*input.EmailDomainWhitelist)
 			if err != nil {
 				return err
 			}

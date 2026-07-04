@@ -16,6 +16,10 @@ var (
 	ErrEmailDomainNotAllowed       = errors.New("email domain is not allowed")
 )
 
+func NormalizeEmailDomainWhitelist(raw string) (string, error) {
+	return normalizeEmailDomainWhitelist(raw)
+}
+
 func normalizeEmailDomainWhitelist(raw string) (string, error) {
 	domains, err := parseEmailDomainWhitelist(raw)
 	if err != nil {

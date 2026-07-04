@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
+	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 )
 
 func TestUpdateSettingsEmailDomainWhitelistNormalization(t *testing.T) {
@@ -43,7 +44,7 @@ func TestUpdateSettingsEmailDomainWhitelistValidationError(t *testing.T) {
 	err := svc.UpdateSettings(UpdateSettingsInput{
 		EmailDomainWhitelist: &input,
 	})
-	if !errors.Is(err, ErrInvalidEmailDomainWhitelist) {
-		t.Fatalf("UpdateSettings() error = %v, want %v", err, ErrInvalidEmailDomainWhitelist)
+	if !errors.Is(err, serviceauth.ErrInvalidEmailDomainWhitelist) {
+		t.Fatalf("UpdateSettings() error = %v, want %v", err, serviceauth.ErrInvalidEmailDomainWhitelist)
 	}
 }

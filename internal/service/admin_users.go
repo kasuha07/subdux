@@ -156,7 +156,7 @@ func (s *AdminService) CreateUser(input CreateUserInput) (*model.User, error) {
 	if len(input.Password) < 8 {
 		return nil, errors.New("password must be at least 8 characters")
 	}
-	if err := validateBcryptPasswordLength(input.Password); err != nil {
+	if err := serviceauth.ValidateBcryptPasswordLength(input.Password); err != nil {
 		return nil, err
 	}
 
