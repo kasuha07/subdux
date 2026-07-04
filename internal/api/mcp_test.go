@@ -19,6 +19,7 @@ import (
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -71,7 +72,7 @@ func newMCPTestHandler(db *gorm.DB) *MCPHandler {
 	return NewMCPHandler(
 		apikeyservice.NewService(db),
 		auditservice.NewService(db),
-		service.NewSubscriptionService(db),
+		subscriptionservice.NewService(db),
 		service.NewExchangeRateService(db),
 		catalogservice.NewCurrencyService(db),
 		catalogservice.NewCategoryService(db),
@@ -526,7 +527,7 @@ func TestMCPWriteCreatesLightweightAuditEvent(t *testing.T) {
 func TestMCPUpdateAuditRecordsChangedFields(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Old",
 		Amount:          10,
 		RecurrenceType:  "interval",
@@ -568,7 +569,7 @@ func TestMCPDeleteAuditFailureKeepsManagedIconFile(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
 	iconPath := writeMCPTestManagedIcon(t, dataPath, "1_2_3.png")
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Rollback Delete",
 		Amount:          20,
 		RecurrenceType:  "interval",
@@ -609,7 +610,7 @@ func TestMCPDeleteCleansManagedIconFileAfterAuditCommit(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
 	iconPath := writeMCPTestManagedIcon(t, dataPath, "1_2_4.png")
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Committed Delete",
 		Amount:          20,
 		RecurrenceType:  "interval",
@@ -915,9 +916,9 @@ func TestMCPSearchSubscriptions(t *testing.T) {
 		t.Fatalf("failed to create payment method: %v", err)
 	}
 
-	subscriptionService := service.NewSubscriptionService(db)
+	subscriptionService := subscriptionservice.NewService(db)
 	intervalCount := 1
-	target, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+	target, err := subscriptionService.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "GitHub Copilot",
 		Amount:          10,
 		Currency:        "USD",
@@ -936,7 +937,7 @@ func TestMCPSearchSubscriptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create target subscription: %v", err)
 	}
-	if _, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+	if _, err := subscriptionService.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Netflix",
 		Amount:          15.49,
 		Currency:        "USD",
@@ -951,7 +952,7 @@ func TestMCPSearchSubscriptions(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to create unrelated subscription: %v", err)
 	}
-	if _, err := subscriptionService.Create(otherUser.ID, service.CreateSubscriptionInput{
+	if _, err := subscriptionService.Create(otherUser.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "GitHub Enterprise",
 		Amount:          100,
 		Currency:        "USD",
@@ -1028,9 +1029,9 @@ func TestMCPSearchSubscriptionsMatchesCategoryName(t *testing.T) {
 		t.Fatalf("failed to create other category: %v", err)
 	}
 
-	subscriptionService := service.NewSubscriptionService(db)
+	subscriptionService := subscriptionservice.NewService(db)
 	intervalCount := 1
-	target, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+	target, err := subscriptionService.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "GitHub Copilot",
 		Amount:          10,
 		Currency:        "USD",
@@ -1044,7 +1045,7 @@ func TestMCPSearchSubscriptionsMatchesCategoryName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create target subscription: %v", err)
 	}
-	if _, err := subscriptionService.Create(user.ID, service.CreateSubscriptionInput{
+	if _, err := subscriptionService.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Netflix",
 		Amount:          15.49,
 		Currency:        "USD",
@@ -1296,7 +1297,7 @@ func TestMCPRejectsNegativeNotifyDaysBefore(t *testing.T) {
 			setup: func(t *testing.T, db *gorm.DB, user model.User) uint {
 				t.Helper()
 				intervalCount := 1
-				sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+				sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 					Name:            "Claude Pro",
 					Amount:          20,
 					Currency:        "USD",
@@ -1395,7 +1396,7 @@ func TestMCPUpdateSubscriptionClearsNullableReferences(t *testing.T) {
 	}
 
 	intervalCount := 1
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Claude Pro",
 		Amount:          20,
 		Currency:        "USD",
@@ -1523,7 +1524,7 @@ func TestMCPWriteToolsRequireIdempotencyKey(t *testing.T) {
 	handler := newMCPTestHandler(db)
 
 	intervalCount := 1
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Existing",
 		Amount:          10,
 		Currency:        "USD",
@@ -1792,7 +1793,7 @@ func TestMCPMarkRenewedReplayDoesNotAdvanceTwice(t *testing.T) {
 	}
 
 	intervalCount := 1
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Manual",
 		Amount:          10,
 		Currency:        "USD",
@@ -1856,7 +1857,7 @@ func TestMCPDeleteReplayIsIdempotent(t *testing.T) {
 	}
 
 	intervalCount := 1
-	sub, err := service.NewSubscriptionService(db).Create(user.ID, service.CreateSubscriptionInput{
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "ToDelete",
 		Amount:          10,
 		Currency:        "USD",

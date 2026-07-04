@@ -9,6 +9,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
 
@@ -680,25 +681,25 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 			incoming.RecurrenceType = strings.ToLower(strings.TrimSpace(incoming.RecurrenceType))
 			incoming.IntervalUnit = strings.ToLower(strings.TrimSpace(incoming.IntervalUnit))
 			incoming.Category = strings.TrimSpace(incoming.Category)
-			normalizedDraft, nextBillingDate, billingErr := normalizeBillingDraft(billingDraft{
+			normalizedDraft, nextBillingDate, billingErr := subscriptionservice.NormalizeBillingDraft(subscriptionservice.BillingDraft{
 				BillingType:     incoming.BillingType,
 				RecurrenceType:  incoming.RecurrenceType,
-				IntervalCount:   copyIntPointer(incoming.IntervalCount),
+				IntervalCount:   subscriptionservice.CopyIntPointer(incoming.IntervalCount),
 				IntervalUnit:    incoming.IntervalUnit,
-				NextBillingDate: copyTimePointer(incoming.NextBillingDate),
-				MonthlyDay:      copyIntPointer(incoming.MonthlyDay),
-				YearlyMonth:     copyIntPointer(incoming.YearlyMonth),
-				YearlyDay:       copyIntPointer(incoming.YearlyDay),
+				NextBillingDate: subscriptionservice.CopyTimePointer(incoming.NextBillingDate),
+				MonthlyDay:      subscriptionservice.CopyIntPointer(incoming.MonthlyDay),
+				YearlyMonth:     subscriptionservice.CopyIntPointer(incoming.YearlyMonth),
+				YearlyDay:       subscriptionservice.CopyIntPointer(incoming.YearlyDay),
 			})
 			if billingErr == nil {
 				incoming.BillingType = normalizedDraft.BillingType
 				incoming.RecurrenceType = normalizedDraft.RecurrenceType
-				incoming.IntervalCount = copyIntPointer(normalizedDraft.IntervalCount)
+				incoming.IntervalCount = subscriptionservice.CopyIntPointer(normalizedDraft.IntervalCount)
 				incoming.IntervalUnit = normalizedDraft.IntervalUnit
-				incoming.MonthlyDay = copyIntPointer(normalizedDraft.MonthlyDay)
-				incoming.YearlyMonth = copyIntPointer(normalizedDraft.YearlyMonth)
-				incoming.YearlyDay = copyIntPointer(normalizedDraft.YearlyDay)
-				incoming.NextBillingDate = copyTimePointer(nextBillingDate)
+				incoming.MonthlyDay = subscriptionservice.CopyIntPointer(normalizedDraft.MonthlyDay)
+				incoming.YearlyMonth = subscriptionservice.CopyIntPointer(normalizedDraft.YearlyMonth)
+				incoming.YearlyDay = subscriptionservice.CopyIntPointer(normalizedDraft.YearlyDay)
+				incoming.NextBillingDate = subscriptionservice.CopyTimePointer(nextBillingDate)
 			}
 
 			dedupKey := strings.Join([]string{
@@ -766,14 +767,14 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				}
 			}
 
-			lifecycle := lifecycleDraft{
+			lifecycle := subscriptionservice.LifecycleDraft{
 				Status:      incoming.Status,
 				RenewalMode: incoming.RenewalMode,
-				EndsAt:      copyTimePointer(incoming.EndsAt),
+				EndsAt:      subscriptionservice.CopyTimePointer(incoming.EndsAt),
 			}
-			if !isValidSubscriptionStatus(normalizeStatus(lifecycle.Status)) ||
-				!isValidRenewalMode(normalizeRenewalMode(lifecycle.RenewalMode)) {
-				legacy := deriveLegacyLifecycle(
+			if !subscriptionservice.IsValidStatus(subscriptionservice.NormalizeStatus(lifecycle.Status)) ||
+				!subscriptionservice.IsValidRenewalMode(subscriptionservice.NormalizeRenewalMode(lifecycle.RenewalMode)) {
+				legacy := subscriptionservice.DeriveLegacyLifecycle(
 					incoming.Enabled,
 					incoming.NextBillingDate,
 					incoming.EndsAt,
@@ -781,7 +782,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				)
 				lifecycle = legacy
 			}
-			normalizedLifecycle, err := normalizeLifecycleDraft(
+			normalizedLifecycle, err := subscriptionservice.NormalizeLifecycleDraft(
 				lifecycle,
 				incoming.NextBillingDate,
 				pkg.NowInSystemTimezone(),
@@ -790,7 +791,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to normalize lifecycle for subscription %q: %v", incoming.Name, err))
 				continue
 			}
-			subscriptionURL, err := normalizeSubscriptionURL(incoming.URL)
+			subscriptionURL, err := subscriptionservice.NormalizeSubscriptionURL(incoming.URL)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("skipped subscription %q with invalid url: %v", incoming.Name, err))
 				result.Skipped++
@@ -804,7 +805,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				Currency:         incoming.Currency,
 				Status:           normalizedLifecycle.Status,
 				RenewalMode:      normalizedLifecycle.RenewalMode,
-				EndsAt:           copyTimePointer(normalizedLifecycle.EndsAt),
+				EndsAt:           subscriptionservice.CopyTimePointer(normalizedLifecycle.EndsAt),
 				BillingType:      incoming.BillingType,
 				RecurrenceType:   incoming.RecurrenceType,
 				IntervalCount:    incoming.IntervalCount,
@@ -822,7 +823,7 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 				URL:              subscriptionURL,
 				Notes:            incoming.Notes,
 			}
-			syncLegacyEnabledForLifecycle(&created)
+			subscriptionservice.SyncLegacyEnabledForLifecycle(&created)
 
 			if err := tx.Create(&created).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to create subscription %q: %v", incoming.Name, err))
@@ -878,9 +879,9 @@ func (s *ImportService) ImportFromSubdux(userID uint, data SubduxImportData, con
 
 		if data.Notifications.Policy != nil {
 			incomingPolicy := data.Notifications.Policy
-			if incomingPolicy.DaysBefore < 0 || incomingPolicy.DaysBefore > maxNotificationDaysBefore {
+			if incomingPolicy.DaysBefore < 0 || incomingPolicy.DaysBefore > subscriptionservice.MaxNotificationDaysBefore {
 				if confirm {
-					result.Errors = append(result.Errors, fmt.Sprintf("days_before must be between 0 and %d", maxNotificationDaysBefore))
+					result.Errors = append(result.Errors, fmt.Sprintf("days_before must be between 0 and %d", subscriptionservice.MaxNotificationDaysBefore))
 					result.Skipped++
 				}
 			} else {

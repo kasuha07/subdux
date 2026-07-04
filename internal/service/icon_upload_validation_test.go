@@ -15,6 +15,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 )
 
 func TestSanitizeUploadedIconRejectsExtensionMismatch(t *testing.T) {
@@ -80,7 +81,7 @@ func TestUploadSubscriptionIconAcceptsICO(t *testing.T) {
 		t.Fatalf("failed to create subscription: %v", err)
 	}
 
-	svc := NewSubscriptionService(db)
+	svc := subscriptionservice.NewService(db)
 	iconValue, err := svc.UploadSubscriptionIcon(user.ID, sub.ID, bytes.NewReader(mustEncodeICOWithPNG(t, 32, 32)), "demo.ico", 65536)
 	if err != nil {
 		t.Fatalf("UploadSubscriptionIcon() error = %v", err)
@@ -89,7 +90,7 @@ func TestUploadSubscriptionIconAcceptsICO(t *testing.T) {
 		t.Fatalf("UploadSubscriptionIcon() icon = %q, want managed .ico path", iconValue)
 	}
 
-	iconPath, ok := managedIconFilePath(iconValue)
+	iconPath, ok := subscriptionservice.ManagedIconFilePath(iconValue)
 	if !ok {
 		t.Fatalf("managedIconFilePath(%q) should be valid", iconValue)
 	}
@@ -150,7 +151,7 @@ func TestUploadSubscriptionIconBlockedWhenImageUploadDisabled(t *testing.T) {
 		t.Fatalf("failed to disable image upload: %v", err)
 	}
 
-	svc := NewSubscriptionService(db)
+	svc := subscriptionservice.NewService(db)
 	_, err := svc.UploadSubscriptionIcon(user.ID, sub.ID, bytes.NewReader(mustEncodePNG(t, 16, 16)), "demo.png", 65536)
 	if !errors.Is(err, ErrImageUploadDisabled) {
 		t.Fatalf("UploadSubscriptionIcon() error = %v, want %v", err, ErrImageUploadDisabled)

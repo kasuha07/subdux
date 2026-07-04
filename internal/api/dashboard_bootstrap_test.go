@@ -14,6 +14,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -52,7 +53,7 @@ func TestDashboardBootstrapAggregatesEverySectionWithoutWriting(t *testing.T) {
 	t.Cleanup(restoreClock)
 
 	db := newBootstrapTestDB(t)
-	subService := service.NewSubscriptionService(db)
+	subService := subscriptionservice.NewService(db)
 
 	user := model.User{Username: "tester", Email: "tester@example.com", Password: "x", Role: "user", Status: "active"}
 	if err := db.Create(&user).Error; err != nil {
@@ -60,7 +61,7 @@ func TestDashboardBootstrapAggregatesEverySectionWithoutWriting(t *testing.T) {
 	}
 
 	monthly := 1
-	if _, err := subService.Create(user.ID, service.CreateSubscriptionInput{
+	if _, err := subService.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Active Sub",
 		Amount:          12,
 		Currency:        "USD",

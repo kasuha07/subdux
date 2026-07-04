@@ -15,6 +15,7 @@ import (
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -27,7 +28,7 @@ type MCPHandler struct {
 	apiKeys        *apikeyservice.Service
 	audit          *auditservice.Service
 	idempotency    *idempotencyservice.Service
-	subscriptions  *service.SubscriptionService
+	subscriptions  *subscriptionservice.Service
 	exchangeRates  *service.ExchangeRateService
 	currencies     *catalogservice.CurrencyService
 	categories     *catalogservice.CategoryService
@@ -39,7 +40,7 @@ type MCPHandler struct {
 func NewMCPHandler(
 	apiKeys *apikeyservice.Service,
 	audit *auditservice.Service,
-	subscriptions *service.SubscriptionService,
+	subscriptions *subscriptionservice.Service,
 	exchangeRates *service.ExchangeRateService,
 	currencies *catalogservice.CurrencyService,
 	categories *catalogservice.CategoryService,

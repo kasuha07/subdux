@@ -9,16 +9,17 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
 type SubscriptionHandler struct {
-	Service   *service.SubscriptionService
+	Service   *subscriptionservice.Service
 	ERService *service.ExchangeRateService
 }
 
-func NewSubscriptionHandler(s *service.SubscriptionService, er *service.ExchangeRateService) *SubscriptionHandler {
+func NewSubscriptionHandler(s *subscriptionservice.Service, er *service.ExchangeRateService) *SubscriptionHandler {
 	return &SubscriptionHandler{Service: s, ERService: er}
 }
 
@@ -51,12 +52,12 @@ type subscriptionResponse struct {
 }
 
 type subscriptionDetailResponse struct {
-	Subscription     subscriptionResponse                         `json:"subscription"`
-	Timeline         []service.SubscriptionDetailEvent            `json:"timeline"`
-	PriceHistory     []service.SubscriptionDetailPriceHistoryItem `json:"price_history"`
-	NotificationLogs []service.SubscriptionDetailNotificationLog  `json:"notification_logs"`
-	UpcomingCharges  []service.SubscriptionDetailUpcomingCharge   `json:"upcoming_charges"`
-	Calendar         service.SubscriptionDetailCalendar           `json:"calendar"`
+	Subscription     subscriptionResponse                                     `json:"subscription"`
+	Timeline         []subscriptionservice.SubscriptionDetailEvent            `json:"timeline"`
+	PriceHistory     []subscriptionservice.SubscriptionDetailPriceHistoryItem `json:"price_history"`
+	NotificationLogs []subscriptionservice.SubscriptionDetailNotificationLog  `json:"notification_logs"`
+	UpcomingCharges  []subscriptionservice.SubscriptionDetailUpcomingCharge   `json:"upcoming_charges"`
+	Calendar         subscriptionservice.SubscriptionDetailCalendar           `json:"calendar"`
 }
 
 func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
@@ -89,7 +90,7 @@ func mapSubscriptionResponse(sub model.Subscription) subscriptionResponse {
 	}
 }
 
-func mapSubscriptionDetailResponse(detail service.SubscriptionDetail) subscriptionDetailResponse {
+func mapSubscriptionDetailResponse(detail subscriptionservice.SubscriptionDetail) subscriptionDetailResponse {
 	return subscriptionDetailResponse{
 		Subscription:     mapSubscriptionResponse(detail.Subscription),
 		Timeline:         detail.Timeline,
@@ -161,7 +162,7 @@ func (h *SubscriptionHandler) GetDetail(c echo.Context) error {
 
 func (h *SubscriptionHandler) Create(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.CreateSubscriptionInput
+	var input subscriptionservice.CreateSubscriptionInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
@@ -194,7 +195,7 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
 	}
 
-	var input service.UpdateSubscriptionInput
+	var input subscriptionservice.UpdateSubscriptionInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}
@@ -281,7 +282,7 @@ func (h *SubscriptionHandler) ActionCenter(c echo.Context) error {
 
 func (h *SubscriptionHandler) SnoozeAction(c echo.Context) error {
 	userID := getUserID(c)
-	var input service.SnoozeSubscriptionActionInput
+	var input subscriptionservice.SnoozeSubscriptionActionInput
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request body"})
 	}

@@ -6,11 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
+	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"gorm.io/gorm"
 )
 
@@ -108,8 +109,8 @@ func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subs
 	if err := s.DB.Where(
 		"user_id = ? AND status = ? AND renewal_mode != ? AND next_billing_date IS NOT NULL",
 		userID,
-		subscriptionStatusActive,
-		renewalModeCancelAtPeriodEnd,
+		subscriptionservice.StatusActive,
+		subscriptionservice.RenewalModeCancelAtPeriodEnd,
 	).
 		Order("next_billing_date ASC").
 		Find(&subs).Error; err != nil {
@@ -118,7 +119,7 @@ func (s *CalendarService) GetSubscriptionsForCalendar(userID uint) ([]model.Subs
 	// Present lifecycle in memory (no writes): auto-renew dates roll forward and
 	// overdue manual-renew subscriptions drop out, matching what the calendar
 	// would show once the background sweep persists those transitions.
-	return presentActiveSubscriptions(subs, now), nil
+	return subscriptionservice.PresentActiveSubscriptions(subs, now), nil
 }
 
 func (s *CalendarService) GenerateICalFeed(userID uint) (string, error) {
@@ -155,9 +156,9 @@ func (s *CalendarService) GenerateICalFeed(userID uint) (string, error) {
 			sb.WriteString(icalFold("DESCRIPTION:"+icalEscape(sub.Notes)) + crlf)
 		}
 
-		if sub.BillingType == billingTypeRecurring &&
-			normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew &&
-			isRecurringScheduleValid(sub) {
+		if sub.BillingType == subscriptionservice.BillingTypeRecurring &&
+			subscriptionservice.NormalizeRenewalMode(sub.RenewalMode) == subscriptionservice.RenewalModeAutoRenew &&
+			subscriptionservice.IsRecurringScheduleValid(sub) {
 			rrule := buildRRule(sub)
 			if rrule != "" {
 				sb.WriteString(icalFold("RRULE:"+rrule) + crlf)
@@ -173,27 +174,27 @@ func (s *CalendarService) GenerateICalFeed(userID uint) (string, error) {
 
 func buildRRule(sub model.Subscription) string {
 	switch sub.RecurrenceType {
-	case recurrenceTypeInterval:
+	case subscriptionservice.RecurrenceTypeInterval:
 		if sub.IntervalCount == nil {
 			return ""
 		}
 		count := *sub.IntervalCount
 		switch sub.IntervalUnit {
-		case intervalUnitDay:
+		case subscriptionservice.IntervalUnitDay:
 			return fmt.Sprintf("FREQ=DAILY;INTERVAL=%d", count)
-		case intervalUnitWeek:
+		case subscriptionservice.IntervalUnitWeek:
 			return fmt.Sprintf("FREQ=WEEKLY;INTERVAL=%d", count)
-		case intervalUnitMonth:
+		case subscriptionservice.IntervalUnitMonth:
 			return fmt.Sprintf("FREQ=MONTHLY;INTERVAL=%d", count)
-		case intervalUnitYear:
+		case subscriptionservice.IntervalUnitYear:
 			return fmt.Sprintf("FREQ=YEARLY;INTERVAL=%d", count)
 		}
-	case recurrenceTypeMonthlyDate:
+	case subscriptionservice.RecurrenceTypeMonthlyDate:
 		if sub.MonthlyDay == nil {
 			return ""
 		}
 		return fmt.Sprintf("FREQ=MONTHLY;BYMONTHDAY=%d", *sub.MonthlyDay)
-	case recurrenceTypeYearlyDate:
+	case subscriptionservice.RecurrenceTypeYearlyDate:
 		if sub.YearlyMonth == nil || sub.YearlyDay == nil {
 			return ""
 		}

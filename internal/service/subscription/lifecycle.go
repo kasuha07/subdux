@@ -22,8 +22,16 @@ func normalizeStatus(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
+func NormalizeStatus(value string) string {
+	return normalizeStatus(value)
+}
+
 func normalizeRenewalMode(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func NormalizeRenewalMode(value string) string {
+	return normalizeRenewalMode(value)
 }
 
 // cancelAtPeriodEndBoundary returns the effective termination date for a
@@ -47,6 +55,10 @@ func isValidSubscriptionStatus(value string) bool {
 	}
 }
 
+func IsValidStatus(value string) bool {
+	return isValidSubscriptionStatus(value)
+}
+
 func isValidRenewalMode(value string) bool {
 	switch value {
 	case renewalModeAutoRenew, renewalModeManualRenew, renewalModeCancelAtPeriodEnd:
@@ -54,6 +66,10 @@ func isValidRenewalMode(value string) bool {
 	default:
 		return false
 	}
+}
+
+func IsValidRenewalMode(value string) bool {
+	return isValidRenewalMode(value)
 }
 
 func normalizeLifecycleDraft(

@@ -7,6 +7,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -133,12 +134,12 @@ func (s *AdminService) DeleteUser(userID uint) error {
 	}
 
 	for _, icon := range subscriptionIcons {
-		if path, ok := managedIconFilePath(icon); ok {
+		if path, ok := subscriptionservice.ManagedIconFilePath(icon); ok {
 			_ = os.Remove(path)
 		}
 	}
 	for _, icon := range paymentMethodIcons {
-		if path, ok := managedIconFilePath(icon); ok {
+		if path, ok := subscriptionservice.ManagedIconFilePath(icon); ok {
 			_ = os.Remove(path)
 		}
 	}

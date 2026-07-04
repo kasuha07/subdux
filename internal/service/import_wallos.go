@@ -11,6 +11,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
 
@@ -410,7 +411,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 				BillingType: billingType,
 				Category:    categoryName,
 			}
-			if billingType != billingTypeRecurring {
+			if billingType != subscriptionservice.BillingTypeRecurring {
 				sub.Skipped = true
 				sub.SkipReason = "unsupported_billing_type"
 			}
@@ -421,7 +422,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			preview.Subscriptions = append(preview.Subscriptions, sub)
 
 			// Skip actual import logic in preview mode or for duplicates
-			if !confirm || isDuplicate || billingType != billingTypeRecurring {
+			if !confirm || isDuplicate || billingType != subscriptionservice.BillingTypeRecurring {
 				if confirm {
 					result.Skipped++
 				}
@@ -429,7 +430,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			}
 
 			// --- Actual import (confirm=true only) ---
-			subscriptionURL, urlErr := normalizeSubscriptionURL(item.URL)
+			subscriptionURL, urlErr := subscriptionservice.NormalizeSubscriptionURL(item.URL)
 			if urlErr != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("skipped subscription %q with invalid url: %v", name, urlErr))
 				result.Skipped++
@@ -495,8 +496,8 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			}
 
 			notifyEnabled := parseEnabled(item.Notifications)
-			lifecycle := deriveLegacyLifecycle(enabled, nextBilling, nil, pkg.NowUTC())
-			normalizedLifecycle, lifecycleErr := normalizeLifecycleDraft(
+			lifecycle := subscriptionservice.DeriveLegacyLifecycle(enabled, nextBilling, nil, pkg.NowUTC())
+			normalizedLifecycle, lifecycleErr := subscriptionservice.NormalizeLifecycleDraft(
 				lifecycle,
 				nextBilling,
 				pkg.NowInSystemTimezone(),
@@ -512,7 +513,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 				Currency:        currency,
 				Status:          normalizedLifecycle.Status,
 				RenewalMode:     normalizedLifecycle.RenewalMode,
-				EndsAt:          copyTimePointer(normalizedLifecycle.EndsAt),
+				EndsAt:          subscriptionservice.CopyTimePointer(normalizedLifecycle.EndsAt),
 				BillingType:     billingType,
 				Category:        categoryName,
 				CategoryID:      categoryID,
@@ -531,7 +532,7 @@ func (s *ImportService) ImportFromWallos(userID uint, data []WallosSubscription,
 			if nextBilling != nil {
 				subscription.NextBillingDate = nextBilling
 			}
-			syncLegacyEnabledForLifecycle(&subscription)
+			subscriptionservice.SyncLegacyEnabledForLifecycle(&subscription)
 
 			if err := tx.Create(&subscription).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to import %q: %v", name, err))

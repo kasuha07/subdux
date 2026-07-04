@@ -15,6 +15,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -420,7 +421,7 @@ func (s *ExchangeRateService) getTargetCurrencies(base string) []string {
 	}
 
 	var subs []model.Subscription
-	s.DB.Select("DISTINCT currency").Where("status = ?", subscriptionStatusActive).Find(&subs)
+	s.DB.Select("DISTINCT currency").Where("status = ?", subscriptionservice.StatusActive).Find(&subs)
 	for _, sub := range subs {
 		c := strings.ToLower(sub.Currency)
 		if c != base {

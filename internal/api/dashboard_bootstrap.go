@@ -5,6 +5,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/service"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 )
 
@@ -15,7 +16,7 @@ import (
 // re-read the subscriptions table. Aggregating here reconciles once, reads each
 // table once, and returns one response.
 type DashboardBootstrapHandler struct {
-	Subscriptions  *service.SubscriptionService
+	Subscriptions  *subscriptionservice.Service
 	ExchangeRates  *service.ExchangeRateService
 	Currencies     *catalogservice.CurrencyService
 	Categories     *catalogservice.CategoryService
@@ -23,7 +24,7 @@ type DashboardBootstrapHandler struct {
 }
 
 func NewDashboardBootstrapHandler(
-	subscriptions *service.SubscriptionService,
+	subscriptions *subscriptionservice.Service,
 	exchangeRates *service.ExchangeRateService,
 	currencies *catalogservice.CurrencyService,
 	categories *catalogservice.CategoryService,
@@ -43,12 +44,12 @@ func NewDashboardBootstrapHandler(
 // /currencies, /preferences/currency) by reusing their response mappers, so the
 // frontend can consume it without new types.
 type dashboardBootstrapResponse struct {
-	Subscriptions     []subscriptionResponse    `json:"subscriptions"`
-	Summary           *service.DashboardSummary `json:"summary"`
-	Categories        []categoryResponse        `json:"categories"`
-	PaymentMethods    []paymentMethodResponse   `json:"payment_methods"`
-	Currencies        []userCurrencyResponse    `json:"currencies"`
-	PreferredCurrency string                    `json:"preferred_currency"`
+	Subscriptions     []subscriptionResponse                `json:"subscriptions"`
+	Summary           *subscriptionservice.DashboardSummary `json:"summary"`
+	Categories        []categoryResponse                    `json:"categories"`
+	PaymentMethods    []paymentMethodResponse               `json:"payment_methods"`
+	Currencies        []userCurrencyResponse                `json:"currencies"`
+	PreferredCurrency string                                `json:"preferred_currency"`
 }
 
 func (h *DashboardBootstrapHandler) Get(c echo.Context) error {

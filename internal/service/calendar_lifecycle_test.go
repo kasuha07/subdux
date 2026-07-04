@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/pkg"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 )
 
 func TestGenerateICalFeedOmitsRRuleForNonAutoRenewRecurring(t *testing.T) {
@@ -13,19 +14,19 @@ func TestGenerateICalFeedOmitsRRuleForNonAutoRenewRecurring(t *testing.T) {
 
 	db := newTestDB(t)
 	user := createTestUser(t, db)
-	service := NewSubscriptionService(db)
+	service := subscriptionservice.NewService(db)
 	calendarService := NewCalendarService(db)
 
 	intervalCount := 1
-	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+	if _, err := service.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Manual recurring",
 		Amount:          7.99,
-		Status:          subscriptionStatusActive,
-		RenewalMode:     renewalModeManualRenew,
-		BillingType:     billingTypeRecurring,
-		RecurrenceType:  recurrenceTypeInterval,
+		Status:          subscriptionservice.StatusActive,
+		RenewalMode:     subscriptionservice.RenewalModeManualRenew,
+		BillingType:     subscriptionservice.BillingTypeRecurring,
+		RecurrenceType:  subscriptionservice.RecurrenceTypeInterval,
 		IntervalCount:   &intervalCount,
-		IntervalUnit:    intervalUnitMonth,
+		IntervalUnit:    subscriptionservice.IntervalUnitMonth,
 		NextBillingDate: "2026-03-10",
 	}); err != nil {
 		t.Fatalf("create manual recurring subscription failed: %v", err)
@@ -47,19 +48,19 @@ func TestGenerateICalFeedOmitsCancelAtPeriodEndSubscription(t *testing.T) {
 
 	db := newTestDB(t)
 	user := createTestUser(t, db)
-	service := NewSubscriptionService(db)
+	service := subscriptionservice.NewService(db)
 	calendarService := NewCalendarService(db)
 
 	intervalCount := 1
-	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+	if _, err := service.Create(user.ID, subscriptionservice.CreateSubscriptionInput{
 		Name:            "Ending recurring",
 		Amount:          7.99,
-		Status:          subscriptionStatusActive,
-		RenewalMode:     renewalModeCancelAtPeriodEnd,
-		BillingType:     billingTypeRecurring,
-		RecurrenceType:  recurrenceTypeInterval,
+		Status:          subscriptionservice.StatusActive,
+		RenewalMode:     subscriptionservice.RenewalModeCancelAtPeriodEnd,
+		BillingType:     subscriptionservice.BillingTypeRecurring,
+		RecurrenceType:  subscriptionservice.RecurrenceTypeInterval,
 		IntervalCount:   &intervalCount,
-		IntervalUnit:    intervalUnitMonth,
+		IntervalUnit:    subscriptionservice.IntervalUnitMonth,
 		NextBillingDate: "2026-03-10",
 	}); err != nil {
 		t.Fatalf("create ending recurring subscription failed: %v", err)

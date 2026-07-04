@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/kasuha07/subdux/internal/service"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
 
@@ -108,7 +108,7 @@ func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpP
 		ToolName:     "create_subscription",
 		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
-			created, err := service.NewSubscriptionService(tx).Create(userID, input)
+			created, err := subscriptionservice.NewService(tx).Create(userID, input)
 			if err != nil {
 				return nil, err
 			}
@@ -143,7 +143,7 @@ func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpP
 		ToolName:     "update_subscription",
 		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
-			txService := service.NewSubscriptionService(tx)
+			txService := subscriptionservice.NewService(tx)
 			existing, err := txService.GetByID(userID, id)
 			if err != nil {
 				return nil, err
@@ -176,7 +176,7 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 		ToolName:     "delete_subscription",
 		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
-			txService := service.NewSubscriptionService(tx)
+			txService := subscriptionservice.NewService(tx)
 			existing, err := txService.GetByID(userID, id)
 			if err != nil {
 				return nil, err
@@ -214,7 +214,7 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 		ToolName:     "mark_subscription_renewed",
 		ResourceType: auditservice.ResourceSubscription,
 		mutate: func(tx *gorm.DB) (*mcpWriteOutcome, error) {
-			txService := service.NewSubscriptionService(tx)
+			txService := subscriptionservice.NewService(tx)
 			existing, err := txService.GetByID(userID, id)
 			if err != nil {
 				return nil, err

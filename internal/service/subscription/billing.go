@@ -124,3 +124,7 @@ func parseOptionalDateString(value string) (*time.Time, error) {
 func normalizeDateUTC(value time.Time) time.Time {
 	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)
 }
+
+func NormalizeDateUTC(value time.Time) time.Time {
+	return normalizeDateUTC(value)
+}

@@ -6,16 +6,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kasuha07/subdux/internal/service"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 )
 
-func createSubscriptionInputFromMCPArgs(args map[string]interface{}) service.CreateSubscriptionInput {
+func createSubscriptionInputFromMCPArgs(args map[string]interface{}) subscriptionservice.CreateSubscriptionInput {
 	intervalCount := 1
 	if value, ok := readIntArg(args, "interval_count"); ok {
 		intervalCount = value
 	}
 
-	input := service.CreateSubscriptionInput{
+	input := subscriptionservice.CreateSubscriptionInput{
 		Name:            readStringArgOrDefault(args, "name", ""),
 		Amount:          readFloatArgOrDefault(args, "amount", 0),
 		Currency:        readStringArgOrDefault(args, "currency", "USD"),
@@ -71,8 +71,8 @@ func createSubscriptionInputFromMCPArgs(args map[string]interface{}) service.Cre
 	return input
 }
 
-func updateSubscriptionInputFromMCPArgs(args map[string]interface{}) (service.UpdateSubscriptionInput, error) {
-	var input service.UpdateSubscriptionInput
+func updateSubscriptionInputFromMCPArgs(args map[string]interface{}) (subscriptionservice.UpdateSubscriptionInput, error) {
+	var input subscriptionservice.UpdateSubscriptionInput
 	if err := validateSubscriptionWriteArgTypes(args); err != nil {
 		return input, err
 	}

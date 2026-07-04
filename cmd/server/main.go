@@ -28,6 +28,7 @@ import (
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
+	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -88,7 +89,7 @@ func main() {
 	var backgroundTasks sync.WaitGroup
 	erService.StartBackgroundRefresh(appCtx, taskMonitor, &backgroundTasks)
 	startNotificationWorkers(appCtx, notificationService, taskMonitor, &backgroundTasks)
-	startSubscriptionLifecycleSweep(appCtx, service.NewSubscriptionService(db), taskMonitor, &backgroundTasks)
+	startSubscriptionLifecycleSweep(appCtx, subscriptionservice.NewService(db), taskMonitor, &backgroundTasks)
 	startScheduledBackupWorker(appCtx, servicebackup.NewService(db), taskMonitor, &backgroundTasks)
 
 	setupUploads(e, filepath.Join(pkg.GetDataPath(), "assets"))
@@ -505,7 +506,7 @@ func startNotificationWorkers(
 // remains only as a backstop for the window between sweeps.
 func startSubscriptionLifecycleSweep(
 	ctx context.Context,
-	subscriptions *service.SubscriptionService,
+	subscriptions *subscriptionservice.Service,
 	monitor *service.BackgroundTaskMonitor,
 	wg *sync.WaitGroup,
 ) {
