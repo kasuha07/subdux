@@ -24,9 +24,14 @@ var (
 )
 
 type restorePayload struct {
-	dbFilePath       string
-	assetsDirPath    string
-	replaceAssetsDir bool
+	dbFilePath        string
+	assetsDirPath     string
+	replaceAssetsDir  bool
+	skippedAssetCount int
+}
+
+type RestoreResult struct {
+	SkippedAssetCount int
 }
 
 type restoreLimits struct {
@@ -57,12 +62,12 @@ func isRestorableAssetPath(relativePath string) bool {
 	return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".ico"
 }
 
-func (s *Service) RestoreBackup(uploadedBackupPath string, password string) error {
+func (s *Service) RestoreBackup(uploadedBackupPath string, password string) (RestoreResult, error) {
 	password = strings.TrimSpace(password)
 
 	restorePayload, err := prepareRestorePayload(uploadedBackupPath, password)
 	if err != nil {
-		return err
+		return RestoreResult{}, err
 	}
 	if restorePayload.dbFilePath != "" && restorePayload.dbFilePath != uploadedBackupPath {
 		defer os.Remove(restorePayload.dbFilePath)
@@ -75,22 +80,22 @@ func (s *Service) RestoreBackup(uploadedBackupPath string, password string) erro
 
 	sqlDB, err := s.DB.DB()
 	if err != nil {
-		return err
+		return RestoreResult{}, err
 	}
 	if err := sqlDB.Close(); err != nil {
-		return err
+		return RestoreResult{}, err
 	}
 
 	if err := replaceDatabaseFile(restorePayload.dbFilePath, dbPath); err != nil {
-		return err
+		return RestoreResult{}, err
 	}
 	if restorePayload.replaceAssetsDir {
 		if err := replaceAssetsDirectory(restorePayload.assetsDirPath); err != nil {
-			return err
+			return RestoreResult{}, err
 		}
 	}
 
-	return nil
+	return RestoreResult{SkippedAssetCount: restorePayload.skippedAssetCount}, nil
 }
 
 func prepareRestorePayload(uploadedBackupPath string, password string) (*restorePayload, error) {
@@ -162,15 +167,16 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, lim
 		return nil, invalidBackupError("zip backup database is invalid")
 	}
 
-	replaceAssetsDir, assetsDirPath, err := extractAssetsFromZip(zipReader.File, limits)
+	replaceAssetsDir, assetsDirPath, skippedAssetCount, err := extractAssetsFromZip(zipReader.File, limits)
 	if err != nil {
 		return nil, err
 	}
 
 	return &restorePayload{
-		dbFilePath:       tempDBPath,
-		assetsDirPath:    assetsDirPath,
-		replaceAssetsDir: replaceAssetsDir,
+		dbFilePath:        tempDBPath,
+		assetsDirPath:     assetsDirPath,
+		replaceAssetsDir:  replaceAssetsDir,
+		skippedAssetCount: skippedAssetCount,
 	}, nil
 }
 
@@ -213,7 +219,7 @@ func findDatabaseBackupEntry(entries []*zip.File) (*zip.File, error) {
 	return nil, invalidBackupError("zip backup does not contain a database file")
 }
 
-func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, string, error) {
+func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, string, int, error) {
 	shouldRestoreAssets := false
 	for _, entry := range entries {
 		cleanPath, ok := normalizeZipEntryPath(entry.Name)
@@ -227,17 +233,17 @@ func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, stri
 	}
 
 	if !shouldRestoreAssets {
-		return false, "", nil
+		return false, "", 0, nil
 	}
 
 	dataDir := pkg.GetDataPath()
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 
 	tempAssetsDir, err := os.MkdirTemp(dataDir, ".subdux-restore-assets-*")
 	if err != nil {
-		return false, "", err
+		return false, "", 0, err
 	}
 	shouldCleanup := true
 	defer func() {
@@ -248,11 +254,12 @@ func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, stri
 
 	var extractedSize int64
 	assetEntries := 0
+	skippedAssetCount := 0
 
 	for _, entry := range entries {
 		cleanPath, ok := normalizeZipEntryPath(entry.Name)
 		if !ok {
-			return false, "", invalidBackupError("zip backup contains unsafe paths")
+			return false, "", 0, invalidBackupError("zip backup contains unsafe paths")
 		}
 		if cleanPath == "assets" || !strings.HasPrefix(cleanPath, "assets/") {
 			continue
@@ -266,20 +273,20 @@ func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, stri
 			if relativePath == "icons" {
 				continue
 			}
-			return false, "", invalidBackupError("zip backup contains unsupported assets entry")
+			return false, "", 0, invalidBackupError("zip backup contains unsupported assets entry")
 		}
 		if !isRestorableAssetPath(relativePath) {
-			return false, "", invalidBackupError("zip backup contains unsupported assets entry")
+			return false, "", 0, invalidBackupError("zip backup contains unsupported assets entry")
 		}
 
 		mode := entry.Mode()
 		if !mode.IsRegular() {
-			return false, "", invalidBackupError("zip backup contains unsupported assets entry")
+			return false, "", 0, invalidBackupError("zip backup contains unsupported assets entry")
 		}
 
 		assetEntries++
 		if assetEntries > limits.maxAssetEntries {
-			return false, "", invalidBackupError("zip backup contains too many assets")
+			return false, "", 0, invalidBackupError("zip backup contains too many assets")
 		}
 
 		remainingSize := limits.maxAssetsExtractedSize - extractedSize
@@ -287,37 +294,41 @@ func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, stri
 			remainingSize = 0
 		}
 		if err := validateZipFileEntrySize(entry, remainingSize, "zip backup assets exceed extracted size limit"); err != nil {
-			return false, "", err
+			return false, "", 0, err
 		}
 
-		sanitized, sourceSize, err := sanitizeRestoreAsset(entry, path.Base(relativePath), remainingSize)
+		sanitized, sourceSize, skipped, err := sanitizeRestoreAsset(entry, path.Base(relativePath), remainingSize)
 		if err != nil {
-			return false, "", err
+			return false, "", 0, err
+		}
+		extractedSize += sourceSize
+		if skipped {
+			skippedAssetCount++
+			continue
 		}
 		targetPath := filepath.Join(tempAssetsDir, filepath.FromSlash(relativePath))
 		if !isSubPath(tempAssetsDir, targetPath) {
-			return false, "", invalidBackupError("zip backup contains invalid assets path")
+			return false, "", 0, invalidBackupError("zip backup contains invalid assets path")
 		}
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
-			return false, "", err
+			return false, "", 0, err
 		}
 		if err := os.WriteFile(targetPath, sanitized, 0o600); err != nil {
-			return false, "", invalidBackupError("failed to extract assets from zip backup")
+			return false, "", 0, invalidBackupError("failed to extract assets from zip backup")
 		}
-		extractedSize += sourceSize
 	}
 
 	shouldCleanup = false
-	return true, tempAssetsDir, nil
+	return true, tempAssetsDir, skippedAssetCount, nil
 }
 
-func sanitizeRestoreAsset(entry *zip.File, filename string, maxBytes int64) ([]byte, int64, error) {
+func sanitizeRestoreAsset(entry *zip.File, filename string, maxBytes int64) ([]byte, int64, bool, error) {
 	source, err := entry.Open()
 	if err != nil {
 		if isZipPasswordError(err) {
-			return nil, 0, ErrBackupInvalidPassword
+			return nil, 0, false, ErrBackupInvalidPassword
 		}
-		return nil, 0, invalidBackupError("failed to extract assets from zip backup")
+		return nil, 0, false, invalidBackupError("failed to extract assets from zip backup")
 	}
 	defer source.Close()
 
@@ -325,11 +336,21 @@ func sanitizeRestoreAsset(entry *zip.File, filename string, maxBytes int64) ([]b
 	sanitized, _, err := serviceutil.SanitizeIconFile(countingSource, filename, maxBytes)
 	if err != nil {
 		if isZipPasswordError(err) {
-			return nil, 0, ErrBackupInvalidPassword
+			return nil, 0, false, ErrBackupInvalidPassword
 		}
-		return nil, 0, invalidBackupError("zip backup contains invalid asset image")
+		if isSkippableRestoreAssetError(err) {
+			return nil, countingSource.bytesRead, true, nil
+		}
+		return nil, countingSource.bytesRead, false, invalidBackupError("zip backup contains invalid asset image")
 	}
-	return sanitized, countingSource.bytesRead, nil
+	return sanitized, countingSource.bytesRead, false, nil
+}
+
+func isSkippableRestoreAssetError(err error) bool {
+	return errors.Is(err, serviceutil.ErrIconUploadUnsupportedType) ||
+		errors.Is(err, serviceutil.ErrIconUploadSizeLimit) ||
+		errors.Is(err, serviceutil.ErrIconUploadContentMismatch) ||
+		errors.Is(err, serviceutil.ErrIconUploadInvalidICO)
 }
 
 // isZipPasswordError reports whether err is one of the yeka/zip decryption

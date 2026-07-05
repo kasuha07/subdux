@@ -51,6 +51,11 @@ interface BackupStatus {
   lastError: string
 }
 
+interface RestoreBackupResponse {
+  message?: string
+  skipped_asset_count?: number
+}
+
 interface UseAdminPageStateResult {
   backgroundTasks: BackgroundTask[]
   backgroundTasksRefreshing: boolean
@@ -634,8 +639,18 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         return false
       }
 
+      let result: RestoreBackupResponse | null = null
+      try {
+        result = (await res.json()) as RestoreBackupResponse
+      } catch {
+        result = null
+      }
+
       setRestoreConfirmOpen(false)
       toast.success(t("admin.backup.restoreSuccess"))
+      if ((result?.skipped_asset_count ?? 0) > 0) {
+        toast.warning(t("admin.backup.restoreSkippedAssets"))
+      }
       return true
     } catch {
       toast.error(t("admin.backup.restoreFailed"))

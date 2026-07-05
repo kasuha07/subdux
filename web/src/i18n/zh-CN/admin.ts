@@ -314,6 +314,7 @@ const admin = {
       passwordDisabled: "此账号使用通行密钥，因此这里无法使用密码。请使用下方的通行密钥或身份提供商登录继续。",
     },
     restoreSuccess: "数据库已恢复，请刷新页面。",
+    restoreSkippedAssets: "部分图标未能通过恢复校验，已跳过。",
     restorePassword: "备份密码",
     restorePasswordDescription: "该备份已加密，请输入其密码以进行恢复。",
     restorePasswordRequired: "该备份已加密，请输入其密码。",

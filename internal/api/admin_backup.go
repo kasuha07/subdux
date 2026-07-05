@@ -122,11 +122,15 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 
 	password := strings.TrimSpace(c.FormValue("password"))
 
-	if err := h.Backup.WithContext(c.Request().Context()).RestoreBackup(uploadedBackupPath, password); err != nil {
+	result, err := h.Backup.WithContext(c.Request().Context()).RestoreBackup(uploadedBackupPath, password)
+	if err != nil {
 		return writeRestoreBackupError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "backup restored - please restart server"})
+	return c.JSON(http.StatusOK, echo.Map{
+		"message":             "backup restored - please restart server",
+		"skipped_asset_count": result.SkippedAssetCount,
+	})
 }
 
 func writeRestoreBackupError(c echo.Context, err error) error {

@@ -341,6 +341,8 @@ const admin = {
       passwordDisabled: "このアカウントはパスキーを使用しているため、ここではパスワードを使用できません。以下のパスキーまたはプロバイダーのサインインで続行してください。",
     },
     restoreSuccess: "データベースが復元されました。ページを更新してください。",
+    restoreSkippedAssets:
+      "一部のアイコンは復元時の検証に通らなかったためスキップされました。",
     restorePassword: "バックアップのパスワード",
     restorePasswordDescription:
       "このバックアップは暗号化されています。復元するにはパスワードを入力してください。",

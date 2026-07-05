@@ -3,7 +3,10 @@ package backup
 import (
 	"archive/zip"
 	"bytes"
+	"compress/zlib"
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/png"
@@ -151,25 +154,71 @@ func TestPrepareRestorePayloadFromZipAcceptsBackupWithinExtractedLimits(t *testi
 	}
 }
 
-func TestPrepareRestorePayloadFromZipRejectsNonImageAsset(t *testing.T) {
+func TestPrepareRestorePayloadFromZipSkipsLegacyOversizedICOAsset(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	pngData := mustEncodeRestoreZeroRGBAPNG(t, 1025, 1025)
+	icoData := mustEncodeRestoreICOContainer(t, 1025, 1025, pngData)
+	if len(icoData) > 65536 {
+		t.Fatalf("test ico size = %d, want <= 65536", len(icoData))
+	}
+	zipPath := writeRestoreZip(t, map[string][]byte{
+		"subdux.db":          sqliteFileHeader,
+		"assets/icons/a.ico": icoData,
+	})
+
+	payload, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", restoreLimits{
+		maxDatabaseExtractedSize: 128,
+		maxAssetsExtractedSize:   65536,
+		maxAssetEntries:          2,
+	})
+	if err != nil {
+		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want nil", err)
+	}
+	if payload.skippedAssetCount != 1 {
+		t.Fatalf("payload.skippedAssetCount = %d, want 1", payload.skippedAssetCount)
+	}
+	t.Cleanup(func() {
+		_ = os.Remove(payload.dbFilePath)
+		if payload.assetsDirPath != "" {
+			_ = os.RemoveAll(payload.assetsDirPath)
+		}
+	})
+
+	assetPath := filepath.Join(payload.assetsDirPath, "icons", "a.ico")
+	if _, err := os.Stat(assetPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("restored legacy asset stat error = %v, want not exist", err)
+	}
+}
+
+func TestPrepareRestorePayloadFromZipSkipsNonImageAsset(t *testing.T) {
 	t.Setenv("DATA_PATH", t.TempDir())
 	zipPath := writeRestoreZip(t, map[string][]byte{
 		"subdux.db":            sqliteFileHeader,
 		"assets/icons/pwn.png": []byte("<script>evil()</script>"),
 	})
 
-	_, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", restoreLimits{
+	payload, err := prepareRestorePayloadFromZipWithLimits(zipPath, "", restoreLimits{
 		maxDatabaseExtractedSize: 128,
 		maxAssetsExtractedSize:   128,
 		maxAssetEntries:          2,
 	})
-	if !errors.Is(err, ErrInvalidBackup) {
-		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want invalid backup", err)
+	if err != nil {
+		t.Fatalf("prepareRestorePayloadFromZipWithLimits() error = %v, want nil", err)
 	}
-	if !strings.Contains(err.Error(), "invalid asset image") {
-		t.Fatalf("error = %q, want invalid asset image", err.Error())
+	if payload.skippedAssetCount != 1 {
+		t.Fatalf("payload.skippedAssetCount = %d, want 1", payload.skippedAssetCount)
 	}
-	assertNoRestoreAssetsTempDirs(t)
+	t.Cleanup(func() {
+		_ = os.Remove(payload.dbFilePath)
+		if payload.assetsDirPath != "" {
+			_ = os.RemoveAll(payload.assetsDirPath)
+		}
+	})
+
+	assetPath := filepath.Join(payload.assetsDirPath, "icons", "pwn.png")
+	if _, err := os.Stat(assetPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("restored invalid asset stat error = %v, want not exist", err)
+	}
 }
 
 func TestPrepareRestorePayloadFromZipRejectsExecutableAssetPath(t *testing.T) {
@@ -249,6 +298,79 @@ func mustEncodeRestorePNG(t *testing.T) []byte {
 	if err := png.Encode(&out, img); err != nil {
 		t.Fatalf("failed to encode png: %v", err)
 	}
+	return out.Bytes()
+}
+
+func mustEncodeRestoreZeroRGBAPNG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	var idat bytes.Buffer
+	zw, err := zlib.NewWriterLevel(&idat, zlib.BestCompression)
+	if err != nil {
+		t.Fatalf("failed to create zlib writer: %v", err)
+	}
+	row := make([]byte, 1+width*4)
+	for y := 0; y < height; y++ {
+		if _, err := zw.Write(row); err != nil {
+			t.Fatalf("failed to write png row: %v", err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("failed to close zlib writer: %v", err)
+	}
+
+	var out bytes.Buffer
+	out.Write([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
+	var ihdr [13]byte
+	binary.BigEndian.PutUint32(ihdr[0:4], uint32(width))
+	binary.BigEndian.PutUint32(ihdr[4:8], uint32(height))
+	ihdr[8] = 8
+	ihdr[9] = 6
+	writeRestorePNGChunk(&out, "IHDR", ihdr[:])
+	writeRestorePNGChunk(&out, "IDAT", idat.Bytes())
+	writeRestorePNGChunk(&out, "IEND", nil)
+	return out.Bytes()
+}
+
+func writeRestorePNGChunk(out *bytes.Buffer, chunkType string, data []byte) {
+	var scratch [4]byte
+	binary.BigEndian.PutUint32(scratch[:], uint32(len(data)))
+	out.Write(scratch[:])
+	out.WriteString(chunkType)
+	out.Write(data)
+
+	crc := crc32.NewIEEE()
+	_, _ = crc.Write([]byte(chunkType))
+	_, _ = crc.Write(data)
+	binary.BigEndian.PutUint32(scratch[:], crc.Sum32())
+	out.Write(scratch[:])
+}
+
+func mustEncodeRestoreICOContainer(t *testing.T, width, height int, pngData []byte) []byte {
+	t.Helper()
+	header := make([]byte, 6)
+	binary.LittleEndian.PutUint16(header[2:4], 1)
+	binary.LittleEndian.PutUint16(header[4:6], 1)
+
+	entry := make([]byte, 16)
+	if width >= 256 {
+		entry[0] = 0
+	} else {
+		entry[0] = uint8(width)
+	}
+	if height >= 256 {
+		entry[1] = 0
+	} else {
+		entry[1] = uint8(height)
+	}
+	binary.LittleEndian.PutUint16(entry[4:6], 1)
+	binary.LittleEndian.PutUint16(entry[6:8], 32)
+	binary.LittleEndian.PutUint32(entry[8:12], uint32(len(pngData)))
+	binary.LittleEndian.PutUint32(entry[12:16], 22)
+
+	var out bytes.Buffer
+	out.Write(header)
+	out.Write(entry)
+	out.Write(pngData)
 	return out.Bytes()
 }
 

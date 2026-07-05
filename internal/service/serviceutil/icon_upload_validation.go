@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -19,6 +20,9 @@ const (
 	iconUploadSizeLimitError       = "file size exceeds limit"
 	iconUploadContentMismatchError = "icon file content does not match file extension"
 	iconUploadInvalidICOError      = "ICO file must contain at least one valid PNG image"
+
+	maxIconImageDimension = 2048
+	maxIconImagePixels    = 1024 * 1024
 )
 
 // Icon-upload validation errors are typed so the transport layer maps them to a
@@ -70,10 +74,7 @@ func SanitizeUploadedIcon(file io.Reader, filename string, maxSize int64) ([]byt
 		return nil, "", ErrIconUploadSizeLimit
 	}
 
-	if ext == ".jpeg" {
-		ext = ".jpg"
-	}
-	return sanitized, ext, nil
+	return sanitized, normalizeSanitizedIconExtension(ext), nil
 }
 
 func normalizeIconExtension(filename string) string {
@@ -89,6 +90,9 @@ func normalizeIconExtension(filename string) string {
 func sanitizeIconContent(buf []byte) ([]byte, iconUploadFormat, error) {
 	switch {
 	case hasPNGSignature(buf):
+		if err := validatePNGIconConfig(buf); err != nil {
+			return nil, "", err
+		}
 		img, err := png.Decode(bytes.NewReader(buf))
 		if err != nil {
 			return nil, "", ErrIconUploadUnsupportedType
@@ -99,6 +103,9 @@ func sanitizeIconContent(buf []byte) ([]byte, iconUploadFormat, error) {
 		}
 		return out.Bytes(), iconUploadFormatPNG, nil
 	case hasJPEGSignature(buf):
+		if err := validateJPEGIconConfig(buf); err != nil {
+			return nil, "", err
+		}
 		img, err := jpeg.Decode(bytes.NewReader(buf))
 		if err != nil {
 			return nil, "", ErrIconUploadUnsupportedType
@@ -117,6 +124,45 @@ func sanitizeIconContent(buf []byte) ([]byte, iconUploadFormat, error) {
 	default:
 		return nil, "", ErrIconUploadUnsupportedType
 	}
+}
+
+func validatePNGIconConfig(buf []byte) error {
+	cfg, err := png.DecodeConfig(bytes.NewReader(buf))
+	if err != nil {
+		return ErrIconUploadUnsupportedType
+	}
+	if !iconConfigWithinPixelLimit(cfg) {
+		return ErrIconUploadSizeLimit
+	}
+	return nil
+}
+
+func validateJPEGIconConfig(buf []byte) error {
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(buf))
+	if err != nil {
+		return ErrIconUploadUnsupportedType
+	}
+	if !iconConfigWithinPixelLimit(cfg) {
+		return ErrIconUploadSizeLimit
+	}
+	return nil
+}
+
+func iconConfigWithinPixelLimit(cfg image.Config) bool {
+	if cfg.Width <= 0 || cfg.Height <= 0 {
+		return false
+	}
+	if cfg.Width > maxIconImageDimension || cfg.Height > maxIconImageDimension {
+		return false
+	}
+	return cfg.Width <= maxIconImagePixels/cfg.Height
+}
+
+func normalizeSanitizedIconExtension(ext string) string {
+	if ext == ".jpeg" {
+		return ".jpg"
+	}
+	return ext
 }
 
 func hasPNGSignature(buf []byte) bool {
@@ -187,6 +233,10 @@ func sanitizeICO(buf []byte) ([]byte, error) {
 
 		data := buf[dataOffset : dataOffset+size]
 		if !hasPNGSignature(data) {
+			continue
+		}
+		cfg, err := png.DecodeConfig(bytes.NewReader(data))
+		if err != nil || !iconConfigWithinPixelLimit(cfg) {
 			continue
 		}
 

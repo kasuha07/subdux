@@ -2,13 +2,16 @@ package serviceutil_test
 
 import (
 	"bytes"
+	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -60,6 +63,52 @@ func TestSanitizeUploadedIconRejectsICOWithoutPNGImage(t *testing.T) {
 	if err == nil {
 		t.Fatal("sanitizeUploadedIcon() expected invalid ico error")
 	}
+	if !errors.Is(err, serviceutil.ErrIconUploadInvalidICO) {
+		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, serviceutil.ErrIconUploadInvalidICO)
+	}
+}
+
+func TestSanitizeUploadedIconRejectsCompressedPixelBombPNGBeforeDecode(t *testing.T) {
+	pngData := mustEncodeZeroRGBAPNG(t, 4096, 4096)
+	if len(pngData) > 65536 {
+		t.Fatalf("test png size = %d, want <= 65536", len(pngData))
+	}
+
+	runtime.GC()
+	var before runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, _, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(pngData), "large.png", 65536)
+	var after runtime.MemStats
+	runtime.ReadMemStats(&after)
+
+	if !errors.Is(err, serviceutil.ErrIconUploadSizeLimit) {
+		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, serviceutil.ErrIconUploadSizeLimit)
+	}
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 16<<20 {
+		t.Fatalf("sanitizeUploadedIcon() allocated %d bytes for rejected PNG, want <= %d", allocated, 16<<20)
+	}
+}
+
+func TestSanitizeUploadedIconRejectsOversizedJPEGDimensions(t *testing.T) {
+	jpegData := mustEncodeJPEG(t, 1025, 1025)
+	if len(jpegData) > 65536 {
+		t.Fatalf("test jpeg size = %d, want <= 65536", len(jpegData))
+	}
+
+	_, _, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(jpegData), "large.jpg", 65536)
+	if !errors.Is(err, serviceutil.ErrIconUploadSizeLimit) {
+		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, serviceutil.ErrIconUploadSizeLimit)
+	}
+}
+
+func TestSanitizeUploadedIconRejectsOversizedICOPNGDimensions(t *testing.T) {
+	pngData := mustEncodeZeroRGBAPNG(t, 1025, 1025)
+	icoData := mustEncodeICOContainer(t, 1025, 1025, pngData)
+	if len(icoData) > 65536 {
+		t.Fatalf("test ico size = %d, want <= 65536", len(icoData))
+	}
+
+	_, _, err := serviceutil.SanitizeUploadedIcon(bytes.NewReader(icoData), "large.ico", 65536)
 	if !errors.Is(err, serviceutil.ErrIconUploadInvalidICO) {
 		t.Fatalf("sanitizeUploadedIcon() error = %v, want %v", err, serviceutil.ErrIconUploadInvalidICO)
 	}
@@ -203,9 +252,68 @@ func mustEncodePNG(t *testing.T, width, height int) []byte {
 	return out.Bytes()
 }
 
+func mustEncodeJPEG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	img := image.NewGray(image.Rect(0, 0, width, height))
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: 75}); err != nil {
+		t.Fatalf("failed to encode jpeg: %v", err)
+	}
+	return out.Bytes()
+}
+
+func mustEncodeZeroRGBAPNG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	var idat bytes.Buffer
+	zw, err := zlib.NewWriterLevel(&idat, zlib.BestCompression)
+	if err != nil {
+		t.Fatalf("failed to create zlib writer: %v", err)
+	}
+	row := make([]byte, 1+width*4)
+	for y := 0; y < height; y++ {
+		if _, err := zw.Write(row); err != nil {
+			t.Fatalf("failed to write png row: %v", err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("failed to close zlib writer: %v", err)
+	}
+
+	var out bytes.Buffer
+	out.Write([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
+	var ihdr [13]byte
+	binary.BigEndian.PutUint32(ihdr[0:4], uint32(width))
+	binary.BigEndian.PutUint32(ihdr[4:8], uint32(height))
+	ihdr[8] = 8
+	ihdr[9] = 6
+	writePNGChunk(&out, "IHDR", ihdr[:])
+	writePNGChunk(&out, "IDAT", idat.Bytes())
+	writePNGChunk(&out, "IEND", nil)
+	return out.Bytes()
+}
+
+func writePNGChunk(out *bytes.Buffer, chunkType string, data []byte) {
+	var scratch [4]byte
+	binary.BigEndian.PutUint32(scratch[:], uint32(len(data)))
+	out.Write(scratch[:])
+	out.WriteString(chunkType)
+	out.Write(data)
+
+	crc := crc32.NewIEEE()
+	_, _ = crc.Write([]byte(chunkType))
+	_, _ = crc.Write(data)
+	binary.BigEndian.PutUint32(scratch[:], crc.Sum32())
+	out.Write(scratch[:])
+}
+
 func mustEncodeICOWithPNG(t *testing.T, width, height int) []byte {
 	t.Helper()
 	pngData := mustEncodePNG(t, width, height)
+	return mustEncodeICOContainer(t, width, height, pngData)
+}
+
+func mustEncodeICOContainer(t *testing.T, width, height int, pngData []byte) []byte {
+	t.Helper()
 	header := make([]byte, 6)
 	binary.LittleEndian.PutUint16(header[2:4], 1)
 	binary.LittleEndian.PutUint16(header[4:6], 1)

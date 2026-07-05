@@ -343,6 +343,8 @@ const admin = {
       passwordDisabled: "This account uses a passkey, so a password can't be used here. Continue with your passkey or provider sign-in below.",
     },
     restoreSuccess: "Database restored. Please refresh the page.",
+    restoreSkippedAssets:
+      "Some icons could not pass restore validation and were skipped.",
     restorePassword: "Backup password",
     restorePasswordDescription:
       "This backup is encrypted. Enter its password to restore.",
