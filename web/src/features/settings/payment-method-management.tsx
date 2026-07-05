@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { GripVertical, Trash2 } from "lucide-react"
 import { api } from "@/lib/api"
 import { getPaymentMethodLabel } from "@/lib/preset-labels"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import IconPicker from "@/features/subscriptions/icon-picker"
 import type {
   PaymentMethod,
@@ -37,13 +37,16 @@ export default function PaymentMethodManagement() {
     }).catch(() => void 0)
   }, [])
 
-  async function uploadMethodIcon(id: number, file: File): Promise<string> {
+  async function uploadMethodIcon(id: number, file: File, errorHandling: "silent" | "toast" = "silent"): Promise<string> {
     const formData = new FormData()
     formData.append("icon", file)
-    const result = await api.uploadFile<UploadIconResponse>(
-      `/payment-methods/${id}/icon`,
-      formData
-    )
+    const result = errorHandling === "toast"
+      ? await api.uploadFile<UploadIconResponse>(
+          `/payment-methods/${id}/icon`,
+          formData,
+          { errorHandling: "toast" }
+        )
+      : await api.uploadFile<UploadIconResponse>(`/payment-methods/${id}/icon`, formData)
     return result.icon
   }
 
@@ -94,7 +97,7 @@ export default function PaymentMethodManagement() {
     }
 
     try {
-      await api.delete(`/payment-methods/${id}`)
+      await api.delete(`/payment-methods/${id}`, { errorHandling: "toast" })
       setMethods((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.paymentMethodManagement.deleteSuccess"))
     } catch {
@@ -104,7 +107,11 @@ export default function PaymentMethodManagement() {
 
   async function handleUpdateMethod(id: number, input: UpdatePaymentMethodInput) {
     try {
-      const updated = await api.put<PaymentMethod>(`/payment-methods/${id}`, input)
+      const updated = await api.put<PaymentMethod>(
+        `/payment-methods/${id}`,
+        input,
+        { errorHandling: "toast" }
+      )
       setMethods((prev) => prev.map((item) => (item.id === id ? updated : item)))
       toast.success(t("settings.paymentMethodManagement.updateSuccess"))
     } catch {
@@ -114,7 +121,7 @@ export default function PaymentMethodManagement() {
 
   async function handleUploadMethodIcon(id: number, file: File) {
     try {
-      const icon = await uploadMethodIcon(id, file)
+      const icon = await uploadMethodIcon(id, file, "toast")
       setMethods((prev) =>
         prev.map((item) => (item.id === id ? { ...item, icon } : item))
       )
@@ -154,7 +161,7 @@ export default function PaymentMethodManagement() {
         id: item.id,
         sort_order: index,
       }))
-      await api.put("/payment-methods/reorder", payload)
+      await api.put("/payment-methods/reorder", payload, { errorHandling: "toast" })
       setMethods((prev) =>
         prev.map((item, index) => ({
           ...item,

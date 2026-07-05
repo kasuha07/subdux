@@ -26,10 +26,10 @@ func TestWriteRestoreBackupErrorKeepsEndpointInternalMessage(t *testing.T) {
 		t.Fatalf("status = %d, want %d", got, want)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "failed to restore backup") {
-		t.Fatalf("body = %q, want failed to restore backup", body)
+	if !hasErrorCodeForMessage(body, "failed to restore backup") {
+		t.Fatalf("body = %q, want failed_to_restore_backup", body)
 	}
-	if strings.Contains(body, "internal server error") || strings.Contains(body, "replace database failed") {
+	if strings.Contains(body, "replace database failed") {
 		t.Fatalf("body = %q, should keep endpoint message without internal details", body)
 	}
 }
@@ -50,10 +50,10 @@ func TestWriteRestoreBackupErrorLeavesTypedBackupErrorsToCentralHandler(t *testi
 		t.Fatalf("status = %d, want %d", got, want)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "invalid backup password") {
-		t.Fatalf("body = %q, want invalid backup password", body)
+	if !hasErrorCodeForMessage(body, "invalid backup password") {
+		t.Fatalf("body = %q, want invalid_backup_password", body)
 	}
-	if strings.Contains(body, "failed to restore backup") {
+	if hasErrorCodeForMessage(body, "failed to restore backup") {
 		t.Fatalf("body = %q, should not replace client-correctable backup error", body)
 	}
 }

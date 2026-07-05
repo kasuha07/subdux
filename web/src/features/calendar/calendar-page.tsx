@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Copy, Plus, Trash2, Link2 } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -283,7 +283,11 @@ export default function CalendarPage() {
     if (!newTokenName.trim()) return
     setCreatingToken(true)
     try {
-      const token = await api.post<CalendarToken>("/calendar/tokens", { name: newTokenName.trim() })
+      const token = await api.post<CalendarToken>(
+        "/calendar/tokens",
+        { name: newTokenName.trim() },
+        { errorHandling: "toast" }
+      )
       setTokens(prev => [...prev, token])
       setNewlyCreatedUrl(getICalUrl(token.token))
       setNewTokenName("")
@@ -306,7 +310,7 @@ export default function CalendarPage() {
   async function handleDeleteToken(id: number) {
     if (!confirm(t("calendar.token.deleteConfirm"))) return
     try {
-      await api.delete(`/calendar/tokens/${id}`)
+      await api.delete(`/calendar/tokens/${id}`, { errorHandling: "toast" })
       setTokens(prev => prev.filter(t => t.id !== id))
       toast.success(t("calendar.token.deleteSuccess"))
     } catch {

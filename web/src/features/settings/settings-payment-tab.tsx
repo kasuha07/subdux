@@ -28,6 +28,7 @@ interface SettingsPaymentTabProps {
   addSymbolPlaceholder: string
   addableCurrencyCodes: string[]
   currency: string
+  currencySaving: boolean
   customCode: string
   customCodeOption: string
   getCurrencyAliasPlaceholder: (code: string) => string
@@ -59,6 +60,7 @@ export default function SettingsPaymentTab({
   addSymbolPlaceholder,
   addableCurrencyCodes,
   currency,
+  currencySaving,
   customCode,
   customCodeOption,
   getCurrencyAliasPlaceholder,
@@ -90,7 +92,7 @@ export default function SettingsPaymentTab({
           {t("settings.currency.description")}
         </p>
         <div className="mt-3">
-          <Select value={currency} onValueChange={(value) => void onCurrencyChange(value)}>
+          <Select value={currency} onValueChange={(value) => void onCurrencyChange(value)} disabled={currencySaving}>
             <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>

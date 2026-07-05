@@ -23,11 +23,11 @@ const (
 )
 
 var (
-	ErrTOTPAlreadyEnabled  = serviceerr.New(serviceerr.KindInvalid, "two-factor authentication is already enabled")
-	ErrTOTPSetupExpired    = serviceerr.New(serviceerr.KindInvalid, "two-factor setup expired, start again")
-	ErrTOTPInvalidCode     = serviceerr.New(serviceerr.KindInvalid, "invalid verification code")
-	ErrTOTPInvalidPassword = serviceerr.New(serviceerr.KindInvalid, "invalid password")
-	ErrTOTPInvalidAuthCode = serviceerr.New(serviceerr.KindInvalid, "invalid authentication code")
+	ErrTOTPAlreadyEnabled  = serviceerr.New(serviceerr.KindInvalid, "two_factor_authentication_is_already_enabled", "two-factor authentication is already enabled")
+	ErrTOTPSetupExpired    = serviceerr.New(serviceerr.KindInvalid, "two_factor_setup_expired_start_again", "two-factor setup expired, start again")
+	ErrTOTPInvalidCode     = serviceerr.New(serviceerr.KindInvalid, "invalid_verification_code", "invalid verification code")
+	ErrTOTPInvalidPassword = serviceerr.New(serviceerr.KindInvalid, "invalid_password", "invalid password")
+	ErrTOTPInvalidAuthCode = serviceerr.New(serviceerr.KindInvalid, "invalid_authentication_code", "invalid authentication code")
 )
 
 type totpSetupSession struct {

@@ -650,7 +650,7 @@ func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 		}
 		if registrationEmailVerificationEnabled {
 			if _, err := servicesmtp.LoadRuntimeConfig(tx); err != nil {
-				return serviceerr.New(serviceerr.KindInvalid, "smtp settings must be valid when registration email verification is enabled")
+				return serviceerr.New(serviceerr.KindInvalid, "smtp_settings_must_be_valid_when_registration_email_verification_is_enabled", "smtp settings must be valid when registration email verification is enabled")
 			}
 		}
 

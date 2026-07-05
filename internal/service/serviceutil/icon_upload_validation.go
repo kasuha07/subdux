@@ -16,6 +16,11 @@ import (
 )
 
 const (
+	iconUploadUnsupportedTypeCode = "only_png_jpg_and_ico_images_are_supported"
+	iconUploadSizeLimitCode       = "file_size_exceeds_limit"
+	iconUploadContentMismatchCode = "icon_file_content_does_not_match_file_extension"
+	iconUploadInvalidICOCode      = "ico_file_must_contain_at_least_one_valid_png_image"
+
 	iconUploadUnsupportedTypeError = "only PNG, JPG, and ICO images are supported"
 	iconUploadSizeLimitError       = "file size exceeds limit"
 	iconUploadContentMismatchError = "icon file content does not match file extension"
@@ -29,11 +34,11 @@ const (
 // status without message matching: the four validation failures are 400
 // (KindInvalid) and the administrator-disabled case is 403 (KindForbidden).
 var (
-	ErrIconUploadUnsupportedType = serviceerr.New(serviceerr.KindInvalid, iconUploadUnsupportedTypeError)
-	ErrIconUploadSizeLimit       = serviceerr.New(serviceerr.KindInvalid, iconUploadSizeLimitError)
-	ErrIconUploadContentMismatch = serviceerr.New(serviceerr.KindInvalid, iconUploadContentMismatchError)
-	ErrIconUploadInvalidICO      = serviceerr.New(serviceerr.KindInvalid, iconUploadInvalidICOError)
-	ErrImageUploadDisabled       = serviceerr.New(serviceerr.KindForbidden, "image uploads are disabled by administrator")
+	ErrIconUploadUnsupportedType = serviceerr.New(serviceerr.KindInvalid, iconUploadUnsupportedTypeCode, iconUploadUnsupportedTypeError)
+	ErrIconUploadSizeLimit       = serviceerr.New(serviceerr.KindInvalid, iconUploadSizeLimitCode, iconUploadSizeLimitError)
+	ErrIconUploadContentMismatch = serviceerr.New(serviceerr.KindInvalid, iconUploadContentMismatchCode, iconUploadContentMismatchError)
+	ErrIconUploadInvalidICO      = serviceerr.New(serviceerr.KindInvalid, iconUploadInvalidICOCode, iconUploadInvalidICOError)
+	ErrImageUploadDisabled       = serviceerr.New(serviceerr.KindForbidden, "image_uploads_are_disabled_by_administrator", "image uploads are disabled by administrator")
 )
 
 // SanitizeIconFile validates an icon file and returns a re-encoded safe image.

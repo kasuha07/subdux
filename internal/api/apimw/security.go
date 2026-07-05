@@ -100,7 +100,7 @@ func AuthIPRateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 			}
 
 			if !limiter.Allow("ip:" + clientIP) {
-				return httpx.WriteError(c, http.StatusTooManyRequests, "too many attempts, please try again later")
+				return httpx.WriteError(c, http.StatusTooManyRequests, "too_many_attempts_please_try_again_later")
 			}
 
 			return next(c)
@@ -125,7 +125,7 @@ func AuthAccountRateLimit(limit int, window time.Duration, extractor accountKeyE
 			}
 
 			if !limiter.Allow("acct:" + accountKey) {
-				return httpx.WriteError(c, http.StatusTooManyRequests, "too many attempts for this account, please try again later")
+				return httpx.WriteError(c, http.StatusTooManyRequests, "too_many_attempts_for_this_account_please_try_again_later")
 			}
 
 			return next(c)
@@ -284,7 +284,7 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if From(c).KeyKind != apikeyservice.APIKeyKindAPIIntegration {
-			return httpx.WriteError(c, http.StatusForbidden, "api key kind cannot access this endpoint")
+			return httpx.WriteError(c, http.StatusForbidden, "api_key_kind_cannot_access_this_endpoint")
 		}
 
 		path := c.Path()
@@ -293,7 +293,7 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if !isAPIKeyRouteAllowed(path) {
-			return httpx.WriteError(c, http.StatusForbidden, "api key cannot access this endpoint")
+			return httpx.WriteError(c, http.StatusForbidden, "api_key_cannot_access_this_endpoint")
 		}
 
 		requiredScope := requiredAPIKeyScope(c)
@@ -302,14 +302,14 @@ func APIKeyScopeMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return next(c)
 		}
 
-		return httpx.WriteError(c, http.StatusForbidden, "api key does not have required scope")
+		return httpx.WriteError(c, http.StatusForbidden, "api_key_does_not_have_required_scope")
 	}
 }
 
 func HumanSessionOnlyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if From(c).AuthType == pkg.AuthTypeAPIKey {
-			return httpx.WriteError(c, http.StatusForbidden, "human session required")
+			return httpx.WriteError(c, http.StatusForbidden, "human_session_required")
 		}
 		return next(c)
 	}

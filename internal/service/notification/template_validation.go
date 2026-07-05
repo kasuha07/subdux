@@ -49,11 +49,19 @@ func NewTemplateValidator() *TemplateValidator {
 func (v *TemplateValidator) ValidateTemplate(tmplStr string) error {
 	// Check template length
 	if len(tmplStr) == 0 {
-		return serviceerr.New(serviceerr.KindInvalid, "template cannot be empty")
+		return serviceerr.New(serviceerr.KindInvalid, "template_cannot_be_empty", "template cannot be empty")
 	}
 
 	if len(tmplStr) > MaxTemplateLength {
-		return serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template length %d exceeds maximum %d", len(tmplStr), MaxTemplateLength))
+		return serviceerr.NewCode(
+			serviceerr.KindInvalid,
+			"template_length_exceeds_maximum",
+			fmt.Sprintf("template length %d exceeds maximum %d", len(tmplStr), MaxTemplateLength),
+			map[string]any{
+				"length": len(tmplStr),
+				"max":    MaxTemplateLength,
+			},
+		)
 	}
 
 	if _, err := parseTemplateActions(tmplStr); err != nil {
@@ -70,7 +78,12 @@ func (v *TemplateValidator) ValidateFormat(format string) error {
 	case "plaintext", "markdown", "html":
 		return nil
 	default:
-		return serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("invalid format %q: must be 'plaintext', 'markdown', or 'html'", format))
+		return serviceerr.NewCode(
+			serviceerr.KindInvalid,
+			"invalid_format_must_be_plaintext_markdown_or_html",
+			fmt.Sprintf("invalid format %q: must be 'plaintext', 'markdown', or 'html'", format),
+			map[string]any{"format": format},
+		)
 	}
 }
 
@@ -80,7 +93,7 @@ func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
 		openOffset := strings.Index(tmplStr[idx:], "{{")
 		closeOffset := strings.Index(tmplStr[idx:], "}}")
 		if closeOffset != -1 && (openOffset == -1 || closeOffset < openOffset) {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "template parse error: unexpected closing delimiter \"}}\"")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "template_parse_error_unexpected_closing_delimiter", "template parse error: unexpected closing delimiter \"}}\"")
 		}
 		if openOffset == -1 {
 			break
@@ -89,7 +102,7 @@ func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
 		open := idx + openOffset
 		actionCloseOffset := strings.Index(tmplStr[open+2:], "}}")
 		if actionCloseOffset == -1 {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "template parse error: unclosed template action")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "template_parse_error_unclosed_template_action", "template parse error: unclosed template action")
 		}
 
 		close := open + 2 + actionCloseOffset
@@ -112,21 +125,36 @@ func parseTemplateActions(tmplStr string) ([]templateActionToken, error) {
 
 func parseTemplateVariable(action string) (string, error) {
 	if action == "" {
-		return "", serviceerr.New(serviceerr.KindInvalid, "template parse error: empty template action is not allowed")
+		return "", serviceerr.New(serviceerr.KindInvalid, "template_parse_error_empty_template_action_is_not_allowed", "template parse error: empty template action is not allowed")
 	}
 	if !strings.HasPrefix(action, ".") {
-		return "", serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template parse error: unsupported directive %q", action))
+		return "", serviceerr.NewCode(
+			serviceerr.KindInvalid,
+			"template_parse_error_unsupported_directive",
+			fmt.Sprintf("template parse error: unsupported directive %q", action),
+			map[string]any{"directive": action},
+		)
 	}
 	if strings.ContainsAny(action, " \t\r\n|()") {
-		return "", serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template parse error: unsupported directive %q", action))
+		return "", serviceerr.NewCode(
+			serviceerr.KindInvalid,
+			"template_parse_error_unsupported_directive",
+			fmt.Sprintf("template parse error: unsupported directive %q", action),
+			map[string]any{"directive": action},
+		)
 	}
 
 	varName := strings.TrimPrefix(action, ".")
 	if varName == "" {
-		return "", serviceerr.New(serviceerr.KindInvalid, "template parse error: empty placeholder is not allowed")
+		return "", serviceerr.New(serviceerr.KindInvalid, "template_parse_error_empty_placeholder_is_not_allowed", "template parse error: empty placeholder is not allowed")
 	}
 	if _, ok := allowedTemplateVariables[varName]; !ok {
-		return "", serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("template parse error: unsupported placeholder %q", action))
+		return "", serviceerr.NewCode(
+			serviceerr.KindInvalid,
+			"template_parse_error_unsupported_placeholder",
+			fmt.Sprintf("template parse error: unsupported placeholder %q", action),
+			map[string]any{"placeholder": action},
+		)
 	}
 	return varName, nil
 }

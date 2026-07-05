@@ -20,7 +20,7 @@ func (h *AuthHandler) ListPasskeys(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	passkeys, err := h.Service.WithContext(c.Request().Context()).ListPasskeys(userID)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to list passkeys")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_list_passkeys")
 	}
 	return c.JSON(http.StatusOK, passkeys)
 }
@@ -28,13 +28,13 @@ func (h *AuthHandler) ListPasskeys(c echo.Context) error {
 func (h *AuthHandler) BeginPasskeyRegistration(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input passkeyBeginRegistrationInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyRegistration(userID, input.Name, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -48,11 +48,11 @@ type passkeyFinishRegistrationInput struct {
 func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input passkeyFinishRegistrationInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return httpx.WriteError(c, http.StatusBadRequest, "session_id and credential are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "session_id_and_credential_are_required")
 	}
 
 	// Registering a passkey is a sensitive account change: a proven-present user
@@ -69,12 +69,12 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 
 	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "invalid credential payload")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_credential_payload")
 	}
 
 	passkey, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyRegistration(userID, input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
 	return c.JSON(http.StatusCreated, passkey)
@@ -82,7 +82,7 @@ func (h *AuthHandler) FinishPasskeyRegistration(c echo.Context) error {
 
 func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	passkeyID, ok := httpx.ParseUintParam(c, "id", "invalid passkey id")
+	passkeyID, ok := httpx.ParseUintParam(c, "id", "invalid_passkey_id")
 	if !ok {
 		return nil
 	}
@@ -98,16 +98,16 @@ func (h *AuthHandler) DeletePasskey(c echo.Context) error {
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeletePasskey(userID, uint(passkeyID)); err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "passkey deleted"})
+	return httpx.WriteMessage(c, http.StatusOK, "passkey_deleted")
 }
 
 func (h *AuthHandler) BeginPasskeyLogin(c echo.Context) error {
 	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyLogin(c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -120,22 +120,22 @@ type passkeyFinishLoginInput struct {
 
 func (h *AuthHandler) FinishPasskeyLogin(c echo.Context) error {
 	var input passkeyFinishLoginInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return httpx.WriteError(c, http.StatusBadRequest, "session_id and credential are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "session_id_and_credential_are_required")
 	}
 
 	parsedResponse, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "invalid credential payload")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_credential_payload")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyLogin(input.SessionID, parsedResponse, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme())
 	if err != nil {
 		apimw.ClearRefreshTokenCookie(c)
-		return httpx.WriteError(c, http.StatusUnauthorized, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusUnauthorized, err)
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,7 +54,7 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
   async function handleDelete(template: NotificationTemplate) {
     if (!window.confirm(t("settings.notifications.templates.deleteConfirm"))) return
     try {
-      await api.delete(`/notifications/templates/${template.id}`)
+      await api.delete(`/notifications/templates/${template.id}`, { errorHandling: "toast" })
       onTemplatesChange(templates.filter((item) => item.id !== template.id))
       toast.success(t("settings.notifications.templates.deleteSuccess"))
     } catch {
@@ -71,7 +71,11 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
         format,
         template: templateContent,
       }
-      const result = await api.post<{ preview: string }>("/notifications/templates/preview", input)
+      const result = await api.post<{ preview: string }>(
+        "/notifications/templates/preview",
+        input,
+        { errorHandling: "toast" }
+      )
       setPreviewResult(result.preview)
     } catch {
       void 0
@@ -91,7 +95,11 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
           format,
           template: templateContent,
         }
-        const updated = await api.put<NotificationTemplate>(`/notifications/templates/${editingTemplate.id}`, input)
+        const updated = await api.put<NotificationTemplate>(
+          `/notifications/templates/${editingTemplate.id}`,
+          input,
+          { errorHandling: "toast" }
+        )
         onTemplatesChange(templates.map((item) => (item.id === updated.id ? updated : item)))
         toast.success(t("settings.notifications.templates.updateSuccess"))
       } else {
@@ -100,7 +108,11 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
           format,
           template: templateContent,
         }
-        const created = await api.post<NotificationTemplate>("/notifications/templates", input)
+        const created = await api.post<NotificationTemplate>(
+          "/notifications/templates",
+          input,
+          { errorHandling: "toast" }
+        )
         onTemplatesChange([...templates, created])
         toast.success(t("settings.notifications.templates.addSuccess"))
       }

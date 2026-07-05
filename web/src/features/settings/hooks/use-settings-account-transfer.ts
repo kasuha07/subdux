@@ -1,8 +1,8 @@
 import { useRef, useState, type ChangeEvent, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
-import { api, localizeBackendError } from "@/lib/api"
+import { api, getAPIErrorMessage } from "@/lib/api"
 import type {
   ImportPreview,
   SubduxImportPreview,
@@ -59,42 +59,31 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
   }
 
   async function downloadExport(path: string, reauthTicket: string) {
-    let res: Response
     try {
-      res = await api.fetch(path, {
+      const res = await api.response(path, {
         headers: { "X-Reauth-Ticket": reauthTicket },
+        errorFallbackKey: "settings.account.exportFailed",
       })
-    } catch {
-      const errorMsg = t("settings.account.exportFailed")
-      toast.error(errorMsg)
-      throw new Error(errorMsg)
-    }
-    if (!res.ok) {
-      let errorMsg: string
-      try {
-        const data = (await res.json()) as { error?: unknown }
-        errorMsg = localizeBackendError(data?.error)
-      } catch {
-        errorMsg = t("settings.account.exportFailed")
+      const blob = await res.blob()
+      const disposition = res.headers.get("Content-Disposition")
+      let filename = "subdux-export.json"
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/)
+        if (match) filename = match[1]
       }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      URL.revokeObjectURL(url)
+      a.remove()
+    } catch (error) {
+      const errorMsg = getAPIErrorMessage(error, "settings.account.exportFailed")
       toast.error(errorMsg)
-      throw new Error(errorMsg)
+      throw error
     }
-    const blob = await res.blob()
-    const disposition = res.headers.get("Content-Disposition")
-    let filename = "subdux-export.json"
-    if (disposition) {
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      if (match) filename = match[1]
-    }
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    URL.revokeObjectURL(url)
-    a.remove()
   }
 
   async function handleExport(includeSecrets: boolean, reauthTicket: string) {
@@ -126,23 +115,17 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
         return
       }
 
-      const res = await api.fetch("/import/wallos", {
-        method: "POST",
-        body: JSON.stringify({ data, confirm: false }),
-      })
+      const response = await api.post<{ preview: ImportPreview }>(
+        "/import/wallos",
+        { data, confirm: false },
+        { errorFallbackKey: "settings.account.importFailed" }
+      )
 
-      if (!res.ok) {
-        const err = await res.json()
-        toast.error(err.error || t("settings.account.importFailed"))
-        return
-      }
-
-      const preview: ImportPreview = (await res.json()).preview
-      setImportPreview(preview)
+      setImportPreview(response.preview)
       setImportRawData(data)
       setImportPreviewOpen(true)
-    } catch {
-      toast.error(t("settings.account.importFailed"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "settings.account.importFailed"))
     } finally {
       setImportLoading(false)
       if (importFileRef.current) {
@@ -156,28 +139,24 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
 
     setImportLoading(true)
     try {
-      const res = await api.fetch("/import/wallos", {
-        method: "POST",
-        headers: { "X-Reauth-Ticket": reauthTicket },
-        body: JSON.stringify({ data: importRawData, confirm: true }),
-      })
+      const response = await api.post<{ result: { imported: number; skipped: number } }>(
+        "/import/wallos",
+        { data: importRawData, confirm: true },
+        {
+          headers: { "X-Reauth-Ticket": reauthTicket },
+          errorFallbackKey: "settings.account.importFailed",
+        }
+      )
 
-      if (!res.ok) {
-        const err = await res.json()
-        toast.error(err.error || t("settings.account.importFailed"))
-        return
-      }
-
-      const { result } = await res.json()
       toast.success(
         t("settings.account.importSuccess", {
-          imported: result.imported,
-          skipped: result.skipped,
+          imported: response.result.imported,
+          skipped: response.result.skipped,
         })
       )
       resetImportPreview()
-    } catch {
-      toast.error(t("settings.account.importFailed"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "settings.account.importFailed"))
     } finally {
       setImportLoading(false)
     }
@@ -197,23 +176,17 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
         return
       }
 
-      const res = await api.fetch("/import/subdux", {
-        method: "POST",
-        body: JSON.stringify({ data, confirm: false }),
-      })
+      const response = await api.post<{ preview: SubduxImportPreview }>(
+        "/import/subdux",
+        { data, confirm: false },
+        { errorFallbackKey: "settings.account.subduxImportFailed" }
+      )
 
-      if (!res.ok) {
-        const err = await res.json()
-        toast.error(err.error || t("settings.account.subduxImportFailed"))
-        return
-      }
-
-      const preview: SubduxImportPreview = (await res.json()).preview
-      setSubduxImportPreview(preview)
+      setSubduxImportPreview(response.preview)
       setSubduxImportRawData(data as Record<string, unknown>)
       setSubduxImportPreviewOpen(true)
-    } catch {
-      toast.error(t("settings.account.subduxImportFailed"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "settings.account.subduxImportFailed"))
     } finally {
       setSubduxImportLoading(false)
       if (subduxImportFileRef.current) {
@@ -227,28 +200,24 @@ export function useSettingsAccountTransfer(): UseSettingsAccountTransferResult {
 
     setSubduxImportLoading(true)
     try {
-      const res = await api.fetch("/import/subdux", {
-        method: "POST",
-        headers: { "X-Reauth-Ticket": reauthTicket },
-        body: JSON.stringify({ data: subduxImportRawData, confirm: true }),
-      })
+      const response = await api.post<{ result: { imported: number; skipped: number } }>(
+        "/import/subdux",
+        { data: subduxImportRawData, confirm: true },
+        {
+          headers: { "X-Reauth-Ticket": reauthTicket },
+          errorFallbackKey: "settings.account.subduxImportFailed",
+        }
+      )
 
-      if (!res.ok) {
-        const err = await res.json()
-        toast.error(err.error || t("settings.account.subduxImportFailed"))
-        return
-      }
-
-      const { result } = await res.json()
       toast.success(
         t("settings.account.subduxImportSuccess", {
-          imported: result.imported,
-          skipped: result.skipped,
+          imported: response.result.imported,
+          skipped: response.result.skipped,
         })
       )
       resetSubduxImportPreview()
-    } catch {
-      toast.error(t("settings.account.subduxImportFailed"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "settings.account.subduxImportFailed"))
     } finally {
       setSubduxImportLoading(false)
     }

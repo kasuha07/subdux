@@ -16,7 +16,7 @@ import {
   getPresetCurrencyMeta,
 } from "@/lib/currencies"
 import { getDefaultCurrency, setDefaultCurrency } from "@/lib/default-currency"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type {
   CreateCurrencyInput,
   ReorderCurrencyItem,
@@ -41,6 +41,7 @@ interface UseSettingsPaymentResult {
   addSymbolPlaceholder: string
   addableCurrencyCodes: string[]
   currency: string
+  currencySaving: boolean
   customCode: string
   customCodeOption: string
   getCurrencyAliasPlaceholder: (code: string) => string
@@ -100,12 +101,26 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
   const [addSymbol, setAddSymbol] = useState("")
   const [addAlias, setAddAlias] = useState("")
   const [addLoading, setAddLoading] = useState(false)
+  const [currencyPreferenceLoaded, setCurrencyPreferenceLoaded] = useState(false)
+  const [currencySaving, setCurrencySaving] = useState(false)
   const [orderChanged, setOrderChanged] = useState(false)
   const [orderSaving, setOrderSaving] = useState(false)
 
+  const autoCurrencyRecoveryAttempt = useRef("")
   const dragFrom = useRef<number | null>(null)
   const dragTo = useRef<number | null>(null)
   const paymentLoaded = useRef(false)
+
+  const persistCurrencyPreference = useCallback(async (nextCurrency: string) => {
+    const pref = await api.put<UserPreference>(
+      "/preferences/currency",
+      { preferred_currency: nextCurrency },
+      { errorHandling: "toast" }
+    )
+    setCurrency(pref.preferred_currency)
+    setDefaultCurrency(pref.preferred_currency)
+    return pref.preferred_currency
+  }, [])
 
   useEffect(() => {
     if (!active || paymentLoaded.current) {
@@ -122,6 +137,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
         }
       })
       .catch(() => void 0)
+      .finally(() => setCurrencyPreferenceLoaded(true))
 
     api.get<UserCurrency[]>("/currencies")
       .then((list) => {
@@ -131,17 +147,33 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
   }, [active])
 
   useEffect(() => {
-    if (userCurrencies.length === 0) {
+    if (!currencyPreferenceLoaded || userCurrencies.length === 0) {
       return
     }
 
-    if (!userCurrencies.some((item) => item.code === currency)) {
-      const nextCurrency = userCurrencies[0].code
-      setCurrency(nextCurrency)
-      setDefaultCurrency(nextCurrency)
-      api.put("/preferences/currency", { preferred_currency: nextCurrency }).catch(() => void 0)
+    if (userCurrencies.some((item) => item.code === currency)) {
+      autoCurrencyRecoveryAttempt.current = ""
+      return
     }
-  }, [currency, userCurrencies])
+
+    const nextCurrency = userCurrencies[0].code
+    const attemptKey = `${currency}->${nextCurrency}|${userCurrencies.map((item) => item.code).join(",")}`
+    if (autoCurrencyRecoveryAttempt.current === attemptKey) {
+      return
+    }
+
+    autoCurrencyRecoveryAttempt.current = attemptKey
+    setCurrencySaving(true)
+    void persistCurrencyPreference(nextCurrency)
+      .catch(() => {
+        // Keep the unsynced value in memory until the user retries or a later
+        // successful load rehydrates from the server. Avoid writing a new local
+        // preference that the backend rejected or never persisted.
+      })
+      .finally(() => {
+        setCurrencySaving(false)
+      })
+  }, [currency, currencyPreferenceLoaded, persistCurrencyPreference, userCurrencies])
 
   const addableCurrencyCodes = useMemo(
     () =>
@@ -248,12 +280,19 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
   }, [addCode, i18n.language])
 
   async function handleCurrency(value: string) {
+    if (currencySaving || value === currency) {
+      return
+    }
+
+    const previousCurrency = currency
     setCurrency(value)
-    setDefaultCurrency(value)
+    setCurrencySaving(true)
     try {
-      await api.put("/preferences/currency", { preferred_currency: value })
+      await persistCurrencyPreference(value)
     } catch {
-      void 0
+      setCurrency(previousCurrency)
+    } finally {
+      setCurrencySaving(false)
     }
   }
 
@@ -296,7 +335,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     }
 
     try {
-      await api.delete(`/currencies/${id}`)
+      await api.delete(`/currencies/${id}`, { errorHandling: "toast" })
       setUserCurrencies((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.currencyManagement.deleteSuccess"))
     } catch {
@@ -369,6 +408,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     addSymbolPlaceholder,
     addableCurrencyCodes,
     currency,
+    currencySaving,
     customCode,
     customCodeOption,
     getCurrencyAliasPlaceholder,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,11 +45,6 @@ export default function OIDCSection() {
     setProcessingCallback(true)
     api.get<OIDCSessionResult>("/auth/oidc/session")
       .then((result) => {
-        if (result.error) {
-          setError(result.error)
-          return
-        }
-
         if (result.connection) {
           setConnections([result.connection])
           toast.success(t("settings.oidc.connectSuccess"))

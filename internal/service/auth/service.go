@@ -2,13 +2,13 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -216,7 +216,7 @@ func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 
 	var user model.User
 	if err := s.DB.Where("LOWER(email) = ? OR username = ?", normalizedEmail, identifier).First(&user).Error; err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, serviceerr.New(serviceerr.KindUnauthorized, "invalid_credentials", "invalid credentials")
 	}
 
 	if user.Status == "disabled" {
@@ -224,7 +224,7 @@ func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, serviceerr.New(serviceerr.KindUnauthorized, "invalid_credentials", "invalid credentials")
 	}
 
 	if user.TotpEnabled {

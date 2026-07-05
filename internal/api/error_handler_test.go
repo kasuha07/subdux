@@ -42,8 +42,8 @@ func TestAPIErrorHandlerMapsSQLiteBusyToServiceUnavailable(t *testing.T) {
 	if got, want := rec.Header().Get("Retry-After"), "1"; got != want {
 		t.Fatalf("Retry-After = %q, want %q", got, want)
 	}
-	if !strings.Contains(rec.Body.String(), "database is busy, retry later") {
-		t.Fatalf("body = %q, want database busy message", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"database_is_busy_retry_later\"") {
+		t.Fatalf("body = %q, want database busy error code", rec.Body.String())
 	}
 }
 
@@ -61,18 +61,24 @@ func TestAPIErrorHandlerKeepsGenericErrorsInternal(t *testing.T) {
 	if strings.Contains(rec.Body.String(), "unexpected storage failure") {
 		t.Fatalf("body = %q, should not expose internal error detail", rec.Body.String())
 	}
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"internal_server_error\"") {
+		t.Fatalf("body = %q, want internal server error code", rec.Body.String())
+	}
 }
 
 func TestAPIErrorHandlerMapsTypedServiceError(t *testing.T) {
 	c, rec, handle := newAPIErrorContext(http.MethodPost, "/api/items")
 
-	handlerErr := fmt.Errorf("wrap: %w", serviceerr.New(serviceerr.KindConflict, "service validation failed"))
+	handlerErr := fmt.Errorf("wrap: %w", serviceerr.New(serviceerr.KindConflict, "service_validation_failed", "service validation failed"))
 	handle(handlerErr, c)
 
 	if got, want := rec.Code, http.StatusConflict; got != want {
 		t.Fatalf("status = %d, want %d", got, want)
 	}
-	if !strings.Contains(rec.Body.String(), "service validation failed") {
-		t.Fatalf("body = %q, want service error message", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"service_validation_failed\"") {
+		t.Fatalf("body = %q, want service error code", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "\"error\":") {
+		t.Fatalf("body = %q, should not include legacy error field", rec.Body.String())
 	}
 }

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { GripVertical, Trash2, Pencil, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
 import { getCategoryLabel } from "@/lib/preset-labels"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { Category, CreateCategoryInput, UpdateCategoryInput, ReorderCategoryItem } from "@/types"
 
 export default function CategoryManagement() {
@@ -62,7 +62,7 @@ export default function CategoryManagement() {
     }
 
     try {
-      await api.delete(`/categories/${id}`)
+      await api.delete(`/categories/${id}`, { errorHandling: "toast" })
       setCategories((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.categoryManagement.deleteSuccess"))
     } catch {

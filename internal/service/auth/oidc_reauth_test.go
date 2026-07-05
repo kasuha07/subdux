@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 )
 
 const testReauthOperationBackup = "backup"
@@ -130,4 +132,63 @@ func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
 			t.Fatalf("finishOIDCReauth() error = %v, want nil", err)
 		}
 	})
+}
+
+func TestCreateOIDCCallbackErrorResultPreservesErrorKind(t *testing.T) {
+	svc := NewService(nil)
+
+	callback, err := svc.createOIDCCallbackErrorResult(
+		oidcPurposeLogin,
+		serviceerr.NewCode(
+			serviceerr.KindConflict,
+			"email_already_registered_connect_oidc_from_account_settings",
+			"email already registered, connect oidc from account settings",
+			map[string]any{"provider": "OIDC"},
+		),
+	)
+	if err != nil {
+		t.Fatalf("createOIDCCallbackErrorResult() error = %v, want nil", err)
+	}
+
+	result, err := svc.ConsumeOIDCSessionResult(callback.SessionID)
+	if err != nil {
+		t.Fatalf("ConsumeOIDCSessionResult() error = %v, want nil", err)
+	}
+	if result.ErrorKind != serviceerr.KindConflict {
+		t.Fatalf("ErrorKind = %v, want %v", result.ErrorKind, serviceerr.KindConflict)
+	}
+	if result.ErrorCode != "email_already_registered_connect_oidc_from_account_settings" {
+		t.Fatalf("ErrorCode = %q, want email_already_registered_connect_oidc_from_account_settings", result.ErrorCode)
+	}
+	if result.ErrorParams["provider"] != "OIDC" {
+		t.Fatalf("ErrorParams[provider] = %v, want OIDC", result.ErrorParams["provider"])
+	}
+}
+
+func TestConsumeOIDCReauthResultPreservesStoredErrorKind(t *testing.T) {
+	svc := NewService(nil)
+
+	callback, err := svc.createOIDCCallbackErrorResult(
+		oidcPurposeReauth,
+		serviceerr.New(serviceerr.KindConflict, "oidc_identity_is_not_linked_to_this_account", "oidc identity is not linked to this account"),
+	)
+	if err != nil {
+		t.Fatalf("createOIDCCallbackErrorResult() error = %v, want nil", err)
+	}
+
+	_, err = svc.ConsumeOIDCReauthResult(callback.SessionID, 1, testReauthOperationBackup)
+	if err == nil {
+		t.Fatal("ConsumeOIDCReauthResult() error = nil, want non-nil")
+	}
+
+	var typed *serviceerr.Error
+	if !errors.As(err, &typed) || typed == nil {
+		t.Fatalf("ConsumeOIDCReauthResult() error = %T, want *serviceerr.Error", err)
+	}
+	if typed.Kind != serviceerr.KindConflict {
+		t.Fatalf("Kind = %v, want %v", typed.Kind, serviceerr.KindConflict)
+	}
+	if typed.Code != "oidc_identity_is_not_linked_to_this_account" {
+		t.Fatalf("Code = %q, want oidc_identity_is_not_linked_to_this_account", typed.Code)
+	}
 }

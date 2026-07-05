@@ -104,7 +104,7 @@ type WallosImportResponse struct {
 
 const maxWallosImportItems = 5000
 
-var ErrWallosImportTooLarge = serviceerr.New(serviceerr.KindInvalid, "wallos import file is too large")
+var ErrWallosImportTooLarge = serviceerr.New(serviceerr.KindInvalid, "wallos_import_file_is_too_large", "wallos import file is too large")
 
 // currencySymbols maps currency symbols to candidate currency codes.
 // Ambiguous symbols (e.g. ¥ for JPY/CNY, $ for USD/CAD/AUD) list multiple candidates;

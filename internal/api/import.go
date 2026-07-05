@@ -27,12 +27,12 @@ func (h *ImportHandler) ImportWallos(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxImportRequestBodyBytes)
 
 	var req importer.WallosImportRequest
-	if !httpx.BindLimitedJSON(c, &req, "import file is too large", "invalid JSON") {
+	if !httpx.BindLimitedJSON(c, &req, "import_file_is_too_large", "invalid_json") {
 		return nil
 	}
 	if req.Confirm {
 		if apimw.From(c).AuthType == pkg.AuthTypeAPIKey {
-			return httpx.WriteError(c, http.StatusForbidden, "human session required")
+			return httpx.WriteError(c, http.StatusForbidden, "human_session_required")
 		}
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			userID,
@@ -56,7 +56,7 @@ func (h *ImportHandler) ImportSubdux(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, maxImportRequestBodyBytes)
 
 	var req importer.SubduxImportRequest
-	if !httpx.BindLimitedJSON(c, &req, "import file is too large", "invalid JSON") {
+	if !httpx.BindLimitedJSON(c, &req, "import_file_is_too_large", "invalid_json") {
 		return nil
 	}
 	if req.Confirm {

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 
-import { api, localizeBackendError, logout, logoutAll, setAuth } from "@/lib/api"
-import { toast } from "sonner"
+import { api, logout, logoutAll, setAuth } from "@/lib/api"
+import { toast } from "@/lib/toast"
 import type {
   AuthResponse,
   ConfirmEmailChangeInput,
@@ -129,18 +129,9 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
 
     setEmailCodeLoading(true)
     try {
-      const payload: SendEmailChangeCodeInput = {
-        new_email: newEmail.trim(),
-      }
-      await api.fetch("/auth/email/change/send-code", {
-        method: "POST",
+      const payload: SendEmailChangeCodeInput = { new_email: newEmail.trim() }
+      await api.post<void>("/auth/email/change/send-code", payload, {
         headers: { "X-Reauth-Ticket": reauthTicket },
-        body: JSON.stringify(payload),
-      }).then(async (res) => {
-        const body = await res.json().catch(() => null) as { error?: unknown } | null
-        if (!res.ok) {
-          throw new Error(localizeBackendError(body?.error))
-        }
       })
       setEmailCodeSent(true)
       toast.success(t("settings.account.emailCodeSent"))
@@ -166,21 +157,7 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
         new_email: newEmail.trim(),
         verification_code: emailVerificationCode.trim(),
       }
-      const res = await api.fetch("/auth/email/change/confirm", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      })
-      const body = await res.json().catch(() => null) as AuthResponse | { error?: unknown } | null
-      if (!res.ok) {
-        const errorMessage = localizeBackendError(body && "error" in body ? body.error : undefined)
-        setEmailChangeError(errorMessage)
-        return
-      }
-      if (!body || !("user" in body)) {
-        setEmailChangeError(t("settings.account.emailChangeError"))
-        return
-      }
-      const authData = body
+      const authData = await api.post<AuthResponse>("/auth/email/change/confirm", payload)
       setAuth(authData.access_token ?? authData.token, authData.user)
       setUserState(authData.user)
       setNewEmail("")

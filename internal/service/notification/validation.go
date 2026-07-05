@@ -135,7 +135,7 @@ func normalizeWebhookMethod(method string) (string, error) {
 	case http.MethodGet, http.MethodPost, http.MethodPut:
 		return normalized, nil
 	default:
-		return "", serviceerr.New(serviceerr.KindInvalid, "webhook method must be one of: GET, POST, PUT")
+		return "", serviceerr.New(serviceerr.KindInvalid, "webhook_method_must_be_one_of_get_post_put", "webhook method must be one of: GET, POST, PUT")
 	}
 }
 
@@ -145,19 +145,19 @@ func normalizeWebhookHeaders(headers map[string]string) (map[string]string, erro
 	for key, value := range headers {
 		trimmedKey := strings.TrimSpace(key)
 		if trimmedKey == "" {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook headers cannot contain empty key")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook_headers_cannot_contain_empty_key", "webhook headers cannot contain empty key")
 		}
 		if trimmedKey != key {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook header name must not contain leading or trailing spaces")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook_header_name_must_not_contain_leading_or_trailing_spaces", "webhook header name must not contain leading or trailing spaces")
 		}
 		if !isValidHTTPHeaderName(trimmedKey) {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook header name contains invalid characters")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook_header_name_contains_invalid_characters", "webhook header name contains invalid characters")
 		}
 		if strings.ContainsAny(trimmedKey, "\r\n") {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook header name contains invalid newline characters")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook_header_name_contains_invalid_newline_characters", "webhook header name contains invalid newline characters")
 		}
 		if strings.ContainsAny(value, "\r\n") {
-			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook header value contains invalid newline characters")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "webhook_header_value_contains_invalid_newline_characters", "webhook header value contains invalid newline characters")
 		}
 
 		normalized[trimmedKey] = value
@@ -196,77 +196,77 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal([]byte(config), &raw); err != nil {
-		return serviceerr.New(serviceerr.KindInvalid, "config must be valid JSON")
+		return serviceerr.New(serviceerr.KindInvalid, "config_must_be_valid_json", "config must be valid JSON")
 	}
 
 	switch channelType {
 	case "smtp":
 		var cfg smtpChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid smtp config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_smtp_config_format", "invalid smtp config format")
 		}
 		if cfg.Host == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "smtp channel requires host")
+			return serviceerr.New(serviceerr.KindInvalid, "smtp_channel_requires_host", "smtp channel requires host")
 		}
 		if err := validateOutboundHost(cfg.Host, "smtp host", db); err != nil {
 			return err
 		}
 		if cfg.FromEmail == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "smtp channel requires from_email")
+			return serviceerr.New(serviceerr.KindInvalid, "smtp_channel_requires_from_email", "smtp channel requires from_email")
 		}
 		if _, err := mail.ParseAddress(cfg.FromEmail); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid from_email address")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_from_email_address", "invalid from_email address")
 		}
 		if cfg.ToEmail == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "smtp channel requires to_email")
+			return serviceerr.New(serviceerr.KindInvalid, "smtp_channel_requires_to_email", "smtp channel requires to_email")
 		}
 		if _, err := mail.ParseAddress(cfg.ToEmail); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid to_email address")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_to_email_address", "invalid to_email address")
 		}
 		if cfg.Port < 0 || cfg.Port > 65535 {
-			return serviceerr.New(serviceerr.KindInvalid, "smtp port must be between 0 and 65535")
+			return serviceerr.New(serviceerr.KindInvalid, "smtp_port_must_be_between_0_and_65535", "smtp port must be between 0 and 65535")
 		}
 		return nil
 	case "resend":
 		var cfg resendChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid resend config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_resend_config_format", "invalid resend config format")
 		}
 		if cfg.APIKey == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "resend channel requires api_key")
+			return serviceerr.New(serviceerr.KindInvalid, "resend_channel_requires_api_key", "resend channel requires api_key")
 		}
 		if cfg.FromEmail == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "resend channel requires from_email")
+			return serviceerr.New(serviceerr.KindInvalid, "resend_channel_requires_from_email", "resend channel requires from_email")
 		}
 		if cfg.ToEmail == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "resend channel requires to_email")
+			return serviceerr.New(serviceerr.KindInvalid, "resend_channel_requires_to_email", "resend channel requires to_email")
 		}
 		if _, err := mail.ParseAddress(cfg.FromEmail); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid from_email address")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_from_email_address", "invalid from_email address")
 		}
 		if _, err := mail.ParseAddress(cfg.ToEmail); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid to_email address")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_to_email_address", "invalid to_email address")
 		}
 		return nil
 	case "telegram":
 		var cfg telegramChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid telegram config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_telegram_config_format", "invalid telegram config format")
 		}
 		if cfg.BotToken == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "telegram channel requires bot_token")
+			return serviceerr.New(serviceerr.KindInvalid, "telegram_channel_requires_bot_token", "telegram channel requires bot_token")
 		}
 		if cfg.ChatID == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "telegram channel requires chat_id")
+			return serviceerr.New(serviceerr.KindInvalid, "telegram_channel_requires_chat_id", "telegram channel requires chat_id")
 		}
 		return nil
 	case "webhook":
 		var cfg webhookChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid webhook config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_webhook_config_format", "invalid webhook config format")
 		}
 		if cfg.URL == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "webhook channel requires url")
+			return serviceerr.New(serviceerr.KindInvalid, "webhook_channel_requires_url", "webhook channel requires url")
 		}
 		if err := validateOutboundChannelURL(cfg.URL, "webhook url", false, db); err != nil {
 			return err
@@ -276,7 +276,7 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 			return err
 		}
 		if method == http.MethodGet && strings.TrimSpace(cfg.Secret) != "" {
-			return serviceerr.New(serviceerr.KindInvalid, "webhook secret is not supported when method is GET")
+			return serviceerr.New(serviceerr.KindInvalid, "webhook_secret_is_not_supported_when_method_is_get", "webhook secret is not supported when method is GET")
 		}
 		if _, err := normalizeWebhookHeaders(cfg.Headers); err != nil {
 			return err
@@ -285,25 +285,25 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "gotify":
 		var cfg gotifyChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid gotify config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_gotify_config_format", "invalid gotify config format")
 		}
 		if cfg.URL == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "gotify channel requires url")
+			return serviceerr.New(serviceerr.KindInvalid, "gotify_channel_requires_url", "gotify channel requires url")
 		}
 		if err := validateOutboundChannelURL(cfg.URL, "gotify url", false, db); err != nil {
 			return err
 		}
 		if cfg.Token == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "gotify channel requires token")
+			return serviceerr.New(serviceerr.KindInvalid, "gotify_channel_requires_token", "gotify channel requires token")
 		}
 		return nil
 	case "ntfy":
 		var cfg ntfyChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid ntfy config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_ntfy_config_format", "invalid ntfy config format")
 		}
 		if cfg.Topic == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "ntfy channel requires topic")
+			return serviceerr.New(serviceerr.KindInvalid, "ntfy_channel_requires_topic", "ntfy channel requires topic")
 		}
 		if cfg.URL != "" {
 			if err := validateOutboundChannelURL(cfg.URL, "ntfy url", false, db); err != nil {
@@ -314,10 +314,10 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "bark":
 		var cfg barkChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid bark config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_bark_config_format", "invalid bark config format")
 		}
 		if cfg.DeviceKey == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "bark channel requires device_key")
+			return serviceerr.New(serviceerr.KindInvalid, "bark_channel_requires_device_key", "bark channel requires device_key")
 		}
 		if cfg.URL != "" {
 			if err := validateOutboundChannelURL(cfg.URL, "bark url", false, db); err != nil {
@@ -328,19 +328,19 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "serverchan":
 		var cfg serverchanChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid serverchan config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_serverchan_config_format", "invalid serverchan config format")
 		}
 		if cfg.SendKey == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "serverchan channel requires send_key")
+			return serviceerr.New(serviceerr.KindInvalid, "serverchan_channel_requires_send_key", "serverchan channel requires send_key")
 		}
 		return nil
 	case "feishu":
 		var cfg feishuChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid feishu config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_feishu_config_format", "invalid feishu config format")
 		}
 		if cfg.WebhookURL == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "feishu channel requires webhook_url")
+			return serviceerr.New(serviceerr.KindInvalid, "feishu_channel_requires_webhook_url", "feishu channel requires webhook_url")
 		}
 		if err := validateOutboundChannelURL(cfg.WebhookURL, "feishu webhook_url", true, db); err != nil {
 			return err
@@ -349,10 +349,10 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "wecom":
 		var cfg wecomChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid wecom config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_wecom_config_format", "invalid wecom config format")
 		}
 		if cfg.WebhookURL == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "wecom channel requires webhook_url")
+			return serviceerr.New(serviceerr.KindInvalid, "wecom_channel_requires_webhook_url", "wecom channel requires webhook_url")
 		}
 		if err := validateOutboundChannelURL(cfg.WebhookURL, "wecom webhook_url", true, db); err != nil {
 			return err
@@ -361,10 +361,10 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "dingtalk":
 		var cfg dingtalkChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid dingtalk config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_dingtalk_config_format", "invalid dingtalk config format")
 		}
 		if cfg.WebhookURL == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "dingtalk channel requires webhook_url")
+			return serviceerr.New(serviceerr.KindInvalid, "dingtalk_channel_requires_webhook_url", "dingtalk channel requires webhook_url")
 		}
 		if err := validateOutboundChannelURL(cfg.WebhookURL, "dingtalk webhook_url", true, db); err != nil {
 			return err
@@ -373,10 +373,10 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "pushdeer":
 		var cfg pushdeerChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid pushdeer config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_pushdeer_config_format", "invalid pushdeer config format")
 		}
 		if strings.TrimSpace(cfg.PushKey) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "pushdeer channel requires push_key")
+			return serviceerr.New(serviceerr.KindInvalid, "pushdeer_channel_requires_push_key", "pushdeer channel requires push_key")
 		}
 		serverURL := strings.TrimSpace(cfg.ServerURL)
 		if serverURL != "" {
@@ -388,10 +388,10 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "pushplus":
 		var cfg pushplusChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid pushplus config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_pushplus_config_format", "invalid pushplus config format")
 		}
 		if strings.TrimSpace(cfg.Token) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "pushplus channel requires token")
+			return serviceerr.New(serviceerr.KindInvalid, "pushplus_channel_requires_token", "pushplus channel requires token")
 		}
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint != "" {
@@ -403,13 +403,13 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "pushover":
 		var cfg pushoverChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid pushover config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_pushover_config_format", "invalid pushover config format")
 		}
 		if strings.TrimSpace(cfg.Token) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "pushover channel requires token")
+			return serviceerr.New(serviceerr.KindInvalid, "pushover_channel_requires_token", "pushover channel requires token")
 		}
 		if strings.TrimSpace(cfg.User) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "pushover channel requires user")
+			return serviceerr.New(serviceerr.KindInvalid, "pushover_channel_requires_user", "pushover channel requires user")
 		}
 		endpoint := strings.TrimSpace(cfg.Endpoint)
 		if endpoint != "" {
@@ -421,10 +421,10 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 	case "napcat":
 		var cfg napcatChannelConfig
 		if err := decodeChannelConfigStrict(config, &cfg); err != nil {
-			return serviceerr.New(serviceerr.KindInvalid, "invalid napcat config format")
+			return serviceerr.New(serviceerr.KindInvalid, "invalid_napcat_config_format", "invalid napcat config format")
 		}
 		if strings.TrimSpace(cfg.URL) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "napcat channel requires url")
+			return serviceerr.New(serviceerr.KindInvalid, "napcat_channel_requires_url", "napcat channel requires url")
 		}
 		napcatURL := strings.TrimSpace(cfg.URL)
 		if err := validateOutboundChannelURL(napcatURL, "napcat url", false, db); err != nil {
@@ -435,17 +435,17 @@ func validateChannelConfig(channelType, config string, db *gorm.DB) error {
 			msgType = "private"
 		}
 		if msgType != "private" && msgType != "group" {
-			return serviceerr.New(serviceerr.KindInvalid, "napcat message_type must be private or group")
+			return serviceerr.New(serviceerr.KindInvalid, "napcat_message_type_must_be_private_or_group", "napcat message_type must be private or group")
 		}
 		if msgType == "private" && strings.TrimSpace(cfg.UserID) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "napcat channel requires user_id for private messages")
+			return serviceerr.New(serviceerr.KindInvalid, "napcat_channel_requires_user_id_for_private_messages", "napcat channel requires user_id for private messages")
 		}
 		if msgType == "group" && strings.TrimSpace(cfg.GroupID) == "" {
-			return serviceerr.New(serviceerr.KindInvalid, "napcat channel requires group_id for group messages")
+			return serviceerr.New(serviceerr.KindInvalid, "napcat_channel_requires_group_id_for_group_messages", "napcat channel requires group_id for group messages")
 		}
 		return nil
 	default:
-		return serviceerr.New(serviceerr.KindInvalid, "unsupported channel type")
+		return serviceerr.New(serviceerr.KindInvalid, "unsupported_channel_type", "unsupported channel type")
 	}
 }
 

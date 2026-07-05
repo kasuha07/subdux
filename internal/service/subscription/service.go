@@ -186,7 +186,12 @@ type BillingDraft = billingDraft
 
 func validateNotifyDaysBefore(value int) error {
 	if value < 0 || value > MaxNotificationDaysBefore {
-		return serviceerr.New(serviceerr.KindInvalid, fmt.Sprintf("notify_days_before must be between 0 and %d", MaxNotificationDaysBefore))
+		return serviceerr.NewCode(
+			serviceerr.KindInvalid,
+			"notify_days_before_must_be_between_0_and_max",
+			fmt.Sprintf("notify_days_before must be between 0 and %d", MaxNotificationDaysBefore),
+			map[string]any{"max": MaxNotificationDaysBefore},
+		)
 	}
 	return nil
 }

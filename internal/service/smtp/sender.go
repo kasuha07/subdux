@@ -24,8 +24,8 @@ const (
 )
 
 var (
-	ErrInvalidSMTPRateLimit = serviceerr.New(serviceerr.KindInvalid, "smtp rate limit must be between 0 and 86400 seconds")
-	ErrSMTPRateLimited      = serviceerr.New(serviceerr.KindTooMany, "smtp send rate limit exceeded, please wait before trying again")
+	ErrInvalidSMTPRateLimit = serviceerr.New(serviceerr.KindInvalid, "smtp_rate_limit_must_be_between_0_and_86400_seconds", "smtp rate limit must be between 0 and 86400 seconds")
+	ErrSMTPRateLimited      = serviceerr.New(serviceerr.KindTooMany, "smtp_send_rate_limit_exceeded_please_wait_before_trying_again", "smtp send rate limit exceeded, please wait before trying again")
 	smtpRateLimitMu         sync.Mutex
 )
 

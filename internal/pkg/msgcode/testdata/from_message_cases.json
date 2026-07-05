@@ -1,0 +1,38 @@
+[
+  {
+    "message": "",
+    "code": "message"
+  },
+  {
+    "message": "   ",
+    "code": "message"
+  },
+  {
+    "message": "!!!",
+    "code": "message"
+  },
+  {
+    "message": "too many attempts for this account, please try again later",
+    "code": "too_many_attempts_for_this_account_please_try_again_later"
+  },
+  {
+    "message": "Username/email and password are required",
+    "code": "username_or_email_and_password_are_required"
+  },
+  {
+    "message": "system proxy url must start with http://",
+    "code": "system_proxy_url_must_start_with_http"
+  },
+  {
+    "message": "template parse error: unexpected closing delimiter \"}}\"",
+    "code": "template_parse_error_unexpected_closing_delimiter"
+  },
+  {
+    "message": "foo/bar/baz",
+    "code": "foo_or_bar_or_baz"
+  },
+  {
+    "message": "a---b___c",
+    "code": "a_b_c"
+  }
+]

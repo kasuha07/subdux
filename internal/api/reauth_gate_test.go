@@ -309,7 +309,7 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -320,7 +320,7 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -338,7 +338,7 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -365,7 +365,7 @@ func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -376,7 +376,7 @@ func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -400,7 +400,7 @@ func TestChangeUserRoleRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -424,7 +424,7 @@ func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -435,7 +435,7 @@ func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -459,7 +459,7 @@ func TestCreateAdminUserRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -486,7 +486,7 @@ func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -497,7 +497,7 @@ func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -518,7 +518,7 @@ func TestDeleteUserRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -570,7 +570,7 @@ func TestAdminDisableUserTOTPRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 		assertTOTPStillEnabled(t)
@@ -582,7 +582,7 @@ func TestAdminDisableUserTOTPRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 		assertTOTPStillEnabled(t)
@@ -607,7 +607,7 @@ func TestAdminDisableUserTOTPRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -654,7 +654,7 @@ func TestAdminDisableUserPasskeysRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 		assertPasskeysStillPresent(t)
@@ -666,7 +666,7 @@ func TestAdminDisableUserPasskeysRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 		assertPasskeysStillPresent(t)
@@ -691,7 +691,7 @@ func TestAdminDisableUserPasskeysRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -708,7 +708,7 @@ func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -719,7 +719,7 @@ func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -736,7 +736,7 @@ func TestCreateAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -785,7 +785,7 @@ func TestReauthPasswordRequiresTOTPWhenEnabled(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("missing code status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("missing code body = %s, want re-authentication required", rec.Body.String())
 		}
 
@@ -799,7 +799,7 @@ func TestReauthPasswordRequiresTOTPWhenEnabled(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("invalid code status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("invalid code body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -867,7 +867,7 @@ func TestReauthPasswordDisabledForPasskeyAccount(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "passkey") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "password re-authentication is not available for this account; use a passkey") {
 			t.Fatalf("body = %s, want a passkey-directed message", rec.Body.String())
 		}
 	})
@@ -922,7 +922,7 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -934,7 +934,7 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -957,7 +957,7 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -981,7 +981,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 
@@ -1000,7 +1000,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1035,7 +1035,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1059,7 +1059,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1070,7 +1070,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1087,7 +1087,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1112,7 +1112,7 @@ func TestImportWallosGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("confirm status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "human session required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "human session required") {
 			t.Fatalf("body = %s, want human session required", rec.Body.String())
 		}
 	})
@@ -1129,7 +1129,7 @@ func TestRestoreDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1140,7 +1140,7 @@ func TestRestoreDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1155,10 +1155,10 @@ func TestRestoreDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if strings.Contains(rec.Body.String(), "re-authentication required") {
+		if hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, ticket should have cleared the gate", rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "no file uploaded") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "no file uploaded") {
 			t.Fatalf("body = %s, want no file uploaded", rec.Body.String())
 		}
 
@@ -1168,7 +1168,7 @@ func TestRestoreDBGateRequiresValidReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1192,7 +1192,7 @@ func TestImportSubduxGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1203,7 +1203,7 @@ func TestImportSubduxGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -1220,7 +1220,7 @@ func TestImportSubduxGateRequiresValidReauthTicketOnConfirm(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})

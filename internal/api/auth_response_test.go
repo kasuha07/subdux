@@ -110,3 +110,31 @@ func TestMapOIDCSessionResponseOmitsRefreshToken(t *testing.T) {
 		t.Fatalf("token = %v, want access-token", payload["token"])
 	}
 }
+
+func TestMapOIDCSessionResponseOmitsErrorMetadata(t *testing.T) {
+	response := mapOIDCSessionResponse(&serviceauth.OIDCSessionResult{
+		Purpose:     "login",
+		Error:       "oidc userinfo endpoint returned 404",
+		ErrorCode:   "oidc_userinfo_endpoint_returned_status",
+		ErrorParams: map[string]any{"status": 404},
+	})
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if _, ok := payload["error_code"]; ok {
+		t.Fatalf("oidc session response should not include error_code: %s", string(data))
+	}
+	if _, ok := payload["error"]; ok {
+		t.Fatalf("oidc session response should not include legacy error field: %s", string(data))
+	}
+	if _, ok := payload["error_params"]; ok {
+		t.Fatalf("oidc session response should not include error_params: %s", string(data))
+	}
+}

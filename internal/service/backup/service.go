@@ -47,10 +47,10 @@ const (
 )
 
 var (
-	ErrInvalidBackupTimeOfDay           = serviceerr.New(serviceerr.KindInvalid, "backup time of day must be in HH:MM 24-hour format")
-	ErrInvalidBackupRetentionCount      = serviceerr.New(serviceerr.KindInvalid, "backup retention count must be between 1 and 1000")
-	ErrInvalidBackupLocalDir            = serviceerr.New(serviceerr.KindInvalid, "backup local directory must be an absolute path or a clean relative path without '..' segments")
-	ErrBackupEncryptionPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "encryption password is required when backup encryption is enabled")
+	ErrInvalidBackupTimeOfDay           = serviceerr.New(serviceerr.KindInvalid, "backup_time_of_day_must_be_in_hh_mm_24_hour_format", "backup time of day must be in HH:MM 24-hour format")
+	ErrInvalidBackupRetentionCount      = serviceerr.New(serviceerr.KindInvalid, "backup_retention_count_must_be_between_1_and_1000", "backup retention count must be between 1 and 1000")
+	ErrInvalidBackupLocalDir            = serviceerr.New(serviceerr.KindInvalid, "backup_local_directory_must_be_an_absolute_path_or_a_clean_relative_path_without_segments", "backup local directory must be an absolute path or a clean relative path without '..' segments")
+	ErrBackupEncryptionPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "encryption_password_is_required_when_backup_encryption_is_enabled", "encryption password is required when backup encryption is enabled")
 )
 
 var backupTimeOfDayPattern = regexp.MustCompile(`^([01]\d|2[0-3]):([0-5]\d)$`)

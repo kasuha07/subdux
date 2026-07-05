@@ -33,25 +33,25 @@ func (h *VersionHandler) GetLatest(c echo.Context) error {
 	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet,
 		"https://api.github.com/repos/kasuha07/subdux/releases/latest", nil)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to create request")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_create_request")
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadGateway, "failed to fetch latest release")
+		return httpx.WriteError(c, http.StatusBadGateway, "failed_to_fetch_latest_release")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return httpx.WriteError(c, http.StatusBadGateway, "github api returned non-200")
+		return httpx.WriteError(c, http.StatusBadGateway, "github_api_returned_non_200")
 	}
 
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to parse response")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_parse_response")
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{"tag_name": release.TagName})

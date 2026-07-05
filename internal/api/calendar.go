@@ -35,15 +35,15 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 	var input struct {
 		Name string `json:"name"`
 	}
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "Name is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "name_is_required")
 	}
 	if len(input.Name) > 100 {
-		return httpx.WriteError(c, http.StatusBadRequest, "Name must be 100 characters or less")
+		return httpx.WriteError(c, http.StatusBadRequest, "name_must_be_100_characters_or_less")
 	}
 
 	svc := h.Service.WithContext(c.Request().Context())
@@ -52,7 +52,7 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 		return err
 	}
 	if len(existing) >= 5 {
-		return httpx.WriteError(c, http.StatusBadRequest, "Maximum of 5 calendar links reached")
+		return httpx.WriteError(c, http.StatusBadRequest, "maximum_of_5_calendar_links_reached")
 	}
 
 	token, err := svc.GenerateToken(userID, input.Name)
@@ -64,7 +64,7 @@ func (h *CalendarHandler) CreateToken(c echo.Context) error {
 
 func (h *CalendarHandler) DeleteToken(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "Invalid ID")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -78,13 +78,13 @@ func (h *CalendarHandler) DeleteToken(c echo.Context) error {
 func (h *CalendarHandler) GetCalendarFeed(c echo.Context) error {
 	tokenStr := c.QueryParam("token")
 	if tokenStr == "" {
-		return httpx.WriteError(c, http.StatusUnauthorized, "token is required")
+		return httpx.WriteError(c, http.StatusUnauthorized, "token_is_required")
 	}
 
 	svc := h.Service.WithContext(c.Request().Context())
 	userID, err := svc.ValidateToken(tokenStr)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusUnauthorized, "invalid or expired token")
+		return httpx.WriteError(c, http.StatusUnauthorized, "invalid_or_expired_token")
 	}
 
 	ics, err := svc.GenerateICalFeed(userID)

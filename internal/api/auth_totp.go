@@ -35,11 +35,11 @@ func (h *AuthHandler) ConfirmTOTP(c echo.Context) error {
 		SessionID string `json:"session_id"`
 		Code      string `json:"code"`
 	}
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.SessionID == "" || input.Code == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "session_id and code are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "session_id_and_code_are_required")
 	}
 
 	backupCodes, err := h.TOTPService.WithContext(c.Request().Context()).ConfirmSetup(userID, input.SessionID, input.Code)
@@ -62,7 +62,7 @@ func (h *AuthHandler) DisableTOTP(c echo.Context) error {
 	if err := h.TOTPService.WithContext(c.Request().Context()).Disable(userID); err != nil {
 		return writeTOTPServiceError(c, err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{"message": "2FA disabled successfully"})
+	return httpx.WriteMessage(c, http.StatusOK, "2fa_disabled_successfully")
 }
 
 func writeTOTPServiceError(c echo.Context, err error) error {
@@ -76,37 +76,37 @@ type verifyTOTPLoginInput struct {
 
 func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 	var input verifyTOTPLoginInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.TotpToken == "" || input.Code == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "Token and code are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "token_and_code_are_required")
 	}
 
 	userID, err := pkg.ValidateTOTPPendingToken(input.TotpToken)
 	if err != nil {
 		apimw.ClearRefreshTokenCookie(c)
-		return httpx.WriteError(c, http.StatusUnauthorized, "Invalid or expired session")
+		return httpx.WriteError(c, http.StatusUnauthorized, "invalid_or_expired_session")
 	}
 
 	ctx := c.Request().Context()
 	totpSvc := h.TOTPService.WithContext(ctx)
 	if !totpSvc.VerifyLogin(userID, input.Code) && !totpSvc.VerifyBackupCode(userID, input.Code) {
 		apimw.ClearRefreshTokenCookie(c)
-		return httpx.WriteError(c, http.StatusUnauthorized, "Invalid code")
+		return httpx.WriteError(c, http.StatusUnauthorized, "invalid_code")
 	}
 
 	resp, err := h.Service.WithContext(ctx).CreateSession(userID)
 	if err != nil {
 		if errors.Is(err, serviceauth.ErrUserNotFound) {
 			apimw.ClearRefreshTokenCookie(c)
-			return httpx.WriteError(c, http.StatusUnauthorized, "Invalid or expired session")
+			return httpx.WriteError(c, http.StatusUnauthorized, "invalid_or_expired_session")
 		}
 		if errors.Is(err, serviceauth.ErrAccountDisabled) {
 			apimw.ClearRefreshTokenCookie(c)
-			return httpx.WriteError(c, http.StatusUnauthorized, "account is disabled")
+			return httpx.WriteError(c, http.StatusUnauthorized, "account_is_disabled")
 		}
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to create session")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_create_session")
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)

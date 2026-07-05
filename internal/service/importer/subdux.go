@@ -13,8 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrInvalidSubduxImportFormat = serviceerr.New(serviceerr.KindInvalid, "invalid subdux export format")
-var ErrSubduxImportTooLarge = serviceerr.New(serviceerr.KindInvalid, "subdux export file is too large")
+var ErrInvalidSubduxImportFormat = serviceerr.New(serviceerr.KindInvalid, "invalid_subdux_export_format", "invalid subdux export format")
+var ErrSubduxImportTooLarge = serviceerr.New(serviceerr.KindInvalid, "subdux_export_file_is_too_large", "subdux export file is too large")
 
 const maxSubduxImportItemsPerCollection = 5000
 

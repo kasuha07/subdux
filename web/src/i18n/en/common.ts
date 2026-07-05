@@ -1,18 +1,12 @@
+import backendMessages from "./backend-messages"
+
 const common = {
   "loading": "Loading...",
   "cancel": "Cancel",
   "close": "Close",
   "unauthorized": "Unauthorized",
   "requestFailed": "Request failed",
-  "backendErrors": {
-    "maxNotificationChannels": "You can enable at most 3 notification channels",
-    "smtpRateLimited": "SMTP send rate limit reached. Please wait before trying again.",
-    "reauthRequired": "Re-authentication failed. Please try again.",
-    "noPasskeyRegistered": "No passkey is registered for your account. Add one in Settings, or use your password.",
-    "accountRateLimited": "Too many attempts for this account. Please try again later.",
-    "totpSetupExpired": "Two-factor setup expired. Start again.",
-    "totpAlreadyEnabled": "Two-factor authentication is already enabled."
-  },
+  "backendMessages": backendMessages,
   "passkeyErrors": {
     "notAllowed": "Passkey request was cancelled or timed out",
     "notSupported": "Passkey is not supported on this device or browser",

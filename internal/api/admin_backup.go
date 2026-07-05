@@ -26,7 +26,7 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 		IncludeAssets bool   `json:"include_assets"`
 		Password      string `json:"password"`
 	}
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -40,7 +40,7 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 
 	backupPath, err := h.Backup.WithContext(c.Request().Context()).BackupDB(input.IncludeAssets, input.Password)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "backup failed")
+		return httpx.WriteError(c, http.StatusInternalServerError, "backup_failed")
 	}
 	defer os.Remove(backupPath)
 
@@ -62,9 +62,8 @@ func (h *AdminHandler) RunBackupNow(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
-		"message": "backup created",
-		"file":    filepath.Base(backupPath),
+	return httpx.WriteMessageFields(c, http.StatusOK, "backup_created", map[string]any{
+		"file": filepath.Base(backupPath),
 	})
 }
 
@@ -106,17 +105,27 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 	file, err := c.FormFile("backup")
 	if err != nil {
 		if httpx.IsRequestTooLargeError(err) {
-			return httpx.WriteError(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20))
+			return httpx.WriteErrorCode(
+				c,
+				http.StatusRequestEntityTooLarge,
+				"backup_file_is_too_large_max_mb",
+				map[string]any{"max_mb": maxBackupUploadSize >> 20},
+			)
 		}
-		return httpx.WriteError(c, http.StatusBadRequest, "no file uploaded")
+		return httpx.WriteError(c, http.StatusBadRequest, "no_file_uploaded")
 	}
 
 	uploadedBackupPath, err := saveUploadedBackupFile(file)
 	if err != nil {
 		if httpx.IsRequestTooLargeError(err) {
-			return httpx.WriteError(c, http.StatusRequestEntityTooLarge, fmt.Sprintf("backup file is too large (max %d MB)", maxBackupUploadSize>>20))
+			return httpx.WriteErrorCode(
+				c,
+				http.StatusRequestEntityTooLarge,
+				"backup_file_is_too_large_max_mb",
+				map[string]any{"max_mb": maxBackupUploadSize >> 20},
+			)
 		}
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to save uploaded backup")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_save_uploaded_backup")
 	}
 	defer os.Remove(uploadedBackupPath)
 
@@ -127,8 +136,7 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 		return writeRestoreBackupError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
-		"message":             "backup restored - please restart server",
+	return httpx.WriteMessageFields(c, http.StatusOK, "backup_restored_please_restart_server", map[string]any{
 		"skipped_asset_count": result.SkippedAssetCount,
 	})
 }
@@ -137,7 +145,7 @@ func writeRestoreBackupError(c echo.Context, err error) error {
 	if _, ok := serviceerr.KindOf(err); ok {
 		return err
 	}
-	return httpx.WriteError(c, http.StatusInternalServerError, "failed to restore backup")
+	return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_restore_backup")
 }
 
 func saveUploadedBackupFile(fileHeader *multipart.FileHeader) (string, error) {

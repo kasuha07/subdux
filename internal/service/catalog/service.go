@@ -22,22 +22,22 @@ import (
 // from the inline errors they replace. The "in use" errors remain 400
 // (KindInvalid), matching prior behavior.
 var (
-	ErrCurrencyInUse       = serviceerr.New(serviceerr.KindInvalid, "currency is in use by existing subscriptions")
-	ErrCategoryInUse       = serviceerr.New(serviceerr.KindInvalid, "category is in use by existing subscriptions")
-	ErrPaymentMethodInUse  = serviceerr.New(serviceerr.KindInvalid, "payment method is in use by existing subscriptions")
+	ErrCurrencyInUse       = serviceerr.New(serviceerr.KindInvalid, "currency_is_in_use_by_existing_subscriptions", "currency is in use by existing subscriptions")
+	ErrCategoryInUse       = serviceerr.New(serviceerr.KindInvalid, "category_is_in_use_by_existing_subscriptions", "category is in use by existing subscriptions")
+	ErrPaymentMethodInUse  = serviceerr.New(serviceerr.KindInvalid, "payment_method_is_in_use_by_existing_subscriptions", "payment method is in use by existing subscriptions")
 	ErrImageUploadDisabled = serviceutil.ErrImageUploadDisabled
 
-	ErrCategoryNameLength      = serviceerr.New(serviceerr.KindInvalid, "name must be 1-30 characters")
-	ErrCategoryNameExists      = serviceerr.New(serviceerr.KindConflict, "category name already exists")
-	ErrCategoryNotFound        = serviceerr.New(serviceerr.KindNotFound, "category not found")
-	ErrCurrencyCodeLength      = serviceerr.New(serviceerr.KindInvalid, "code must be 1-10 characters")
-	ErrCurrencyCodeUppercase   = serviceerr.New(serviceerr.KindInvalid, "code must contain only uppercase letters")
-	ErrCurrencyCodeExists      = serviceerr.New(serviceerr.KindConflict, "currency code already exists")
-	ErrCurrencyNotFound        = serviceerr.New(serviceerr.KindNotFound, "currency not found")
-	ErrCurrencyPreferredDelete = serviceerr.New(serviceerr.KindInvalid, "cannot delete your preferred currency")
-	ErrPaymentMethodNameLength = serviceerr.New(serviceerr.KindInvalid, "name must be 1-50 characters")
-	ErrPaymentMethodNameExists = serviceerr.New(serviceerr.KindConflict, "payment method name already exists")
-	ErrPaymentMethodNotFound   = serviceerr.New(serviceerr.KindNotFound, "payment method not found")
+	ErrCategoryNameLength      = serviceerr.New(serviceerr.KindInvalid, "name_must_be_1_30_characters", "name must be 1-30 characters")
+	ErrCategoryNameExists      = serviceerr.New(serviceerr.KindConflict, "category_name_already_exists", "category name already exists")
+	ErrCategoryNotFound        = serviceerr.New(serviceerr.KindNotFound, "category_not_found", "category not found")
+	ErrCurrencyCodeLength      = serviceerr.New(serviceerr.KindInvalid, "code_must_be_1_10_characters", "code must be 1-10 characters")
+	ErrCurrencyCodeUppercase   = serviceerr.New(serviceerr.KindInvalid, "code_must_contain_only_uppercase_letters", "code must contain only uppercase letters")
+	ErrCurrencyCodeExists      = serviceerr.New(serviceerr.KindConflict, "currency_code_already_exists", "currency code already exists")
+	ErrCurrencyNotFound        = serviceerr.New(serviceerr.KindNotFound, "currency_not_found", "currency not found")
+	ErrCurrencyPreferredDelete = serviceerr.New(serviceerr.KindInvalid, "cannot_delete_your_preferred_currency", "cannot delete your preferred currency")
+	ErrPaymentMethodNameLength = serviceerr.New(serviceerr.KindInvalid, "name_must_be_1_50_characters", "name must be 1-50 characters")
+	ErrPaymentMethodNameExists = serviceerr.New(serviceerr.KindConflict, "payment_method_name_already_exists", "payment method name already exists")
+	ErrPaymentMethodNotFound   = serviceerr.New(serviceerr.KindNotFound, "payment_method_not_found", "payment method not found")
 )
 
 type CategoryService struct {

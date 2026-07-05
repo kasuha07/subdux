@@ -19,15 +19,15 @@ import (
 )
 
 var (
-	ErrAPIKeyNotFound     = serviceerr.New(serviceerr.KindNotFound, "api key not found")
-	ErrAPIKeyNameRequired = serviceerr.New(serviceerr.KindInvalid, "api key name is required")
-	ErrAPIKeyNameTooLong  = serviceerr.New(serviceerr.KindInvalid, "api key name must be 100 characters or less")
-	ErrAPIKeyExpired      = serviceerr.New(serviceerr.KindUnauthorized, "api key has expired")
-	ErrAPIKeyInvalid      = serviceerr.New(serviceerr.KindUnauthorized, "invalid api key")
-	ErrAPIKeyLimitReached = serviceerr.New(serviceerr.KindConflict, "maximum number of api keys reached")
-	ErrAPIKeyScopeInvalid = serviceerr.New(serviceerr.KindInvalid, "invalid api key scopes")
-	ErrAPIKeyKindRequired = serviceerr.New(serviceerr.KindInvalid, "api key kind is required")
-	ErrAPIKeyKindInvalid  = serviceerr.New(serviceerr.KindInvalid, "invalid api key kind")
+	ErrAPIKeyNotFound     = serviceerr.New(serviceerr.KindNotFound, "api_key_not_found", "api key not found")
+	ErrAPIKeyNameRequired = serviceerr.New(serviceerr.KindInvalid, "api_key_name_is_required", "api key name is required")
+	ErrAPIKeyNameTooLong  = serviceerr.New(serviceerr.KindInvalid, "api_key_name_must_be_100_characters_or_less", "api key name must be 100 characters or less")
+	ErrAPIKeyExpired      = serviceerr.New(serviceerr.KindUnauthorized, "api_key_has_expired", "api key has expired")
+	ErrAPIKeyInvalid      = serviceerr.New(serviceerr.KindUnauthorized, "invalid_api_key", "invalid api key")
+	ErrAPIKeyLimitReached = serviceerr.New(serviceerr.KindConflict, "maximum_number_of_api_keys_reached", "maximum number of api keys reached")
+	ErrAPIKeyScopeInvalid = serviceerr.New(serviceerr.KindInvalid, "invalid_api_key_scopes", "invalid api key scopes")
+	ErrAPIKeyKindRequired = serviceerr.New(serviceerr.KindInvalid, "api_key_kind_is_required", "api key kind is required")
+	ErrAPIKeyKindInvalid  = serviceerr.New(serviceerr.KindInvalid, "invalid_api_key_kind", "invalid api key kind")
 )
 
 const maxKeysPerUser = 5

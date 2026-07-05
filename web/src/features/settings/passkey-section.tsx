@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
 import { createPasskeyCredential, isPasskeySupported, type CredentialCreationJSON } from "@/lib/passkey"
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { PasskeyBeginResult, PasskeyCredential } from "@/types"
 import ReauthDialog from "@/features/admin/reauth-dialog"
 

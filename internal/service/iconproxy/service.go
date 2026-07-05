@@ -21,9 +21,9 @@ const (
 )
 
 var (
-	ErrInvalidIconProxyProvider     = serviceerr.New(serviceerr.KindInvalid, "invalid icon proxy provider")
-	ErrInvalidIconProxyTargetDomain = serviceerr.New(serviceerr.KindInvalid, "invalid icon proxy target domain")
-	ErrIconProxyDomainNotAllowed    = serviceerr.New(serviceerr.KindForbidden, "icon proxy domain is not allowed")
+	ErrInvalidIconProxyProvider     = serviceerr.New(serviceerr.KindInvalid, "invalid_icon_proxy_provider", "invalid icon proxy provider")
+	ErrInvalidIconProxyTargetDomain = serviceerr.New(serviceerr.KindInvalid, "invalid_icon_proxy_target_domain", "invalid icon proxy target domain")
+	ErrIconProxyDomainNotAllowed    = serviceerr.New(serviceerr.KindForbidden, "icon_proxy_domain_is_not_allowed", "icon proxy domain is not allowed")
 )
 
 type Service struct {

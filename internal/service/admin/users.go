@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	ErrAdminCredentialResetForbidden = serviceerr.New(serviceerr.KindInvalid, "cannot disable credentials for an admin user")
-	ErrAdminEmailAlreadyRegistered   = serviceerr.New(serviceerr.KindInvalid, "email already registered")
-	ErrAdminUsernameAlreadyTaken     = serviceerr.New(serviceerr.KindInvalid, "username already taken")
+	ErrAdminCredentialResetForbidden = serviceerr.New(serviceerr.KindInvalid, "cannot_disable_credentials_for_an_admin_user", "cannot disable credentials for an admin user")
+	ErrAdminEmailAlreadyRegistered   = serviceerr.New(serviceerr.KindInvalid, "email_already_registered", "email already registered")
+	ErrAdminUsernameAlreadyTaken     = serviceerr.New(serviceerr.KindInvalid, "username_already_taken", "username already taken")
 )
 
 type AdminUserListItem struct {
@@ -79,22 +79,22 @@ func (s *Service) DisableUserPasskeys(userID uint) error {
 
 func (s *Service) ChangeUserRole(userID uint, role string) error {
 	if role != "admin" && role != "user" {
-		return serviceerr.New(serviceerr.KindInvalid, "invalid role")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid_role", "invalid role")
 	}
 	// Prevent demoting the first user (ID=1) to regular user
 	if userID == 1 && role == "user" {
-		return serviceerr.New(serviceerr.KindInvalid, "cannot change the first user's role to regular user")
+		return serviceerr.New(serviceerr.KindInvalid, "cannot_change_the_first_user_s_role_to_regular_user", "cannot change the first user's role to regular user")
 	}
 	return s.DB.Model(&model.User{}).Where("id = ?", userID).Update("role", role).Error
 }
 
 func (s *Service) ChangeUserStatus(userID uint, status string) error {
 	if status != "active" && status != "disabled" {
-		return serviceerr.New(serviceerr.KindInvalid, "invalid status")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid_status", "invalid status")
 	}
 	// Prevent disabling the first user (ID=1)
 	if userID == 1 && status == "disabled" {
-		return serviceerr.New(serviceerr.KindInvalid, "cannot disable the first user")
+		return serviceerr.New(serviceerr.KindInvalid, "cannot_disable_the_first_user", "cannot disable the first user")
 	}
 
 	return s.DB.Transaction(func(tx *gorm.DB) error {
@@ -118,7 +118,7 @@ func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
 func (s *Service) DeleteUser(userID uint) error {
 	// Prevent deleting the first user (ID=1)
 	if userID == 1 {
-		return serviceerr.New(serviceerr.KindInvalid, "cannot delete the first user")
+		return serviceerr.New(serviceerr.KindInvalid, "cannot_delete_the_first_user", "cannot delete the first user")
 	}
 
 	var subscriptionIcons []string

@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 )
 
 func TestBuildWebAuthnRequiresConfiguredSiteURL(t *testing.T) {
@@ -105,6 +107,44 @@ func TestBuildWebAuthnRejectsPlainHTTPNonLoopbackSiteURL(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "must use https") {
 		t.Fatalf("buildWebAuthn() error = %q, want https requirement error", err.Error())
+	}
+}
+
+func TestGetWebAuthnUserReturnsStableDecodeError(t *testing.T) {
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+
+	record := model.PasskeyCredential{
+		UserID:       user.ID,
+		Name:         "Broken passkey",
+		CredentialID: "credential-1",
+		Credential:   []byte(`{broken`),
+	}
+	if err := db.Create(&record).Error; err != nil {
+		t.Fatalf("failed to seed passkey: %v", err)
+	}
+
+	authService := NewService(db)
+	_, err := authService.getWebAuthnUser(user)
+	if err == nil {
+		t.Fatal("getWebAuthnUser() error = nil, want decode error")
+	}
+
+	var typed *serviceerr.Error
+	if !errors.As(err, &typed) || typed == nil {
+		t.Fatalf("getWebAuthnUser() error = %T, want *serviceerr.Error", err)
+	}
+	if typed.Code != "failed_to_decode_passkey" {
+		t.Fatalf("Code = %q, want failed_to_decode_passkey", typed.Code)
+	}
+	if typed.Error() != "failed to decode passkey" {
+		t.Fatalf("Error() = %q, want failed to decode passkey", typed.Error())
+	}
+	if typed.Params != nil {
+		t.Fatalf("Params = %v, want nil", typed.Params)
+	}
+	if typed.Unwrap() == nil {
+		t.Fatal("Unwrap() = nil, want original decode error")
 	}
 }
 

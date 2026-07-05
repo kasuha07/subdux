@@ -41,15 +41,15 @@ func (h *PaymentMethodHandler) List(c echo.Context) error {
 func (h *PaymentMethodHandler) Create(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input catalogservice.CreatePaymentMethodInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	if input.Name == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "name is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "name_is_required")
 	}
 	if !validateIcon(input.Icon) {
-		return httpx.WriteError(c, http.StatusBadRequest, "invalid icon value")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
 	}
 
 	method, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
@@ -62,17 +62,17 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 
 func (h *PaymentMethodHandler) Update(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
 
 	var input catalogservice.UpdatePaymentMethodInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.Icon != nil && !validateIcon(*input.Icon) {
-		return httpx.WriteError(c, http.StatusBadRequest, "invalid icon value")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
 	}
 
 	method, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
@@ -85,7 +85,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 
 func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -99,31 +99,31 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var items []catalogservice.ReorderItem
-	if !httpx.BindJSON(c, &items, "invalid request body") {
+	if !httpx.BindJSON(c, &items, "invalid_request_body") {
 		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
+	return httpx.WriteMessage(c, http.StatusOK, "reordered")
 }
 
 func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
 
 	fileHeader, err := c.FormFile("icon")
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "no file provided")
+		return httpx.WriteError(c, http.StatusBadRequest, "no_file_provided")
 	}
 
 	src, err := fileHeader.Open()
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to read file")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_read_file")
 	}
 	defer src.Close()
 

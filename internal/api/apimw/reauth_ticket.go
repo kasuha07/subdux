@@ -26,5 +26,5 @@ func ReauthTicketFromRequest(c echo.Context) string {
 // to the reauth flow, which is why these do not pass through the central
 // Kind-based error handler.
 func WriteReauthError(c echo.Context, err error) error {
-	return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+	return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 }

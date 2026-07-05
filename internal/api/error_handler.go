@@ -37,10 +37,10 @@ func statusForServiceError(kind serviceerr.Kind) int {
 }
 
 // APIErrorHandler is the single Echo error handler for the API. Handlers signal
-// failures by returning an error; this renders the frozen {"error": message}
-// envelope with the appropriate status:
+// failures by returning an error; this renders the stable error envelope with
+// the appropriate status:
 //
-//   - *serviceerr.Error   → Kind-derived status, client-facing message
+//   - *serviceerr.Error   → Kind-derived status, stable error_code/error_params
 //   - transient SQLite busy → 503 with Retry-After, generic message
 //   - echo.HTTPError       → delegated to Echo's default (jwt 401, 404, 405…)
 //   - anything else        → 500, message hidden, cause logged
@@ -55,14 +55,14 @@ func APIErrorHandler(defaultHandler echo.HTTPErrorHandler) echo.HTTPErrorHandler
 
 		var typed *serviceerr.Error
 		if errors.As(err, &typed) && typed != nil {
-			_ = httpx.WriteError(c, statusForServiceError(typed.Kind), typed.Msg)
+			_ = httpx.WriteErrorCode(c, statusForServiceError(typed.Kind), typed.Code, typed.Params)
 			return
 		}
 
 		if httpx.IsTransientSQLiteBusyError(err) {
 			logging.FromContext(c.Request().Context()).Warn("transient database busy error", slog.Any("error", err))
 			c.Response().Header().Set("Retry-After", "1")
-			_ = httpx.WriteError(c, http.StatusServiceUnavailable, "database is busy, retry later")
+			_ = httpx.WriteError(c, http.StatusServiceUnavailable, "database_is_busy_retry_later")
 			return
 		}
 
@@ -73,6 +73,6 @@ func APIErrorHandler(defaultHandler echo.HTTPErrorHandler) echo.HTTPErrorHandler
 		}
 
 		logging.FromContext(c.Request().Context()).Error("internal server error", slog.Any("error", err))
-		_ = httpx.WriteError(c, http.StatusInternalServerError, "internal server error")
+		_ = httpx.WriteError(c, http.StatusInternalServerError, "internal_server_error")
 	}
 }

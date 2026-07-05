@@ -43,7 +43,7 @@ func (h *ReauthHandler) Methods(c echo.Context) error {
 
 	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(apimw.From(c).UserID, operation)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to load re-authentication methods")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_load_re_authentication_methods")
 	}
 	return c.JSON(http.StatusOK, methods)
 }
@@ -56,7 +56,7 @@ type reauthPasswordInput struct {
 
 func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 	var input reauthPasswordInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -79,7 +79,7 @@ type reauthPasskeyStartInput struct {
 
 func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 	var input reauthPasskeyStartInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -104,7 +104,7 @@ type reauthPasskeyFinishInput struct {
 
 func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 	var input reauthPasskeyFinishInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -112,12 +112,12 @@ func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 		return apimw.WriteReauthError(c, err)
 	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
-		return httpx.WriteError(c, http.StatusBadRequest, "session_id and credential are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "session_id_and_credential_are_required")
 	}
 
 	parsedResponse, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(input.Credential))
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "invalid credential payload")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_credential_payload")
 	}
 
 	ticket, err := h.Service.WithContext(c.Request().Context()).FinishPasskey(
@@ -140,7 +140,7 @@ type reauthOIDCStartInput struct {
 // result back to the opener.
 func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	var input reauthOIDCStartInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)
@@ -164,7 +164,7 @@ type reauthOIDCFinishInput struct {
 // The cookie is always cleared, so a failed attempt cannot be replayed.
 func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 	var input reauthOIDCFinishInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	operation, err := validateReauthOperation(input.Operation)

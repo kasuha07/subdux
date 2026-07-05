@@ -28,7 +28,7 @@ func (h *NotificationTemplateHandler) ListTemplates(c echo.Context) error {
 
 func (h *NotificationTemplateHandler) GetTemplate(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -43,7 +43,7 @@ func (h *NotificationTemplateHandler) GetTemplate(c echo.Context) error {
 func (h *NotificationTemplateHandler) CreateTemplate(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input notificationservice.CreateTemplateInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -56,13 +56,13 @@ func (h *NotificationTemplateHandler) CreateTemplate(c echo.Context) error {
 
 func (h *NotificationTemplateHandler) UpdateTemplate(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
 
 	var input notificationservice.UpdateTemplateInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -75,7 +75,7 @@ func (h *NotificationTemplateHandler) UpdateTemplate(c echo.Context) error {
 
 func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -89,7 +89,7 @@ func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 func (h *NotificationTemplateHandler) PreviewTemplate(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input notificationservice.CreateTemplateInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 

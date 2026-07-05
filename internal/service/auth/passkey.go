@@ -38,7 +38,7 @@ const (
 // ErrNoPasskeyRegistered signals that a user attempted passkey re-authentication
 // without having any registered passkey. Callers surface this so the UI can
 // direct the user to register one first.
-var ErrNoPasskeyRegistered = serviceerr.New(serviceerr.KindInvalid, "no passkey registered for this account")
+var ErrNoPasskeyRegistered = serviceerr.New(serviceerr.KindInvalid, "no_passkey_registered_for_this_account", "no passkey registered for this account")
 
 type passkeySession struct {
 	Kind   passkeySessionKind
@@ -163,7 +163,7 @@ func (s *Service) FinishPasskeyRegistration(userID uint, sessionID string, parse
 	}
 
 	if session.UserID != userID {
-		return nil, errors.New("invalid passkey session")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "invalid_passkey_session", "invalid passkey session")
 	}
 
 	user, err := s.GetUser(userID)
@@ -183,7 +183,7 @@ func (s *Service) FinishPasskeyRegistration(userID uint, sessionID string, parse
 
 	credential, err := wa.CreateCredential(waUser, session.Data, parsedResponse)
 	if err != nil {
-		return nil, errors.New("failed to register passkey")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_register_passkey", "failed to register passkey")
 	}
 
 	payload, err := json.Marshal(credential)
@@ -200,7 +200,7 @@ func (s *Service) FinishPasskeyRegistration(userID uint, sessionID string, parse
 
 	if err := s.DB.Create(&record).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "unique") {
-			return nil, errors.New("passkey already registered")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "passkey_already_registered", "passkey already registered")
 		}
 		return nil, err
 	}
@@ -250,12 +250,12 @@ func (s *Service) FinishPasskeyLogin(sessionID string, parsedResponse *protocol.
 
 	waUser, credential, err := wa.ValidatePasskeyLogin(s.discoverableUserHandler, session.Data, parsedResponse)
 	if err != nil {
-		return nil, errors.New("passkey verification failed")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "passkey_verification_failed", "passkey verification failed")
 	}
 
 	resolved, ok := waUser.(*webAuthnUser)
 	if !ok {
-		return nil, errors.New("failed to resolve passkey user")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_resolve_passkey_user", "failed to resolve passkey user")
 	}
 	user := resolved.account
 
@@ -326,7 +326,7 @@ func (s *Service) FinishPasskeyReauth(userID uint, operation string, sessionID s
 		return err
 	}
 	if session.UserID != userID || session.Operation != operation {
-		return errors.New("invalid passkey session")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid_passkey_session", "invalid passkey session")
 	}
 
 	user, err := s.GetUser(userID)
@@ -346,7 +346,7 @@ func (s *Service) FinishPasskeyReauth(userID uint, operation string, sessionID s
 
 	credential, err := wa.ValidateLogin(waUser, session.Data, parsedResponse)
 	if err != nil {
-		return errors.New("passkey verification failed")
+		return serviceerr.New(serviceerr.KindInvalid, "passkey_verification_failed", "passkey verification failed")
 	}
 
 	s.recordPasskeyLoginMetadataAsync(user.ID, credential, pkg.NowUTC())
@@ -368,7 +368,7 @@ func (s *Service) DeletePasskey(userID uint, passkeyID uint) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("passkey not found")
+		return serviceerr.New(serviceerr.KindInvalid, "passkey_not_found", "passkey not found")
 	}
 	return nil
 }
@@ -383,7 +383,13 @@ func (s *Service) getWebAuthnUser(user model.User) (*webAuthnUser, error) {
 	for _, record := range records {
 		var credential webauthn.Credential
 		if err := json.Unmarshal(record.Credential, &credential); err != nil {
-			return nil, fmt.Errorf("failed to decode passkey: %w", err)
+			return nil, serviceerr.WrapCode(
+				serviceerr.KindInternal,
+				"failed_to_decode_passkey",
+				"failed to decode passkey",
+				nil,
+				err,
+			)
 		}
 		credentials = append(credentials, credential)
 	}
@@ -414,7 +420,7 @@ func (s *Service) resolvePasskeyUser(rawID, userHandle []byte) (*model.User, err
 		if userID, err := strconv.ParseUint(string(userHandle), 10, 64); err == nil && userID > 0 {
 			user, userErr := s.GetUser(uint(userID))
 			if userErr != nil {
-				return nil, errors.New("user not found")
+				return nil, serviceerr.New(serviceerr.KindInvalid, "user_not_found", "user not found")
 			}
 			if user.Status == "disabled" {
 				return nil, ErrAccountDisabled
@@ -424,17 +430,17 @@ func (s *Service) resolvePasskeyUser(rawID, userHandle []byte) (*model.User, err
 	}
 
 	if len(rawID) == 0 {
-		return nil, errors.New("invalid passkey user")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "invalid_passkey_user", "invalid passkey user")
 	}
 
 	var passkey model.PasskeyCredential
 	if err := s.DB.Where("credential_id = ?", encodeCredentialID(rawID)).First(&passkey).Error; err != nil {
-		return nil, errors.New("invalid passkey user")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "invalid_passkey_user", "invalid passkey user")
 	}
 
 	user, err := s.GetUser(passkey.UserID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "user_not_found", "user not found")
 	}
 	if user.Status == "disabled" {
 		return nil, ErrAccountDisabled
@@ -465,15 +471,15 @@ func (s *Service) buildWebAuthn(origin string, host string, scheme string) (*web
 	}
 	siteURL := normalizeSiteURL(siteURLRaw)
 	if siteURL == "" {
-		return nil, errors.New("site_url must be configured before passkeys can be used")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "site_url_must_be_configured_before_passkeys_can_be_used", "site_url must be configured before passkeys can be used")
 	}
 
 	parsed, err := url.Parse(siteURL)
 	if err != nil || parsed.Hostname() == "" {
-		return nil, errors.New("invalid configured site_url")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "invalid_configured_site_url", "invalid configured site_url")
 	}
 	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && isLoopbackWebAuthnHost(parsed.Hostname())) {
-		return nil, errors.New("site_url must use https except for loopback development hosts")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "site_url_must_use_https_except_for_loopback_development_hosts", "site_url must use https except for loopback development hosts")
 	}
 
 	config := &webauthn.Config{
@@ -562,17 +568,17 @@ func (s *Service) takePasskeySession(sessionID string, expected passkeySessionKi
 
 	session, exists := s.passkeySessions[sessionID]
 	if !exists {
-		return passkeySession{}, errors.New("invalid or expired passkey session")
+		return passkeySession{}, serviceerr.New(serviceerr.KindInvalid, "invalid_or_expired_passkey_session", "invalid or expired passkey session")
 	}
 
 	delete(s.passkeySessions, sessionID)
 
 	if session.Kind != expected {
-		return passkeySession{}, errors.New("invalid passkey session")
+		return passkeySession{}, serviceerr.New(serviceerr.KindInvalid, "invalid_passkey_session", "invalid passkey session")
 	}
 
 	if pkg.NowUTC().After(session.ExpiresAt) {
-		return passkeySession{}, errors.New("passkey session expired")
+		return passkeySession{}, serviceerr.New(serviceerr.KindInvalid, "passkey_session_expired", "passkey session expired")
 	}
 
 	return session, nil

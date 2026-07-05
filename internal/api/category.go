@@ -41,11 +41,11 @@ func (h *CategoryHandler) List(c echo.Context) error {
 func (h *CategoryHandler) Create(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input catalogservice.CreateCategoryInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.Name == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "name is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "name_is_required")
 	}
 	category, err := h.Service.WithContext(c.Request().Context()).Create(userID, input)
 	if err != nil {
@@ -56,12 +56,12 @@ func (h *CategoryHandler) Create(c echo.Context) error {
 
 func (h *CategoryHandler) Update(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
 	var input catalogservice.UpdateCategoryInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	category, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
@@ -73,7 +73,7 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 
 func (h *CategoryHandler) Delete(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -86,11 +86,11 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 func (h *CategoryHandler) Reorder(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var items []catalogservice.ReorderItem
-	if !httpx.BindJSON(c, &items, "invalid request body") {
+	if !httpx.BindJSON(c, &items, "invalid_request_body") {
 		return nil
 	}
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, echo.Map{"message": "reordered"})
+	return httpx.WriteMessage(c, http.StatusOK, "reordered")
 }

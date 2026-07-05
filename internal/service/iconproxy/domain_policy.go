@@ -12,8 +12,8 @@ import (
 const DefaultDomainWhitelist = settings.DefaultIconProxyDomainWhitelist
 
 var (
-	ErrInvalidIconProxyDomainWhitelist = serviceerr.New(serviceerr.KindInvalid, "invalid icon proxy domain whitelist")
-	ErrIconProxyDomainWhitelistTooLong = serviceerr.New(serviceerr.KindInvalid, "icon proxy domain whitelist is too long")
+	ErrInvalidIconProxyDomainWhitelist = serviceerr.New(serviceerr.KindInvalid, "invalid_icon_proxy_domain_whitelist", "invalid icon proxy domain whitelist")
+	ErrIconProxyDomainWhitelistTooLong = serviceerr.New(serviceerr.KindInvalid, "icon_proxy_domain_whitelist_is_too_long", "icon proxy domain whitelist is too long")
 )
 
 func NormalizeDomainWhitelist(raw string) (string, error) {

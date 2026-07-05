@@ -18,7 +18,6 @@ type oidcSessionResponse struct {
 	User        *authUserResponse               `json:"user,omitempty"`
 	Connected   bool                            `json:"connected,omitempty"`
 	Connection  *serviceauth.OIDCConnectionInfo `json:"connection,omitempty"`
-	Error       string                          `json:"error,omitempty"`
 }
 
 func mapOIDCSessionResponse(result *serviceauth.OIDCSessionResult) oidcSessionResponse {
@@ -28,20 +27,32 @@ func mapOIDCSessionResponse(result *serviceauth.OIDCSessionResult) oidcSessionRe
 		user = &mapped
 	}
 
-	return oidcSessionResponse{
+	response := oidcSessionResponse{
 		Purpose:     result.Purpose,
 		Token:       result.Token,
 		AccessToken: result.Token,
 		User:        user,
 		Connected:   result.Connected,
 		Connection:  result.Connection,
-		Error:       result.Error,
 	}
+	return response
 }
 
 func writeOIDCSessionSuccess(c echo.Context, status int, result *serviceauth.OIDCSessionResult) error {
 	apimw.SetRefreshTokenCookie(c, result.RefreshToken)
 	return c.JSON(status, mapOIDCSessionResponse(result))
+}
+
+func writeOIDCSessionResult(c echo.Context, result *serviceauth.OIDCSessionResult) error {
+	if result.Error != "" || result.ErrorCode != "" {
+		errorCode := result.ErrorCode
+		if errorCode == "" {
+			errorCode = "failed_to_process_oidc_callback"
+		}
+		return httpx.WriteErrorCode(c, statusForServiceError(result.ErrorKind), errorCode, result.ErrorParams)
+	}
+
+	return writeOIDCSessionSuccess(c, http.StatusOK, result)
 }
 
 func (h *AuthHandler) GetOIDCConfig(c echo.Context) error {
@@ -51,7 +62,7 @@ func (h *AuthHandler) GetOIDCConfig(c echo.Context) error {
 func (h *AuthHandler) BeginOIDCLogin(c echo.Context) error {
 	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDCLogin()
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -66,14 +77,14 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 		apimw.ReauthTicketFromRequest(c),
 	); err != nil {
 		if !errors.Is(err, servicereauth.ErrReauthRequired) {
-			return httpx.WriteError(c, http.StatusInternalServerError, "failed to load oidc connections")
+			return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_load_oidc_connections")
 		}
 		return apimw.WriteReauthError(c, err)
 	}
 
 	result, err := authService.BeginOIDCConnect(userID)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -88,11 +99,11 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 	)
 	if err != nil {
 		apimw.ClearOIDCSessionCookie(c)
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to process oidc callback")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_process_oidc_callback")
 	}
 	if callbackResult.SessionID == "" {
 		apimw.ClearOIDCSessionCookie(c)
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to finalize oidc callback")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_finalize_oidc_callback")
 	}
 
 	// Reauth ("step-up") uses its own path-scoped cookie and lands on a dedicated,
@@ -118,23 +129,23 @@ func (h *AuthHandler) GetOIDCSession(c echo.Context) error {
 	sessionID := apimw.GetCookieValue(c, apimw.OIDCSessionCookieName)
 	if sessionID == "" {
 		apimw.ClearOIDCSessionCookie(c)
-		return httpx.WriteError(c, http.StatusBadRequest, "oidc session cookie is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "oidc_session_cookie_is_required")
 	}
 
 	result, err := h.Service.WithContext(c.Request().Context()).ConsumeOIDCSessionResult(sessionID)
 	apimw.ClearOIDCSessionCookie(c)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusNotFound, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusNotFound, err)
 	}
 
-	return writeOIDCSessionSuccess(c, http.StatusOK, result)
+	return writeOIDCSessionResult(c, result)
 }
 
 func (h *AuthHandler) ListOIDCConnections(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	connections, err := h.Service.WithContext(c.Request().Context()).ListOIDCConnections(userID)
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to list oidc connections")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_list_oidc_connections")
 	}
 
 	return c.JSON(http.StatusOK, connections)
@@ -142,14 +153,14 @@ func (h *AuthHandler) ListOIDCConnections(c echo.Context) error {
 
 func (h *AuthHandler) DeleteOIDCConnection(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	connectionID, ok := httpx.ParseUintParam(c, "id", "invalid oidc connection id")
+	connectionID, ok := httpx.ParseUintParam(c, "id", "invalid_oidc_connection_id")
 	if !ok {
 		return nil
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeleteOIDCConnection(userID, uint(connectionID)); err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "oidc connection deleted"})
+	return httpx.WriteMessage(c, http.StatusOK, "oidc_connection_deleted")
 }

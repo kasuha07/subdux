@@ -152,7 +152,7 @@ func TestSendEmailChangeCodeGateRequiresChangeEmailReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -165,7 +165,7 @@ func TestSendEmailChangeCodeGateRequiresChangeEmailReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -178,7 +178,7 @@ func TestSendEmailChangeCodeGateRequiresChangeEmailReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), serviceauth.ErrSMTPUnavailable.Error()) {
+		if !hasErrorCodeForMessage(rec.Body.String(), serviceauth.ErrSMTPUnavailable.Error()) {
 			t.Fatalf("body = %s, want %q", rec.Body.String(), serviceauth.ErrSMTPUnavailable.Error())
 		}
 
@@ -186,7 +186,7 @@ func TestSendEmailChangeCodeGateRequiresChangeEmailReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})

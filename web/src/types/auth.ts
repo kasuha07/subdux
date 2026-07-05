@@ -50,7 +50,6 @@ export interface OIDCSessionResult {
   user?: User;
   connected?: boolean;
   connection?: OIDCConnection;
-  error?: string;
 }
 
 export interface PasskeyCredential {

@@ -49,7 +49,7 @@ func (h *AuditHandler) ListUserEvents(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	events, err := h.Service.WithContext(c.Request().Context()).List(parseAuditEventFilter(c, &userID))
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to list audit events")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_list_audit_events")
 	}
 	return c.JSON(http.StatusOK, mapAuditEventResponses(events))
 }
@@ -57,7 +57,7 @@ func (h *AuditHandler) ListUserEvents(c echo.Context) error {
 func (h *AuditHandler) ListAdminEvents(c echo.Context) error {
 	events, err := h.Service.WithContext(c.Request().Context()).List(parseAuditEventFilter(c, nil))
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to list audit events")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_list_audit_events")
 	}
 	return c.JSON(http.StatusOK, mapAuditEventResponses(events))
 }

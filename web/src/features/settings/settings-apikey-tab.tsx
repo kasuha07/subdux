@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Copy, KeyRound, Plus, Trash2 } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -82,7 +82,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
           key_kind: keyKind,
           scopes: scopeMode === "read_write" ? ["read", "write"] : ["read"],
         },
-        { headers: { "X-Reauth-Ticket": reauthTicket } }
+        { headers: { "X-Reauth-Ticket": reauthTicket }, errorHandling: "toast" }
       )
       setNewKey(resp.key)
       setNewKeyKind(resp.api_key.key_kind)
@@ -105,7 +105,10 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     const id = deleteReauthId
     setDeletingId(id)
     try {
-      await api.delete(`/api-keys/${id}`, { headers: { "X-Reauth-Ticket": reauthTicket } })
+      await api.delete(`/api-keys/${id}`, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        errorHandling: "toast",
+      })
       setKeys((prev) => prev.filter((k) => k.id !== id))
       setDeleteReauthId(null)
     } catch {

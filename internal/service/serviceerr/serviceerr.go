@@ -1,12 +1,13 @@
 // Package serviceerr defines a small typed-error vocabulary shared across the
 // service layer. Each Error carries a Kind that the transport layer maps to an
 // HTTP status in exactly one place, replacing brittle message-substring
-// classification. The Msg is the client-facing text and is preserved verbatim
-// from the sentinels/inline errors it supersedes, so the external contract
-// (status + body text) does not shift during migration.
+// classification. The transport emits stable error_code/error_params, and
+// callers must provide those public codes explicitly.
 package serviceerr
 
-import "errors"
+import (
+	"errors"
+)
 
 // Kind classifies a service error for transport-layer status mapping. It is an
 // abstract category, deliberately decoupled from HTTP so the service layer does
@@ -36,12 +37,17 @@ const (
 	KindUnavailable
 )
 
-// Error is a typed service error. Msg is the client-facing message; Err is an
-// optional wrapped cause for errors.Is/As chains.
+// Error is a typed service error. Msg is the canonical source message backing
+// Error(); Code is the explicit public contract identifier; Err is an optional
+// wrapped cause for errors.Is/As chains.
 type Error struct {
 	Kind Kind
 	Msg  string
-	Err  error
+	Code string
+	// Params carries interpolation values for a localized client message when
+	// the contract text is parameterized.
+	Params map[string]any
+	Err    error
 }
 
 func (e *Error) Error() string {
@@ -58,15 +64,28 @@ func (e *Error) Unwrap() error {
 	return e.Err
 }
 
-// New builds a typed error with the given kind and client-facing message.
-func New(kind Kind, msg string) *Error {
-	return &Error{Kind: kind, Msg: msg}
+// New builds a typed error with the given kind, explicit public code, and
+// canonical source message.
+func New(kind Kind, code, msg string) *Error {
+	return &Error{Kind: kind, Msg: msg, Code: code}
 }
 
-// Wrap builds a typed error that carries msg for clients while preserving cause
-// for errors.Is/As inspection.
-func Wrap(kind Kind, msg string, cause error) *Error {
-	return &Error{Kind: kind, Msg: msg, Err: cause}
+// NewCode builds a typed error with an explicit stable code and interpolation
+// params for parameterized contracts.
+func NewCode(kind Kind, code, msg string, params map[string]any) *Error {
+	return &Error{Kind: kind, Msg: msg, Code: code, Params: cloneParams(params)}
+}
+
+// Wrap builds a typed error that carries msg as the canonical source text while
+// preserving cause for errors.Is/As inspection.
+func Wrap(kind Kind, code, msg string, cause error) *Error {
+	return &Error{Kind: kind, Msg: msg, Code: code, Err: cause}
+}
+
+// WrapCode builds a typed error with an explicit stable code, interpolation
+// params, and a wrapped cause.
+func WrapCode(kind Kind, code, msg string, params map[string]any, cause error) *Error {
+	return &Error{Kind: kind, Msg: msg, Code: code, Params: cloneParams(params), Err: cause}
 }
 
 // KindOf reports the Kind of err if it (or anything it wraps) is a *Error, and
@@ -78,4 +97,16 @@ func KindOf(err error) (Kind, bool) {
 		return typed.Kind, true
 	}
 	return KindInternal, false
+}
+
+func cloneParams(params map[string]any) map[string]any {
+	if len(params) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]any, len(params))
+	for key, value := range params {
+		cloned[key] = value
+	}
+	return cloned
 }

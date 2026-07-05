@@ -36,7 +36,7 @@ func (h *IconProxyHandler) Get(c echo.Context) error {
 		if _, ok := serviceerr.KindOf(err); ok {
 			return err
 		}
-		return httpx.WriteError(c, http.StatusBadGateway, "failed to fetch icon")
+		return httpx.WriteError(c, http.StatusBadGateway, "failed_to_fetch_icon")
 	}
 	defer resp.Body.Close()
 

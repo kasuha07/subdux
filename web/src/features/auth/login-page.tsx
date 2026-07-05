@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { api, setAuth } from "@/lib/api"
 import { getPasskeyCredential, isPasskeySupported, type CredentialAssertionJSON } from "@/lib/passkey"
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type {
   AuthResponse,
   LoginResponse,
@@ -53,11 +53,6 @@ export default function LoginPage() {
     setOidcLoading(true)
     api.get<OIDCSessionResult>("/auth/oidc/session")
       .then((result) => {
-        if (result.error) {
-          setError(result.error)
-          return
-        }
-
         const accessToken = result.access_token ?? result.token
         if (accessToken && result.user) {
           setAuth(accessToken, result.user)

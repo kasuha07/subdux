@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Fingerprint, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "@/lib/api";
+import { api, isBackendAPIError } from "@/lib/api";
 import {
   getPasskeyCredential,
   isPasskeySupported,
@@ -187,6 +187,7 @@ export default function ReauthDialog({
           password,
           code: totpCode.trim(),
         },
+        { errorHandling: "toast" },
       );
       await verified(ticket);
     } catch {
@@ -209,6 +210,7 @@ export default function ReauthDialog({
       const begin = await api.post<PasskeyBeginResult<CredentialAssertionJSON>>(
         `${REAUTH_API_BASE}/passkey/start`,
         { operation },
+        { errorHandling: "toast" },
       );
       const credential = await getPasskeyCredential(begin.options);
       const { ticket } = await api.post<{ ticket: string }>(
@@ -218,18 +220,18 @@ export default function ReauthDialog({
           session_id: begin.session_id,
           credential,
         },
+        { errorHandling: "toast" },
       );
       await verified(ticket);
     } catch (err) {
       // Backend failures already toast via api.post. Surface browser/WebAuthn
-      // errors (user cancelled, no authenticator, etc.); the api.post path
-      // rethrows a plain Error whose message was already shown, so only toast
-      // for non-api errors to avoid a duplicate.
+      // errors (user cancelled, no authenticator, etc.); suppress duplicate
+      // toasts when the API layer already surfaced a BackendAPIError.
       if (err instanceof DOMException) {
         toast.error(
           getPasskeyErrorMessage(err, t, "admin.backup.reauth.passkeyError"),
         );
-      } else if (!(err instanceof Error)) {
+      } else if (!isBackendAPIError(err)) {
         toast.error(t("admin.backup.reauth.passkeyError"));
       }
       setBusy(false);
@@ -259,6 +261,7 @@ export default function ReauthDialog({
         {
           operation,
         },
+        { errorHandling: "toast" },
       );
       popupWin.location.href = authorization_url;
 
@@ -295,6 +298,7 @@ export default function ReauthDialog({
         {
           operation,
         },
+        { errorHandling: "toast" },
       );
       await verified(ticket);
     } catch (err) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { Separator } from "@/components/ui/separator"
 import { TabsContent } from "@/components/ui/tabs"
@@ -102,7 +102,8 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
       if (editingChannel) {
         const updated = await api.put<NotificationChannel>(
           `/notifications/channels/${editingChannel.id}`,
-          { config }
+          { config },
+          { errorHandling: "toast" }
         )
         setChannels((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)))
         toast.success(t("settings.notifications.channels.updateSuccess"))
@@ -111,7 +112,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
           type,
           enabled: true,
           config,
-        })
+        }, { errorHandling: "toast" })
         setChannels((prev) => [...prev, created])
         toast.success(t("settings.notifications.channels.addSuccess"))
       }
@@ -130,7 +131,8 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
     try {
       const updated = await api.put<NotificationChannel>(
         `/notifications/channels/${channel.id}`,
-        { enabled }
+        { enabled },
+        { errorHandling: "toast" }
       )
       setChannels((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)))
     } catch {
@@ -146,7 +148,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
     const previousChannels = channels
     setChannels((prev) => prev.filter((ch) => ch.id !== channel.id))
     try {
-      await api.delete(`/notifications/channels/${channel.id}`)
+      await api.delete(`/notifications/channels/${channel.id}`, { errorHandling: "toast" })
       toast.success(t("settings.notifications.channels.deleteSuccess"))
     } catch {
       setChannels(previousChannels)
@@ -156,7 +158,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
   async function handleTestChannel(channel: NotificationChannel) {
     setTestingChannelId(channel.id)
     try {
-      await api.post(`/notifications/channels/${channel.id}/test`, {})
+      await api.post(`/notifications/channels/${channel.id}/test`, {}, { errorHandling: "toast" })
       toast.success(t("settings.notifications.channels.testSuccess"))
     } catch {
       void 0
@@ -168,7 +170,11 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
   async function handleSavePolicy(input: UpdateNotificationPolicyInput) {
     setPolicySaving(true)
     try {
-      const updated = await api.put<NotificationPolicy>("/notifications/policy", input)
+      const updated = await api.put<NotificationPolicy>(
+        "/notifications/policy",
+        input,
+        { errorHandling: "toast" }
+      )
       if (updated) setPolicy(updated)
       toast.success(t("settings.notifications.policy.saveSuccess"))
     } catch {

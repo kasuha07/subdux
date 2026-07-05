@@ -54,13 +54,13 @@ func mapAPIKeyResponse(key model.APIKey) apiKeyResponse {
 func (h *APIKeyHandler) Create(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input apikeyservice.CreateInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "Name is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "name_is_required")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -100,7 +100,7 @@ func (h *APIKeyHandler) List(c echo.Context) error {
 
 func (h *APIKeyHandler) Delete(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	keyID, ok := httpx.ParseUintParam(c, "id", "invalid api key id")
+	keyID, ok := httpx.ParseUintParam(c, "id", "invalid_api_key_id")
 	if !ok {
 		return nil
 	}
@@ -117,5 +117,5 @@ func (h *APIKeyHandler) Delete(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "api key deleted"})
+	return httpx.WriteMessage(c, http.StatusOK, "api_key_deleted")
 }

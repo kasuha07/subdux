@@ -1,4 +1,4 @@
-import { toast } from "@/lib/toast-store"
+import { toast } from "@/lib/toast"
 import i18n from "@/i18n"
 import type { AuthResponse, User } from "@/types"
 
@@ -12,14 +12,49 @@ let cachedUser: User | null = null
 let accessTokenLoaded = false
 let userLoaded = false
 
-const BACKEND_ERROR_TRANSLATIONS: Record<string, string> = {
-  "you can enable at most 3 notification channels": "common.backendErrors.maxNotificationChannels",
-  "smtp send rate limit exceeded, please wait before trying again": "common.backendErrors.smtpRateLimited",
-  "re-authentication required": "common.backendErrors.reauthRequired",
-  "no passkey registered for this account": "common.backendErrors.noPasskeyRegistered",
-  "too many attempts for this account, please try again later": "common.backendErrors.accountRateLimited",
-  "two-factor setup expired, start again": "common.backendErrors.totpSetupExpired",
-  "two-factor authentication is already enabled": "common.backendErrors.totpAlreadyEnabled",
+export type BackendMessageParams = Record<string, string | number | boolean>
+
+export interface BackendErrorPayload {
+  error_code?: unknown
+  error_params?: unknown
+}
+
+export interface BackendMessagePayload {
+  message_code?: unknown
+  message_params?: unknown
+}
+
+type BackendPayload = BackendErrorPayload & BackendMessagePayload
+
+export interface APIRequestOptions extends RequestInit {
+  errorHandling?: "silent" | "toast"
+  errorFallbackKey?: string
+}
+
+export class BackendAPIError extends Error {
+  readonly code?: string
+  readonly params?: BackendMessageParams
+  readonly status?: number
+
+  constructor(message: string, options: { code?: string; params?: BackendMessageParams; status?: number } = {}) {
+    super(message)
+    this.name = "BackendAPIError"
+    this.code = options.code
+    this.params = options.params
+    this.status = options.status
+  }
+}
+
+export function isBackendAPIError(error: unknown): error is BackendAPIError {
+  return error instanceof BackendAPIError
+}
+
+export function getAPIErrorMessage(error: unknown, fallbackKey = "common.requestFailed"): string {
+  if (isBackendAPIError(error)) {
+    return error.message
+  }
+
+  return i18n.t(fallbackKey)
 }
 
 function readLocalStorage(key: string): string | null {
@@ -142,22 +177,90 @@ function resolveAccessToken(data: Partial<AuthResponse>): string | null {
 
 function handleUnauthorized(): never {
   clearToken()
-  toast.error(i18n.t("common.unauthorized"))
+  const message = i18n.t("common.unauthorized")
+  toast.error(message)
   window.location.href = "/login"
-  throw new Error(i18n.t("common.unauthorized"))
+  throw new BackendAPIError(message, { status: 401 })
 }
 
 function canRefresh(path: string, hasAccessToken: boolean): boolean {
   return hasAccessToken && path !== "/auth/refresh"
 }
 
-export function localizeBackendError(error: unknown): string {
-  if (typeof error !== "string" || !error) {
-    return i18n.t("common.requestFailed")
+function normalizeBackendParams(value: unknown): BackendMessageParams | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined
   }
 
-  const translationKey = BACKEND_ERROR_TRANSLATIONS[error]
-  return translationKey ? i18n.t(translationKey) : error
+  const params: BackendMessageParams = {}
+  for (const [key, rawValue] of Object.entries(value)) {
+    if (
+      typeof rawValue === "string" ||
+      typeof rawValue === "number" ||
+      typeof rawValue === "boolean"
+    ) {
+      params[key] = rawValue
+    }
+  }
+
+  return Object.keys(params).length > 0 ? params : undefined
+}
+
+function shouldShowErrorToast(options: APIRequestOptions): boolean {
+  return options.errorHandling === "toast"
+}
+
+function localizeBackendText(
+  code: unknown,
+  params: unknown,
+  fallbackKey = "common.requestFailed"
+): string {
+  const normalizedCode = typeof code === "string" ? code.trim() : ""
+  const normalizedParams = normalizeBackendParams(params)
+
+  if (normalizedCode) {
+    const translationKey = `common.backendMessages.${normalizedCode}`
+    if (i18n.exists(translationKey)) {
+      return normalizedParams ? i18n.t(translationKey, normalizedParams) : i18n.t(translationKey)
+    }
+  }
+
+  return i18n.t(fallbackKey)
+}
+
+export function localizeBackendError(errorCode?: unknown, errorParams?: unknown, fallbackKey = "common.requestFailed"): string {
+  return localizeBackendText(errorCode, errorParams, fallbackKey)
+}
+
+export function localizeBackendErrorResponse(payload?: BackendErrorPayload | null, fallbackKey = "common.requestFailed"): string {
+  return localizeBackendError(payload?.error_code, payload?.error_params, fallbackKey)
+}
+
+export function localizeBackendMessage(
+  messageCode?: unknown,
+  messageParams?: unknown,
+  fallbackKey = "common.requestFailed"
+): string {
+  return localizeBackendText(messageCode, messageParams, fallbackKey)
+}
+
+export function localizeBackendMessageResponse(
+  payload?: BackendMessagePayload | null,
+  fallbackKey = "common.requestFailed"
+): string {
+  return localizeBackendMessage(payload?.message_code, payload?.message_params, fallbackKey)
+}
+
+function createBackendAPIError(
+  payload: BackendErrorPayload | null | undefined,
+  status: number,
+  fallbackKey = "common.requestFailed"
+): BackendAPIError {
+  return new BackendAPIError(localizeBackendErrorResponse(payload, fallbackKey), {
+    code: typeof payload?.error_code === "string" ? payload.error_code : undefined,
+    params: normalizeBackendParams(payload?.error_params),
+    status,
+  })
 }
 
 function buildHeaders(options: RequestInit): Headers {
@@ -233,9 +336,9 @@ async function performLogout(): Promise<void> {
     return
   }
 
-  const data = await parseJSON<{ error?: unknown }>(res)
+  const data = await parseJSON<BackendErrorPayload>(res)
   if (!res.ok) {
-    throw new Error(localizeBackendError(data?.error))
+    throw createBackendAPIError(data, res.status)
   }
 }
 
@@ -246,9 +349,9 @@ async function performLogoutAll(): Promise<void> {
     return
   }
 
-  const data = await parseJSON<{ error?: unknown }>(res)
+  const data = await parseJSON<BackendErrorPayload>(res)
   if (!res.ok) {
-    throw new Error(localizeBackendError(data?.error))
+    throw createBackendAPIError(data, res.status)
   }
 }
 
@@ -263,14 +366,17 @@ async function refreshSession(): Promise<boolean> {
 
 async function requestRaw(
   path: string,
-  options: RequestInit = {},
+  options: APIRequestOptions = {},
   retryOnUnauthorized = true
 ): Promise<Response> {
+  const fetchOptions = { ...options }
+  delete fetchOptions.errorHandling
+  delete fetchOptions.errorFallbackKey
   const token = getToken()
-  const headers = buildHeaders(options)
+  const headers = buildHeaders(fetchOptions)
 
   const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
+    ...fetchOptions,
     credentials: "include",
     headers,
   })
@@ -285,29 +391,44 @@ async function requestRaw(
   return res
 }
 
+async function requestResponse(
+  path: string,
+  options: APIRequestOptions = {},
+  retryOnUnauthorized = true
+): Promise<Response> {
+  const res = await requestRaw(path, options, retryOnUnauthorized)
+
+  if (!res.ok) {
+    const data = await parseJSON<BackendErrorPayload>(res)
+    const error = createBackendAPIError(data, res.status, options.errorFallbackKey)
+    if (shouldShowErrorToast(options)) {
+      toast.error(error.message)
+    }
+    throw error
+  }
+
+  return res
+}
+
 async function request<T>(
   path: string,
-  options: RequestInit = {},
+  options: APIRequestOptions = {},
   retryOnUnauthorized = true
 ): Promise<T> {
-  const res = await requestRaw(path, options, retryOnUnauthorized)
+  const res = await requestResponse(path, options, retryOnUnauthorized)
 
   if (res.status === 204) {
     return undefined as T
   }
 
-  const data = await parseJSON<T & { error?: unknown }>(res)
-
-  if (!res.ok) {
-    const errorMsg = localizeBackendError(data?.error)
-    toast.error(errorMsg)
-    throw new Error(errorMsg)
-  }
+  const data = await parseJSON<T & BackendPayload>(res)
 
   if (!data) {
-    const errorMsg = i18n.t("common.requestFailed")
-    toast.error(errorMsg)
-    throw new Error(errorMsg)
+    const error = createBackendAPIError(null, res.status, options.errorFallbackKey)
+    if (shouldShowErrorToast(options)) {
+      toast.error(error.message)
+    }
+    throw error
   }
 
   return data as T
@@ -327,35 +448,18 @@ export async function logoutAll(): Promise<void> {
 }
 
 export const api = {
-  fetch: (path: string, options?: RequestInit) => requestRaw(path, options),
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body: unknown, options: RequestInit = {}) =>
+  response: (path: string, options?: APIRequestOptions) => requestResponse(path, options),
+  get: <T>(path: string, options: APIRequestOptions = {}) => request<T>(path, options),
+  post: <T>(path: string, body: unknown, options: APIRequestOptions = {}) =>
     request<T>(path, { ...options, method: "POST", body: JSON.stringify(body) }),
-  put: <T>(path: string, body: unknown, options: RequestInit = {}) =>
+  put: <T>(path: string, body: unknown, options: APIRequestOptions = {}) =>
     request<T>(path, { ...options, method: "PUT", body: JSON.stringify(body) }),
-  delete: <T>(path: string, options: RequestInit = {}) =>
+  delete: <T>(path: string, options: APIRequestOptions = {}) =>
     request<T>(path, { ...options, method: "DELETE" }),
-  uploadFile: async <T>(path: string, formData: FormData, retryOnUnauthorized = true): Promise<T> => {
-    const res = await requestRaw(path, { method: "POST", body: formData }, retryOnUnauthorized)
-
-    if (res.status === 204) {
-      return undefined as T
-    }
-
-    const data = await parseJSON<T & { error?: unknown }>(res)
-
-    if (!res.ok) {
-      const errorMsg = localizeBackendError(data?.error)
-      toast.error(errorMsg)
-      throw new Error(errorMsg)
-    }
-
-    if (!data) {
-      const errorMsg = i18n.t("common.requestFailed")
-      toast.error(errorMsg)
-      throw new Error(errorMsg)
-    }
-
-    return data as T
-  },
+  uploadFile: async <T>(
+    path: string,
+    formData: FormData,
+    options: APIRequestOptions = {},
+    retryOnUnauthorized = true
+  ): Promise<T> => request<T>(path, { ...options, method: "POST", body: formData }, retryOnUnauthorized),
 }

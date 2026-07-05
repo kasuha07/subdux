@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { User } from "@/types"
 import ReauthDialog from "@/features/admin/reauth-dialog"
 import TotpSetupDialog from "./totp-setup-dialog"
@@ -33,9 +33,18 @@ export default function TotpSection({ user, onUserChange }: Props) {
   async function handleDisable(reauthTicket: string) {
     setDisabling(true)
     try {
-      await api.post("/auth/totp/disable", {}, { headers: { "X-Reauth-Ticket": reauthTicket } })
+      await api.post(
+        "/auth/totp/disable",
+        {},
+        {
+          headers: { "X-Reauth-Ticket": reauthTicket },
+          errorHandling: "toast",
+        }
+      )
       toast.success(t("settings.twoFactor.disableSuccess"))
       api.get<User>("/auth/me").then(onUserChange).catch(() => void 0)
+    } catch {
+      // api.post surfaces the backend failure; leave the current TOTP state in place.
     } finally {
       setDisabling(false)
     }

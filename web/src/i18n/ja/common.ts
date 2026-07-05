@@ -1,18 +1,12 @@
+import backendMessages from "./backend-messages"
+
 const common = {
   "loading": "読み込み中...",
   "cancel": "キャンセル",
   "close": "閉じる",
   "unauthorized": "認証エラー",
   "requestFailed": "リクエストに失敗しました",
-  "backendErrors": {
-    "maxNotificationChannels": "有効化できる通知チャンネルは最大3件です",
-    "smtpRateLimited": "SMTP送信レート制限に達しました。しばらく待ってから再試行してください。",
-    "reauthRequired": "再認証に失敗しました。もう一度お試しください。",
-    "noPasskeyRegistered": "アカウントにパスキーが登録されていません。設定で追加するか、パスワードを使用してください。",
-    "accountRateLimited": "このアカウントの試行回数が多すぎます。しばらくしてから再試行してください。",
-    "totpSetupExpired": "二段階認証の設定期限が切れました。最初からやり直してください。",
-    "totpAlreadyEnabled": "二段階認証はすでに有効です。"
-  },
+  "backendMessages": backendMessages,
   "passkeyErrors": {
     "notAllowed": "Passkey リクエストはキャンセルされたかタイムアウトしました",
     "notSupported": "この端末またはブラウザは Passkey に対応していません",

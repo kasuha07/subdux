@@ -33,7 +33,7 @@ import {
   getDisplaySubscriptionCycleProgress,
 } from "@/lib/display-preferences"
 import { getExchangeRatesToTarget } from "@/lib/exchange-rate-cache"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
@@ -451,7 +451,7 @@ export default function DashboardPage() {
   async function handleDelete(id: number) {
     if (!confirm(t("dashboard.deleteConfirm"))) return
     try {
-      await api.delete(`/subscriptions/${id}`)
+      await api.delete(`/subscriptions/${id}`, { errorHandling: "toast" })
       invalidateSubscriptionDetail(id)
       toast.success(t("dashboard.deleteSuccess"))
       await fetchData()

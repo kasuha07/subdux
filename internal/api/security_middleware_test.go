@@ -308,7 +308,7 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 			if rec.Code != http.StatusForbidden {
 				t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusForbidden, rec.Body.String())
 			}
-			if !strings.Contains(rec.Body.String(), "human session required") {
+			if !hasErrorCodeForMessage(rec.Body.String(), "human session required") {
 				t.Fatalf("body = %s, want human session required error", rec.Body.String())
 			}
 		})

@@ -172,7 +172,7 @@ func TestUpdateSettingsRejectsInvalidSystemProxyURL(t *testing.T) {
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 			}
-			if !strings.Contains(rec.Body.String(), tt.want) {
+			if !hasErrorCodeForMessage(rec.Body.String(), tt.want) {
 				t.Fatalf("body = %s, want message containing %q", rec.Body.String(), tt.want)
 			}
 		})
@@ -247,8 +247,8 @@ func TestAdminHandlerTestSMTPRejectsInvalidRuntimeConfig(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "smtp host is required") {
-		t.Fatalf("body = %s, want smtp host error", rec.Body.String())
+	if !hasErrorCode(rec.Body.String(), "smtp_test_failed") {
+		t.Fatalf("body = %s, want smtp_test_failed", rec.Body.String())
 	}
 }
 
@@ -275,8 +275,8 @@ func TestAdminHandlerTestSMTPReturnsDecryptErrorAsBadRequest(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "failed to decrypt smtp settings") {
-		t.Fatalf("body = %s, want decrypt error", rec.Body.String())
+	if !hasErrorCode(rec.Body.String(), "smtp_test_failed") {
+		t.Fatalf("body = %s, want smtp_test_failed", rec.Body.String())
 	}
 }
 
@@ -302,8 +302,8 @@ func TestAdminHandlerTestSMTPReturnsSendErrorAsBadRequest(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "smtp server does not support STARTTLS") {
-		t.Fatalf("body = %s, want STARTTLS error", rec.Body.String())
+	if !hasErrorCode(rec.Body.String(), "smtp_test_failed") {
+		t.Fatalf("body = %s, want smtp_test_failed", rec.Body.String())
 	}
 }
 
@@ -328,8 +328,39 @@ func TestAdminHandlerTestSMTPPreservesRateLimitStatus(t *testing.T) {
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusTooManyRequests, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "smtp send rate limit exceeded") {
+	if !hasErrorCodeForMessage(rec.Body.String(), "smtp send rate limit exceeded, please wait before trying again") {
 		t.Fatalf("body = %s, want rate limit error", rec.Body.String())
+	}
+}
+
+func TestAdminHandlerTestSMTPRecipientLookupFailureUsesStableCode(t *testing.T) {
+	// No recipient_email in the body forces the handler to fall back to the
+	// current user's email; with no matching user row the lookup fails. This is
+	// the narrow boundary that previously degraded to a generic
+	// internal_server_error instead of a stable, localizable code.
+	e, c, rec := newAdminSMTPTestContext(`{}`)
+
+	db := newAdminSettingsTestDB(t)
+	mustUpsertSystemSettings(t, db, map[string]string{
+		"smtp_enabled":    "true",
+		"smtp_host":       "smtp.example.com",
+		"smtp_port":       "587",
+		"smtp_from_email": "noreply@example.com",
+	})
+
+	handler := &AdminHandler{Service: adminservice.NewService(db)}
+	if err := handler.TestSMTP(c); err != nil {
+		APIErrorHandler(e.HTTPErrorHandler)(err, c)
+	}
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusInternalServerError, rec.Body.String())
+	}
+	if !hasErrorCode(rec.Body.String(), "smtp_test_recipient_lookup_failed") {
+		t.Fatalf("body = %s, want smtp_test_recipient_lookup_failed", rec.Body.String())
+	}
+	if hasErrorCode(rec.Body.String(), "internal_server_error") {
+		t.Fatalf("body = %s, should not degrade to generic internal_server_error", rec.Body.String())
 	}
 }
 

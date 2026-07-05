@@ -44,11 +44,11 @@ func (h *NotificationHandler) ListChannels(c echo.Context) error {
 func (h *NotificationHandler) CreateChannel(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input notificationservice.CreateChannelInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 	if input.Type == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "type is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "type_is_required")
 	}
 
 	channel, err := h.Service.WithContext(c.Request().Context()).CreateChannel(userID, input)
@@ -60,13 +60,13 @@ func (h *NotificationHandler) CreateChannel(c echo.Context) error {
 
 func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
 
 	var input notificationservice.UpdateChannelInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -79,7 +79,7 @@ func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 
 func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -92,7 +92,7 @@ func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
 
 func (h *NotificationHandler) TestChannel(c echo.Context) error {
 	userID := apimw.From(c).UserID
-	id, ok := httpx.ParseUintParam(c, "id", "invalid id")
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")
 	if !ok {
 		return nil
 	}
@@ -100,7 +100,7 @@ func (h *NotificationHandler) TestChannel(c echo.Context) error {
 	if err := h.Service.WithContext(c.Request().Context()).TestChannel(userID, uint(id)); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, echo.Map{"message": "test notification sent"})
+	return httpx.WriteMessage(c, http.StatusOK, "test_notification_sent")
 }
 
 func (h *NotificationHandler) GetPolicy(c echo.Context) error {
@@ -115,7 +115,7 @@ func (h *NotificationHandler) GetPolicy(c echo.Context) error {
 func (h *NotificationHandler) UpdatePolicy(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input notificationservice.UpdatePolicyInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 

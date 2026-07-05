@@ -30,11 +30,11 @@ const (
 )
 
 var (
-	ErrInvalidSSRFFilterMode       = serviceerr.New(serviceerr.KindInvalid, "ssrf filter mode must be blacklist or whitelist")
-	ErrInvalidSSRFDomainFilterList = serviceerr.New(serviceerr.KindInvalid, "invalid ssrf domain filter list")
-	ErrSSRFDomainFilterListTooLong = serviceerr.New(serviceerr.KindInvalid, "ssrf domain filter list is too long")
-	ErrInvalidSSRFIPFilterList     = serviceerr.New(serviceerr.KindInvalid, "invalid ssrf ip filter list")
-	ErrSSRFIPFilterListTooLong     = serviceerr.New(serviceerr.KindInvalid, "ssrf ip filter list is too long")
+	ErrInvalidSSRFFilterMode       = serviceerr.New(serviceerr.KindInvalid, "ssrf_filter_mode_must_be_blacklist_or_whitelist", "ssrf filter mode must be blacklist or whitelist")
+	ErrInvalidSSRFDomainFilterList = serviceerr.New(serviceerr.KindInvalid, "invalid_ssrf_domain_filter_list", "invalid ssrf domain filter list")
+	ErrSSRFDomainFilterListTooLong = serviceerr.New(serviceerr.KindInvalid, "ssrf_domain_filter_list_is_too_long", "ssrf domain filter list is too long")
+	ErrInvalidSSRFIPFilterList     = serviceerr.New(serviceerr.KindInvalid, "invalid_ssrf_ip_filter_list", "invalid ssrf ip filter list")
+	ErrSSRFIPFilterListTooLong     = serviceerr.New(serviceerr.KindInvalid, "ssrf_ip_filter_list_is_too_long", "ssrf ip filter list is too long")
 )
 
 type Policy struct {

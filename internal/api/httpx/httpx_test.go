@@ -52,14 +52,17 @@ func TestParseUintParamWritesBadRequest(t *testing.T) {
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-number")
 
-	if _, ok := ParseUintParam(c, "id", "invalid item id"); ok {
+	if _, ok := ParseUintParam(c, "id", "invalid_item_id"); ok {
 		t.Fatal("ParseUintParam() ok = true, want false")
 	}
 	if got, want := rec.Code, http.StatusBadRequest; got != want {
 		t.Fatalf("status = %d, want %d", got, want)
 	}
-	if !strings.Contains(rec.Body.String(), "invalid item id") {
-		t.Fatalf("body = %q, want invalid item id", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"invalid_item_id\"") {
+		t.Fatalf("body = %q, want error_code", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "\"error\":") {
+		t.Fatalf("body = %q, should not include legacy error field", rec.Body.String())
 	}
 }
 
@@ -80,6 +83,46 @@ func TestParseUintParamAcceptsUintMax(t *testing.T) {
 	}
 }
 
+func TestParseUintParamDefaultCodeIsStable(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/items/not-a-number", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-number")
+
+	if _, ok := ParseUintParam(c, "id"); ok {
+		t.Fatal("ParseUintParam() ok = true, want false")
+	}
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"invalid_id\"") {
+		t.Fatalf("body = %q, want stable invalid_id code", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), " ") {
+		t.Fatalf("body = %q, default error_code must not contain spaces", rec.Body.String())
+	}
+}
+
+func TestBindJSONDefaultCodeIsStable(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/items", strings.NewReader("not json"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	var input struct {
+		Name string `json:"name"`
+	}
+	if ok := BindJSON(c, &input); ok {
+		t.Fatal("BindJSON() ok = true, want false")
+	}
+	if got, want := rec.Code, http.StatusBadRequest; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"invalid_request_body\"") {
+		t.Fatalf("body = %q, want stable invalid_request_body code", rec.Body.String())
+	}
+}
+
 func TestBindOptionalJSONAllowsEmptyBody(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
@@ -90,7 +133,7 @@ func TestBindOptionalJSONAllowsEmptyBody(t *testing.T) {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	if ok := BindOptionalJSON(c, &input, "Invalid request body"); !ok {
+	if ok := BindOptionalJSON(c, &input, "invalid_request_body"); !ok {
 		t.Fatal("BindOptionalJSON() ok = false, want true")
 	}
 }
@@ -106,13 +149,38 @@ func TestBindLimitedJSONMapsTooLargeRequest(t *testing.T) {
 	var input struct {
 		Data []string `json:"data"`
 	}
-	if ok := BindLimitedJSON(c, &input, "import file is too large", "invalid JSON"); ok {
+	if ok := BindLimitedJSON(c, &input, "import_file_is_too_large", "invalid_json"); ok {
 		t.Fatal("BindLimitedJSON() ok = true, want false")
 	}
 	if got, want := rec.Code, http.StatusRequestEntityTooLarge; got != want {
 		t.Fatalf("status = %d, want %d", got, want)
 	}
-	if !strings.Contains(rec.Body.String(), "import file is too large") {
-		t.Fatalf("body = %q, want import size error", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "\"error_code\":\"import_file_is_too_large\"") {
+		t.Fatalf("body = %q, want import size error code", rec.Body.String())
+	}
+}
+
+func TestWriteMessageFieldsIncludesMessageCode(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/backup/run", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := WriteMessageFields(c, http.StatusOK, "backup_created", map[string]any{"file": "backup.zip"}); err != nil {
+		t.Fatalf("WriteMessageFields() error = %v", err)
+	}
+
+	body := rec.Body.String()
+	if got, want := rec.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if !strings.Contains(body, "\"message_code\":\"backup_created\"") {
+		t.Fatalf("body = %q, want message_code", body)
+	}
+	if !strings.Contains(body, "\"file\":\"backup.zip\"") {
+		t.Fatalf("body = %q, want extra field", body)
+	}
+	if strings.Contains(body, "\"message\":") {
+		t.Fatalf("body = %q, should not include legacy message field", body)
 	}
 }

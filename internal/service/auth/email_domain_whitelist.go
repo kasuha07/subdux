@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	ErrInvalidEmailDomainWhitelist = serviceerr.New(serviceerr.KindInvalid, "invalid email domain whitelist")
-	ErrEmailDomainWhitelistTooLong = serviceerr.New(serviceerr.KindInvalid, "email domain whitelist is too long")
-	ErrEmailDomainNotAllowed       = serviceerr.New(serviceerr.KindForbidden, "email domain is not allowed")
+	ErrInvalidEmailDomainWhitelist = serviceerr.New(serviceerr.KindInvalid, "invalid_email_domain_whitelist", "invalid email domain whitelist")
+	ErrEmailDomainWhitelistTooLong = serviceerr.New(serviceerr.KindInvalid, "email_domain_whitelist_is_too_long", "email domain whitelist is too long")
+	ErrEmailDomainNotAllowed       = serviceerr.New(serviceerr.KindForbidden, "email_domain_is_not_allowed", "email domain is not allowed")
 )
 
 func NormalizeEmailDomainWhitelist(raw string) (string, error) {

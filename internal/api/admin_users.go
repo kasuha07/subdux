@@ -49,26 +49,26 @@ func mapAdminUserResponses(users []adminservice.AdminUserListItem) []adminUserRe
 func (h *AdminHandler) ListUsers(c echo.Context) error {
 	users, err := h.Service.WithContext(c.Request().Context()).ListUsers()
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to list users")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_list_users")
 	}
 	return c.JSON(http.StatusOK, mapAdminUserResponses(users))
 }
 
 func (h *AdminHandler) CreateUser(c echo.Context) error {
 	var input adminservice.CreateUserInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	if input.Username == "" || input.Email == "" || input.Password == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "username, email and password are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "username_email_and_password_are_required")
 	}
 
 	if len(input.Password) < 8 {
-		return httpx.WriteError(c, http.StatusBadRequest, "password must be at least 8 characters")
+		return httpx.WriteError(c, http.StatusBadRequest, "password_must_be_at_least_8_characters")
 	}
 	if err := serviceauth.ValidateBcryptPasswordLength(input.Password); err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "password must not exceed 72 bytes")
+		return httpx.WriteError(c, http.StatusBadRequest, "password_must_not_exceed_72_bytes")
 	}
 
 	if operation, ok := servicereauth.OperationForCreateUserRole(input.Role); ok {
@@ -90,18 +90,18 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 }
 
 func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
-	userID, ok := httpx.ParseUintParam(c, "id", "invalid user id")
+	userID, ok := httpx.ParseUintParam(c, "id", "invalid_user_id")
 	if !ok {
 		return nil
 	}
 
 	var input adminservice.ChangeRoleInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	if input.Role != "admin" && input.Role != "user" {
-		return httpx.WriteError(c, http.StatusBadRequest, "invalid role")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_role")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -116,17 +116,17 @@ func (h *AdminHandler) ChangeUserRole(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "role updated"})
+	return httpx.WriteMessage(c, http.StatusOK, "role_updated")
 }
 
 func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
-	userID, ok := httpx.ParseUintParam(c, "id", "invalid user id")
+	userID, ok := httpx.ParseUintParam(c, "id", "invalid_user_id")
 	if !ok {
 		return nil
 	}
 
 	var input adminservice.ChangeStatusInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -134,11 +134,11 @@ func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "status updated"})
+	return httpx.WriteMessage(c, http.StatusOK, "status_updated")
 }
 
 func (h *AdminHandler) DisableUserTOTP(c echo.Context) error {
-	userID, ok := httpx.ParseUintParam(c, "id", "invalid user id")
+	userID, ok := httpx.ParseUintParam(c, "id", "invalid_user_id")
 	if !ok {
 		return nil
 	}
@@ -155,11 +155,11 @@ func (h *AdminHandler) DisableUserTOTP(c echo.Context) error {
 		return writeAdminCredentialResetError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "two-factor authentication disabled"})
+	return httpx.WriteMessage(c, http.StatusOK, "two_factor_authentication_disabled")
 }
 
 func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
-	userID, ok := httpx.ParseUintParam(c, "id", "invalid user id")
+	userID, ok := httpx.ParseUintParam(c, "id", "invalid_user_id")
 	if !ok {
 		return nil
 	}
@@ -176,7 +176,7 @@ func (h *AdminHandler) DisableUserPasskeys(c echo.Context) error {
 		return writeAdminCredentialResetError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "passkeys disabled"})
+	return httpx.WriteMessage(c, http.StatusOK, "passkeys_disabled")
 }
 
 func writeAdminCredentialResetError(c echo.Context, err error) error {
@@ -184,14 +184,14 @@ func writeAdminCredentialResetError(c echo.Context, err error) error {
 }
 
 func (h *AdminHandler) DeleteUser(c echo.Context) error {
-	userID, ok := httpx.ParseUintParam(c, "id", "invalid user id")
+	userID, ok := httpx.ParseUintParam(c, "id", "invalid_user_id")
 	if !ok {
 		return nil
 	}
 
 	currentUserID := apimw.From(c).UserID
 	if currentUserID == uint(userID) {
-		return httpx.WriteError(c, http.StatusBadRequest, "cannot delete yourself")
+		return httpx.WriteError(c, http.StatusBadRequest, "cannot_delete_yourself")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -206,5 +206,5 @@ func (h *AdminHandler) DeleteUser(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "user deleted"})
+	return httpx.WriteMessage(c, http.StatusOK, "user_deleted")
 }

@@ -27,16 +27,16 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 	var input struct {
 		NewEmail string `json:"new_email"`
 	}
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	input.NewEmail = strings.TrimSpace(input.NewEmail)
 	if input.NewEmail == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "New email is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "new_email_is_required")
 	}
 	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "Invalid email")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_email")
 	}
 
 	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
@@ -51,7 +51,7 @@ func (h *AuthHandler) SendEmailChangeVerificationCode(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "verification code sent"})
+	return httpx.WriteMessage(c, http.StatusOK, "verification_code_sent")
 }
 
 func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
@@ -60,17 +60,17 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 		NewEmail         string `json:"new_email"`
 		VerificationCode string `json:"verification_code"`
 	}
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	input.NewEmail = strings.TrimSpace(input.NewEmail)
 	input.VerificationCode = strings.TrimSpace(input.VerificationCode)
 	if input.NewEmail == "" || input.VerificationCode == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "New email and verification code are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "new_email_and_verification_code_are_required")
 	}
 	if _, err := mail.ParseAddress(input.NewEmail); err != nil {
-		return httpx.WriteError(c, http.StatusBadRequest, "Invalid email")
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_email")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).ConfirmEmailChange(userID, input.NewEmail, input.VerificationCode)
@@ -83,12 +83,12 @@ func (h *AuthHandler) ConfirmEmailChange(c echo.Context) error {
 
 func (h *AuthHandler) Login(c echo.Context) error {
 	var input serviceauth.LoginInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	if input.Identifier == "" || input.Password == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "Username/email and password are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "username_or_email_and_password_are_required")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).Login(input)
@@ -97,7 +97,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		// Login deliberately collapses every failure (bad credentials, disabled
 		// account, lookup error) to a single 401 so the response never reveals
 		// which account exists or why sign-in failed.
-		return httpx.WriteError(c, http.StatusUnauthorized, err.Error())
+		return httpx.WriteErrorFrom(c, http.StatusUnauthorized, err)
 	}
 
 	return writeLoginSuccess(c, http.StatusOK, resp)
@@ -107,7 +107,7 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	if !httpx.BindOptionalJSON(c, &input, "Invalid request body") {
+	if !httpx.BindOptionalJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -117,16 +117,16 @@ func (h *AuthHandler) RefreshSession(c echo.Context) error {
 	}
 	if input.RefreshToken == "" {
 		apimw.ClearRefreshTokenCookie(c)
-		return httpx.WriteError(c, http.StatusBadRequest, "refresh token is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "refresh_token_is_required")
 	}
 
 	resp, err := h.Service.WithContext(c.Request().Context()).RefreshSession(input.RefreshToken)
 	if err != nil {
 		if errors.Is(err, serviceauth.ErrInvalidRefreshToken) {
 			apimw.ClearRefreshTokenCookie(c)
-			return httpx.WriteError(c, http.StatusUnauthorized, err.Error())
+			return httpx.WriteErrorFrom(c, http.StatusUnauthorized, err)
 		}
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to refresh session")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_refresh_session")
 	}
 
 	return writeAuthSuccess(c, http.StatusOK, resp)
@@ -136,7 +136,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	if !httpx.BindOptionalJSON(c, &input, "Invalid request body") {
+	if !httpx.BindOptionalJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 

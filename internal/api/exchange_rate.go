@@ -41,12 +41,12 @@ func (h *ExchangeRateHandler) GetRate(c echo.Context) error {
 	target := c.Param("target")
 
 	if base == "" || target == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "base and target currencies are required")
+		return httpx.WriteError(c, http.StatusBadRequest, "base_and_target_currencies_are_required")
 	}
 
 	rate, ok := h.Service.WithContext(c.Request().Context()).GetRate(base, target)
 	if !ok {
-		return httpx.WriteError(c, http.StatusNotFound, "exchange rate not found")
+		return httpx.WriteError(c, http.StatusNotFound, "exchange_rate_not_found")
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
@@ -66,7 +66,7 @@ func (h *ExchangeRateHandler) RefreshRates(c echo.Context) error {
 	if err := h.Service.WithContext(c.Request().Context()).RefreshRates(); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, echo.Map{"message": "rates refreshed"})
+	return httpx.WriteMessage(c, http.StatusOK, "rates_refreshed")
 }
 
 func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
@@ -81,12 +81,12 @@ func (h *ExchangeRateHandler) GetPreference(c echo.Context) error {
 func (h *ExchangeRateHandler) UpdatePreference(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	var input exchangerate.UpdatePreferenceInput
-	if !httpx.BindJSON(c, &input, "Invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
 	if input.PreferredCurrency == "" {
-		return httpx.WriteError(c, http.StatusBadRequest, "preferred_currency is required")
+		return httpx.WriteError(c, http.StatusBadRequest, "preferred_currency_is_required")
 	}
 
 	pref, err := h.Service.WithContext(c.Request().Context()).UpdateUserPreference(userID, input)

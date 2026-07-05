@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { ResetPasswordInput } from "@/types"
 
 export default function ResetPasswordPage() {

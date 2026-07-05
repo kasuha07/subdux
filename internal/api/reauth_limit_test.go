@@ -70,7 +70,7 @@ func TestReauthPasswordRateLimitedPerUser(t *testing.T) {
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusTooManyRequests, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "too many attempts") {
+	if !hasErrorCodeForMessage(rec.Body.String(), "too many attempts for this account, please try again later") {
 		t.Fatalf("body = %s, want too many attempts error", rec.Body.String())
 	}
 }

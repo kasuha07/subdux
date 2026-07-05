@@ -18,9 +18,9 @@ import (
 
 var (
 	sqliteFileHeader          = []byte("SQLite format 3\x00")
-	ErrInvalidBackup          = serviceerr.New(serviceerr.KindInvalid, "invalid backup file")
-	ErrBackupPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "backup is encrypted; a password is required")
-	ErrBackupInvalidPassword  = serviceerr.New(serviceerr.KindInvalid, "invalid backup password")
+	ErrInvalidBackup          = serviceerr.New(serviceerr.KindInvalid, "invalid_backup_file", "invalid backup file")
+	ErrBackupPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "backup_is_encrypted_a_password_is_required", "backup is encrypted; a password is required")
+	ErrBackupInvalidPassword  = serviceerr.New(serviceerr.KindInvalid, "invalid_backup_password", "invalid backup password")
 )
 
 type restorePayload struct {

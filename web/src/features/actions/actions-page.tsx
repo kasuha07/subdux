@@ -19,7 +19,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/lib/api"
+import { api, getAPIErrorMessage } from "@/lib/api"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import { cn, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
@@ -258,6 +258,10 @@ export default function ActionsPage() {
     await fetchData()
   }
 
+  function showActionError(error: unknown) {
+    toast.error(getAPIErrorMessage(error, "actions.error.actionFailed"))
+  }
+
   async function handleMarkRenewed(action: SubscriptionAction) {
     const sub = subscriptionForAction(action)
     if (!sub) {
@@ -269,8 +273,8 @@ export default function ActionsPage() {
       await api.post<Subscription>(`/subscriptions/${action.subscription_id}/mark-renewed`, {})
       toast.success(t("actions.toast.markRenewed"))
       await refreshAfterAction(action.subscription_id)
-    } catch {
-      toast.error(t("actions.error.actionFailed"))
+    } catch (error) {
+      showActionError(error)
     } finally {
       setBusyKey(null)
     }
@@ -294,8 +298,8 @@ export default function ActionsPage() {
       })
       toast.success(t("actions.toast.cancelAtPeriodEnd"))
       await refreshAfterAction(action.subscription_id)
-    } catch {
-      toast.error(t("actions.error.actionFailed"))
+    } catch (error) {
+      showActionError(error)
     } finally {
       setBusyKey(null)
     }
@@ -314,8 +318,8 @@ export default function ActionsPage() {
       })
       toast.success(t("actions.toast.keepSubscription"))
       await refreshAfterAction(action.subscription_id)
-    } catch {
-      toast.error(t("actions.error.actionFailed"))
+    } catch (error) {
+      showActionError(error)
     } finally {
       setBusyKey(null)
     }
@@ -327,8 +331,8 @@ export default function ActionsPage() {
       await Promise.all(group.actions.map((action) => api.post("/actions/snooze", { key: action.key, days: 7 })))
       toast.success(t("actions.toast.snoozed"))
       await fetchData()
-    } catch {
-      toast.error(t("actions.error.actionFailed"))
+    } catch (error) {
+      showActionError(error)
     } finally {
       setBusyKey(null)
     }

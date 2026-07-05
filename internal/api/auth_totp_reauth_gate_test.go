@@ -98,7 +98,7 @@ func TestTOTPDisableRequiresDisableTOTPReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -109,7 +109,7 @@ func TestTOTPDisableRequiresDisableTOTPReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 
@@ -155,7 +155,7 @@ func TestTOTPSetupRequiresEnableTOTPReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -166,7 +166,7 @@ func TestTOTPSetupRequiresEnableTOTPReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -187,7 +187,7 @@ func TestTOTPSetupRequiresEnableTOTPReauthTicket(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "re-authentication required") {
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
 		}
 	})
@@ -210,7 +210,7 @@ func TestTOTPConfirmIsBoundToCurrentSetupSession(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("stale session status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "setup expired") {
+	if !hasErrorCodeForMessage(rec.Body.String(), "two-factor setup expired, start again") {
 		t.Fatalf("stale session body = %s, want setup expired", rec.Body.String())
 	}
 
@@ -277,7 +277,7 @@ func TestSetupTOTPInternalErrorsStayInternal(t *testing.T) {
 	if strings.Contains(strings.ToLower(rec.Body.String()), "closed") {
 		t.Fatalf("body = %s, should not expose underlying db error", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "internal server error") {
+	if !hasErrorCodeForMessage(rec.Body.String(), "internal server error") {
 		t.Fatalf("body = %s, want generic internal server error", rec.Body.String())
 	}
 }

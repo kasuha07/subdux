@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
-import { api, getUser, localizeBackendError } from "@/lib/api"
+import { api, getAPIErrorMessage, getUser, localizeBackendMessageResponse } from "@/lib/api"
 import {
   detectZipEncryption,
   verifyZipPassword,
   type EncryptedZipEntry,
 } from "@/lib/zip-encryption"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type {
   AdminUser,
   BackgroundTask,
@@ -25,22 +25,6 @@ import {
   type AdminSettingsSaveScope,
 } from "./admin-settings-form"
 
-// Best-effort extraction of a JSON `{ "error": string }` message from a raw
-// Response returned by api.fetch. Returns undefined when the body is absent,
-// not JSON, or has no usable error string, letting callers fall back to a
-// generic message.
-async function readErrorMessage(res: Response): Promise<string | undefined> {
-  try {
-    const data = (await res.clone().json()) as { error?: unknown }
-    if (typeof data?.error === "string" && data.error.trim() !== "") {
-      return localizeBackendError(data.error)
-    }
-  } catch {
-    void 0
-  }
-  return undefined
-}
-
 interface UseAdminPageStateOptions {
   t: (key: string) => string
 }
@@ -52,7 +36,6 @@ interface BackupStatus {
 }
 
 interface RestoreBackupResponse {
-  message?: string
   skipped_asset_count?: number
 }
 
@@ -274,7 +257,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       await api.put(
         `/admin/users/${target.id}/role`,
         { role: nextRole },
-        { headers: { "X-Reauth-Ticket": reauthTicket } }
+        { headers: { "X-Reauth-Ticket": reauthTicket }, errorHandling: "toast" }
       )
       setUsers((prev) =>
         prev.map((item) => (item.id === target.id ? { ...item, role: nextRole } : item))
@@ -289,7 +272,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   async function handleToggleStatus(user: AdminUser) {
     const nextStatus = user.status === "active" ? "disabled" : "active"
     try {
-      await api.put(`/admin/users/${user.id}/status`, { status: nextStatus })
+      await api.put(`/admin/users/${user.id}/status`, { status: nextStatus }, { errorHandling: "toast" })
       setUsers((prev) =>
         prev.map((item) => (item.id === user.id ? { ...item, status: nextStatus } : item))
       )
@@ -305,7 +288,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
 
     try {
-      await api.delete(`/admin/users/${id}`, { headers: { "X-Reauth-Ticket": reauthTicket } })
+      await api.delete(`/admin/users/${id}`, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        errorHandling: "toast",
+      })
       setUsers((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("admin.users.deleteSuccess"))
     } catch {
@@ -322,7 +308,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       await api.post(
         `/admin/users/${user.id}/disable-totp`,
         {},
-        { headers: { "X-Reauth-Ticket": reauthTicket } }
+        { headers: { "X-Reauth-Ticket": reauthTicket }, errorHandling: "toast" }
       )
       setUsers((prev) =>
         prev.map((item) => (item.id === user.id ? { ...item, totp_enabled: false } : item))
@@ -342,7 +328,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       await api.post(
         `/admin/users/${user.id}/disable-passkeys`,
         {},
-        { headers: { "X-Reauth-Ticket": reauthTicket } }
+        { headers: { "X-Reauth-Ticket": reauthTicket }, errorHandling: "toast" }
       )
       setUsers((prev) =>
         prev.map((item) => (item.id === user.id ? { ...item, passkey_count: 0 } : item))
@@ -373,7 +359,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
           password: newPassword,
           role: newRole,
         },
-        { headers }
+        headers ? { headers, errorHandling: "toast" } : { errorHandling: "toast" }
       )
       setUsers((prev) => [...prev, user])
       setCreateDialogOpen(false)
@@ -391,17 +377,12 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     try {
       const payload = buildAdminSettingsPayload(settingsForm, scope)
       const headers = reauthTicket ? { "X-Reauth-Ticket": reauthTicket } : undefined
-      const res = await api.fetch("/admin/settings", {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        const message = await readErrorMessage(res)
-        toast.error(message ?? t("common.requestFailed"))
-        return
-      }
-      const fresh = await api.get<SystemSettings>("/admin/settings")
+      await api.put(
+        "/admin/settings",
+        payload,
+        headers ? { headers, errorHandling: "toast" } : { errorHandling: "toast" }
+      )
+      const fresh = await api.get<SystemSettings>("/admin/settings", { errorHandling: "toast" })
       setSavedSettingsForm(createAdminSettingsForm(fresh))
       setSettingsForm((current) => mergeAdminSettingsFormScope(current, fresh, scope))
       setBackupStatus(createBackupStatus(fresh))
@@ -453,7 +434,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     try {
       await api.post<{ message: string }>("/admin/settings/smtp/test", {
         recipient_email: smtpTestRecipient.trim(),
-      })
+      }, { errorHandling: "toast" })
       toast.success(t("admin.settings.smtpTestSuccess"))
     } catch {
       void 0
@@ -471,7 +452,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
     setSSRFTesting(true)
     try {
-      const result = await api.post<SSRFTestResult>("/admin/settings/ssrf/test", { target })
+      const result = await api.post<SSRFTestResult>(
+        "/admin/settings/ssrf/test",
+        { target },
+        { errorHandling: "toast" }
+      )
       setSSRFTestResult(result)
       toast.success(
         result.allowed
@@ -488,7 +473,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   async function handleRefreshBackgroundTasks() {
     setBackgroundTasksRefreshing(true)
     try {
-      const tasks = await api.get<BackgroundTask[]>("/admin/background-tasks")
+      const tasks = await api.get<BackgroundTask[]>("/admin/background-tasks", {
+        errorHandling: "toast",
+      })
       setBackgroundTasks(tasks || [])
     } catch {
       void 0
@@ -514,19 +501,15 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   async function handleDownloadBackup(reauthTicket: string): Promise<boolean> {
     try {
       const password = downloadPassword.trim()
-      const res = await api.fetch("/admin/backup", {
+      const res = await api.response("/admin/backup", {
         method: "POST",
         headers: { "X-Reauth-Ticket": reauthTicket },
+        errorFallbackKey: "admin.backup.downloadFailed",
         body: JSON.stringify({
           include_assets: includeAssetsInBackup,
           password,
         }),
       })
-      if (!res.ok) {
-        const message = await readErrorMessage(res)
-        toast.error(message ?? t("admin.backup.downloadFailed"))
-        return false
-      }
 
       const encrypted = password !== ""
       const blob = await res.blob()
@@ -547,8 +530,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       document.body.removeChild(anchor)
       toast.success(t("admin.backup.downloadSuccess"))
       return true
-    } catch {
-      toast.error(t("admin.backup.downloadFailed"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "admin.backup.downloadFailed"))
       return false
     }
   }
@@ -628,23 +611,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
 
     try {
-      const res = await api.fetch("/admin/restore", {
-        method: "POST",
+      const result = await api.uploadFile<RestoreBackupResponse | undefined>("/admin/restore", formData, {
         headers: { "X-Reauth-Ticket": reauthTicket },
-        body: formData,
+        errorFallbackKey: "admin.backup.restoreFailed",
       })
-      if (!res.ok) {
-        const message = await readErrorMessage(res)
-        toast.error(message ?? t("admin.backup.restoreFailed"))
-        return false
-      }
-
-      let result: RestoreBackupResponse | null = null
-      try {
-        result = (await res.json()) as RestoreBackupResponse
-      } catch {
-        result = null
-      }
 
       setRestoreConfirmOpen(false)
       toast.success(t("admin.backup.restoreSuccess"))
@@ -652,8 +622,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         toast.warning(t("admin.backup.restoreSkippedAssets"))
       }
       return true
-    } catch {
-      toast.error(t("admin.backup.restoreFailed"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "admin.backup.restoreFailed"))
       return false
     }
   }
@@ -661,7 +631,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   async function handleRefreshLocalBackups() {
     setLocalBackupsRefreshing(true)
     try {
-      const data = await api.get<LocalBackupList>("/admin/backup/local")
+      const data = await api.get<LocalBackupList>("/admin/backup/local", {
+        errorHandling: "toast",
+      })
       setLocalBackups(data?.backups || [])
       setLocalBackupDir(data?.directory || "")
     } catch {
@@ -674,8 +646,12 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   async function handleRunBackupNow() {
     setRunningBackup(true)
     try {
-      const result = await api.post<{ message: string; file: string }>("/admin/backup/run", {})
-      toast.success(result?.message || t("admin.backup.runNowSuccess"))
+      const result = await api.post<{
+        message_code?: string
+        message_params?: Record<string, unknown>
+        file: string
+      }>("/admin/backup/run", {})
+      toast.success(localizeBackendMessageResponse(result, "admin.backup.runNowSuccess"))
       const [data, fresh] = await Promise.all([
         api.get<LocalBackupList>("/admin/backup/local"),
         api.get<SystemSettings>("/admin/settings"),

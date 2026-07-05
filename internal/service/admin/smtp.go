@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -23,17 +22,22 @@ func (s *Service) SendSMTPTestEmail(userID uint, recipientOverride string) error
 	if recipient == "" {
 		var user model.User
 		if err := s.DB.Select("email").First(&user, userID).Error; err != nil {
-			return errors.New("failed to load current user email")
+			return serviceerr.Wrap(
+				serviceerr.KindInternal,
+				"smtp_test_recipient_lookup_failed",
+				"failed to load current user email",
+				err,
+			)
 		}
 		recipient = strings.TrimSpace(user.Email)
 	}
 
 	if recipient == "" {
-		return serviceerr.New(serviceerr.KindInvalid, "recipient email is required for smtp test")
+		return serviceerr.New(serviceerr.KindInvalid, "recipient_email_is_required_for_smtp_test", "recipient email is required for smtp test")
 	}
 
 	if _, err := mail.ParseAddress(recipient); err != nil {
-		return serviceerr.New(serviceerr.KindInvalid, "invalid recipient email")
+		return serviceerr.New(serviceerr.KindInvalid, "invalid_recipient_email", "invalid recipient email")
 	}
 
 	subject := "Subdux SMTP Test"
@@ -58,5 +62,5 @@ func normalizeSMTPTestError(err error) error {
 	if _, ok := serviceerr.KindOf(err); ok {
 		return err
 	}
-	return serviceerr.Wrap(serviceerr.KindInvalid, err.Error(), err)
+	return serviceerr.Wrap(serviceerr.KindInvalid, "smtp_test_failed", err.Error(), err)
 }

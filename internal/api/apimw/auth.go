@@ -16,7 +16,7 @@ import (
 func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if From(c).Role != "admin" {
-			return httpx.WriteError(c, http.StatusForbidden, "admin access required")
+			return httpx.WriteError(c, http.StatusForbidden, "admin_access_required")
 		}
 		return next(c)
 	}
@@ -36,12 +36,12 @@ func JWTOrAPIKeyMiddleware(jwtConfig echojwt.Config, apiKeyService *apikeyservic
 			// Otherwise, try API key
 			key := c.Request().Header.Get("X-API-Key")
 			if key == "" {
-				return httpx.WriteError(c, http.StatusUnauthorized, "authorization required")
+				return httpx.WriteError(c, http.StatusUnauthorized, "authorization_required")
 			}
 
 			principal, err := apiKeyService.WithContext(c.Request().Context()).ValidateKey(key)
 			if err != nil {
-				return httpx.WriteError(c, http.StatusUnauthorized, err.Error())
+				return httpx.WriteErrorFrom(c, http.StatusUnauthorized, err)
 			}
 
 			claims := &pkg.JWTClaims{
@@ -66,10 +66,10 @@ func MCPEnabledMiddleware(settingsService *systemsettings.Service) echo.Middlewa
 		return func(c echo.Context) error {
 			enabled, err := settingsService.IsMCPEnabled()
 			if err != nil {
-				return httpx.WriteError(c, http.StatusInternalServerError, "failed to read mcp settings")
+				return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_read_mcp_settings")
 			}
 			if !enabled {
-				return httpx.WriteError(c, http.StatusNotFound, "mcp is not enabled")
+				return httpx.WriteError(c, http.StatusNotFound, "mcp_is_not_enabled")
 			}
 			return next(c)
 		}

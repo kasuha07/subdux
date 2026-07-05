@@ -223,6 +223,7 @@ export default function SettingsPage() {
             <Suspense fallback={<SettingsTabLoading value="payment" />}>
               <SettingsPaymentTab
                 currency={payment.currency}
+                currencySaving={payment.currencySaving}
                 preferredCurrencyCodes={payment.preferredCurrencyCodes}
                 onCurrencyChange={payment.handleCurrency}
                 userCurrencies={payment.userCurrencies}

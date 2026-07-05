@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kasuha07/subdux/internal/pkg"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,6 +14,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
@@ -70,6 +71,9 @@ type OIDCSessionResult struct {
 	Connected    bool                `json:"connected,omitempty"`
 	Connection   *OIDCConnectionInfo `json:"connection,omitempty"`
 	Error        string              `json:"error,omitempty"`
+	ErrorCode    string              `json:"error_code,omitempty"`
+	ErrorParams  map[string]any      `json:"error_params,omitempty"`
+	ErrorKind    serviceerr.Kind     `json:"-"`
 
 	// UserID, Operation, and Grade are internal to the reauth ("step-up") flow.
 	// They are never serialized to clients: the reauth result session is consumed
@@ -236,7 +240,7 @@ func (s *Service) GetOIDCPublicConfig() *OIDCPublicConfig {
 func (s *Service) BeginOIDCLogin() (*OIDCStartResult, error) {
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
-		return nil, errors.New("oidc login is not available")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
 	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0, "")
@@ -250,7 +254,7 @@ func (s *Service) BeginOIDCLogin() (*OIDCStartResult, error) {
 func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
-		return nil, errors.New("oidc login is not available")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
 	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID, "")
@@ -268,11 +272,11 @@ func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 // controls their linked OIDC identity.
 func (s *Service) BeginOIDCReauth(userID uint, operation string) (*OIDCStartResult, error) {
 	if userID == 0 {
-		return nil, errors.New("invalid oidc reauth session")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "invalid_oidc_reauth_session", "invalid oidc reauth session")
 	}
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
-		return nil, errors.New("oidc login is not available")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
 	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeReauth, userID, operation)
@@ -287,12 +291,12 @@ func (s *Service) HandleOIDCCallback(state string, code string, providerError st
 	purpose := oidcPurposeLogin
 	trimmedState := strings.TrimSpace(state)
 	if trimmedState == "" {
-		return s.createOIDCCallbackErrorResult(purpose, "missing OIDC state")
+		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "missing_oidc_state", "missing OIDC state"))
 	}
 
 	session, err := s.takeOIDCStateSession(trimmedState)
 	if err != nil {
-		return s.createOIDCCallbackErrorResult(purpose, err.Error())
+		return s.createOIDCCallbackErrorResult(purpose, err)
 	}
 
 	purpose = session.Purpose
@@ -301,21 +305,29 @@ func (s *Service) HandleOIDCCallback(state string, code string, providerError st
 		if message == "" {
 			message = providerError
 		}
-		return s.createOIDCCallbackErrorResult(purpose, fmt.Sprintf("oidc authorization failed: %s", message))
+		return s.createOIDCCallbackErrorResult(
+			purpose,
+			serviceerr.NewCode(
+				serviceerr.KindInvalid,
+				"oidc_authorization_failed",
+				fmt.Sprintf("oidc authorization failed: %s", message),
+				map[string]any{"detail": message},
+			),
+		)
 	}
 
 	if strings.TrimSpace(code) == "" {
-		return s.createOIDCCallbackErrorResult(purpose, "missing OIDC authorization code")
+		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "missing_oidc_authorization_code", "missing OIDC authorization code"))
 	}
 
 	settings := s.getOIDCSettings()
 	if !settings.Enabled || !settings.isConfigured() {
-		return s.createOIDCCallbackErrorResult(purpose, "oidc login is not available")
+		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available"))
 	}
 
 	claims, err := s.resolveOIDCIdentity(settings, code, session.CodeVerifier, session.Nonce)
 	if err != nil {
-		return s.createOIDCCallbackErrorResult(purpose, err.Error())
+		return s.createOIDCCallbackErrorResult(purpose, err)
 	}
 
 	var result OIDCSessionResult
@@ -329,7 +341,7 @@ func (s *Service) HandleOIDCCallback(state string, code string, providerError st
 		result, err = s.finishOIDCLogin(settings, claims)
 	}
 	if err != nil {
-		return s.createOIDCCallbackErrorResult(purpose, err.Error())
+		return s.createOIDCCallbackErrorResult(purpose, err)
 	}
 
 	sessionID := s.storeOIDCResultSession(result)
@@ -357,10 +369,18 @@ func (s *Service) ConsumeOIDCReauthResult(sessionID string, userID uint, operati
 		return 0, err
 	}
 	if result.Error != "" {
-		return 0, errors.New(result.Error)
+		code := strings.TrimSpace(result.ErrorCode)
+		if code == "" {
+			code = "failed_to_process_oidc_callback"
+		}
+		kind := result.ErrorKind
+		if kind == serviceerr.KindInternal {
+			kind = serviceerr.KindInvalid
+		}
+		return 0, serviceerr.New(kind, code, result.Error)
 	}
 	if result.Purpose != oidcPurposeReauth || result.UserID != userID || result.Operation != operation {
-		return 0, errors.New("invalid oidc reauth session")
+		return 0, serviceerr.New(serviceerr.KindInvalid, "invalid_oidc_reauth_session", "invalid oidc reauth session")
 	}
 	return result.Grade, nil
 }
@@ -405,7 +425,7 @@ func (s *Service) DeleteOIDCConnection(userID uint, connectionID uint) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("oidc connection not found")
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
 	}
 	return nil
 }
@@ -415,13 +435,13 @@ func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose strin
 	defer cancel()
 	client, err := buildOIDCOutboundHTTPClient(ctx, s.DB, 10*time.Second)
 	if err != nil {
-		return "", errors.New("failed to initialize oidc provider")
+		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 	ctx = oidc.ClientContext(ctx, client)
 
 	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
-		return "", errors.New("failed to initialize oidc provider")
+		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 
 	endpoint := provider.Endpoint()
@@ -443,7 +463,7 @@ func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose strin
 	state := uuid.NewString()
 	nonce, err := generateSecureToken(24)
 	if err != nil {
-		return "", errors.New("failed to create oidc session")
+		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
 	}
 
 	codeVerifier := oauth2.GenerateVerifier()
@@ -490,13 +510,13 @@ func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVe
 	defer cancel()
 	client, err := buildOIDCOutboundHTTPClient(ctx, s.DB, 10*time.Second)
 	if err != nil {
-		return nil, errors.New("failed to initialize oidc provider")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 	ctx = oidc.ClientContext(ctx, client)
 
 	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
-		return nil, errors.New("failed to initialize oidc provider")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 
 	endpoint := provider.Endpoint()
@@ -525,37 +545,37 @@ func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVe
 
 	oauthToken, err := oauthConfig.Exchange(ctx, code, tokenOptions...)
 	if err != nil {
-		return nil, errors.New("failed to exchange oidc authorization code")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_exchange_oidc_authorization_code", "failed to exchange oidc authorization code")
 	}
 
 	rawIDToken, ok := oauthToken.Extra("id_token").(string)
 	if !ok || strings.TrimSpace(rawIDToken) == "" {
-		return nil, errors.New("oidc provider did not return id_token")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_provider_did_not_return_id_token", "oidc provider did not return id_token")
 	}
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: settings.ClientID})
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return nil, errors.New("failed to verify oidc identity")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_verify_oidc_identity", "failed to verify oidc identity")
 	}
 
 	var claims oidcIdentityClaims
 	if err := idToken.Claims(&claims); err != nil {
-		return nil, errors.New("failed to parse oidc identity")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_parse_oidc_identity", "failed to parse oidc identity")
 	}
 
 	if expectedNonce != "" {
 		if claims.Nonce == "" {
-			return nil, errors.New("oidc nonce is missing")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_nonce_is_missing", "oidc nonce is missing")
 		}
 		if claims.Nonce != expectedNonce {
-			return nil, errors.New("oidc nonce does not match")
+			return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_nonce_does_not_match", "oidc nonce does not match")
 		}
 	}
 
 	claims.Subject = strings.TrimSpace(claims.Subject)
 	if claims.Subject == "" {
-		return nil, errors.New("oidc subject is missing")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_subject_is_missing", "oidc subject is missing")
 	}
 
 	needsUserInfo := strings.TrimSpace(claims.Email) == "" ||
@@ -565,7 +585,7 @@ func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVe
 		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, client)
 		if userInfoErr == nil && userInfoClaims != nil {
 			if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
-				return nil, errors.New("oidc subject mismatch")
+				return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_subject_mismatch", "oidc subject mismatch")
 			}
 
 			if strings.TrimSpace(claims.Email) == "" {
@@ -587,14 +607,14 @@ func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityCla
 	var connection model.OIDCConnection
 	err := s.DB.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&connection).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return OIDCSessionResult{}, errors.New("failed to load oidc connection")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "failed_to_load_oidc_connection", "failed to load oidc connection")
 	}
 
 	var user *model.User
 	if err == nil {
 		user, err = s.GetUser(connection.UserID)
 		if err != nil {
-			return OIDCSessionResult{}, errors.New("linked user not found")
+			return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "linked_user_not_found", "linked user not found")
 		}
 
 		if user.Status == "disabled" {
@@ -607,7 +627,7 @@ func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityCla
 		}
 	} else {
 		if !settings.AutoCreateUser {
-			return OIDCSessionResult{}, errors.New("oidc account is not linked")
+			return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "oidc_account_is_not_linked", "oidc account is not linked")
 		}
 
 		user, err = s.createOIDCUser(claims)
@@ -631,7 +651,7 @@ func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityCla
 
 func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
 	if userID == 0 {
-		return OIDCSessionResult{}, errors.New("invalid oidc connect session")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "invalid_oidc_connect_session", "invalid oidc connect session")
 	}
 
 	user, err := s.GetUser(userID)
@@ -648,7 +668,7 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 		var existingBySubject model.OIDCConnection
 		if err := tx.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&existingBySubject).Error; err == nil {
 			if existingBySubject.UserID != userID {
-				return errors.New("this oidc account is already linked to another user")
+				return serviceerr.New(serviceerr.KindInvalid, "this_oidc_account_is_already_linked_to_another_user", "this oidc account is already linked to another user")
 			}
 
 			if email != "" && email != existingBySubject.Email {
@@ -665,7 +685,7 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 
 		var existingForUser model.OIDCConnection
 		if err := tx.Where("provider = ? AND user_id = ?", oidcProviderKey, userID).First(&existingForUser).Error; err == nil {
-			return errors.New("you have already connected another oidc account")
+			return serviceerr.New(serviceerr.KindInvalid, "you_have_already_connected_another_oidc_account", "you have already connected another oidc account")
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -703,7 +723,7 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 // max_age=0, and this callback path rejects ID tokens without a recent auth_time.
 func (s *Service) finishOIDCReauth(userID uint, operation string, claims *oidcIdentityClaims, startedAt time.Time) (OIDCSessionResult, error) {
 	if userID == 0 {
-		return OIDCSessionResult{}, errors.New("invalid oidc reauth session")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "invalid_oidc_reauth_session", "invalid oidc reauth session")
 	}
 	if err := validateOIDCReauthFreshLogin(claims, startedAt); err != nil {
 		return OIDCSessionResult{}, err
@@ -720,12 +740,12 @@ func (s *Service) finishOIDCReauth(userID uint, operation string, claims *oidcId
 	var connection model.OIDCConnection
 	err = s.DB.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&connection).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return OIDCSessionResult{}, errors.New("oidc identity is not linked to this account")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "oidc_identity_is_not_linked_to_this_account", "oidc identity is not linked to this account")
 	} else if err != nil {
-		return OIDCSessionResult{}, errors.New("failed to load oidc connection")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "failed_to_load_oidc_connection", "failed to load oidc connection")
 	}
 	if connection.UserID != userID {
-		return OIDCSessionResult{}, errors.New("oidc identity is not linked to this account")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "oidc_identity_is_not_linked_to_this_account", "oidc identity is not linked to this account")
 	}
 
 	mfaACR, phishingResistantACR := s.getReauthACRLists()
@@ -741,21 +761,21 @@ func (s *Service) finishOIDCReauth(userID uint, operation string, claims *oidcId
 
 func validateOIDCReauthFreshLogin(claims *oidcIdentityClaims, startedAt time.Time) error {
 	if claims == nil || claims.AuthTime == 0 {
-		return errors.New("oidc reauth requires a fresh login")
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_reauth_requires_a_fresh_login", "oidc reauth requires a fresh login")
 	}
 	if startedAt.IsZero() {
-		return errors.New("oidc reauth requires a fresh login")
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_reauth_requires_a_fresh_login", "oidc reauth requires a fresh login")
 	}
 
 	authTime := time.Unix(claims.AuthTime, 0).UTC()
 	freshAfter := startedAt.UTC().Add(-oidcReauthAuthSkew)
 	if authTime.Before(freshAfter) {
-		return errors.New("oidc reauth requires a fresh login")
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_reauth_requires_a_fresh_login", "oidc reauth requires a fresh login")
 	}
 
 	now := pkg.NowUTC()
 	if authTime.After(now.Add(oidcReauthAuthSkew)) {
-		return errors.New("oidc reauth requires a fresh login")
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_reauth_requires_a_fresh_login", "oidc reauth requires a fresh login")
 	}
 
 	return nil
@@ -764,12 +784,12 @@ func validateOIDCReauthFreshLogin(claims *oidcIdentityClaims, startedAt time.Tim
 func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error) {
 	email := strings.TrimSpace(claims.Email)
 	if email == "" {
-		return nil, errors.New("oidc provider did not return an email")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_provider_did_not_return_an_email", "oidc provider did not return an email")
 	}
 
 	var existing model.User
 	if err := s.DB.Where("email = ?", email).First(&existing).Error; err == nil {
-		return nil, errors.New("email already registered, connect oidc from account settings")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "email_already_registered_connect_oidc_from_account_settings", "email already registered, connect oidc from account settings")
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -815,7 +835,7 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 	err = s.DB.Transaction(func(tx *gorm.DB) error {
 		var existingByEmail model.User
 		if err := tx.Where("email = ?", email).First(&existingByEmail).Error; err == nil {
-			return errors.New("email already registered, connect oidc from account settings")
+			return serviceerr.New(serviceerr.KindInvalid, "email_already_registered_connect_oidc_from_account_settings", "email already registered, connect oidc from account settings")
 		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -873,18 +893,30 @@ func (s *Service) allocateOIDCUsername(seed string) (string, error) {
 		}
 	}
 
-	return "", errors.New("failed to allocate username")
+	return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_allocate_username", "failed to allocate username")
 }
 
-func (s *Service) createOIDCCallbackErrorResult(purpose string, message string) (*OIDCCallbackResult, error) {
+func (s *Service) createOIDCCallbackErrorResult(purpose string, err error) (*OIDCCallbackResult, error) {
 	if purpose != oidcPurposeConnect && purpose != oidcPurposeReauth {
 		purpose = oidcPurposeLogin
 	}
 
-	sessionID := s.storeOIDCResultSession(OIDCSessionResult{
-		Purpose: purpose,
-		Error:   message,
-	})
+	result := OIDCSessionResult{Purpose: purpose}
+	if err != nil {
+		result.Error = err.Error()
+		result.ErrorKind = serviceerr.KindInternal
+
+		var typed *serviceerr.Error
+		if errors.As(err, &typed) && typed != nil {
+			result.ErrorKind = typed.Kind
+			result.ErrorCode = typed.Code
+			result.ErrorParams = cloneOIDCErrorParams(typed.Params)
+		} else {
+			result.ErrorCode = "failed_to_process_oidc_callback"
+		}
+	}
+
+	sessionID := s.storeOIDCResultSession(result)
 
 	return &OIDCCallbackResult{Purpose: purpose, SessionID: sessionID}, nil
 }
@@ -960,7 +992,7 @@ func (s *Service) getOIDCSettings() oidcSettings {
 func (s *Service) getOIDCProvider(ctx context.Context, issuerURL string) (*oidc.Provider, error) {
 	issuerURL = strings.TrimSpace(issuerURL)
 	if issuerURL == "" {
-		return nil, errors.New("oidc issuer url is required")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_issuer_url_is_required", "oidc issuer url is required")
 	}
 
 	now := pkg.NowUTC()
@@ -1019,12 +1051,12 @@ func (s *Service) takeOIDCStateSession(state string) (oidcStateSession, error) {
 
 	session, exists := s.oidcStateSessions[state]
 	if !exists {
-		return oidcStateSession{}, errors.New("invalid or expired oidc session")
+		return oidcStateSession{}, serviceerr.New(serviceerr.KindInvalid, "invalid_or_expired_oidc_session", "invalid or expired oidc session")
 	}
 	delete(s.oidcStateSessions, state)
 
 	if pkg.NowUTC().After(session.ExpiresAt) {
-		return oidcStateSession{}, errors.New("oidc session expired")
+		return oidcStateSession{}, serviceerr.New(serviceerr.KindInvalid, "oidc_session_expired", "oidc session expired")
 	}
 
 	return session, nil
@@ -1055,12 +1087,12 @@ func (s *Service) takeOIDCResultSession(sessionID string) (OIDCSessionResult, er
 
 	session, exists := s.oidcResultSessions[sessionID]
 	if !exists {
-		return OIDCSessionResult{}, errors.New("invalid or expired oidc result session")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "invalid_or_expired_oidc_result_session", "invalid or expired oidc result session")
 	}
 	delete(s.oidcResultSessions, sessionID)
 
 	if pkg.NowUTC().After(session.ExpiresAt) {
-		return OIDCSessionResult{}, errors.New("oidc result session expired")
+		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "oidc_result_session_expired", "oidc result session expired")
 	}
 
 	return session.Result, nil
@@ -1244,7 +1276,7 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 	}
 
 	if strings.TrimSpace(oauthToken.AccessToken) == "" {
-		return nil, errors.New("oidc access token is missing")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_access_token_is_missing", "oidc access token is missing")
 	}
 
 	if _, err := validateHTTPURL(userInfoEndpoint, "oidc userinfo endpoint", false); err != nil {
@@ -1272,7 +1304,12 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 	defer resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("oidc userinfo endpoint returned %d", resp.StatusCode)
+		return nil, serviceerr.NewCode(
+			serviceerr.KindUnavailable,
+			"oidc_userinfo_endpoint_returned_status",
+			fmt.Sprintf("oidc userinfo endpoint returned %d", resp.StatusCode),
+			map[string]any{"status": resp.StatusCode},
+		)
 	}
 
 	var claims oidcIdentityClaims
@@ -1280,6 +1317,18 @@ func fetchOIDCUserInfoClaims(ctx context.Context, provider *oidc.Provider, oauth
 		return nil, err
 	}
 	return &claims, nil
+}
+
+func cloneOIDCErrorParams(params map[string]any) map[string]any {
+	if len(params) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]any, len(params))
+	for key, value := range params {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func normalizeOIDCUsername(raw string) string {

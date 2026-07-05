@@ -56,7 +56,7 @@ api/
 | Add or move a route | `router.go` | Keep service construction and middleware order in `SetupRoutes` |
 | Change handler request validation | Matching handler file | Bind -> normalize/validate -> service call |
 | Change principal or auth boundary | `apimw/` + `router.go` | Add JWT, API-key, human-only, and admin negative tests |
-| Change API error/status mapping | `error_handler.go`, `internal/service/serviceerr/` | Preserve the frozen `{ "error": "..." }` envelope |
+| Change API error/status mapping | `error_handler.go`, `internal/service/serviceerr/` | Preserve the REST error contract: `error_code` plus optional `error_params` |
 | Change shared JSON/HTTP helpers | `httpx/`, `contract/` | Keep API contract wording stable unless intentional |
 | Change MCP behavior | `mcp/` | Preserve SDK transport assumptions and MCP-specific checks |
 | Change import/export API | `import.go`, `export.go` | Keep request-size and human/API-key boundaries explicit |

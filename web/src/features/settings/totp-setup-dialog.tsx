@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { api } from "@/lib/api"
+import { api, isBackendAPIError } from "@/lib/api"
 import type { TotpConfirmResponse, TotpSetupResponse } from "@/types"
 
 type Step = "qr" | "verify" | "backup"
@@ -74,8 +74,9 @@ export default function TotpSetupDialog({ open, onOpenChange, reauthTicket, onEn
     } catch (err) {
       const message = err instanceof Error ? err.message : t("settings.twoFactor.verifyError")
       if (
-        message === t("common.backendErrors.totpSetupExpired") ||
-        message === t("common.backendErrors.totpAlreadyEnabled")
+        isBackendAPIError(err) &&
+        (err.code === "two_factor_setup_expired_start_again" ||
+          err.code === "two_factor_authentication_is_already_enabled")
       ) {
         handleClose(false)
         return

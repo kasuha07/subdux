@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrInvalidSSRFTestTarget = serviceerr.New(serviceerr.KindInvalid, "ssrf test target must be a valid hostname or ip address")
+var ErrInvalidSSRFTestTarget = serviceerr.New(serviceerr.KindInvalid, "ssrf_test_target_must_be_a_valid_hostname_or_ip_address", "ssrf test target must be a valid hostname or ip address")
 
 type SSRFTestInput struct {
 	Target string

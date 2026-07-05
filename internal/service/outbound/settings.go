@@ -17,8 +17,8 @@ const (
 )
 
 var (
-	ErrInvalidSystemProxyType = serviceerr.New(serviceerr.KindInvalid, "system proxy type must be http or socks5")
-	ErrInvalidSystemProxyURL  = serviceerr.New(serviceerr.KindInvalid, "system proxy url must include a host")
+	ErrInvalidSystemProxyType = serviceerr.New(serviceerr.KindInvalid, "system_proxy_type_must_be_http_or_socks5", "system proxy type must be http or socks5")
+	ErrInvalidSystemProxyURL  = serviceerr.New(serviceerr.KindInvalid, "system_proxy_url_must_include_a_host", "system proxy url must include a host")
 )
 
 type SystemProxyConfig struct {
@@ -156,11 +156,11 @@ func NormalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) 
 	switch normalizedType {
 	case SystemProxyTypeHTTP:
 		if parsed.Scheme != "http" {
-			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system proxy url must start with http://", ErrInvalidSystemProxyURL)
+			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system_proxy_url_must_start_with_http", "system proxy url must start with http://", ErrInvalidSystemProxyURL)
 		}
 	case SystemProxyTypeSOCKS5:
 		if parsed.Scheme != "socks5" && parsed.Scheme != "socks5h" {
-			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system proxy url must start with socks5://", ErrInvalidSystemProxyURL)
+			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system_proxy_url_must_start_with_socks5", "system proxy url must start with socks5://", ErrInvalidSystemProxyURL)
 		}
 		parsed.Scheme = "socks5"
 	}
@@ -168,7 +168,7 @@ func NormalizeSystemProxyURL(proxyType string, rawURL string) (*url.URL, error) 
 	if parsed.Port() != "" {
 		port, err := net.LookupPort("tcp", parsed.Port())
 		if err != nil || port < 1 || port > 65535 {
-			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system proxy url port is invalid", ErrInvalidSystemProxyURL)
+			return nil, serviceerr.Wrap(serviceerr.KindInvalid, "system_proxy_url_port_is_invalid", "system proxy url port is invalid", ErrInvalidSystemProxyURL)
 		}
 	}
 

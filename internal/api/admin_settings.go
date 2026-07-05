@@ -17,14 +17,14 @@ func (h *AdminHandler) ListBackgroundTasks(c echo.Context) error {
 func (h *AdminHandler) GetSettings(c echo.Context) error {
 	settings, err := h.Service.WithContext(c.Request().Context()).GetSettings()
 	if err != nil {
-		return httpx.WriteError(c, http.StatusInternalServerError, "failed to get settings")
+		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_get_settings")
 	}
 	return c.JSON(http.StatusOK, settings)
 }
 
 func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	var input adminservice.UpdateSettingsInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -38,7 +38,7 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		BackupRetentionCount:     input.BackupRetentionCount,
 	}); ok {
 		if h.Reauth == nil {
-			return httpx.WriteError(c, http.StatusInternalServerError, "reauthentication service is not configured")
+			return httpx.WriteError(c, http.StatusInternalServerError, "reauthentication_service_is_not_configured")
 		}
 		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
 			apimw.From(c).UserID,
@@ -53,12 +53,12 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "settings updated"})
+	return httpx.WriteMessage(c, http.StatusOK, "settings_updated")
 }
 
 func (h *AdminHandler) TestSSRF(c echo.Context) error {
 	var input adminservice.SSRFTestInput
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -74,7 +74,7 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 	var input struct {
 		RecipientEmail string `json:"recipient_email"`
 	}
-	if !httpx.BindJSON(c, &input, "invalid request body") {
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
 
@@ -84,5 +84,5 @@ func (h *AdminHandler) TestSMTP(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "test email sent"})
+	return httpx.WriteMessage(c, http.StatusOK, "test_email_sent")
 }

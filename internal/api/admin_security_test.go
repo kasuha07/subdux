@@ -25,8 +25,8 @@ func TestCreateUserRejectsPasswordOver72Bytes(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(strings.ToLower(rec.Body.String()), "72 bytes") {
-		t.Fatalf("expected error message to mention 72 bytes, got %s", rec.Body.String())
+	if !hasErrorCodeForMessage(rec.Body.String(), "password must not exceed 72 bytes") {
+		t.Fatalf("expected password_must_not_exceed_72_bytes, got %s", rec.Body.String())
 	}
 }
 
@@ -46,8 +46,8 @@ func TestCreateUserRejectsPasswordUnder8Characters(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(strings.ToLower(rec.Body.String()), "at least 8 characters") {
-		t.Fatalf("expected error message to mention 8 characters, got %s", rec.Body.String())
+	if !hasErrorCodeForMessage(rec.Body.String(), "password must be at least 8 characters") {
+		t.Fatalf("expected password_must_be_at_least_8_characters, got %s", rec.Body.String())
 	}
 }
 
@@ -83,7 +83,7 @@ func TestCreateUserDuplicateEmailAndUsernameReturnBadRequest(t *testing.T) {
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 			}
-			if !strings.Contains(rec.Body.String(), tt.wantBody) {
+			if !hasErrorCodeForMessage(rec.Body.String(), tt.wantBody) {
 				t.Fatalf("body = %s, want %q", rec.Body.String(), tt.wantBody)
 			}
 		})

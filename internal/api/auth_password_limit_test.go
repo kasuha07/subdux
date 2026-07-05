@@ -27,8 +27,8 @@ func TestRegisterRejectsPasswordOver72Bytes(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(strings.ToLower(rec.Body.String()), "72 bytes") {
-		t.Fatalf("expected error message to mention 72 bytes, got %s", rec.Body.String())
+	if !hasErrorCodeForMessage(rec.Body.String(), "password must not exceed 72 bytes") {
+		t.Fatalf("expected password_must_not_exceed_72_bytes, got %s", rec.Body.String())
 	}
 }
 
@@ -48,8 +48,8 @@ func TestRegisterRejectsPasswordUnder8Characters(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(strings.ToLower(rec.Body.String()), "at least 8 characters") {
-		t.Fatalf("expected error message to mention 8 characters, got %s", rec.Body.String())
+	if !hasErrorCodeForMessage(rec.Body.String(), "password must be at least 8 characters") {
+		t.Fatalf("expected password_must_be_at_least_8_characters, got %s", rec.Body.String())
 	}
 }
 
@@ -69,8 +69,8 @@ func TestResetPasswordRejectsPasswordUnder8Characters(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(strings.ToLower(rec.Body.String()), "at least 8 characters") {
-		t.Fatalf("expected error message to mention 8 characters, got %s", rec.Body.String())
+	if !hasErrorCodeForMessage(rec.Body.String(), "new password must be at least 8 characters") {
+		t.Fatalf("expected new_password_must_be_at_least_8_characters, got %s", rec.Body.String())
 	}
 }
 
@@ -91,7 +91,7 @@ func TestChangePasswordRejectsPasswordUnder8Characters(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
-	if !strings.Contains(strings.ToLower(rec.Body.String()), "at least 8 characters") {
-		t.Fatalf("expected error message to mention 8 characters, got %s", rec.Body.String())
+	if !hasErrorCodeForMessage(rec.Body.String(), "new password must be at least 8 characters") {
+		t.Fatalf("expected new_password_must_be_at_least_8_characters, got %s", rec.Body.String())
 	}
 }

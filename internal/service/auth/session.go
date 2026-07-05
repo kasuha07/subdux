@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	ErrInvalidRefreshToken = serviceerr.New(serviceerr.KindUnauthorized, "invalid refresh token")
+	ErrInvalidRefreshToken = serviceerr.New(serviceerr.KindUnauthorized, "invalid_refresh_token", "invalid refresh token")
 	// ErrAccountDisabled is returned when a session is requested for a
 	// non-active account. It is 401 (KindUnauthorized): the credential is valid
 	// but the principal may no longer sign in.
-	ErrAccountDisabled = serviceerr.New(serviceerr.KindUnauthorized, "account is disabled")
+	ErrAccountDisabled = serviceerr.New(serviceerr.KindUnauthorized, "account_is_disabled", "account is disabled")
 )
 
 func (s *Service) CreateSession(userID uint) (*AuthResponse, error) {
