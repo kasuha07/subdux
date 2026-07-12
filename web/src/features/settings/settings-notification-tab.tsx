@@ -32,6 +32,9 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
     days_before: 3,
     notify_on_due_day: true,
     notify_manual_renew_daily: false,
+    quiet_hours_enabled: false,
+    quiet_hours_start: "22:00",
+    quiet_hours_end: "08:00",
   })
   const [logs, setLogs] = useState<NotificationLog[]>([])
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
@@ -187,6 +190,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
   return (
     <TabsContent value="notification" className="space-y-6">
       <NotificationPolicySection
+        key={`${policy.days_before}:${policy.notify_on_due_day}:${policy.notify_manual_renew_daily}:${policy.quiet_hours_enabled}:${policy.quiet_hours_start}:${policy.quiet_hours_end}`}
         policy={policy}
         onSave={handleSavePolicy}
         saving={policySaving}

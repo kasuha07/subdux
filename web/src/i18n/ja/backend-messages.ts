@@ -230,6 +230,7 @@ const backendMessages = {
   "pushover_channel_requires_token": "プッシュオーバーチャネルにはトークンが必要です",
   "pushover_channel_requires_user": "プッシュオーバーチャネルにはユーザーが必要です",
   "pushplus_channel_requires_token": "PushPlusチャネルにはトークンが必要です",
+  "quiet_hours_time_invalid": "サイレント時間帯は24時間制のHH:MM形式で入力してください",
   "rates_refreshed": "料金が更新されました",
   "re_authentication_required": "再認証が必要です",
   "reauthentication_service_is_not_configured": "再認証サービスが構成されていません",

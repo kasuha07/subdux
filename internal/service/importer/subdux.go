@@ -34,9 +34,18 @@ type SubduxImportData struct {
 }
 
 type SubduxNotificationImportData struct {
-	Channels  []model.NotificationChannel  `json:"channels"`
-	Templates []model.NotificationTemplate `json:"templates"`
-	Policy    *model.NotificationPolicy    `json:"policy"`
+	Channels  []model.NotificationChannel         `json:"channels"`
+	Templates []model.NotificationTemplate        `json:"templates"`
+	Policy    *SubduxNotificationPolicyImportData `json:"policy"`
+}
+
+type SubduxNotificationPolicyImportData struct {
+	DaysBefore             int     `json:"days_before"`
+	NotifyOnDueDay         bool    `json:"notify_on_due_day"`
+	NotifyManualRenewDaily bool    `json:"notify_manual_renew_daily"`
+	QuietHoursEnabled      *bool   `json:"quiet_hours_enabled"`
+	QuietHoursStart        *string `json:"quiet_hours_start"`
+	QuietHoursEnd          *string `json:"quiet_hours_end"`
 }
 
 type PreviewChannelChange struct {
@@ -59,14 +68,20 @@ type PreviewPreferenceChange struct {
 }
 
 type PreviewNotificationPolicyChange struct {
-	WillCreate          bool `json:"will_create"`
-	WillUpdate          bool `json:"will_update"`
-	CurrentDays         int  `json:"current_days_before"`
-	IncomingDays        int  `json:"incoming_days_before"`
-	CurrentDueDay       bool `json:"current_notify_on_due_day"`
-	IncomingDueDay      bool `json:"incoming_notify_on_due_day"`
-	CurrentManualDaily  bool `json:"current_notify_manual_renew_daily"`
-	IncomingManualDaily bool `json:"incoming_notify_manual_renew_daily"`
+	WillCreate           bool   `json:"will_create"`
+	WillUpdate           bool   `json:"will_update"`
+	CurrentDays          int    `json:"current_days_before"`
+	IncomingDays         int    `json:"incoming_days_before"`
+	CurrentDueDay        bool   `json:"current_notify_on_due_day"`
+	IncomingDueDay       bool   `json:"incoming_notify_on_due_day"`
+	CurrentManualDaily   bool   `json:"current_notify_manual_renew_daily"`
+	IncomingManualDaily  bool   `json:"incoming_notify_manual_renew_daily"`
+	CurrentQuietEnabled  bool   `json:"current_quiet_hours_enabled"`
+	IncomingQuietEnabled bool   `json:"incoming_quiet_hours_enabled"`
+	CurrentQuietStart    string `json:"current_quiet_hours_start"`
+	IncomingQuietStart   string `json:"incoming_quiet_hours_start"`
+	CurrentQuietEnd      string `json:"current_quiet_hours_end"`
+	IncomingQuietEnd     string `json:"incoming_quiet_hours_end"`
 }
 
 type SubduxImportPreview struct {
@@ -879,9 +894,16 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 
 		if data.Notifications.Policy != nil {
 			incomingPolicy := data.Notifications.Policy
+			invalidQuietHours := (incomingPolicy.QuietHoursStart != nil && *incomingPolicy.QuietHoursStart != "" && !notificationservice.ValidQuietHoursTime(*incomingPolicy.QuietHoursStart)) ||
+				(incomingPolicy.QuietHoursEnd != nil && *incomingPolicy.QuietHoursEnd != "" && !notificationservice.ValidQuietHoursTime(*incomingPolicy.QuietHoursEnd))
 			if incomingPolicy.DaysBefore < 0 || incomingPolicy.DaysBefore > subscriptionservice.MaxNotificationDaysBefore {
 				if confirm {
 					result.Errors = append(result.Errors, fmt.Sprintf("days_before must be between 0 and %d", subscriptionservice.MaxNotificationDaysBefore))
+					result.Skipped++
+				}
+			} else if invalidQuietHours {
+				if confirm {
+					result.Errors = append(result.Errors, "quiet hours times must be in HH:MM 24-hour format")
 					result.Skipped++
 				}
 			} else {
@@ -892,19 +914,46 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 					return err
 				}
 
+				quietHoursEnabled := existing.QuietHoursEnabled
+				quietHoursStart := existing.QuietHoursStart
+				quietHoursEnd := existing.QuietHoursEnd
+				if willCreate {
+					quietHoursEnabled = false
+					quietHoursStart = ""
+					quietHoursEnd = ""
+				}
+				if incomingPolicy.QuietHoursEnabled != nil {
+					quietHoursEnabled = *incomingPolicy.QuietHoursEnabled
+				}
+				if incomingPolicy.QuietHoursStart != nil {
+					quietHoursStart = *incomingPolicy.QuietHoursStart
+				}
+				if incomingPolicy.QuietHoursEnd != nil {
+					quietHoursEnd = *incomingPolicy.QuietHoursEnd
+				}
+
 				willUpdate := !willCreate &&
 					(existing.DaysBefore != incomingPolicy.DaysBefore ||
 						existing.NotifyOnDueDay != incomingPolicy.NotifyOnDueDay ||
-						existing.NotifyManualRenewDaily != incomingPolicy.NotifyManualRenewDaily)
+						existing.NotifyManualRenewDaily != incomingPolicy.NotifyManualRenewDaily ||
+						existing.QuietHoursEnabled != quietHoursEnabled ||
+						existing.QuietHoursStart != quietHoursStart ||
+						existing.QuietHoursEnd != quietHoursEnd)
 				preview.Policy = &PreviewNotificationPolicyChange{
-					WillCreate:          willCreate,
-					WillUpdate:          willUpdate,
-					CurrentDays:         existing.DaysBefore,
-					IncomingDays:        incomingPolicy.DaysBefore,
-					CurrentDueDay:       existing.NotifyOnDueDay,
-					IncomingDueDay:      incomingPolicy.NotifyOnDueDay,
-					CurrentManualDaily:  existing.NotifyManualRenewDaily,
-					IncomingManualDaily: incomingPolicy.NotifyManualRenewDaily,
+					WillCreate:           willCreate,
+					WillUpdate:           willUpdate,
+					CurrentDays:          existing.DaysBefore,
+					IncomingDays:         incomingPolicy.DaysBefore,
+					CurrentDueDay:        existing.NotifyOnDueDay,
+					IncomingDueDay:       incomingPolicy.NotifyOnDueDay,
+					CurrentManualDaily:   existing.NotifyManualRenewDaily,
+					IncomingManualDaily:  incomingPolicy.NotifyManualRenewDaily,
+					CurrentQuietEnabled:  existing.QuietHoursEnabled,
+					IncomingQuietEnabled: quietHoursEnabled,
+					CurrentQuietStart:    existing.QuietHoursStart,
+					IncomingQuietStart:   quietHoursStart,
+					CurrentQuietEnd:      existing.QuietHoursEnd,
+					IncomingQuietEnd:     quietHoursEnd,
 				}
 
 				if confirm {
@@ -915,6 +964,9 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 							"days_before":               incomingPolicy.DaysBefore,
 							"notify_on_due_day":         incomingPolicy.NotifyOnDueDay,
 							"notify_manual_renew_daily": incomingPolicy.NotifyManualRenewDaily,
+							"quiet_hours_enabled":       quietHoursEnabled,
+							"quiet_hours_start":         quietHoursStart,
+							"quiet_hours_end":           quietHoursEnd,
 						}
 						if err := tx.Model(&model.NotificationPolicy{}).Create(created).Error; err != nil {
 							result.Errors = append(result.Errors, fmt.Sprintf("failed to create policy: %v", err))
@@ -926,6 +978,9 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 							"days_before":               incomingPolicy.DaysBefore,
 							"notify_on_due_day":         incomingPolicy.NotifyOnDueDay,
 							"notify_manual_renew_daily": incomingPolicy.NotifyManualRenewDaily,
+							"quiet_hours_enabled":       quietHoursEnabled,
+							"quiet_hours_start":         quietHoursStart,
+							"quiet_hours_end":           quietHoursEnd,
 						}
 						if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 							result.Errors = append(result.Errors, fmt.Sprintf("failed to update policy: %v", err))

@@ -37,6 +37,10 @@ func migrateManualRenewDailyNotificationPolicy(db *gorm.DB) error {
 	return db.AutoMigrate(&model.NotificationPolicy{})
 }
 
+func migrateNotificationQuietHours(db *gorm.DB) error {
+	return db.AutoMigrate(&model.NotificationPolicy{})
+}
+
 func migrateMCPIdempotencyKeys(db *gorm.DB) error {
 	if err := db.AutoMigrate(&model.MCPIdempotencyKey{}); err != nil {
 		return err

@@ -152,12 +152,18 @@ export interface NotificationPolicy {
   days_before: number
   notify_on_due_day: boolean
   notify_manual_renew_daily: boolean
+  quiet_hours_enabled: boolean
+  quiet_hours_start: string
+  quiet_hours_end: string
 }
 
 export interface UpdateNotificationPolicyInput {
   days_before?: number
   notify_on_due_day?: boolean
   notify_manual_renew_daily?: boolean
+  quiet_hours_enabled?: boolean
+  quiet_hours_start?: string
+  quiet_hours_end?: string
 }
 
 export interface NotificationLog {

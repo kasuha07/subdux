@@ -138,6 +138,16 @@ func (s *Service) processUserNotifications(userID uint) error {
 
 	scheduledDispatches := make(map[string]struct{})
 
+	// earliestDelivery defers jobs produced during the user's quiet-hours window
+	// to the moment the window ends; outside the window (or when disabled) it is
+	// zero and enqueue falls back to immediate delivery.
+	var earliestDelivery time.Time
+	if policy.QuietHoursEnabled {
+		if inWindow, until := quietHoursDeferUntil(now, policy.QuietHoursStart, policy.QuietHoursEnd, pkg.GetSystemTimezone()); inWindow {
+			earliestDelivery = until.UTC()
+		}
+	}
+
 	endedManualRenewSubs, err := s.subscriptionReminderProvider().ListEndedManualRenewNotificationCandidates(context.Background(), userID, now)
 	if err != nil {
 		return err
@@ -166,15 +176,16 @@ func (s *Service) processUserNotifications(userID uint) error {
 				continue
 			}
 			if err := s.enqueueNotificationOutbox(notificationOutboxJob{
-				userID:          userID,
-				subscriptionID:  candidate.SubscriptionID,
-				channel:         channel,
-				triggerType:     candidate.TriggerType,
-				notifyDate:      candidate.NotifyDate,
-				dedupeDate:      candidate.DedupeDate,
-				message:         message,
-				targetEmail:     user.Email,
-				subscriptionURL: candidate.Template.URL,
+				userID:             userID,
+				subscriptionID:     candidate.SubscriptionID,
+				channel:            channel,
+				triggerType:        candidate.TriggerType,
+				notifyDate:         candidate.NotifyDate,
+				dedupeDate:         candidate.DedupeDate,
+				message:            message,
+				targetEmail:        user.Email,
+				subscriptionURL:    candidate.Template.URL,
+				earliestDeliveryAt: earliestDelivery,
 			}); err != nil {
 				return err
 			}
@@ -197,15 +208,16 @@ func (s *Service) processUserNotifications(userID uint) error {
 				continue
 			}
 			if err := s.enqueueNotificationOutbox(notificationOutboxJob{
-				userID:          userID,
-				subscriptionID:  candidate.SubscriptionID,
-				channel:         channel,
-				triggerType:     candidate.TriggerType,
-				notifyDate:      candidate.NotifyDate,
-				dedupeDate:      candidate.DedupeDate,
-				message:         message,
-				targetEmail:     user.Email,
-				subscriptionURL: candidate.Template.URL,
+				userID:             userID,
+				subscriptionID:     candidate.SubscriptionID,
+				channel:            channel,
+				triggerType:        candidate.TriggerType,
+				notifyDate:         candidate.NotifyDate,
+				dedupeDate:         candidate.DedupeDate,
+				message:            message,
+				targetEmail:        user.Email,
+				subscriptionURL:    candidate.Template.URL,
+				earliestDeliveryAt: earliestDelivery,
 			}); err != nil {
 				return err
 			}

@@ -695,6 +695,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 			Destructive:   true,
 			DiscardPolicy: "Rebuild exchange_rates as USD-base only. Preserve direct USD pairs and rates derivable through an existing USD pair; discard invalid rows, self-pairs, and cross-rates that cannot be expressed from available USD data.",
 		},
+		{Name: "20260707_01_notification_quiet_hours", Checksum: "8f4f38eefaf226063a55efab892d433c722df441a319553c8ca6cff7ab402e74"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -709,8 +710,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260512_02_subscription_lifecycle_backfill.go": "ae5999e185f6a2457fa6ee42b7409ae03f6b770c501820a1e6a6a08ac6b7a64b",
 		"migration_20260512_03_sqlite_integrity_hardening.go":      "e5917afe801db4f076f4c48a0a0e4111159ece4bc436fa4944cc4e00c5b267b5",
 		"migration_20260525_00_subscription_event_orphans.go":      "ca4a2f14fd18c67fbfb6c7a4e1b4b15aa77ea3779f2ff021f069fe0a5c20e10d",
-		"schema_migration_registry.go":                             "1cdac90f40e7584a5346400f9c547b0aa34dbde602a841d0b8b75e8cd1af659d",
-		"schema_migration_steps.go":                                "d24175ab071d227a95a5a0302200cf501fde129c12d45f4fcea7659ab6b00dfa",
+		"schema_migration_registry.go":                             "84d1b6bc34b6d68f453044157df6599765eb1a10e5023a722b64ee1e21b766fb",
+		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {
 		contents, err := os.ReadFile(path)

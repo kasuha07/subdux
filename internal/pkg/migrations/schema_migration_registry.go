@@ -40,6 +40,7 @@ var schemaMigrations = []schemaMigration{
 		Destructive:   true,
 		DiscardPolicy: "Rebuild exchange_rates as USD-base only. Preserve direct USD pairs and rates derivable through an existing USD pair; discard invalid rows, self-pairs, and cross-rates that cannot be expressed from available USD data.",
 	},
+	{Name: "20260707_01_notification_quiet_hours", Checksum: "8f4f38eefaf226063a55efab892d433c722df441a319553c8ca6cff7ab402e74", Run: migrateNotificationQuietHours},
 }
 
 func autoMigrate20260512ApplicationSchema(db *gorm.DB) error {

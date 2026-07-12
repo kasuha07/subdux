@@ -39,6 +39,9 @@ type notificationOutboxJob struct {
 	message         string
 	targetEmail     string
 	subscriptionURL string
+	// earliestDeliveryAt, when set to a future instant, defers the first
+	// delivery attempt (used by quiet hours). Zero means deliver immediately.
+	earliestDeliveryAt time.Time
 }
 
 type NotificationDispatchSummary struct {
@@ -157,6 +160,10 @@ func (s *Service) enqueueNotificationOutbox(job notificationOutboxJob) error {
 	if job.triggerType == notificationTriggerManualEnded {
 		expiresAt = now.Add(notificationOutboxExpiryWindow)
 	}
+	scheduledFor := now
+	if !job.earliestDeliveryAt.IsZero() && job.earliestDeliveryAt.After(now) {
+		scheduledFor = job.earliestDeliveryAt.UTC()
+	}
 	outbox := model.NotificationOutbox{
 		DedupeKey:       notificationOutboxDedupeKeyForTrigger(job.userID, job.subscriptionID, job.channel.Type, job.triggerType, notifyDate, dedupeDate),
 		UserID:          job.userID,
@@ -165,11 +172,11 @@ func (s *Service) enqueueNotificationOutbox(job notificationOutboxJob) error {
 		ChannelType:     job.channel.Type,
 		TriggerType:     job.triggerType,
 		NotifyDate:      notifyDate,
-		ScheduledFor:    now,
+		ScheduledFor:    scheduledFor,
 		ExpiresAt:       &expiresAt,
 		Status:          notificationOutboxStatusPending,
 		MaxAttempts:     notificationOutboxDefaultMaxAttempts,
-		NextAttemptAt:   now,
+		NextAttemptAt:   scheduledFor,
 		Message:         job.message,
 		TargetEmail:     job.targetEmail,
 		SubscriptionURL: job.subscriptionURL,
@@ -358,6 +365,10 @@ func logOutboxPersistError(job model.NotificationOutbox, action string, err erro
 }
 
 func (s *Service) dispatchNotificationOutboxJob(job model.NotificationOutbox) string {
+	if status := s.deferOutboxDuringQuietHours(job); status != "" {
+		return status
+	}
+
 	if status := s.cancelOutboxIfNoLongerDeliverable(job); status != "" {
 		return status
 	}
@@ -383,6 +394,33 @@ func (s *Service) dispatchNotificationOutboxJob(job model.NotificationOutbox) st
 		return notificationOutboxStatusProcessing
 	}
 	return notificationOutboxStatusSent
+}
+
+// deferOutboxDuringQuietHours reloads the user's policy at the last possible
+// point before delivery. This covers jobs queued before quiet hours began,
+// retries that become due inside the window, and policy changes made after
+// enqueueing.
+func (s *Service) deferOutboxDuringQuietHours(job model.NotificationOutbox) string {
+	policy, err := s.GetPolicy(job.UserID)
+	if err != nil {
+		if updateErr := s.releaseNotificationOutboxForRetry(job, err); updateErr != nil {
+			logOutboxPersistError(job, "release_quiet_hours_policy_lookup", updateErr)
+		}
+		return notificationOutboxStatusPending
+	}
+	if !policy.QuietHoursEnabled {
+		return ""
+	}
+
+	now := pkg.NowInSystemTimezone()
+	inWindow, until := quietHoursDeferUntil(now, policy.QuietHoursStart, policy.QuietHoursEnd, pkg.GetSystemTimezone())
+	if !inWindow {
+		return ""
+	}
+	if err := s.releaseNotificationOutboxUntil(job, until.UTC()); err != nil {
+		logOutboxPersistError(job, "defer_quiet_hours", err)
+	}
+	return notificationOutboxStatusPending
 }
 
 func (s *Service) cancelOutboxIfNoLongerDeliverable(job model.NotificationOutbox) string {
@@ -563,6 +601,21 @@ func (s *Service) releaseNotificationOutboxForRetry(job model.NotificationOutbox
 			"status":          notificationOutboxStatusPending,
 			"last_error":      sanitizeNotificationError(err.Error()),
 			"next_attempt_at": now.Add(notificationOutboxBackoff(job.AttemptCount)),
+			"locked_by":       "",
+			"locked_until":    nil,
+			"updated_at":      now,
+		}).Error
+}
+
+func (s *Service) releaseNotificationOutboxUntil(job model.NotificationOutbox, nextAttemptAt time.Time) error {
+	now := pkg.NowUTC()
+	return s.DB.Model(&model.NotificationOutbox{}).
+		Where("id = ? AND locked_by = ? AND status = ?", job.ID, s.notificationOwnerID(), notificationOutboxStatusProcessing).
+		Updates(map[string]interface{}{
+			"status":          notificationOutboxStatusPending,
+			"last_error":      "",
+			"scheduled_for":   nextAttemptAt.UTC(),
+			"next_attempt_at": nextAttemptAt.UTC(),
 			"locked_by":       "",
 			"locked_until":    nil,
 			"updated_at":      now,

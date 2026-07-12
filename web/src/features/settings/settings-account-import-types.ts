@@ -60,6 +60,12 @@ export interface SubduxPreviewPolicyChange {
   incoming_notify_on_due_day: boolean
   current_notify_manual_renew_daily: boolean
   incoming_notify_manual_renew_daily: boolean
+  current_quiet_hours_enabled: boolean
+  incoming_quiet_hours_enabled: boolean
+  current_quiet_hours_start: string
+  incoming_quiet_hours_start: string
+  current_quiet_hours_end: string
+  incoming_quiet_hours_end: string
 }
 
 export interface SubduxImportPreview {

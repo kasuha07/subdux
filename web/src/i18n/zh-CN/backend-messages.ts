@@ -230,6 +230,7 @@ const backendMessages = {
   "pushover_channel_requires_token": "Pushover 通道需要令牌",
   "pushover_channel_requires_user": "Pushover 通道需要用户",
   "pushplus_channel_requires_token": "Pushplus频道需要代币",
+  "quiet_hours_time_invalid": "免打扰时段必须使用 24 小时制 HH:MM 格式",
   "rates_refreshed": "费率已刷新",
   "re_authentication_required": "需要重新认证",
   "reauthentication_service_is_not_configured": "未配置重认证服务",

@@ -230,6 +230,7 @@ const backendMessages = {
   "pushover_channel_requires_token": "pushover channel requires token",
   "pushover_channel_requires_user": "pushover channel requires user",
   "pushplus_channel_requires_token": "pushplus channel requires token",
+  "quiet_hours_time_invalid": "Quiet hours times must use the 24-hour HH:MM format",
   "rates_refreshed": "rates refreshed",
   "re_authentication_required": "Re-authentication required.",
   "reauthentication_service_is_not_configured": "reauthentication service is not configured",

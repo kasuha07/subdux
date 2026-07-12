@@ -589,6 +589,10 @@ const settings = {
       "daysBeforeHint": "請求日の何日前にリマインダーを送信するか",
       "notifyOnDueDay": "請求日当日にも通知する",
       "notifyManualRenewDaily": "手動更新は確認まで毎日通知する",
+      "quietHours": "サイレント時間帯",
+      "quietHoursHint": "この時間帯に発生した通知は保留され、時間帯の終了時に送信されます。深夜をまたぐ設定（例: 22:00〜08:00）に対応しています。",
+      "quietHoursStart": "開始",
+      "quietHoursEnd": "終了",
       "saveSuccess": "通知ポリシーを更新しました"
     },
     "logs": {

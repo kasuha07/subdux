@@ -14,14 +14,21 @@ type NotificationChannel struct {
 }
 
 type NotificationPolicy struct {
-	ID                     uint      `gorm:"primaryKey" json:"id"`
-	UserID                 uint      `gorm:"uniqueIndex;not null" json:"user_id"`
-	DaysBefore             int       `gorm:"default:3;check:chk_notification_policies_days_before,days_before >= 0 AND days_before <= 10" json:"days_before"`
-	NotifyOnDueDay         bool      `gorm:"default:true" json:"notify_on_due_day"`
-	NotifyManualRenewDaily bool      `gorm:"default:false" json:"notify_manual_renew_daily"`
-	CreatedAt              time.Time `json:"created_at"`
-	UpdatedAt              time.Time `json:"updated_at"`
-	User                   *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	ID                     uint `gorm:"primaryKey" json:"id"`
+	UserID                 uint `gorm:"uniqueIndex;not null" json:"user_id"`
+	DaysBefore             int  `gorm:"default:3;check:chk_notification_policies_days_before,days_before >= 0 AND days_before <= 10" json:"days_before"`
+	NotifyOnDueDay         bool `gorm:"default:true" json:"notify_on_due_day"`
+	NotifyManualRenewDaily bool `gorm:"default:false" json:"notify_manual_renew_daily"`
+	// QuietHours defer notification delivery that would otherwise happen during
+	// the configured window to the moment the window ends. Times are "HH:MM" in
+	// 24-hour form, interpreted in the system timezone. An empty start or end,
+	// or start == end, means the window is unset regardless of QuietHoursEnabled.
+	QuietHoursEnabled bool      `gorm:"default:false" json:"quiet_hours_enabled"`
+	QuietHoursStart   string    `gorm:"size:5;default:''" json:"quiet_hours_start"`
+	QuietHoursEnd     string    `gorm:"size:5;default:''" json:"quiet_hours_end"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	User              *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
 
 type NotificationLog struct {

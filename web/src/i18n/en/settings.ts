@@ -589,6 +589,10 @@ const settings = {
       "daysBeforeHint": "How many days before the billing date to send a reminder",
       "notifyOnDueDay": "Also notify on the billing day",
       "notifyManualRenewDaily": "Notify manual-renew subscriptions daily until confirmed",
+      "quietHours": "Quiet hours",
+      "quietHoursHint": "Notifications produced during this window are held and delivered when it ends. Spanning midnight (e.g. 22:00–08:00) is supported.",
+      "quietHoursStart": "Start",
+      "quietHoursEnd": "End",
       "saveSuccess": "Notification policy updated"
     },
     "logs": {

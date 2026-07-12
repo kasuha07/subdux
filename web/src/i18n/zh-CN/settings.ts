@@ -589,6 +589,10 @@ const settings = {
       "daysBeforeHint": "在扣费日前几天发送提醒",
       "notifyOnDueDay": "扣费当天也发送通知",
       "notifyManualRenewDaily": "手动续费订阅到期前每天提醒",
+      "quietHours": "夜间免打扰",
+      "quietHoursHint": "在此时间段内产生的通知将暂缓，待时段结束后再发送。支持跨午夜（如 22:00–08:00）。",
+      "quietHoursStart": "开始",
+      "quietHoursEnd": "结束",
       "saveSuccess": "通知策略已更新"
     },
     "logs": {

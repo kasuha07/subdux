@@ -134,7 +134,10 @@ type UpdateChannelInput struct {
 }
 
 type UpdatePolicyInput struct {
-	DaysBefore             *int  `json:"days_before"`
-	NotifyOnDueDay         *bool `json:"notify_on_due_day"`
-	NotifyManualRenewDaily *bool `json:"notify_manual_renew_daily"`
+	DaysBefore             *int    `json:"days_before"`
+	NotifyOnDueDay         *bool   `json:"notify_on_due_day"`
+	NotifyManualRenewDaily *bool   `json:"notify_manual_renew_daily"`
+	QuietHoursEnabled      *bool   `json:"quiet_hours_enabled"`
+	QuietHoursStart        *string `json:"quiet_hours_start"`
+	QuietHoursEnd          *string `json:"quiet_hours_end"`
 }

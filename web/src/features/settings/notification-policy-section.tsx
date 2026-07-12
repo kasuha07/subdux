@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -20,12 +20,9 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
   const [daysBefore, setDaysBefore] = useState(policy.days_before.toString())
   const [notifyOnDueDay, setNotifyOnDueDay] = useState(policy.notify_on_due_day)
   const [notifyManualRenewDaily, setNotifyManualRenewDaily] = useState(policy.notify_manual_renew_daily)
-
-  useEffect(() => {
-    setDaysBefore(policy.days_before.toString())
-    setNotifyOnDueDay(policy.notify_on_due_day)
-    setNotifyManualRenewDaily(policy.notify_manual_renew_daily)
-  }, [policy])
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(policy.quiet_hours_enabled)
+  const [quietHoursStart, setQuietHoursStart] = useState(policy.quiet_hours_start || "22:00")
+  const [quietHoursEnd, setQuietHoursEnd] = useState(policy.quiet_hours_end || "08:00")
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -35,6 +32,9 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
       days_before: normalized,
       notify_on_due_day: notifyOnDueDay,
       notify_manual_renew_daily: notifyManualRenewDaily,
+      quiet_hours_enabled: quietHoursEnabled,
+      quiet_hours_start: quietHoursStart,
+      quiet_hours_end: quietHoursEnd,
     })
   }
 
@@ -82,6 +82,48 @@ export function NotificationPolicySection({ onSave, policy, saving }: Props) {
         <Label htmlFor="manual-renew-daily" className="cursor-pointer">
           {t("settings.notifications.policy.notifyManualRenewDaily")}
         </Label>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <Switch
+            id="quiet-hours-enabled"
+            checked={quietHoursEnabled}
+            onCheckedChange={setQuietHoursEnabled}
+          />
+          <Label htmlFor="quiet-hours-enabled" className="cursor-pointer">
+            {t("settings.notifications.policy.quietHours")}
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.notifications.policy.quietHoursHint")}
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="quiet-hours-start" className="text-xs">
+              {t("settings.notifications.policy.quietHoursStart")}
+            </Label>
+            <Input
+              id="quiet-hours-start"
+              type="time"
+              value={quietHoursStart}
+              disabled={!quietHoursEnabled}
+              onChange={(e) => setQuietHoursStart(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="quiet-hours-end" className="text-xs">
+              {t("settings.notifications.policy.quietHoursEnd")}
+            </Label>
+            <Input
+              id="quiet-hours-end"
+              type="time"
+              value={quietHoursEnd}
+              disabled={!quietHoursEnabled}
+              onChange={(e) => setQuietHoursEnd(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <Button type="submit" size="sm" disabled={saving}>

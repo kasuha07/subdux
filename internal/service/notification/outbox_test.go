@@ -1000,6 +1000,75 @@ func TestDispatchNotificationOutboxSuccessWritesLogAndMarksSent(t *testing.T) {
 	}
 }
 
+func TestDispatchNotificationOutboxDefersWhenLatestPolicyIsQuiet(t *testing.T) {
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
+
+	db := newNotificationOutboxTestDB(t)
+	user := createNotificationOutboxUser(t, db)
+	loc := pkg.GetSystemTimezone()
+	now := time.Date(2026, 3, 15, 23, 0, 0, 0, loc).UTC()
+	restoreClock := pkg.SetNowForTest(now)
+	t.Cleanup(restoreClock)
+	notifyDate := normalizeDateUTC(now)
+	sub := createNotificationOutboxSubscription(t, db, user.ID, notifyDate)
+	requestCh := make(chan struct{}, 1)
+	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requestCh <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer proxyServer.Close()
+	seedProxySettings(t, db, "true", "http", proxyServer.URL)
+	channel := createNotificationOutboxChannel(t, db, user.ID, "webhook", `{"url":"http://notify.example.com/hook","method":"POST"}`)
+
+	start := "22:00"
+	end := "08:00"
+	_, expectedUntil := quietHoursDeferUntil(now, start, end, loc)
+	if err := db.Create(&model.NotificationPolicy{
+		UserID: user.ID, DaysBefore: 0, NotifyOnDueDay: true,
+		QuietHoursEnabled: true, QuietHoursStart: start, QuietHoursEnd: end,
+	}).Error; err != nil {
+		t.Fatalf("create notification policy failed: %v", err)
+	}
+
+	job := model.NotificationOutbox{
+		DedupeKey: "dispatch-quiet-hours", UserID: user.ID, SubscriptionID: sub.ID,
+		ChannelID: &channel.ID, ChannelType: channel.Type, TriggerType: notificationTriggerDueDay,
+		NotifyDate: notifyDate, ScheduledFor: now, Status: notificationOutboxStatusPending,
+		MaxAttempts: 5, NextAttemptAt: now, Message: "hello", TargetEmail: user.Email,
+	}
+	if err := db.Create(&job).Error; err != nil {
+		t.Fatalf("create outbox job failed: %v", err)
+	}
+
+	svc := NewService(db, nil, nil)
+	summary, err := svc.DispatchDueNotificationOutbox(context.Background())
+	if err != nil {
+		t.Fatalf("DispatchDueNotificationOutbox() error = %v", err)
+	}
+	if summary.Claimed != 1 || summary.Retried != 1 || summary.Sent != 0 {
+		t.Fatalf("summary = %#v, want claimed=1 retried=1 sent=0", summary)
+	}
+	select {
+	case <-requestCh:
+		t.Fatal("webhook was delivered during quiet hours")
+	default:
+	}
+
+	var saved model.NotificationOutbox
+	if err := db.First(&saved, job.ID).Error; err != nil {
+		t.Fatalf("load outbox job failed: %v", err)
+	}
+	if saved.Status != notificationOutboxStatusPending || saved.LockedBy != "" || saved.LockedUntil != nil {
+		t.Fatalf("outbox lease state = %q/%q/%v, want pending and unlocked", saved.Status, saved.LockedBy, saved.LockedUntil)
+	}
+	if !saved.NextAttemptAt.Equal(expectedUntil.UTC()) {
+		t.Fatalf("next_attempt_at = %v, want %v", saved.NextAttemptAt, expectedUntil.UTC())
+	}
+	if !saved.ScheduledFor.Equal(expectedUntil.UTC()) {
+		t.Fatalf("scheduled_for = %v, want %v", saved.ScheduledFor, expectedUntil.UTC())
+	}
+}
+
 func TestProcessPendingNotificationsEnqueuesAndDispatchesWebhook(t *testing.T) {
 	t.Setenv("SETTINGS_ENCRYPTION_KEY", "test-settings-key")
 

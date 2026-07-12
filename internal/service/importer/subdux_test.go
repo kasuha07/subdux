@@ -94,7 +94,7 @@ func sampleSubduxImportData() SubduxImportData {
 			Templates: []model.NotificationTemplate{
 				{ChannelType: nil, Format: "plaintext", Template: "{{.SubscriptionName}} due soon"},
 			},
-			Policy: &model.NotificationPolicy{DaysBefore: 2, NotifyOnDueDay: true, NotifyManualRenewDaily: true},
+			Policy: &SubduxNotificationPolicyImportData{DaysBefore: 2, NotifyOnDueDay: true, NotifyManualRenewDaily: true},
 		},
 	}
 }
@@ -209,6 +209,82 @@ func TestImportFromSubduxConfirmImportsAndUpdates(t *testing.T) {
 	}
 	if policy.DaysBefore != 2 || !policy.NotifyOnDueDay || !policy.NotifyManualRenewDaily {
 		t.Fatalf("policy = (%d, %v, %v), want (2, true, true)", policy.DaysBefore, policy.NotifyOnDueDay, policy.NotifyManualRenewDaily)
+	}
+}
+
+func TestImportFromSubduxLegacyPolicyPreservesExistingQuietHours(t *testing.T) {
+	db := newImportTestDB(t)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
+
+	existing := model.NotificationPolicy{
+		UserID:            user.ID,
+		DaysBefore:        7,
+		QuietHoursEnabled: true,
+		QuietHoursStart:   "22:00",
+		QuietHoursEnd:     "08:00",
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("failed to seed policy: %v", err)
+	}
+
+	data := sampleSubduxImportData()
+	data.Notifications.Policy.QuietHoursEnabled = nil
+	data.Notifications.Policy.QuietHoursStart = nil
+	data.Notifications.Policy.QuietHoursEnd = nil
+
+	resp, err := svc.ImportFromSubdux(user.ID, data, true)
+	if err != nil {
+		t.Fatalf("confirm import failed: %v", err)
+	}
+	if resp.Result == nil || resp.Result.Imported == 0 {
+		t.Fatal("expected legacy policy fields to update the existing policy")
+	}
+
+	var policy model.NotificationPolicy
+	if err := db.Where("user_id = ?", user.ID).First(&policy).Error; err != nil {
+		t.Fatalf("failed to query policy: %v", err)
+	}
+	if !policy.QuietHoursEnabled || policy.QuietHoursStart != "22:00" || policy.QuietHoursEnd != "08:00" {
+		t.Fatalf("quiet hours = (%v, %q, %q), want (true, %q, %q)", policy.QuietHoursEnabled, policy.QuietHoursStart, policy.QuietHoursEnd, "22:00", "08:00")
+	}
+}
+
+func TestImportFromSubduxExplicitEmptyQuietHoursClearsExistingValues(t *testing.T) {
+	db := newImportTestDB(t)
+	user := servicetest.CreateUser(t, db)
+	svc := NewService(db)
+
+	existing := model.NotificationPolicy{
+		UserID:                 user.ID,
+		DaysBefore:             2,
+		NotifyOnDueDay:         true,
+		NotifyManualRenewDaily: true,
+		QuietHoursEnabled:      true,
+		QuietHoursStart:        "22:00",
+		QuietHoursEnd:          "08:00",
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("failed to seed policy: %v", err)
+	}
+
+	data := sampleSubduxImportData()
+	disabled := false
+	empty := ""
+	data.Notifications.Policy.QuietHoursEnabled = &disabled
+	data.Notifications.Policy.QuietHoursStart = &empty
+	data.Notifications.Policy.QuietHoursEnd = &empty
+
+	if _, err := svc.ImportFromSubdux(user.ID, data, true); err != nil {
+		t.Fatalf("confirm import failed: %v", err)
+	}
+
+	var policy model.NotificationPolicy
+	if err := db.Where("user_id = ?", user.ID).First(&policy).Error; err != nil {
+		t.Fatalf("failed to query policy: %v", err)
+	}
+	if policy.QuietHoursEnabled || policy.QuietHoursStart != "" || policy.QuietHoursEnd != "" {
+		t.Fatalf("quiet hours = (%v, %q, %q), want explicit disabled empty values", policy.QuietHoursEnabled, policy.QuietHoursStart, policy.QuietHoursEnd)
 	}
 }
 
