@@ -4,75 +4,210 @@
 [![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fkasuha07%2Fsubdux-2ea44f?logo=docker)](https://github.com/kasuha07/subdux/pkgs/container/subdux)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 
-**Language:** English | [简体中文](README.zh-CN.md)
+<p align="center">
+  <img src="web/public/subdux-logo.svg" alt="Subdux" width="320">
+</p>
 
-**Subdux** is a self-hosted subscription tracker for recurring bills, renewals, and reminders.
-It combines a Go backend and a React frontend into a **single deployable binary** with an embedded SPA, while still supporting container-based deployment for homelabs and production servers.
+<p align="center">
+  <strong>Know what renews next. Decide before it charges.</strong>
+</p>
 
-Track SaaS tools, domains, streaming services, cloud servers, developer subscriptions, or any recurring expense — then get notified before renewal.
+<p align="center">
+  A self-hosted command center for recurring expenses—subscriptions, renewals,
+  reminders, and the decisions around them.
+</p>
 
-## Highlights
+<p align="center">
+  <a href="#quick-start"><strong>Get started</strong></a> ·
+  <a href="#automation-and-mcp">Connect an agent</a> ·
+  <a href="#what-subdux-gives-you">Explore the product</a> ·
+  <a href="docs/README.zh-CN.md">简体中文</a>
+</p>
 
-- **Built for self-hosting** — run it as a single binary or a container.
-- **Purpose-built for subscriptions** — recurring subscriptions, dashboard summaries, categories, payment methods, icons, and calendar views.
-- **Multi-currency ready** — record subscriptions in different currencies and aggregate totals into a preferred currency.
-- **Reminder system included** — reminder policies, templates, previews, test sends, logs, and multiple notification channels.
-- **Modern authentication** — email/password, password reset, TOTP 2FA, passkeys/WebAuthn, OIDC, and scoped API keys.
-- **Admin-ready** — user management, registration controls, SMTP/OIDC settings, exchange-rate management, stats, and backup/restore.
-- **Portable data** — native JSON export/import, Wallos import, and tokenized calendar feeds.
+---
 
-## Feature Overview
+Subdux turns recurring subscription charges scattered across different services into a clear, actionable timeline. See when the next charge is due, understand the real cost across currencies, and decide whether to renew or cancel before the bill arrives.
 
-| Area | Included capabilities |
-| --- | --- |
-| Subscription tracking | Recurring subscriptions, next billing dates, notes, categories, payment methods, icons, dashboard summary |
-| Notifications | Renewal reminders, day-based reminder policy, templates, previews, test sends, delivery logs |
-| Notification channels | SMTP, Resend, Telegram, Webhook, Gotify, ntfy, Bark, ServerChan3, PushDeer, pushplus, Pushover, Feishu, WeCom, DingTalk, NapCat |
-| Authentication | Email/password, forgot/reset password, TOTP + backup codes, passkeys/WebAuthn, OIDC, API keys |
-| Administration | User management, registration controls, email domain whitelist, SMTP settings, OIDC settings, stats, backup/restore |
-| Import / export | Native Subdux export/import, Wallos import, calendar feed tokens, API access |
-| Localization | English, Simplified Chinese (`zh-CN`), Japanese (`ja`) |
+It ships as a single binary and deploys with one Docker command. Your subscription records and notification settings stay on your own infrastructure.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="33.33%" align="center">
+      <img src="docs/screenshots/dashboard.png" alt="Subdux dashboard">
+      <br>
+      <strong>Dashboard</strong>
+    </td>
+    <td width="33.33%" align="center">
+      <img src="docs/screenshots/action_center.png" alt="Subdux action center">
+      <br>
+      <strong>Action Center</strong>
+    </td>
+    <td width="33.33%" align="center">
+      <img src="docs/screenshots/reports.png" alt="Subdux reports">
+      <br>
+      <strong>Reports</strong>
+    </td>
+  </tr>
+  <tr>
+    <td width="33.33%" align="center">
+      <img src="docs/screenshots/notification_settings.png" alt="Subdux notification settings">
+      <br>
+      <strong>Notification Settings</strong>
+    </td>
+    <td width="33.33%" align="center">
+      <img src="docs/screenshots/calendar_view.png" alt="Subdux calendar view">
+      <br>
+      <strong>Calendar View</strong>
+    </td>
+    <td width="33.33%" align="center">
+      <img src="docs/screenshots/subscription_detail.png" alt="Subdux subscription details">
+      <br>
+      <strong>Subscription Details</strong>
+    </td>
+  </tr>
+</table>
+
+## Why Subdux
+
+- **Lightweight deployment.** The frontend, backend, and background jobs are integrated into a single Go binary with SQLite persistence, so no separate database or cache service is required.
+- **Built around renewal decisions, not just subscription records.** The action center brings pending items together, while renewal and change history preserve what happened after each decision.
+- **A complete, configurable notification system.** Reminder policies, quiet hours, templates, previews, test sends, delivery logs, and 15 delivery channels form an end-to-end workflow.
+- **Portable data without platform lock-in.** Full import and export, Wallos migration, calendar feeds, and backup and restore make data easy to move and preserve over time.
+- **Bring subscription management into your AI Agent workflow.** Use MCP to search, create, update, and renew subscriptions, with reliable retries for write operations.
 
 ## Quick Start
 
-### Option 1: Run the published container image
+### Docker CLI
 
-Replace `<version>` with a release tag such as `0.8.1`.
+Download [`.env.example`](.env.example) as `subdux.env`, then generate stable random values for `JWT_SECRET` and `SETTINGS_ENCRYPTION_KEY`:
 
 ```bash
+curl -fsSL \
+  "https://raw.githubusercontent.com/kasuha07/subdux/main/.env.example" \
+  -o subdux.env
+chmod 600 subdux.env
+sed -i \
+  -e "s|^JWT_SECRET=.*$|JWT_SECRET=$(openssl rand -hex 32)|" \
+  -e "s|^SETTINGS_ENCRYPTION_KEY=.*$|SETTINGS_ENCRYPTION_KEY=$(openssl rand -hex 32)|" \
+  subdux.env
+mkdir -p data
+
 docker run -d \
   --name subdux \
-  -p 127.0.0.1:8080:8080 \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  --env-file ./subdux.env \
   -e DATA_PATH=/data \
-  -e JWT_SECRET=replace-with-a-long-random-string \
-  -v subdux-data:/data \
-  ghcr.io/kasuha07/subdux:<version>
+  -v "$(pwd)/data:/data" \
+  ghcr.io/kasuha07/subdux:stable
 ```
 
-Then open <http://localhost:8080>.
+After the container is running, open <http://localhost:8080>.
 
-On a fresh instance, Subdux creates the initial admin user during startup and prints the generated password once:
+On a fresh instance, Subdux automatically creates the initial administrator and prints a random password only during the first initialization:
 
 ```bash
 docker logs subdux
 ```
 
-Default initial admin:
+Default initial administrator:
 
 - Username: `admin`
 - Email: `admin@subdux.local`
 
-Set `SUBDUX_INITIAL_ADMIN_USERNAME`, `SUBDUX_INITIAL_ADMIN_EMAIL`, and `SUBDUX_INITIAL_ADMIN_PASSWORD` before the first startup if you want to choose the initial credentials yourself. Public registration is disabled by default and can be enabled later from the admin settings page.
+To choose the initial credentials yourself, edit `SUBDUX_INITIAL_ADMIN_USERNAME`, `SUBDUX_INITIAL_ADMIN_EMAIL`, and `SUBDUX_INITIAL_ADMIN_PASSWORD` in `subdux.env` before the first startup. Public registration is disabled by default and can be enabled in the admin settings after signing in.
 
-### Option 2: Use the bundled Docker Compose file
+### Docker Compose
 
-The repository includes a `docker-compose.yml` that builds the image locally.
+Download the Compose file and environment template, generate stable secrets for JWT signing and settings encryption, then start the service:
 
 ```bash
-docker compose up --build -d
+curl -fsSLO \
+  "https://raw.githubusercontent.com/kasuha07/subdux/main/docker-compose.yml"
+curl -fsSL \
+  "https://raw.githubusercontent.com/kasuha07/subdux/main/.env.example" \
+  -o .env
+chmod 600 .env
+sed -i \
+  -e "s|^JWT_SECRET=.*$|JWT_SECRET=$(openssl rand -hex 32)|" \
+  -e "s|^SETTINGS_ENCRYPTION_KEY=.*$|SETTINGS_ENCRYPTION_KEY=$(openssl rand -hex 32)|" \
+  .env
+mkdir -p data
+
+docker compose up -d
 ```
 
-This starts Subdux on `127.0.0.1:8080` and stores persistent data in the `subdux-data` volume. Use `docker compose logs subdux` to read the one-time initial admin password.
+After the container is running, open <http://localhost:8080>. On the first startup, retrieve the one-time initial administrator password from the logs:
+
+```bash
+docker compose ps
+docker compose logs subdux
+```
+
+Keep `.env` private and back up the `data/` directory. To upgrade, pull the latest image and recreate the container:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Automation and MCP
+
+Create an API key in Subdux and connect an MCP client:
+
+```json
+{
+  "mcpServers": {
+    "subdux": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "X-API-Key": "sdx_xxx...",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      }
+    }
+  }
+}
+```
+
+The endpoint is stateless: every `POST /mcp` request is authenticated independently. Write tools require an `idempotency_key`, so a client can safely retry after a timeout without repeating an operation. Reusing a key with different arguments is rejected, and keys are isolated per user.
+
+Subdux supports JSON-RPC requests for `initialize`, `ping`, `tools/list`, and `tools/call`. It does not keep MCP transport sessions or provide SSE/server-initiated streaming.
+
+## What Subdux Gives You
+
+**Preview recurring expenses**
+
+When adding a subscription, record its amount, currency, billing cycle, renewal method, next billing date, category, payment method, notes, and custom icon. Weekly, monthly, annual, and custom-cycle expenses—from SaaS and domains to cloud services and memberships—can all be managed with the same model instead of scattered spreadsheets and calendar reminders.
+
+The dashboard aggregates monthly and annual costs in your preferred currency and highlights upcoming charges. Reports break costs down by category, payment method, and renewal method, with forecasts for the next 12 months, recent price increases, and annual cost changes. The calendar places every expected charge back on a timeline, connecting how much you spend with when you need to act.
+
+**Built around renewal decisions, not just subscription records**
+
+The action center goes beyond showing upcoming renewals. It brings together pending automatic charges, manual renewals, scheduled cancellations, price increases, failed notifications, and subscriptions without a billing date, organized by urgency and time window. You can mark a subscription as renewed, keep it active, cancel it at the end of the current period, or dismiss the item for seven days without hunting through multiple pages.
+
+Every creation, update, and manual renewal leaves a change record, and subscription details show the upcoming billing schedule. Background jobs continue advancing the lifecycle of automatically renewed and scheduled-to-end subscriptions, so dashboards, reports, and the action center reflect the current state instead of the data originally entered.
+
+**Send notifications where you actually use them**
+
+Notification policies control advance reminder days, same-day reminders, and manual-renewal reminders, while individual subscriptions can override the defaults. Quiet hours are checked again immediately before delivery, preventing notifications already in the queue from bypassing the latest policy.
+
+Set a default template for every channel or customize content for a specific channel, then preview or test it before enabling delivery. Notifications first enter a persistent queue, failed deliveries retry according to policy, and final results are written to delivery logs so you can confirm whether a reminder actually arrived. Supported channels include SMTP, Resend, Telegram, Webhook, Gotify, ntfy, Bark, ServerChan3, PushDeer, pushplus, Pushover, Feishu, WeCom, DingTalk, and NapCat.
+
+**Multi-user support**
+
+Each user manages their own subscriptions, notifications, and access credentials, and can sign in with a password, TOTP and recovery codes, a passkey/WebAuthn, or OIDC. Public registration is disabled by default; for multi-user deployments, administrators can control registration, allowed email domains, user roles, and account status.
+
+Sensitive operations such as credential changes, user management, system settings, and backup and restore are protected by human-session boundaries and operation-level reauthentication. API keys for programmatic access have separate scopes and are never treated as human login sessions. Administrators can also inspect audit records and background job status, and centrally configure SMTP, OIDC, exchange-rate sources, and backup policies.
+
+**Take your data with you at any time**
+
+Subdux's native JSON format can migrate subscriptions, categories, payment methods, currency preferences, and notification settings. Sensitive notification secrets are redacted by default; when a complete migration is required, secrets can be exported after reauthentication. A preview shows which records will be added, updated, or skipped before import. Existing Wallos users can likewise preview the migration before importing subscriptions, categories, currencies, and payment methods.
+
+Calendar feeds provide read-only subscriptions through independent tokens for use with common calendar clients. Administrators can also create or schedule instance backups, choose whether to include uploaded assets, enable encryption, and set a retention count. Together with the REST API and MCP, this keeps data both fully portable and safely available to other tools.
 
 ## Configuration
 
@@ -103,54 +238,12 @@ This starts Subdux on `127.0.0.1:8080` and stores persistent data in the `subdux
 - If you use OIDC, make sure the redirect URL configured in Subdux exactly matches the provider configuration.
 - Passkeys and OIDC generally require correct public URL and HTTPS configuration.
 - If you enable the in-app system proxy, configure egress ACLs on that proxy. For user-configurable outbound requests, Subdux applies hostname policy before proxying, but proxy DNS resolution and private-network blocking are the proxy's responsibility. Admin-configured outbound destinations are trusted as administrator policy.
-- Enable response compression (gzip/zstd/brotli) at your reverse proxy. Subdux already sends long-lived `immutable` cache headers for its content-hashed `/assets/*` bundles, but it does not compress responses itself — terminating compression at the edge (Caddy `encode zstd gzip`, Nginx `gzip on`) keeps it off the SSE/streaming paths and cuts first-load transfer size the most.
 
 ## Architecture
 
-Subdux uses a monorepo, but deploys as a single application:
-
-- **Backend:** Go 1.25 + Echo + GORM + SQLite
+- **Backend:** Go 1.26.4 + Echo + GORM + SQLite
 - **Frontend:** React 19 + Vite + TypeScript + Tailwind CSS v4 + Shadcn/UI
 - **Deployment model:** the frontend is built into `web/dist`, then embedded into the Go binary via `go:embed`
-
-Runtime routing:
-
-- `/` — SPA frontend
-- `/api/*` — REST API
-- `/uploads/*` — uploaded assets
-- `/api/calendar/feed` — tokenized read-only calendar feed
-- `/mcp` — stateless MCP JSON-RPC over HTTP endpoint for agent access
-
-MCP clients can connect with a user-created API key:
-
-```json
-{
-  "mcpServers": {
-    "subdux": {
-      "type": "http",
-      "url": "http://127.0.0.1:8080/mcp",
-      "headers": {
-        "X-API-Key": "sdx_xxx...",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      }
-    }
-  }
-}
-```
-
-Protocol boundary:
-
-- Subdux does not maintain MCP transport sessions. Each `POST /mcp` request is authenticated independently with `X-API-Key`.
-- MCP requests must use `Content-Type: application/json` and `Accept: application/json`.
-- Write tools (`create_subscription`, `update_subscription`, `delete_subscription`, `mark_subscription_renewed`) require an `idempotency_key` argument. Retrying with the same key replays the original result instead of repeating the operation, so an agent can safely retry after a timeout; reusing a key with different arguments is rejected. Keys are scoped per user.
-- The endpoint returns JSON-RPC responses for `initialize`, `ping`, `tools/list`, and `tools/call`; JSON-RPC notifications such as `notifications/initialized` return `202 Accepted` with no response body.
-- The endpoint does not provide SSE or server-initiated streaming.
-
-Background jobs started by the server include:
-
-- exchange-rate refresh
-- pending notification processing
 
 ## Project Structure
 
@@ -166,14 +259,15 @@ subdux/
 ├── frontend.go          # go:embed for web/dist
 ├── Makefile             # Common build commands
 ├── Dockerfile           # Multi-stage container build
-└── docker-compose.yml
+├── docker-compose.yml   # Compose deployment example
+└── .env.example         # Environment variable template
 ```
 
 ## Development
 
 ### Requirements
 
-- Go **1.25+**
+- Go **1.26.4+**
 - Bun **1.x**
 - Optional: `tmux` for `make dev`
 
@@ -215,32 +309,13 @@ make clean      # remove local binary
 ### Checks
 
 ```bash
-go test ./...
-
-cd web
-bun run lint
-bun run build
+make check              # formatting, frontend lint/build, Go vet/test
+cd web && bun run test  # frontend tests
 ```
-
-## Releases and Distribution
-
-- CI runs on pushes and pull requests to `main`.
-- Version tags like `v0.8.1` publish multi-architecture container images to GHCR.
-- Container image: `ghcr.io/kasuha07/subdux`
-- Releases: <https://github.com/kasuha07/subdux/releases>
 
 ## Contributing
 
 Issues and pull requests are welcome.
-
-Before opening a PR, please run:
-
-```bash
-go test ./...
-cd web && bun run lint && bun run build
-```
-
-If you are contributing UI or frontend behavior, keep changes inside the feature-folder structure under `web/src/features/` and avoid editing generated files under `web/src/components/ui/`.
 
 ## License
 

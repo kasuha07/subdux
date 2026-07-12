@@ -1,19 +1,23 @@
 services:
   subdux:
-    build: .
+    image: ghcr.io/kasuha07/subdux:${SUBDUX_VERSION:-stable}
     container_name: subdux
     ports:
-      - "127.0.0.1:8080:8080"
+      - "${SUBDUX_HOST_PORT:-8080}:8080"
     volumes:
-      - subdux-data:/data
+      - ./data:/data
     environment:
-      - DATA_PATH=/data
-      - JWT_SECRET=${JWT_SECRET:-}
-      - PORT=8080
-      - SUBDUX_INITIAL_ADMIN_USERNAME=${SUBDUX_INITIAL_ADMIN_USERNAME:-admin}
-      - SUBDUX_INITIAL_ADMIN_EMAIL=${SUBDUX_INITIAL_ADMIN_EMAIL:-admin@subdux.local}
-      - SUBDUX_INITIAL_ADMIN_PASSWORD=${SUBDUX_INITIAL_ADMIN_PASSWORD:-}
+      DATA_PATH: /data
+      PORT: 8080
+      TZ: ${TZ:-UTC}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:?set SETTINGS_ENCRYPTION_KEY in .env}
+      ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-15}
+      REFRESH_TOKEN_TTL_HOURS: ${REFRESH_TOKEN_TTL_HOURS:-720}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-auto}
+      SUBDUX_INITIAL_ADMIN_USERNAME: ${SUBDUX_INITIAL_ADMIN_USERNAME:-admin}
+      SUBDUX_INITIAL_ADMIN_EMAIL: ${SUBDUX_INITIAL_ADMIN_EMAIL:-admin@subdux.local}
+      SUBDUX_INITIAL_ADMIN_PASSWORD: ${SUBDUX_INITIAL_ADMIN_PASSWORD:-}
     restart: unless-stopped
-
-volumes:
-  subdux-data:
