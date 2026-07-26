@@ -388,6 +388,9 @@ const admin = {
       webdavPassword: "密码",
       webdavPasswordConfigured: "密码已配置——留空则保留",
       webdavPasswordClear: "清除",
+      skipTlsVerify: "跳过 TLS 证书校验",
+      skipTlsVerifyDescription:
+        "仅建议在受信任的自签名证书端点上开启。开启后将不再校验服务器身份，任何能够截获该连接的人都可以读取备份内容以及发送到该目标的凭据。更推荐安装该端点的 CA 证书。",
       scheduleTimeOfDay: "执行时间",
       scheduleTimeOfDayDescription: "每天在此时间自动备份到该目标，使用服务器时区的 24 小时制（HH:MM）。",
       scheduleIncludeAssets: "包含 assets",

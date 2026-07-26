@@ -40,6 +40,9 @@ export interface DestinationFormValues {
   webdavPath: string
   webdavUsername: string
   webdavPassword: string
+  // shared by the two network types (s3, webdav); local writes to disk and has
+  // no TLS to relax
+  skipTlsVerify: boolean
   // schedule — every destination is its own backup plan, so all types carry these
   timeOfDay: string
   includeAssets: boolean
@@ -73,6 +76,26 @@ export default function AdminBackupDestinationFormFields({
   function isConfigured(field: string) {
     return editTarget?.configured_secret_fields.includes(field) ?? false
   }
+
+  // Both network types carry the same switch against the same config field, so
+  // it is written once here rather than duplicated into each type's branch.
+  const skipTlsVerifyToggle = (
+    <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+      <div className="space-y-0.5">
+        <Label htmlFor="dest-skip-tls-verify">
+          {t("admin.backup.destinations.skipTlsVerify")}
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          {t("admin.backup.destinations.skipTlsVerifyDescription")}
+        </p>
+      </div>
+      <Switch
+        id="dest-skip-tls-verify"
+        checked={values.skipTlsVerify}
+        onCheckedChange={(checked) => onValuesChange({ skipTlsVerify: checked })}
+      />
+    </div>
+  )
 
   return (
     <>
@@ -240,6 +263,8 @@ export default function AdminBackupDestinationFormFields({
             />
           </div>
 
+          {skipTlsVerifyToggle}
+
           <div className="space-y-2">
             <Label htmlFor="dest-s3-retention">{t("admin.backup.retentionCount")}</Label>
             <Input
@@ -325,6 +350,8 @@ export default function AdminBackupDestinationFormFields({
                 </p>
               ) : null)}
           </div>
+
+          {skipTlsVerifyToggle}
 
           <div className="space-y-2">
             <Label htmlFor="dest-webdav-retention">{t("admin.backup.retentionCount")}</Label>

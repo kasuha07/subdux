@@ -138,6 +138,7 @@ describe("parseS3Config", () => {
       secretAccessKey: "secret",
       useSsl: true,
       usePathStyle: false,
+      skipTlsVerify: false,
       retentionCount: 5,
     })
     const dest = makeDestination({ type: "s3", config })
@@ -148,6 +149,7 @@ describe("parseS3Config", () => {
     expect(parsed.secret_access_key).toBe("secret")
     expect(parsed.use_ssl).toBe(true)
     expect(parsed.use_path_style).toBe(false)
+    expect(parsed.skip_tls_verify).toBe(false)
     expect(parsed.retention_count).toBe(5)
   })
 
@@ -162,6 +164,7 @@ describe("parseS3Config", () => {
       secretAccessKey: "pass",
       useSsl: false,
       usePathStyle: true,
+      skipTlsVerify: true,
       retentionCount: 3,
     })
     const dest = makeDestination({ type: "s3", config })
@@ -192,6 +195,7 @@ describe("buildS3Config", () => {
     secretAccessKey: "secret",
     useSsl: true,
     usePathStyle: false,
+    skipTlsVerify: false,
     retentionCount: 7,
   }
 
@@ -204,6 +208,19 @@ describe("buildS3Config", () => {
     expect(obj.use_ssl).toBe(true)
     expect(obj.use_path_style).toBe(false)
     expect(obj.retention_count).toBe(7)
+  })
+
+  // skip_tls_verify is never omit-empty: an admin turning the switch back off
+  // must overwrite the stored true, not leave the destination skipping
+  // verification because the key went missing from the payload.
+  it("always emits skip_tls_verify, including when off", () => {
+    const off = JSON.parse(buildS3Config(baseFields)) as Record<string, unknown>
+    expect(off.skip_tls_verify).toBe(false)
+
+    const on = JSON.parse(
+      buildS3Config({ ...baseFields, skipTlsVerify: true })
+    ) as Record<string, unknown>
+    expect(on.skip_tls_verify).toBe(true)
   })
 
   it("excludes region key when region is empty", () => {
@@ -313,6 +330,7 @@ describe("parseWebDAVConfig", () => {
       path: "backups",
       username: "admin",
       password: "secret",
+      skipTlsVerify: true,
       retentionCount: 5,
     })
     const dest = makeDestination({ type: "webdav", config })
@@ -321,6 +339,7 @@ describe("parseWebDAVConfig", () => {
     expect(parsed.path).toBe("backups")
     expect(parsed.username).toBe("admin")
     expect(parsed.password).toBe("secret")
+    expect(parsed.skip_tls_verify).toBe(true)
     expect(parsed.retention_count).toBe(5)
   })
 
@@ -342,6 +361,7 @@ describe("buildWebDAVConfig", () => {
     path: "",
     username: "",
     password: "secret",
+    skipTlsVerify: false,
     retentionCount: 7,
   }
 
@@ -350,6 +370,17 @@ describe("buildWebDAVConfig", () => {
     expect(obj.url).toBe("https://dav.example.com/remote.php/dav/files/user")
     expect(obj.password).toBe("secret")
     expect(obj.retention_count).toBe(7)
+  })
+
+  // Same non-omit-empty contract as the s3 switch.
+  it("always emits skip_tls_verify, including when off", () => {
+    const off = JSON.parse(buildWebDAVConfig(baseFields)) as Record<string, unknown>
+    expect(off.skip_tls_verify).toBe(false)
+
+    const on = JSON.parse(
+      buildWebDAVConfig({ ...baseFields, skipTlsVerify: true })
+    ) as Record<string, unknown>
+    expect(on.skip_tls_verify).toBe(true)
   })
 
   it("excludes path key when path is empty", () => {
@@ -377,6 +408,7 @@ describe("buildWebDAVConfig", () => {
       path: "mypath",
       username: "user",
       password: "pass",
+      skipTlsVerify: true,
       retentionCount: 3,
     }
     const config = buildWebDAVConfig(fields)
@@ -386,6 +418,7 @@ describe("buildWebDAVConfig", () => {
     expect(parsed.path).toBe(fields.path)
     expect(parsed.username).toBe(fields.username)
     expect(parsed.password).toBe(fields.password)
+    expect(parsed.skip_tls_verify).toBe(fields.skipTlsVerify)
     expect(parsed.retention_count).toBe(fields.retentionCount)
   })
 })
@@ -446,6 +479,7 @@ describe("shared schedule config fields", () => {
         secretAccessKey: "secret",
         useSsl: true,
         usePathStyle: false,
+        skipTlsVerify: false,
         retentionCount: 7,
       })
     ) as Record<string, unknown>
@@ -463,6 +497,7 @@ describe("shared schedule config fields", () => {
         path: "",
         username: "",
         password: "secret",
+        skipTlsVerify: false,
         retentionCount: 7,
       })
     ) as Record<string, unknown>

@@ -62,12 +62,14 @@ var destinationConfigSchemas = buildDestinationConfigSchemas(map[string]map[stri
 		"access_key_id":     destinationConfigString,
 		"secret_access_key": destinationConfigString,
 		"use_path_style":    destinationConfigBool,
+		"skip_tls_verify":   destinationConfigBool,
 	},
 	"webdav": {
-		"url":      destinationConfigString,
-		"path":     destinationConfigString,
-		"username": destinationConfigString,
-		"password": destinationConfigString,
+		"url":             destinationConfigString,
+		"path":            destinationConfigString,
+		"username":        destinationConfigString,
+		"password":        destinationConfigString,
+		"skip_tls_verify": destinationConfigBool,
 	},
 })
 

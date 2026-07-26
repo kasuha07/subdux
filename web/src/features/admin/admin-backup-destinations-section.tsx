@@ -78,6 +78,7 @@ const EMPTY_DESTINATION_FORM: DestinationFormValues = {
   webdavPath: "",
   webdavUsername: "",
   webdavPassword: "",
+  skipTlsVerify: false,
   timeOfDay: "03:00",
   includeAssets: false,
   encryptEnabled: false,
@@ -161,6 +162,7 @@ export default function AdminBackupDestinationsSection({
         secretAccessKey: "",
         useSsl: parsed.use_ssl ?? true,
         usePathStyle: parsed.use_path_style ?? false,
+        skipTlsVerify: parsed.skip_tls_verify ?? false,
         retention: parsed.retention_count ?? 7,
         ...scheduleFormValues(parsed),
       })
@@ -175,6 +177,7 @@ export default function AdminBackupDestinationsSection({
         webdavUsername: parsed.username ?? "",
         // password is blanked by the server; same empty-start treatment
         webdavPassword: "",
+        skipTlsVerify: parsed.skip_tls_verify ?? false,
         retention: parsed.retention_count ?? 7,
         ...scheduleFormValues(parsed),
       })
@@ -235,6 +238,7 @@ export default function AdminBackupDestinationsSection({
         secretAccessKey: secretResolution.value,
         useSsl: destForm.useSsl,
         usePathStyle: destForm.usePathStyle,
+        skipTlsVerify: destForm.skipTlsVerify,
         retentionCount: destForm.retention,
         ...schedule,
       })
@@ -253,6 +257,7 @@ export default function AdminBackupDestinationsSection({
         path: destForm.webdavPath,
         username: destForm.webdavUsername,
         password: passwordResolution.value,
+        skipTlsVerify: destForm.skipTlsVerify,
         retentionCount: destForm.retention,
         ...schedule,
       })
@@ -451,6 +456,11 @@ export default function AdminBackupDestinationsSection({
                             <span className="font-mono">{s3Parsed.prefix}</span>
                           </p>
                         )}
+                        {s3Parsed.skip_tls_verify && (
+                          <Badge variant="outline" className="text-destructive">
+                            {t("admin.backup.destinations.skipTlsVerify")}
+                          </Badge>
+                        )}
                       </>
                     ) : isWebDAV ? (
                       <>
@@ -465,6 +475,11 @@ export default function AdminBackupDestinationsSection({
                             {t("admin.backup.destinations.webdavPath")}:{" "}
                             <span className="font-mono">{webdavParsed.path}</span>
                           </p>
+                        )}
+                        {webdavParsed.skip_tls_verify && (
+                          <Badge variant="outline" className="text-destructive">
+                            {t("admin.backup.destinations.skipTlsVerify")}
+                          </Badge>
                         )}
                       </>
                     ) : (

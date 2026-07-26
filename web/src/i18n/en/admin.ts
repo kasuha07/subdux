@@ -427,6 +427,9 @@ const admin = {
       webdavPassword: "Password",
       webdavPasswordConfigured: "Password configured — leave blank to keep",
       webdavPasswordClear: "Clear",
+      skipTlsVerify: "Skip TLS certificate verification",
+      skipTlsVerifyDescription:
+        "Only enable for a trusted endpoint using a self-signed certificate. The server's identity is no longer verified, so anyone able to intercept the connection can read the backup and any credentials sent to this destination. Prefer installing the endpoint's CA certificate.",
       scheduleTimeOfDay: "Time of day",
       scheduleTimeOfDayDescription:
         "Back up to this destination daily at this time, as 24-hour time (HH:MM) in the server's timezone.",

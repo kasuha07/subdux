@@ -33,6 +33,7 @@ export interface S3DestConfig extends ScheduleDestConfig {
   secret_access_key?: string
   use_ssl?: boolean
   use_path_style?: boolean
+  skip_tls_verify?: boolean
   retention_count?: number
 }
 
@@ -41,6 +42,7 @@ export interface WebDAVDestConfig extends ScheduleDestConfig {
   path?: string
   username?: string
   password?: string
+  skip_tls_verify?: boolean
   retention_count?: number
 }
 
@@ -109,11 +111,15 @@ export interface S3ConfigFields extends ScheduleConfigFields {
   secretAccessKey: string
   useSsl: boolean
   usePathStyle: boolean
+  skipTlsVerify: boolean
   retentionCount: number
 }
 
 // buildS3Config serialises the s3 form fields into the config JSON the backend
 // expects. Empty region/prefix are omitted so the stored config stays clean.
+// skip_tls_verify is always written, like the other switches: omitting it when
+// off would leave a previously enabled destination skipping verification after
+// the admin turned the toggle back off.
 export function buildS3Config(fields: S3ConfigFields): string {
   const config: Record<string, unknown> = {
     endpoint: fields.endpoint,
@@ -122,6 +128,7 @@ export function buildS3Config(fields: S3ConfigFields): string {
     secret_access_key: fields.secretAccessKey,
     use_ssl: fields.useSsl,
     use_path_style: fields.usePathStyle,
+    skip_tls_verify: fields.skipTlsVerify,
     retention_count: fields.retentionCount,
     ...scheduleConfigEntries(fields),
   }
@@ -144,16 +151,19 @@ export interface WebDAVConfigFields extends ScheduleConfigFields {
   path: string
   username: string
   password: string
+  skipTlsVerify: boolean
   retentionCount: number
 }
 
 // buildWebDAVConfig serialises the webdav form fields into the config JSON the
 // backend expects. Empty path/username are omitted so the stored config stays
-// clean (mirrors s3's omit-empty treatment for region/prefix).
+// clean (mirrors s3's omit-empty treatment for region/prefix); skip_tls_verify
+// is always written for the same reason it is in buildS3Config.
 export function buildWebDAVConfig(fields: WebDAVConfigFields): string {
   const config: Record<string, unknown> = {
     url: fields.url,
     password: fields.password,
+    skip_tls_verify: fields.skipTlsVerify,
     retention_count: fields.retentionCount,
     ...scheduleConfigEntries(fields),
   }

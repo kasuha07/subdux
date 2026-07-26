@@ -39,15 +39,16 @@ type s3Target struct {
 
 // s3Config is the decoded, validated form of a persisted s3 destination config.
 type s3Config struct {
-	endpointHost string
-	secure       bool
-	region       string
-	bucket       string
-	prefix       string
-	accessKeyID  string
-	secretKey    string
-	usePathStyle bool
-	retention    int
+	endpointHost  string
+	secure        bool
+	region        string
+	bucket        string
+	prefix        string
+	accessKeyID   string
+	secretKey     string
+	usePathStyle  bool
+	skipTLSVerify bool
+	retention     int
 }
 
 type s3DestinationConfig struct {
@@ -59,6 +60,7 @@ type s3DestinationConfig struct {
 	AccessKeyID     string `json:"access_key_id"`
 	SecretAccessKey string `json:"secret_access_key"`
 	UsePathStyle    bool   `json:"use_path_style"`
+	SkipTLSVerify   bool   `json:"skip_tls_verify"`
 	RetentionCount  int    `json:"retention_count"`
 }
 
@@ -70,8 +72,13 @@ func newS3Target(config map[string]any, db *gorm.DB) (*s3Target, error) {
 
 	// The HTTP transport carries the system proxy configuration but intentionally
 	// does not apply the SSRF filter, because backup endpoints are administrator
-	// policy. See newBackupDestinationHTTPClient for the trust-boundary rationale.
-	transport := newBackupDestinationHTTPClient(db, s3BackupTimeout).Transport
+	// policy. See newBackupDestinationHTTPClient for the trust-boundary rationale
+	// and for how skip_tls_verify is confined to this destination.
+	httpClient, err := newBackupDestinationHTTPClient(db, s3BackupTimeout, parsed.skipTLSVerify)
+	if err != nil {
+		return nil, err
+	}
+	transport := httpClient.Transport
 
 	lookup := minio.BucketLookupAuto
 	if parsed.usePathStyle {
@@ -205,14 +212,15 @@ func parseS3Config(config map[string]any) (s3Config, error) {
 	}
 
 	cfg := s3Config{
-		secure:       secure,
-		region:       strings.TrimSpace(raw.Region),
-		bucket:       strings.TrimSpace(raw.Bucket),
-		prefix:       normalizeS3Prefix(raw.Prefix),
-		accessKeyID:  strings.TrimSpace(raw.AccessKeyID),
-		secretKey:    raw.SecretAccessKey,
-		usePathStyle: raw.UsePathStyle,
-		retention:    retention,
+		secure:        secure,
+		region:        strings.TrimSpace(raw.Region),
+		bucket:        strings.TrimSpace(raw.Bucket),
+		prefix:        normalizeS3Prefix(raw.Prefix),
+		accessKeyID:   strings.TrimSpace(raw.AccessKeyID),
+		secretKey:     raw.SecretAccessKey,
+		usePathStyle:  raw.UsePathStyle,
+		skipTLSVerify: raw.SkipTLSVerify,
+		retention:     retention,
 	}
 
 	endpointHost, secureFromScheme, hasScheme, err := normalizeS3Endpoint(raw.Endpoint)

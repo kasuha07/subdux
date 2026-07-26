@@ -425,6 +425,9 @@ const admin = {
       webdavPassword: "パスワード",
       webdavPasswordConfigured: "パスワードは設定済みです — 空欄のままにすると保持されます",
       webdavPasswordClear: "クリア",
+      skipTlsVerify: "TLS 証明書の検証をスキップ",
+      skipTlsVerifyDescription:
+        "自己署名証明書を使う信頼済みのエンドポイントでのみ有効にしてください。サーバーの身元が検証されなくなるため、接続を傍受できる第三者がバックアップの内容やこの保存先へ送信する認証情報を読み取れます。エンドポイントの CA 証明書をインストールする方法を推奨します。",
       scheduleTimeOfDay: "実行時刻",
       scheduleTimeOfDayDescription:
         "この保存先へ毎日この時刻にバックアップします。サーバーのタイムゾーンでの 24 時間表記（HH:MM）です。",

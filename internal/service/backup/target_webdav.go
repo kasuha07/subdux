@@ -36,10 +36,11 @@ type webdavTarget struct {
 }
 
 type webdavConfig struct {
-	baseURL   string
-	username  string
-	password  string
-	retention int
+	baseURL       string
+	username      string
+	password      string
+	skipTLSVerify bool
+	retention     int
 }
 
 type webdavDestinationConfig struct {
@@ -47,6 +48,7 @@ type webdavDestinationConfig struct {
 	Path           string `json:"path"`
 	Username       string `json:"username"`
 	Password       string `json:"password"`
+	SkipTLSVerify  bool   `json:"skip_tls_verify"`
 	RetentionCount int    `json:"retention_count"`
 }
 
@@ -56,8 +58,15 @@ func newWebDAVTarget(config map[string]any, db *gorm.DB) (*webdavTarget, error) 
 		return nil, err
 	}
 
+	// See newBackupDestinationHTTPClient for the trust-boundary rationale and
+	// for how skip_tls_verify stays confined to this destination.
+	client, err := newBackupDestinationHTTPClient(db, webdavTimeout, parsed.skipTLSVerify)
+	if err != nil {
+		return nil, err
+	}
+
 	return &webdavTarget{
-		client:         newBackupDestinationHTTPClient(db, webdavTimeout),
+		client:         client,
 		baseURL:        parsed.baseURL,
 		username:       parsed.username,
 		password:       parsed.password,
@@ -270,10 +279,11 @@ func parseWebDAVConfig(config map[string]any) (webdavConfig, error) {
 	base := strings.TrimRight(parsedURL.String(), "/")
 
 	return webdavConfig{
-		baseURL:   base,
-		username:  strings.TrimSpace(raw.Username),
-		password:  raw.Password,
-		retention: retention,
+		baseURL:       base,
+		username:      strings.TrimSpace(raw.Username),
+		password:      raw.Password,
+		skipTLSVerify: raw.SkipTLSVerify,
+		retention:     retention,
 	}, nil
 }
 

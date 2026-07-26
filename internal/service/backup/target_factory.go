@@ -2,12 +2,25 @@ package backup
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service/outbound"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
+)
+
+// ErrBackupSkipTLSVerifyUnsupported is returned when a destination asks to skip
+// certificate verification but the outbound transport resolved for it cannot
+// carry that setting. Refusing to build the target is deliberate: the
+// alternative is a destination that quietly keeps verifying and fails its
+// handshake with no explanation of why the switch had no effect.
+var ErrBackupSkipTLSVerifyUnsupported = serviceerr.New(
+	serviceerr.KindInternal,
+	"backup_skip_tls_verify_unsupported",
+	"skip TLS verification is not supported by the configured outbound transport",
 )
 
 // newBackupTarget resolves a persisted destination row into a live target. The
@@ -57,12 +70,85 @@ func newBackupTargetFromConfig(destinationType string, config map[string]any, db
 // rather than calling NewOutboundHTTPClient directly keeps that trust-boundary
 // decision discoverable from the policy map instead of only from a comment.
 //
+// skipTLSVerify is the per-destination compatibility switch for endpoints
+// presenting a self-signed or otherwise unverifiable certificate, matching the
+// SMTP sender's switch. It is scoped to the one destination that opted in: the
+// transport is cloned rather than adjusted in place precisely so that scoping
+// holds (see backupDestinationTransport).
+//
 // A nil db (unit contexts) or a construction failure falls back to the plain
 // proxy-aware client, which is the same transport this purpose resolves to.
-func newBackupDestinationHTTPClient(db *gorm.DB, timeout time.Duration) *http.Client {
+func newBackupDestinationHTTPClient(db *gorm.DB, timeout time.Duration, skipTLSVerify bool) (*http.Client, error) {
 	client, err := outbound.BuildHTTPClientWithTimeout(context.Background(), db, outbound.PurposeBackupDestination, timeout)
 	if err != nil {
-		return outbound.NewOutboundHTTPClient(db, timeout)
+		client = outbound.NewOutboundHTTPClient(db, timeout)
 	}
-	return client
+	if !skipTLSVerify {
+		return client, nil
+	}
+
+	transport, err := backupDestinationTransport(client.Transport)
+	if err != nil {
+		return nil, err
+	}
+	client.Transport = transport
+	return client, nil
+}
+
+// backupDestinationTransport returns a copy of base with certificate
+// verification disabled.
+//
+// Cloning is the whole point: for this purpose the outbound constructor hands
+// back either http.DefaultTransport — shared by every outbound caller in the
+// process — or a transport it clones for the proxy path, and disabling
+// verification on the former in place would silently switch it off for OIDC,
+// notifications, and the icon proxy too. The clone keeps the proxy and dialer
+// configuration that was resolved for this purpose while confining the relaxed
+// TLS policy to the destination that asked for it.
+//
+// A transport this function cannot copy is an error rather than a silent
+// fallback to ordinary verification: an admin who enabled the switch for a
+// self-signed endpoint would otherwise see nothing but unexplained handshake
+// failures.
+func backupDestinationTransport(base http.RoundTripper) (*http.Transport, error) {
+	var transport *http.Transport
+	switch typed := base.(type) {
+	case nil:
+		// A nil Transport means the client falls back to http.DefaultTransport.
+		transport = defaultHTTPTransportClone()
+	case *http.Transport:
+		transport = typed.Clone()
+	default:
+		return nil, ErrBackupSkipTLSVerifyUnsupported
+	}
+	if transport == nil {
+		return nil, ErrBackupSkipTLSVerifyUnsupported
+	}
+
+	tlsConfig := transport.TLSClientConfig
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{}
+	} else {
+		tlsConfig = tlsConfig.Clone()
+	}
+	if tlsConfig.MinVersion == 0 {
+		// The switch is about an unverifiable certificate, not about accepting a
+		// legacy protocol version. Pinning the floor that Go would apply anyway
+		// makes that explicit so relaxing verification can never read as
+		// permission to negotiate down.
+		tlsConfig.MinVersion = tls.VersionTLS12
+	}
+	// #nosec G402 -- Not a security issue: default false; admin-only
+	// compatibility switch for trusted self-signed backup endpoints, scoped to
+	// the single destination that enabled it.
+	tlsConfig.InsecureSkipVerify = true
+	transport.TLSClientConfig = tlsConfig
+	return transport, nil
+}
+
+func defaultHTTPTransportClone() *http.Transport {
+	if transport, ok := http.DefaultTransport.(*http.Transport); ok {
+		return transport.Clone()
+	}
+	return nil
 }
