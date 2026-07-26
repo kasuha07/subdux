@@ -11,9 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
@@ -760,6 +762,15 @@ func TestMCPCreateAndListSubscriptionWithAPIKey(t *testing.T) {
 }
 
 func TestMCPSearchSubscriptions(t *testing.T) {
+	// Pin the clock so the subscription lifecycle sweep (which advances the
+	// stored next-billing date once "now" passes it, see
+	// advanceSubscriptionLifecycle in internal/service/subscription) never
+	// rolls the target subscription's hardcoded 2026-07-15 next-billing date
+	// out of the 2026-07-01..2026-07-31 filter window this test asserts on,
+	// regardless of the real wall-clock date the suite runs on.
+	fixedNow := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	t.Cleanup(pkg.SetNowForTest(fixedNow))
+
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
 	otherUser := model.User{
