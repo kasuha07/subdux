@@ -16,6 +16,12 @@ import type { BackupDestination } from "@/types"
 
 export type DestinationType = "local" | "s3" | "webdav"
 
+// Mirrors minBackupRetention/maxBackupRetention in internal/service/backup. The
+// upper bound is enforced here as well as server-side so the form cannot produce
+// a destination that a save would reject.
+const MIN_RETENTION_COUNT = 1
+const MAX_RETENTION_COUNT = 1000
+
 // DestinationFormValues is the whole editable surface of one destination. It is
 // held as a single object so opening the create/edit form resets every field of
 // the other destination types in one assignment.
@@ -75,6 +81,36 @@ export default function AdminBackupDestinationFormFields({
 
   function isConfigured(field: string) {
     return editTarget?.configured_secret_fields.includes(field) ?? false
+  }
+
+  // Every type carries the same retention field, so it is built once here rather
+  // than duplicated into each type's branch — the same treatment as
+  // skipTlsVerifyToggle below. It takes the field id so each branch keeps its own
+  // label/input pairing.
+  function retentionField(id: string) {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={id}>{t("admin.backup.retentionCount")}</Label>
+        <Input
+          id={id}
+          type="number"
+          min={MIN_RETENTION_COUNT}
+          max={MAX_RETENTION_COUNT}
+          step={1}
+          className="w-32"
+          value={values.retention}
+          onChange={(event) => {
+            const next = parseInt(event.target.value, 10)
+            if (!Number.isNaN(next) && next >= MIN_RETENTION_COUNT && next <= MAX_RETENTION_COUNT) {
+              onValuesChange({ retention: next })
+            }
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("admin.backup.retentionCountDescription")}
+        </p>
+      </div>
+    )
   }
 
   // Both network types carry the same switch against the same config field, so
@@ -147,26 +183,7 @@ export default function AdminBackupDestinationFormFields({
             <p className="text-xs text-muted-foreground">{t("admin.backup.localDirDescription")}</p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dest-retention">{t("admin.backup.retentionCount")}</Label>
-            <Input
-              id="dest-retention"
-              type="number"
-              min={1}
-              step={1}
-              className="w-32"
-              value={values.retention}
-              onChange={(event) => {
-                const next = parseInt(event.target.value, 10)
-                if (!Number.isNaN(next) && next >= 1) {
-                  onValuesChange({ retention: next })
-                }
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("admin.backup.retentionCountDescription")}
-            </p>
-          </div>
+          {retentionField("dest-retention")}
         </>
       )}
 
@@ -265,26 +282,7 @@ export default function AdminBackupDestinationFormFields({
 
           {skipTlsVerifyToggle}
 
-          <div className="space-y-2">
-            <Label htmlFor="dest-s3-retention">{t("admin.backup.retentionCount")}</Label>
-            <Input
-              id="dest-s3-retention"
-              type="number"
-              min={1}
-              step={1}
-              className="w-32"
-              value={values.retention}
-              onChange={(event) => {
-                const next = parseInt(event.target.value, 10)
-                if (!Number.isNaN(next) && next >= 1) {
-                  onValuesChange({ retention: next })
-                }
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("admin.backup.retentionCountDescription")}
-            </p>
-          </div>
+          {retentionField("dest-s3-retention")}
         </>
       )}
 
@@ -353,26 +351,7 @@ export default function AdminBackupDestinationFormFields({
 
           {skipTlsVerifyToggle}
 
-          <div className="space-y-2">
-            <Label htmlFor="dest-webdav-retention">{t("admin.backup.retentionCount")}</Label>
-            <Input
-              id="dest-webdav-retention"
-              type="number"
-              min={1}
-              step={1}
-              className="w-32"
-              value={values.retention}
-              onChange={(event) => {
-                const next = parseInt(event.target.value, 10)
-                if (!Number.isNaN(next) && next >= 1) {
-                  onValuesChange({ retention: next })
-                }
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("admin.backup.retentionCountDescription")}
-            </p>
-          </div>
+          {retentionField("dest-webdav-retention")}
         </>
       )}
 
