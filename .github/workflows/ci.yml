@@ -58,3 +58,22 @@ jobs:
 
       - name: Test backend
         run: go test ./...
+
+      # Reports only vulnerabilities this code actually reaches, so it stays
+      # quiet about advisories in unused parts of required modules. Both halves
+      # of the dependency surface are scanned: govulncheck covers Go modules and
+      # the standard library (which is pinned by the go directive in go.mod and
+      # by the builder image in Dockerfile), bun audit covers the frontend.
+      - name: Audit backend dependencies
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+      # GHSA-qwww-vcr4-c8h2 is excepted rather than silenced wholesale. It is a
+      # React Router RSC-mode CSRF bypass; this frontend is a plain SPA
+      # (BrowserRouter in src/App.tsx, no RSC or SSR entry point), so the
+      # vulnerable mode is never entered. Its advisory range covers every 7.x
+      # release, so the only upgrade that clears it is react-router 8, a major
+      # bump. Drop this flag when that migration happens — and do not extend the
+      # list for an advisory that has an in-range fix.
+      - name: Audit frontend dependencies
+        run: bun audit --prod --ignore GHSA-qwww-vcr4-c8h2
+        working-directory: web
