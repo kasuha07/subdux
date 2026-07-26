@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Fingerprint, KeyRound } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { toast } from "@/lib/toast";
 
 import { Button } from "@/components/ui/button";

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"

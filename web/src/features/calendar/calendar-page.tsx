@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Copy, Plus, Trash2, Link2 } from "lucide-react"
 import { toast } from "@/lib/toast"

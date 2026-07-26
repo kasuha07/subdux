@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode, useEffect, useState } from "react"
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router"
 import { isAuthenticated, isAdmin, restoreSession } from "@/lib/api"
 import { AppToaster } from "@/components/app-toaster"
 import { useSiteTitle } from "@/hooks/useSiteSettings"
