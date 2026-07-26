@@ -15,6 +15,7 @@ import (
 const (
 	backupRunSourceManual    = "manual"
 	backupRunSourceScheduled = "scheduled"
+	backupRunSourceDownload  = "download"
 )
 
 var (
@@ -317,6 +318,8 @@ func (s *Service) finalizeBackupRun(runID uint, result BackupRunResult, schedule
 		"retention_status":          result.RetentionStatus,
 		"bookkeeping_status":        bookkeepingStatus,
 		"global_bookkeeping_status": globalBookkeepingStatus,
+		"size_bytes":                result.SizeBytes,
+		"encrypted":                 result.Encrypted,
 		"error":                     result.Error,
 		"finished_at":               now,
 	}

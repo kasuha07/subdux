@@ -44,15 +44,18 @@ type BackupDestination struct {
 	UpdatedAt             time.Time `json:"updated_at"`
 }
 
-// BackupRun is the durable aggregate for one archive fan-out attempt. The
-// archive name is fixed before any delivery begins so a scheduled retry can
-// resume the same run without creating a second object for a destination that
-// already accepted it.
+// BackupRun is the durable aggregate for one backup attempt: a fan-out to
+// destinations (manual or scheduled) or a browser download. The archive name is
+// fixed before any delivery begins so a scheduled retry can resume the same run
+// without creating a second object for a destination that already accepted it.
+// Download runs have no destination rows; the run row itself is their record.
 type BackupRun struct {
 	ID                      uint       `gorm:"primaryKey" json:"id"`
-	Source                  string     `gorm:"size:20;not null;index" json:"source"` // manual | scheduled
+	Source                  string     `gorm:"size:20;not null;index" json:"source"` // manual | scheduled | download
 	ArchiveName             string     `gorm:"size:255;not null;uniqueIndex" json:"archive_name"`
 	ArchivePath             string     `gorm:"type:text" json:"-"`
+	SizeBytes               int64      `gorm:"not null;default:0" json:"size_bytes"`
+	Encrypted               bool       `gorm:"not null;default:false" json:"encrypted"`
 	Status                  string     `gorm:"size:20;not null;index" json:"status"` // pending | success | partial | failed | superseded
 	DeliveryStatus          string     `gorm:"size:20;not null" json:"delivery_status"`
 	RetentionStatus         string     `gorm:"size:20;not null" json:"retention_status"`

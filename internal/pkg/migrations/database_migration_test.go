@@ -704,6 +704,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 			Destructive:   true,
 			DiscardPolicy: "Fold the global backup schedule into every destination's config (time of day, include assets, archive encryption and its password), preserving the old effective state by disabling destinations when the global schedule was off, then delete the retired backup_schedule_enabled, backup_time_of_day, backup_include_assets, backup_encrypt_enabled, backup_encryption_password, backup_last_run_at, backup_last_status and backup_last_error settings rows.",
 		},
+		{Name: "20260726_02_backup_run_records", Checksum: "85e679eb91c2530fcd0187d7c79c1373143c4a6ae5b62f040ad7aaf9ee002667"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -721,7 +722,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260713_01_backup_destinations.go":             "009e2bbcf0f97738a204f7aef6c254e0334378b2863f19f38ba10ce7f24b815a",
 		"migration_20260717_01_backup_run_state.go":                "9b5502c69d8f7a6ceed88e5c94cd5f43a503f64a0ba75118fb57b31cd9427680",
 		"migration_20260726_01_backup_per_destination_schedule.go": "306ab9126e7f75911faa6fbd7be4e09fd346eab20a15ae64d09af4a3d410c19e",
-		"schema_migration_registry.go":                             "59f99de0ce257d4552671d93a42b939880a38070c709059ec186b92e4e8cacc5",
+		"migration_20260726_02_backup_run_records.go":              "85e679eb91c2530fcd0187d7c79c1373143c4a6ae5b62f040ad7aaf9ee002667",
+		"schema_migration_registry.go":                             "f33a80e26a7823ada9f9f19915124fa3a6e04a4f52b40e1e036f470d8975335e",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

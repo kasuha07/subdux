@@ -136,16 +136,30 @@ export interface UpdateSettingsInput {
   oidc_reauth_acr_phishing_resistant?: string
 }
 
-export interface LocalBackupInfo {
-  name: string
-  size: number
-  modified_at: string
-  encrypted: boolean
+// One entry of the unified backup history: destination fan-outs (manual or
+// scheduled) and browser downloads are all recorded as runs.
+export interface BackupRunDestinationRecord {
+  destination_id: number
+  type: string
+  delivery_status: string
+  retention_status: string
 }
 
-export interface LocalBackupList {
-  directory: string
-  backups: LocalBackupInfo[]
+export interface BackupRunRecord {
+  id: number
+  source: "manual" | "scheduled" | "download" | string
+  archive_name: string
+  status: string
+  error?: string
+  size_bytes: number
+  encrypted: boolean
+  started_at: string
+  finished_at: string | null
+  destinations: BackupRunDestinationRecord[]
+}
+
+export interface BackupRunList {
+  runs: BackupRunRecord[]
 }
 
 export interface BackupDestinationRunResult {

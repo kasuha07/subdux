@@ -14,23 +14,22 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { TabsContent } from "@/components/ui/tabs"
-import type { BackupDestination, LocalBackupInfo } from "@/types"
+import type { BackupDestination, BackupRunRecord } from "@/types"
 import { formatBytes, formatDateTime } from "./admin-backup-format"
 import AdminBackupDestinationsSection, {
   type DestinationCreateBody,
   type DestinationUpdateBody,
 } from "./admin-backup-destinations-section"
-import type { DestinationProbeRequest } from "./hooks/backup-destinations"
+import { destStatusVariant, type DestinationProbeRequest } from "./hooks/backup-destinations"
 import ReauthDialog, { type ReauthScope } from "./reauth-dialog"
 
 interface AdminBackupTabProps {
+  backupRuns: BackupRunRecord[]
+  backupRunsRefreshing: boolean
   destinations: BackupDestination[]
   destinationsRefreshing: boolean
   downloadPassword: string
   includeAssetsInBackup: boolean
-  localBackupDir: string
-  localBackups: LocalBackupInfo[]
-  localBackupsRefreshing: boolean
   runningDestinationId: number | null
   onCreateDestination: (body: DestinationCreateBody, reauthTicket: string) => Promise<boolean>
   onUpdateDestination: (id: number, body: DestinationUpdateBody, reauthTicket: string) => Promise<boolean>
@@ -41,8 +40,8 @@ interface AdminBackupTabProps {
   onDownloadBackup: (reauthTicket: string) => Promise<boolean>
   onDownloadPasswordChange: (value: string) => void
   onIncludeAssetsInBackupChange: (value: boolean) => void
+  onRefreshBackupRuns: () => void | Promise<void>
   onRefreshDestinations: () => void | Promise<void>
-  onRefreshLocalBackups: () => void | Promise<void>
   onRestore: (reauthTicket: string) => Promise<boolean>
   onValidateRestoreInputs: () => Promise<boolean>
   onRestoreConfirmOpenChange: (open: boolean) => void
@@ -55,13 +54,12 @@ interface AdminBackupTabProps {
 }
 
 export default function AdminBackupTab({
+  backupRuns,
+  backupRunsRefreshing,
   destinations,
   destinationsRefreshing,
   downloadPassword,
   includeAssetsInBackup,
-  localBackupDir,
-  localBackups,
-  localBackupsRefreshing,
   runningDestinationId,
   onCreateDestination,
   onUpdateDestination,
@@ -72,8 +70,8 @@ export default function AdminBackupTab({
   onDownloadBackup,
   onDownloadPasswordChange,
   onIncludeAssetsInBackupChange,
+  onRefreshBackupRuns,
   onRefreshDestinations,
-  onRefreshLocalBackups,
   onRestore,
   onValidateRestoreInputs,
   onRestoreConfirmOpenChange,
@@ -87,6 +85,27 @@ export default function AdminBackupTab({
   const { t, i18n } = useTranslation()
   // Which flow, if any, is awaiting step-up re-authentication.
   const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "dest-create" | "dest-update" | "dest-delete" | "dest-run" | null>(null)
+
+  function destinationTypeLabel(type: string) {
+    if (type === "s3") return t("admin.backup.destinations.typeS3")
+    if (type === "webdav") return t("admin.backup.destinations.typeWebDAV")
+    if (type === "local") return t("admin.backup.destinations.typeLocal")
+    return type
+  }
+
+  function runSourceLabel(source: string) {
+    if (source === "scheduled") return t("admin.backup.runSourceScheduled")
+    if (source === "download") return t("admin.backup.runSourceDownload")
+    return t("admin.backup.runSourceManual")
+  }
+
+  function runStatusLabel(status: string) {
+    if (status === "success") return t("admin.backup.lastRunSuccess")
+    if (status === "failed") return t("admin.backup.lastRunFailed")
+    if (status === "partial") return t("admin.backup.lastRunPartial")
+    if (status === "superseded") return t("admin.backup.runStatusSuperseded")
+    return t("admin.backup.runStatusPending")
+  }
 
   // Pending destination mutation params waiting for a reauth ticket. The
   // destination form itself lives in AdminBackupDestinationsSection; only the
@@ -262,51 +281,67 @@ export default function AdminBackupTab({
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-medium">{t("admin.backup.recentBackups")}</h3>
-            {localBackupDir && (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t("admin.backup.directoryLabel")}: <span className="font-mono">{localBackupDir}</span>
-              </p>
-            )}
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {t("admin.backup.recentBackupsDescription")}
+            </p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            disabled={localBackupsRefreshing}
-            onClick={() => void onRefreshLocalBackups()}
+            disabled={backupRunsRefreshing}
+            onClick={() => void onRefreshBackupRuns()}
           >
-            <RefreshCw className={`size-4 ${localBackupsRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`size-4 ${backupRunsRefreshing ? "animate-spin" : ""}`} />
             {t("admin.backup.refreshBackups")}
           </Button>
         </div>
 
-        {localBackups.length === 0 ? (
+        {backupRuns.length === 0 ? (
           <p className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
             {t("admin.backup.recentBackupsEmpty")}
           </p>
         ) : (
           <ul className="space-y-2">
-            {localBackups.map((backup) => (
-              <li
-                key={backup.name}
-                className="flex items-center justify-between gap-4 rounded-md border p-3"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-mono text-sm">{backup.name}</span>
-                    {backup.encrypted && (
+            {backupRuns.map((run) => (
+              <li key={run.id} className="space-y-1.5 rounded-md border p-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-mono text-sm">{run.archive_name}</span>
+                    {run.encrypted && (
                       <Badge variant="secondary" className="gap-1">
                         <Lock className="size-3" />
                         {t("admin.backup.backupEncryptedBadge")}
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDateTime(backup.modified_at, i18n.language)}
-                  </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {run.size_bytes > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {formatBytes(run.size_bytes, i18n.language)}
+                      </span>
+                    )}
+                    <Badge variant={destStatusVariant(run.status)}>
+                      {runStatusLabel(run.status)}
+                    </Badge>
+                  </div>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatBytes(backup.size, i18n.language)}
-                </span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span>{formatDateTime(run.finished_at ?? run.started_at, i18n.language)}</span>
+                  <span>·</span>
+                  <span>{runSourceLabel(run.source)}</span>
+                  {run.destinations.map((destination) => (
+                    <Badge
+                      key={destination.destination_id}
+                      variant="outline"
+                      className={destination.delivery_status === "failed" ? "text-destructive" : ""}
+                    >
+                      {destinationTypeLabel(destination.type)} #{destination.destination_id}
+                    </Badge>
+                  ))}
+                </div>
+                {run.error && (
+                  <p className="text-xs break-words text-destructive">{run.error}</p>
+                )}
               </li>
             ))}
           </ul>

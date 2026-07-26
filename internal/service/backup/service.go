@@ -73,14 +73,6 @@ var backupTimeOfDayPattern = regexp.MustCompile(`^([01]\d|2[0-3]):([0-5]\d)$`)
 // this pattern so unrelated files in the directory are never touched.
 var backupFileNamePattern = regexp.MustCompile(`^subdux-backup-.*\.zip$`)
 
-// LocalBackupInfo describes a single local backup file for the listing endpoint.
-type LocalBackupInfo struct {
-	Name       string `json:"name"`
-	Size       int64  `json:"size"`
-	ModifiedAt string `json:"modified_at"`
-	Encrypted  bool   `json:"encrypted"`
-}
-
 type Service struct {
 	DB *gorm.DB
 }
@@ -369,42 +361,124 @@ func (s *Service) cleanupBackupRunArchive(runID uint) error {
 // always bundled into a WinZip AES-256 .zip (with assets honored) regardless of
 // includeAssets. The password is trimmed before deciding, so all-whitespace is
 // treated as empty.
+//
+// Every download is recorded as a backup run (source "download") so the admin
+// history lists it next to destination runs. The run is created before the
+// snapshot and finalized with the outcome, so a failed build is visible too.
+// The name carries a random token like destination archives, which keeps the
+// archive_name unique index safe for concurrent downloads.
 func (s *Service) BackupDB(includeAssets bool, password string) (string, error) {
 	password = strings.TrimSpace(password)
+	encrypted := password != ""
+	zipArchive := includeAssets || encrypted
 
-	tempDir, err := newPrivateBackupTempDir()
+	token, err := newBackupToken()
 	if err != nil {
 		return "", err
+	}
+	extension := ".db"
+	if zipArchive {
+		extension = ".zip"
+	}
+	archiveName := fmt.Sprintf("subdux-backup-%s-%s%s", pkg.Now().Format("20060102-150405"), token, extension)
+
+	state, err := s.beginBackupRun(backupRunSourceDownload, archiveName, nil)
+	if err != nil {
+		return "", err
+	}
+
+	archivePath, cleanup, err := s.buildDownloadArchive(archiveName, includeAssets, password)
+	if err != nil {
+		result := downloadRunResult(state.run, encrypted, 0, err)
+		if finalizeErr := s.finalizeBackupRun(state.run.ID, result, false); finalizeErr != nil {
+			return "", errors.Join(err, finalizeErr)
+		}
+		return "", err
+	}
+
+	var sizeBytes int64
+	if info, statErr := os.Stat(archivePath); statErr == nil {
+		sizeBytes = info.Size()
+	}
+	result := downloadRunResult(state.run, encrypted, sizeBytes, nil)
+	if finalizeErr := s.finalizeBackupRun(state.run.ID, result, false); finalizeErr != nil {
+		// The archive was built, but without its record the download would be an
+		// unrecorded backup. Treat the failed status write like a failed build:
+		// discard the archive and report the error.
+		cleanup()
+		return "", finalizeErr
+	}
+	return archivePath, nil
+}
+
+// buildDownloadArchive writes the download archive named archiveName into a
+// private temp directory. The caller owns the directory on success (the HTTP
+// handler removes it after serving the file); cleanup removes it on the error
+// paths where the caller never learns the path.
+func (s *Service) buildDownloadArchive(archiveName string, includeAssets bool, password string) (string, func(), error) {
+	tempDir, err := newPrivateBackupTempDir()
+	if err != nil {
+		return "", func() {}, err
 	}
 	cleanup := func() {
 		_ = os.RemoveAll(tempDir)
 	}
 
-	timestamp := pkg.Now().Format("20060102-150405")
-	backupPath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s.db", timestamp))
-
-	if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
-		cleanup()
-		return "", err
-	}
-	if err := os.Chmod(backupPath, 0o600); err != nil {
-		cleanup()
-		return "", err
-	}
-
 	if !includeAssets && password == "" {
-		return backupPath, nil
+		backupPath := filepath.Join(tempDir, archiveName)
+		if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
+			cleanup()
+			return "", func() {}, err
+		}
+		if err := os.Chmod(backupPath, 0o600); err != nil {
+			cleanup()
+			return "", func() {}, err
+		}
+		return backupPath, cleanup, nil
 	}
 
-	archivePath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s.zip", timestamp))
-	if err := writeBackupZipFromDB(archivePath, backupPath, includeAssets, password); err != nil {
+	dbTempPath := filepath.Join(tempDir, strings.TrimSuffix(archiveName, ".zip")+".db")
+	if err := s.DB.Exec("VACUUM INTO ?", dbTempPath).Error; err != nil {
 		cleanup()
-		return "", err
+		return "", func() {}, err
+	}
+	if err := os.Chmod(dbTempPath, 0o600); err != nil {
+		cleanup()
+		return "", func() {}, err
 	}
 
-	_ = os.Remove(backupPath)
+	archivePath := filepath.Join(tempDir, archiveName)
+	if err := writeBackupZipFromDB(archivePath, dbTempPath, includeAssets, password); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	_ = os.Remove(dbTempPath)
 
-	return archivePath, nil
+	return archivePath, cleanup, nil
+}
+
+// downloadRunResult shapes the terminal record of a download-sourced run.
+// Delivery means "the archive was produced for the admin's browser"; retention
+// never applies because nothing is stored server-side, and there is no
+// per-destination bookkeeping to fail.
+func downloadRunResult(run model.BackupRun, encrypted bool, sizeBytes int64, buildErr error) BackupRunResult {
+	result := BackupRunResult{
+		RunID:                   run.ID,
+		ArchiveName:             run.ArchiveName,
+		Status:                  StatusOK,
+		DeliveryStatus:          StatusOK,
+		RetentionStatus:         StatusNotAttempted,
+		BookkeepingStatus:       StatusOK,
+		GlobalBookkeepingStatus: StatusOK,
+		SizeBytes:               sizeBytes,
+		Encrypted:               encrypted,
+	}
+	if buildErr != nil {
+		result.Status = StatusFailed
+		result.DeliveryStatus = StatusFailed
+		result.Error = buildErr.Error()
+	}
+	return result
 }
 
 // DestinationRunResult captures the per-destination outcome of a fan-out run.
@@ -425,6 +499,8 @@ type DestinationRunResult struct {
 
 // BackupRunResult summarizes a single scheduled/manual run: the archive name
 // shared across all destinations and one entry per enabled destination.
+// SizeBytes and Encrypted describe the archive itself and are persisted on the
+// run row so the admin history can show them without re-reading archives.
 type BackupRunResult struct {
 	RunID                   uint                   `json:"run_id"`
 	ArchiveName             string                 `json:"archive_name"`
@@ -433,6 +509,8 @@ type BackupRunResult struct {
 	RetentionStatus         string                 `json:"retention_status"`
 	BookkeepingStatus       string                 `json:"bookkeeping_status"`
 	GlobalBookkeepingStatus string                 `json:"global_bookkeeping_status"`
+	SizeBytes               int64                  `json:"size_bytes"`
+	Encrypted               bool                   `json:"encrypted"`
 	Error                   string                 `json:"error,omitempty"`
 	Results                 []DestinationRunResult `json:"results"`
 }
@@ -530,6 +608,7 @@ func (s *Service) runBackup(
 			RetentionStatus:         StatusNotAttempted,
 			BookkeepingStatus:       StatusOK,
 			GlobalBookkeepingStatus: StatusPending,
+			Encrypted:               spec.Password != "",
 			Error:                   err.Error(),
 		}
 		if finalizeErr := s.finalizeBackupRun(state.run.ID, result, source == backupRunSourceScheduled); finalizeErr != nil {
@@ -541,6 +620,13 @@ func (s *Service) runBackup(
 		defer cleanup()
 	}
 
+	// The archive size is display metadata for the run history; an unreadable
+	// size is recorded as 0 ("unknown") rather than failing a deliverable run.
+	var archiveSize int64
+	if info, statErr := os.Stat(archivePath); statErr == nil {
+		archiveSize = info.Size()
+	}
+
 	// deliverToDestination resolves and revision-checks the destination row
 	// itself, so the loop stays a plain fan-out: every outcome, including a
 	// deleted or replaced destination, is recorded on the run-destination row by
@@ -550,6 +636,8 @@ func (s *Service) runBackup(
 	}
 
 	result := aggregateBackupRunResult(state.run, state.destinations)
+	result.SizeBytes = archiveSize
+	result.Encrypted = spec.Password != ""
 	if finalizeErr := s.finalizeBackupRun(state.run.ID, result, source == backupRunSourceScheduled); finalizeErr != nil {
 		result.BookkeepingStatus = StatusFailed
 		if result.Status == StatusOK {
@@ -882,60 +970,6 @@ func (s *Service) ListDestinationBackups(ctx context.Context, id uint) ([]Backup
 		return objects[i].ModifiedAt.After(objects[j].ModifiedAt)
 	})
 	return objects, nil
-}
-
-// ListLocalBackups returns the resolved directory and archives of the first
-// local destination, newest first, preserving the shape of the original
-// single-destination listing endpoint. When no local destination is
-// configured it reports the default directory with an empty list.
-func (s *Service) ListLocalBackups() (string, []LocalBackupInfo, error) {
-	var destination model.BackupDestination
-	err := s.DB.Where("type = ?", "local").
-		Order("sort_order ASC").Order("id ASC").
-		First(&destination).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			dir, resolveErr := resolveBackupDir("")
-			if resolveErr != nil {
-				return "", nil, resolveErr
-			}
-			return dir, []LocalBackupInfo{}, nil
-		}
-		return "", nil, err
-	}
-
-	plain, err := decryptDestinationConfig(destination.Config)
-	if err != nil {
-		return "", nil, err
-	}
-	config, err := parseDestinationConfigMap(plain)
-	if err != nil {
-		return "", nil, err
-	}
-	target, err := newLocalTarget(config)
-	if err != nil {
-		return "", nil, err
-	}
-	dir := target.dir
-
-	objects, err := target.List(context.Background())
-	if err != nil {
-		return dir, nil, err
-	}
-	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].ModifiedAt.After(objects[j].ModifiedAt)
-	})
-
-	items := make([]LocalBackupInfo, 0, len(objects))
-	for _, object := range objects {
-		items = append(items, LocalBackupInfo{
-			Name:       object.Name,
-			Size:       object.Size,
-			ModifiedAt: object.ModifiedAt.Format(time.RFC3339),
-			Encrypted:  object.Encrypted,
-		})
-	}
-	return dir, items, nil
 }
 
 // backupArchiveIsEncrypted reports whether the archive's first regular entry is

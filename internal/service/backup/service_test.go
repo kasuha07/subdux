@@ -519,21 +519,30 @@ func TestRunDestinationBackupAndList(t *testing.T) {
 		t.Fatalf("backup file missing: %v", err)
 	}
 
-	dir, items, err := svc.ListLocalBackups()
+	// The manual run must land in the unified backup history with its archive
+	// metadata and the destination it delivered to.
+	records, err := svc.ListBackupRuns(0)
 	if err != nil {
-		t.Fatalf("ListLocalBackups() error = %v", err)
+		t.Fatalf("ListBackupRuns() error = %v", err)
 	}
-	if dir != wantDir {
-		t.Fatalf("ListLocalBackups dir = %q, want %q", dir, wantDir)
+	if len(records) != 1 {
+		t.Fatalf("ListBackupRuns() records = %d, want 1", len(records))
 	}
-	if len(items) != 1 {
-		t.Fatalf("ListLocalBackups items = %d, want 1", len(items))
+	record := records[0]
+	if record.Source != backupRunSourceManual || record.Status != StatusOK {
+		t.Fatalf("recorded run source/status = %q/%q, want manual/success", record.Source, record.Status)
 	}
-	if items[0].Name != result.ArchiveName {
-		t.Fatalf("listed name = %q, want %q", items[0].Name, result.ArchiveName)
+	if record.ArchiveName != result.ArchiveName {
+		t.Fatalf("recorded name = %q, want %q", record.ArchiveName, result.ArchiveName)
 	}
-	if items[0].Encrypted {
+	if record.SizeBytes <= 0 {
+		t.Fatalf("recorded size = %d, want > 0", record.SizeBytes)
+	}
+	if record.Encrypted {
 		t.Fatal("plain backup should not be reported as encrypted")
+	}
+	if len(record.Destinations) != 1 || record.Destinations[0].DestinationID != destID || record.Destinations[0].DeliveryStatus != StatusOK {
+		t.Fatalf("recorded destinations = %+v, want one successful delivery to %d", record.Destinations, destID)
 	}
 
 	// A destination-scoped listing must agree with the local convenience view.
@@ -740,12 +749,12 @@ func TestRunScheduledBackupWritesStatus(t *testing.T) {
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("second RunScheduledBackup() error = %v", err)
 	}
-	_, items, err := svc.ListLocalBackups()
+	objects, err := svc.ListDestinationBackups(context.Background(), destID)
 	if err != nil {
-		t.Fatalf("ListLocalBackups() error = %v", err)
+		t.Fatalf("ListDestinationBackups() error = %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("expected exactly 1 backup after two same-day runs, got %d", len(items))
+	if len(objects) != 1 {
+		t.Fatalf("expected exactly 1 backup after two same-day runs, got %d", len(objects))
 	}
 }
 
@@ -798,12 +807,12 @@ func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
 		t.Fatal("destination last_scheduled_run_at is nil after a successful retry")
 	}
 
-	_, items, err := svc.ListLocalBackups()
+	objects, err := svc.ListDestinationBackups(context.Background(), destID)
 	if err != nil {
-		t.Fatalf("ListLocalBackups() error = %v", err)
+		t.Fatalf("ListDestinationBackups() error = %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("expected exactly 1 backup after a failed run and a same-day retry, got %d", len(items))
+	if len(objects) != 1 {
+		t.Fatalf("expected exactly 1 backup after a failed run and a same-day retry, got %d", len(objects))
 	}
 }
 

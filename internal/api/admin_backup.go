@@ -56,21 +56,19 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 	return c.File(backupPath)
 }
 
-type localBackupResponse struct {
-	Directory string                          `json:"directory"`
-	Backups   []servicebackup.LocalBackupInfo `json:"backups"`
+type backupRunListResponse struct {
+	Runs []servicebackup.BackupRunRecord `json:"runs"`
 }
 
-func (h *AdminHandler) ListLocalBackups(c echo.Context) error {
-	directory, backups, err := h.Backup.WithContext(c.Request().Context()).ListLocalBackups()
+// ListBackupRuns serves the unified backup history: destination fan-outs and
+// download backups, manual and scheduled, newest first.
+func (h *AdminHandler) ListBackupRuns(c echo.Context) error {
+	runs, err := h.Backup.WithContext(c.Request().Context()).ListBackupRuns(0)
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, localBackupResponse{
-		Directory: directory,
-		Backups:   backups,
-	})
+	return c.JSON(http.StatusOK, backupRunListResponse{Runs: runs})
 }
 
 func (h *AdminHandler) RestoreDB(c echo.Context) error {

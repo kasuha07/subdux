@@ -205,7 +205,7 @@ func (h *AdminHandler) RegisterRoutes(g RouteGroups) {
 	g.Admin.POST("/settings/ssrf/test", h.TestSSRF)
 	g.Admin.POST("/settings/smtp/test", h.TestSMTP)
 	g.Admin.POST("/backup", h.BackupDB)
-	g.Admin.GET("/backup/local", h.ListLocalBackups)
+	g.Admin.GET("/backup/runs", h.ListBackupRuns)
 	g.Admin.GET("/backup/destinations", h.ListBackupDestinations)
 	g.Admin.POST("/backup/destinations", h.CreateBackupDestination)
 	g.Admin.POST("/backup/destinations/test", h.TestBackupDestinationConfig)

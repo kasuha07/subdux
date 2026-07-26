@@ -384,10 +384,9 @@ export default function AdminPage() {
                   onDownloadBackup={admin.handleDownloadBackup}
                   onRestore={admin.handleRestore}
                   onValidateRestoreInputs={admin.handleValidateRestoreInputs}
-                  localBackups={admin.localBackups}
-                  localBackupDir={admin.localBackupDir}
-                  localBackupsRefreshing={admin.localBackupsRefreshing}
-                  onRefreshLocalBackups={admin.handleRefreshLocalBackups}
+                  backupRuns={admin.backupRuns}
+                  backupRunsRefreshing={admin.backupRunsRefreshing}
+                  onRefreshBackupRuns={admin.handleRefreshBackupRuns}
                   destinations={admin.destinations}
                   destinationsRefreshing={admin.destinationsRefreshing}
                   runningDestinationId={admin.runningDestinationId}

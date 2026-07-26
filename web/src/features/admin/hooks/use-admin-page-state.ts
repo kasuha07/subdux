@@ -13,10 +13,10 @@ import type {
   BackgroundTask,
   BackupDestination,
   BackupDestinationRunResult,
+  BackupRunList,
+  BackupRunRecord,
   BackupRunResponse,
   ExchangeRateStatus,
-  LocalBackupInfo,
-  LocalBackupList,
   SSRFTestResult,
   SystemSettings,
 } from "@/types"
@@ -47,7 +47,7 @@ interface UseAdminPageStateResult {
   downloadPassword: string
   handleCreateUser: (reauthTicket?: string) => Promise<void>
   handleRefreshBackgroundTasks: () => Promise<void>
-  handleRefreshLocalBackups: () => Promise<void>
+  handleRefreshBackupRuns: () => Promise<void>
   handleRefreshDestinations: () => Promise<void>
   handleCreateDestination: (body: { type: string; enabled: boolean; config: string; sort_order: number }, reauthTicket: string) => Promise<boolean>
   handleUpdateDestination: (id: number, body: { revision: number; enabled?: boolean; config?: string; sort_order?: number; cleared_secret_fields?: string[] }, reauthTicket: string) => Promise<boolean>
@@ -72,11 +72,10 @@ interface UseAdminPageStateResult {
   handleTestSMTP: () => Promise<void>
   handleToggleRole: (user: AdminUser) => Promise<void>
   handleToggleStatus: (user: AdminUser) => Promise<void>
+  backupRuns: BackupRunRecord[]
+  backupRunsRefreshing: boolean
   includeAssetsInBackup: boolean
   loading: boolean
-  localBackupDir: string
-  localBackups: LocalBackupInfo[]
-  localBackupsRefreshing: boolean
   newEmail: string
   newPassword: string
   newRole: "user" | "admin"
@@ -179,9 +178,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   // Id of the destination whose manual run is in flight, or null when idle.
   const [runningDestinationId, setRunningDestinationId] = useState<number | null>(null)
-  const [localBackups, setLocalBackups] = useState<LocalBackupInfo[]>([])
-  const [localBackupDir, setLocalBackupDir] = useState("")
-  const [localBackupsRefreshing, setLocalBackupsRefreshing] = useState(false)
+  const [backupRuns, setBackupRuns] = useState<BackupRunRecord[]>([])
+  const [backupRunsRefreshing, setBackupRunsRefreshing] = useState(false)
 
   const [rateStatus, setRateStatus] = useState<ExchangeRateStatus | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -230,14 +228,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       .catch(() => void 0)
       .finally(() => setLoading(false))
 
-    // Fetch the local backup list separately so a failure (e.g. an unreadable
-    // backup directory returning 500) can't blank out the whole admin page.
+    // Fetch the backup history separately so a failure can't blank out the
+    // whole admin page.
     api
-      .get<LocalBackupList>("/admin/backup/local")
-      .then((localBackupsData) => {
-        setLocalBackups(localBackupsData?.backups || [])
-        setLocalBackupDir(localBackupsData?.directory || "")
-      })
+      .get<BackupRunList>("/admin/backup/runs")
+      .then((data) => setBackupRuns(data?.runs || []))
       .catch(() => void 0)
 
     // Fetch backup destinations separately; a failure here also shouldn't
@@ -525,6 +520,12 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       window.URL.revokeObjectURL(url)
       document.body.removeChild(anchor)
       toast.success(t("admin.backup.downloadSuccess"))
+      // The download is recorded as a backup run; refresh the history so it
+      // appears immediately. Best-effort: the download already succeeded.
+      api
+        .get<BackupRunList>("/admin/backup/runs")
+        .then((data) => setBackupRuns(data?.runs || []))
+        .catch(() => void 0)
       return true
     } catch (error) {
       toast.error(getAPIErrorMessage(error, "admin.backup.downloadFailed"))
@@ -723,18 +724,17 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleRefreshLocalBackups() {
-    setLocalBackupsRefreshing(true)
+  async function handleRefreshBackupRuns() {
+    setBackupRunsRefreshing(true)
     try {
-      const data = await api.get<LocalBackupList>("/admin/backup/local", {
+      const data = await api.get<BackupRunList>("/admin/backup/runs", {
         errorHandling: "toast",
       })
-      setLocalBackups(data?.backups || [])
-      setLocalBackupDir(data?.directory || "")
+      setBackupRuns(data?.runs || [])
     } catch {
       void 0
     } finally {
-      setLocalBackupsRefreshing(false)
+      setBackupRunsRefreshing(false)
     }
   }
 
@@ -818,13 +818,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       // The backup has already completed at this point. Refreshes are
       // best-effort and must not turn a delivered backup into a failed run.
       try {
-        const [localBackupsResult] = await Promise.allSettled([
-          api.get<LocalBackupList>("/admin/backup/local"),
+        const [backupRunsResult] = await Promise.allSettled([
+          api.get<BackupRunList>("/admin/backup/runs"),
         ])
-        if (localBackupsResult.status === "fulfilled") {
-          const data = localBackupsResult.value
-          setLocalBackups(data?.backups || [])
-          setLocalBackupDir(data?.directory || "")
+        if (backupRunsResult.status === "fulfilled") {
+          setBackupRuns(backupRunsResult.value?.runs || [])
         }
         // Refresh the destinations so this row's status badges and last-run
         // timestamps reflect the run that just finished.
@@ -848,7 +846,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     downloadPassword,
     handleCreateUser,
     handleRefreshBackgroundTasks,
-    handleRefreshLocalBackups,
+    handleRefreshBackupRuns,
     handleRefreshDestinations,
     handleCreateDestination,
     handleUpdateDestination,
@@ -873,11 +871,10 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleTestSMTP,
     handleToggleRole,
     handleToggleStatus,
+    backupRuns,
+    backupRunsRefreshing,
     includeAssetsInBackup,
     loading,
-    localBackupDir,
-    localBackups,
-    localBackupsRefreshing,
     newEmail,
     newPassword,
     newRole,
