@@ -16,6 +16,8 @@ import type {
   BackupRunList,
   BackupRunRecord,
   BackupRunResponse,
+  DestinationBackup,
+  DestinationBackupList,
   ExchangeRateStatus,
   SSRFTestResult,
   SystemSettings,
@@ -53,6 +55,7 @@ interface UseAdminPageStateResult {
   handleUpdateDestination: (id: number, body: { revision: number; enabled?: boolean; config?: string; sort_order?: number; cleared_secret_fields?: string[] }, reauthTicket: string) => Promise<boolean>
   handleDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
   handleTestDestination: (id: number) => Promise<void>
+  handleListDestinationBackups: (id: number) => Promise<DestinationBackup[]>
   handleTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
   handleRunDestinationBackup: (id: number, reauthTicket: string) => Promise<void>
   handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
@@ -62,6 +65,12 @@ interface UseAdminPageStateResult {
   handleRefreshRates: () => Promise<void>
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
   handleRestore: (reauthTicket: string) => Promise<boolean>
+  handleRestoreFromDestination: (
+    id: number,
+    archiveName: string,
+    password: string,
+    reauthTicket: string
+  ) => Promise<boolean>
   handleValidateRestoreInputs: () => Promise<boolean>
   handleSaveAuthSettings: () => Promise<void>
   handleSaveExchangeRateSettings: () => Promise<void>
@@ -625,6 +634,35 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
+  // Mirrors handleRestore: same success/warning toasts, and deliberately no
+  // logout or reload — the upload restore does not do either, and the server
+  // only asks the admin to refresh.
+  async function handleRestoreFromDestination(
+    id: number,
+    archiveName: string,
+    password: string,
+    reauthTicket: string
+  ): Promise<boolean> {
+    try {
+      const result = await api.post<RestoreBackupResponse | undefined>(
+        `/admin/backup/destinations/${id}/restore`,
+        { archive_name: archiveName, password: password.trim() },
+        {
+          headers: { "X-Reauth-Ticket": reauthTicket },
+          errorFallbackKey: "admin.backup.restoreFailed",
+        }
+      )
+      toast.success(t("admin.backup.restoreSuccess"))
+      if ((result?.skipped_asset_count ?? 0) > 0) {
+        toast.warning(t("admin.backup.restoreSkippedAssets"))
+      }
+      return true
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error, "admin.backup.restoreFailed"))
+      return false
+    }
+  }
+
   async function handleRefreshDestinations() {
     setDestinationsRefreshing(true)
     try {
@@ -703,6 +741,21 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       toast.success(localizeBackendMessage(result?.message_code, result?.message_params, "admin.backup.destinations.testSuccess"))
     } catch {
       void 0
+    }
+  }
+
+  // Reads the archives stored at one destination. No reauth ticket: the
+  // endpoint is read-only against an already-saved destination, matching the
+  // connectivity probe.
+  async function handleListDestinationBackups(id: number): Promise<DestinationBackup[]> {
+    try {
+      const data = await api.get<DestinationBackupList>(
+        `/admin/backup/destinations/${id}/backups`,
+        { errorHandling: "toast" }
+      )
+      return data?.backups || []
+    } catch {
+      return []
     }
   }
 
@@ -852,6 +905,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleUpdateDestination,
     handleDeleteDestination,
     handleTestDestination,
+    handleListDestinationBackups,
     handleTestDestinationConfig,
     handleRunDestinationBackup,
     handleDeleteUser,
@@ -861,6 +915,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleRefreshRates,
     handleRegistrationEmailVerificationChange,
     handleRestore,
+    handleRestoreFromDestination,
     handleValidateRestoreInputs: validateRestoreInputs,
     handleSaveAuthSettings,
     handleSaveExchangeRateSettings,

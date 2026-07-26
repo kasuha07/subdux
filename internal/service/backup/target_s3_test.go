@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -267,11 +268,25 @@ func (s *stubS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if body, ok := s.objects[key]; ok {
+			// Get() reads the object after Stat(), and minio-go parses this
+			// response's headers into an ObjectInfo the same way it does for
+			// HEAD, so the object-serving GET needs the same header set.
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			w.Header().Set("Last-Modified", "Mon, 15 Jun 2026 03:00:00 GMT")
+			w.Header().Set("ETag", `"stub"`)
 			_, _ = w.Write(body)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
 	case http.MethodHead:
+		body, ok := s.objects[key]
+		if !ok && key != "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		w.Header().Set("Last-Modified", "Mon, 15 Jun 2026 03:00:00 GMT")
+		w.Header().Set("ETag", `"stub"`)
 		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -347,6 +362,71 @@ func TestS3TargetRoundTrip(t *testing.T) {
 	}
 	if _, ok := stub.objects["nightly/"+name]; ok {
 		t.Fatal("object still present after Delete")
+	}
+}
+
+// TestS3TargetGetRoundTrip drives Get against the stub server to confirm the
+// minio client wiring returns the stored bytes and reported size, that the
+// object-name gate applies before any request is sent, and that a missing key
+// surfaces as an error.
+func TestS3TargetGetRoundTrip(t *testing.T) {
+	stub := &stubS3Server{objects: map[string][]byte{}}
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		stub.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	const name = "subdux-backup-20260615-030000-abc123.zip"
+	payload := []byte("encrypted-archive-bytes")
+	stub.objects["nightly/"+name] = payload
+
+	target, err := newS3Target(map[string]any{
+		"endpoint":          strings.TrimPrefix(server.URL, "http://"),
+		"use_ssl":           false,
+		"use_path_style":    true,
+		"region":            "us-east-1",
+		"bucket":            "backups",
+		"prefix":            "nightly",
+		"access_key_id":     "AKIA",
+		"secret_access_key": "secret",
+		"retention_count":   5,
+	}, nil)
+	if err != nil {
+		t.Fatalf("newS3Target() error = %v", err)
+	}
+
+	reader, size, err := target.Get(context.Background(), name)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if size != int64(len(payload)) {
+		t.Fatalf("Get() size = %d, want %d", size, len(payload))
+	}
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read archive: %v", err)
+	}
+	if string(got) != string(payload) {
+		t.Fatalf("Get() contents = %q, want %q", got, payload)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close() error = %v, want nil", err)
+	}
+
+	requestsBeforeGate := requestCount
+	for _, unsafe := range []string{"nightly/nested.zip", "notes.txt"} {
+		if _, _, err := target.Get(context.Background(), unsafe); !errors.Is(err, ErrInvalidBackupObjectName) {
+			t.Fatalf("Get(%q) error = %v, want ErrInvalidBackupObjectName", unsafe, err)
+		}
+	}
+	if requestCount != requestsBeforeGate {
+		t.Fatalf("requests after gated Get calls = %d, want %d (no request sent)", requestCount, requestsBeforeGate)
+	}
+
+	if _, _, err := target.Get(context.Background(), "subdux-backup-20260615-030000-missing.zip"); err == nil {
+		t.Fatal("Get() for absent key error = nil, want non-nil")
 	}
 }
 

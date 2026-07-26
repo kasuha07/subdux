@@ -43,9 +43,35 @@ type BackupTarget interface {
 	// retention cannot safely order an archive whose modification time is
 	// unavailable.
 	List(ctx context.Context) ([]BackupObject, error)
+	// Get opens the archive stored under name for reading. The returned
+	// ReadCloser streams the archive bytes and MUST be closed by the caller;
+	// closing it also releases the per-operation timeout the implementation
+	// armed. size is the archive's length as the target reports it, or -1 when
+	// the target cannot report one — callers must treat an unreported size as
+	// unbounded and enforce their own limit while copying.
+	//
+	// Implementations apply the same name gate their Put and Delete apply, so a
+	// caller can never read a resource outside the archive namespace.
+	Get(ctx context.Context, name string) (io.ReadCloser, int64, error)
 	// Delete removes a single archive by name. Removing a name that no longer
 	// exists is not an error.
 	Delete(ctx context.Context, name string) error
 	// RetentionCount is the number of newest archives to keep at this target.
 	RetentionCount() int
+}
+
+// backupObjectReader couples a target's response body to the context that
+// bounds it. A per-operation timeout is armed inside Get but must stay armed
+// while the archive streams, so the cancel func fires on Close rather than on
+// return — the ordinary `defer cancel()` would tear down the transfer the
+// moment Get handed the reader back.
+type backupObjectReader struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (r *backupObjectReader) Close() error {
+	err := r.ReadCloser.Close()
+	r.cancel()
+	return err
 }

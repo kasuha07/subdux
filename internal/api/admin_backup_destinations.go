@@ -43,6 +43,23 @@ type testDestinationConfigRequest struct {
 	ClearedSecretFields []string `json:"cleared_secret_fields"`
 }
 
+// restoreDestinationBackupRequest names one archive already stored at a
+// destination. Password is the archive's decryption password and is optional:
+// encryption is only ever detectable for local destinations, since S3 and
+// WebDAV cannot report archive-internal encryption, so the client sends
+// whatever the admin typed and the service decides.
+type restoreDestinationBackupRequest struct {
+	ArchiveName string `json:"archive_name"`
+	Password    string `json:"password"`
+}
+
+// backupDestinationBackupListResponse mirrors backupRunListResponse: an
+// envelope rather than a bare array, so the listing can grow a field later
+// without breaking the shape.
+type backupDestinationBackupListResponse struct {
+	Backups []servicebackup.BackupObject `json:"backups"`
+}
+
 func (h *AdminHandler) ListBackupDestinations(c echo.Context) error {
 	destinations, err := h.Backup.WithContext(c.Request().Context()).ListDestinations()
 	if err != nil {
@@ -191,6 +208,80 @@ func (h *AdminHandler) TestBackupDestination(c echo.Context) error {
 		map[string]any{"backup_count": count},
 		nil,
 	)
+}
+
+// ListBackupDestinationBackups serves the archives currently stored at a saved
+// destination, newest first.
+//
+// It carries no reauth ticket for the same reason TestBackupDestination does
+// not: it writes nothing and it can only read a destination the admin already
+// saved behind a bound step-up ticket. Be precise about the disclosure it adds
+// over that probe — the probe yields a count, this yields names, sizes, and
+// timestamps. Most of that is already published unticketed by
+// GET /admin/backup/runs (archive_name, size_bytes, encrypted, finished_at)
+// and by GET /admin/backup/destinations (the schedule), so this mostly makes
+// existing disclosure per-destination rather than newly available. It is not
+// a strict subset, though: a shared bucket or folder can hold archives another
+// subdux instance wrote there, which this instance's run history would never
+// show. The exposure stays admin-only and is limited to subdux-backup-*.zip
+// names, sizes, and modification times at a destination the admin themselves
+// configured.
+func (h *AdminHandler) ListBackupDestinationBackups(c echo.Context) error {
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_backup_destination_id")
+	if !ok {
+		return nil
+	}
+
+	backups, err := h.Backup.WithContext(c.Request().Context()).ListDestinationBackups(c.Request().Context(), id)
+	if err != nil {
+		return writeBackupDestinationProbeError(c, err)
+	}
+	return c.JSON(http.StatusOK, backupDestinationBackupListResponse{Backups: backups})
+}
+
+// RestoreBackupDestination restores the database from an archive already stored
+// at a destination, so a rollback does not require pulling the file down by
+// hand and re-uploading it.
+//
+// The step-up gate reuses ReauthOperationRestore rather than minting a new
+// operation: the consequence is the same class of action the upload restore
+// already carries a ticket for — the entire database is replaced — and this
+// path is the strictly narrower one, because it can only replay an archive the
+// destination already holds. The ticket is unbound for the same reason
+// RunBackupDestination's is: no destination configuration changes here, so
+// there is no revision for the admin to confirm.
+//
+// Unlike RestoreDB the body is small JSON, so it is bound before the gate (as
+// in BackupDB); RestoreDB consumes first only because its body is a large
+// multipart upload that must not be read before identity is proven.
+func (h *AdminHandler) RestoreBackupDestination(c echo.Context) error {
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_backup_destination_id")
+	if !ok {
+		return nil
+	}
+
+	var input restoreDestinationBackupRequest
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
+		return nil
+	}
+
+	if err := h.consumeBackupDestinationReauth(c, servicereauth.ReauthOperationRestore, nil); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
+
+	result, err := h.Backup.WithContext(c.Request().Context()).RestoreDestinationBackup(
+		c.Request().Context(),
+		id,
+		strings.TrimSpace(input.ArchiveName),
+		strings.TrimSpace(input.Password),
+	)
+	if err != nil {
+		return writeRestoreBackupError(c, err)
+	}
+
+	return httpx.WriteMessageFields(c, http.StatusOK, "backup_restored_please_restart_server", map[string]any{
+		"skipped_asset_count": result.SkippedAssetCount,
+	})
 }
 
 // TestBackupDestinationConfig runs the same read-only connectivity probe as

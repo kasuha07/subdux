@@ -173,3 +173,94 @@ func TestLocalTargetRejectsUnsafeObjectName(t *testing.T) {
 		t.Fatalf("target directory entries = %v, want empty", entries)
 	}
 }
+
+func TestLocalTargetGetRejectsUnsafeAndIrregularNames(t *testing.T) {
+	const validName = "subdux-backup-20260615-030000-abc123.zip"
+
+	tests := []struct {
+		name    string
+		object  string
+		setup   func(t *testing.T, dir string)
+		wantErr error // nil means "any non-nil error is acceptable"
+	}{
+		{name: "traversal", object: "../outside.zip", wantErr: ErrInvalidBackupObjectName},
+		{name: "separator", object: "sub/dir.zip", wantErr: ErrInvalidBackupObjectName},
+		{name: "non-archive", object: "notes.txt", wantErr: ErrInvalidBackupObjectName},
+		{name: "empty", object: "", wantErr: ErrInvalidBackupObjectName},
+		{name: "dot-dot", object: "..", wantErr: ErrInvalidBackupObjectName},
+		{
+			name:   "directory",
+			object: validName,
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				if err := os.Mkdir(filepath.Join(dir, validName), 0o750); err != nil {
+					t.Fatalf("Mkdir() error = %v", err)
+				}
+			},
+			wantErr: ErrInvalidBackupObjectName,
+		},
+		{
+			name:   "symlink",
+			object: validName,
+			setup: func(t *testing.T, dir string) {
+				t.Helper()
+				outside := filepath.Join(t.TempDir(), "outside.zip")
+				if err := os.WriteFile(outside, []byte("archive"), 0o600); err != nil {
+					t.Fatalf("write outside file: %v", err)
+				}
+				if err := os.Symlink(outside, filepath.Join(dir, validName)); err != nil {
+					t.Fatalf("Symlink() error = %v", err)
+				}
+			},
+			wantErr: ErrInvalidBackupObjectName,
+		},
+		{name: "missing", object: validName},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			target := &localTarget{dir: dir}
+			if tc.setup != nil {
+				tc.setup(t, dir)
+			}
+
+			reader, size, err := target.Get(context.Background(), tc.object)
+			if err == nil {
+				_ = reader.Close()
+				t.Fatalf("Get() error = nil, size = %d, want an error", size)
+			}
+			if tc.wantErr != nil && !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Get() error = %v, want %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLocalTargetGetReturnsArchiveBytesAndSize(t *testing.T) {
+	dir := t.TempDir()
+	target := &localTarget{dir: dir}
+	name := "subdux-backup-20260615-030000-abc123.zip"
+	payload := []byte("archive contents")
+	if err := os.WriteFile(filepath.Join(dir, name), payload, 0o600); err != nil {
+		t.Fatalf("write archive: %v", err)
+	}
+
+	reader, size, err := target.Get(context.Background(), name)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if size != int64(len(payload)) {
+		t.Fatalf("Get() size = %d, want %d", size, len(payload))
+	}
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read archive: %v", err)
+	}
+	if string(got) != string(payload) {
+		t.Fatalf("Get() contents = %q, want %q", got, payload)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close() error = %v, want nil", err)
+	}
+}

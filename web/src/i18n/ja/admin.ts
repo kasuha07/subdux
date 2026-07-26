@@ -326,6 +326,8 @@ const admin = {
         "セキュリティのため、このバックアップ先を更新するには再認証してください。",
       destinationDeleteDescription:
         "セキュリティのため、このバックアップ先を削除するには再認証してください。",
+      destinationRestoreDescription:
+        "セキュリティのため、この保存先のバックアップから復元するには再認証してください。",
       passwordLabel: "アカウントのパスワード",
       totpCodeLabel: "認証アプリのコード",
       totpCodeDescription:
@@ -454,6 +456,21 @@ const admin = {
       createSuccess: "バックアップ先を追加しました",
       updateSuccess: "バックアップ先を更新しました",
       deleteSuccess: "バックアップ先を削除しました",
+      browse: "この保存先から復元",
+      browseTitle: "この保存先のバックアップ",
+      browseDescription:
+        "この保存先に保存されているバックアップを選んで復元します。現在のすべてのデータが置き換えられます。",
+      browseEmpty: "この保存先にバックアップが見つかりません",
+      browseLoading: "バックアップを読み込み中...",
+      browseFailed: "この保存先からのバックアップの読み込みに失敗しました",
+      browseSelect: "このバックアップを復元",
+      restoreConfirmTitle: "{{name}} を復元しますか？",
+      restoreConfirmWarning:
+        "現在のすべてのデータがこのバックアップに置き換えられます。よろしいですか？",
+      restorePasswordOptional: "バックアップのパスワード（暗号化されている場合）",
+      restorePasswordOptionalDescription:
+        "暗号化されていないバックアップの場合は空欄のままにしてください。S3 と WebDAV の保存先は暗号化を検出できないため、パスワードを設定していた場合は入力してください。",
+      restoreBack: "一覧に戻る",
     },
   },
 } as const;

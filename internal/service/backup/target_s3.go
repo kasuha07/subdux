@@ -151,6 +151,32 @@ func (t *s3Target) List(ctx context.Context) ([]BackupObject, error) {
 	return objects, nil
 }
 
+func (t *s3Target) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	if !isDirectS3ObjectName(name) || !backupFileNamePattern.MatchString(name) {
+		return nil, 0, ErrInvalidBackupObjectName
+	}
+	// s3BackupTimeout already bounds a full archive upload in Put; a download of
+	// the same archive is bounded the same way rather than introducing a second
+	// knob. The cancel travels with the reader (see backupObjectReader) because
+	// minio's object body is read after Get returns.
+	ctx, cancel := context.WithTimeout(ctx, s3BackupTimeout)
+
+	object, err := t.client.GetObject(ctx, t.bucket, t.objectKey(name), minio.GetObjectOptions{})
+	if err != nil {
+		cancel()
+		return nil, 0, err
+	}
+	// GetObject is lazy; Stat is what actually issues the request, so a missing
+	// object or a rejected credential surfaces here rather than mid-copy.
+	info, err := object.Stat()
+	if err != nil {
+		_ = object.Close()
+		cancel()
+		return nil, 0, err
+	}
+	return &backupObjectReader{ReadCloser: object, cancel: cancel}, info.Size, nil
+}
+
 func (t *s3Target) Delete(ctx context.Context, name string) error {
 	if !isDirectS3ObjectName(name) || !backupFileNamePattern.MatchString(name) {
 		// Defensive: retention only ever passes back names List produced, which

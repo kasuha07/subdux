@@ -211,6 +211,20 @@ export interface BackupDestination {
   configured_secret_fields: string[]
 }
 
+// One archive stored at a backup destination. `encrypted` is only ever
+// meaningful for local destinations: S3 and WebDAV cannot report archive-
+// internal encryption and always send false.
+export interface DestinationBackup {
+  name: string
+  size: number
+  modified_at: string
+  encrypted: boolean
+}
+
+export interface DestinationBackupList {
+  backups: DestinationBackup[]
+}
+
 export interface SSRFTestResult {
   target: string
   host: string

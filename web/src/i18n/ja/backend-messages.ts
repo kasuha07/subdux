@@ -14,6 +14,8 @@ const backendMessages = {
   "api_key_not_found": "APIキーが見つかりません",
   "authorization_required": "許可が必要です",
   "backup_archive_is_unavailable_for_retry": "永続化されたバックアップアーカイブを再試行に利用できません",
+  "backup_archive_not_found": "この保存先でバックアップアーカイブが見つかりません",
+  "backup_archive_download_failed": "この保存先からバックアップアーカイブをダウンロードできませんでした",
   "backup_created": "バックアップが作成されました",
   "backup_failed": "バックアップに失敗しました",
   "backup_file_is_too_large_max_mb": "バックアップ ファイルが大きすぎます (最大 {{max_mb}} MB)",

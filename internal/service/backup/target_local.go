@@ -122,6 +122,48 @@ func (t *localTarget) List(_ context.Context) ([]BackupObject, error) {
 	return items, nil
 }
 
+func (t *localTarget) Get(_ context.Context, name string) (io.ReadCloser, int64, error) {
+	if !isSafeBackupFileName(name) {
+		return nil, 0, ErrInvalidBackupObjectName
+	}
+	path := filepath.Join(t.dir, name)
+
+	// Lstat before opening, and require a regular file: this is the portable
+	// stand-in for O_NOFOLLOW. os.Open would happily follow a symlink planted in
+	// the backup directory and read whatever it points at; Lstat inspects the
+	// final component itself, so a symlink is rejected as not-regular. syscall.
+	// O_NOFOLLOW would be the direct expression of this but does not exist on
+	// every platform Go builds for, and the one existing syscall user in the
+	// tree is behind a _unix build tag — a build-tag split for one open call is
+	// disproportionate here.
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, 0, ErrInvalidBackupObjectName
+	}
+
+	file, err := os.Open(path) // #nosec G304 -- name is gated by isSafeBackupFileName to a direct child of the configured backup directory.
+	if err != nil {
+		return nil, 0, err
+	}
+	// Re-check through the open handle so a file swapped between Lstat and Open
+	// cannot slip an irregular file past the check above. os.SameFile compares
+	// device and inode, so a path swapped to point at a *different* regular
+	// file in that window is also caught, not just a swap to a non-regular one.
+	opened, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, 0, err
+	}
+	if !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
+		_ = file.Close()
+		return nil, 0, ErrInvalidBackupObjectName
+	}
+	return file, opened.Size(), nil
+}
+
 func (t *localTarget) Delete(_ context.Context, name string) error {
 	if !isSafeBackupFileName(name) {
 		// Defensive: retention only ever passes names it read back from List,

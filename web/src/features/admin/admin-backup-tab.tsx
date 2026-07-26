@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { TabsContent } from "@/components/ui/tabs"
-import type { BackupDestination, BackupRunRecord } from "@/types"
+import type { BackupDestination, BackupRunRecord, DestinationBackup } from "@/types"
 import { formatBytes, formatDateTime } from "./admin-backup-format"
 import AdminBackupDestinationsSection, {
   type DestinationCreateBody,
@@ -36,6 +36,13 @@ interface AdminBackupTabProps {
   onDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
   onRunDestination: (id: number, reauthTicket: string) => void | Promise<void>
   onTestDestination: (id: number) => Promise<void>
+  onLoadDestinationBackups: (id: number) => Promise<DestinationBackup[]>
+  onRestoreFromDestination: (
+    id: number,
+    archiveName: string,
+    password: string,
+    reauthTicket: string
+  ) => Promise<boolean>
   onTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
   onDownloadBackup: (reauthTicket: string) => Promise<boolean>
   onDownloadPasswordChange: (value: string) => void
@@ -66,6 +73,8 @@ export default function AdminBackupTab({
   onDeleteDestination,
   onRunDestination,
   onTestDestination,
+  onLoadDestinationBackups,
+  onRestoreFromDestination,
   onTestDestinationConfig,
   onDownloadBackup,
   onDownloadPasswordChange,
@@ -84,7 +93,7 @@ export default function AdminBackupTab({
 }: AdminBackupTabProps) {
   const { t, i18n } = useTranslation()
   // Which flow, if any, is awaiting step-up re-authentication.
-  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "dest-create" | "dest-update" | "dest-delete" | "dest-run" | null>(null)
+  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "dest-create" | "dest-update" | "dest-delete" | "dest-run" | "dest-restore" | null>(null)
 
   function destinationTypeLabel(type: string) {
     if (type === "s3") return t("admin.backup.destinations.typeS3")
@@ -114,6 +123,7 @@ export default function AdminBackupTab({
   const [pendingDestUpdate, setPendingDestUpdate] = useState<{ id: number; revision: number; body: DestinationUpdateBody } | null>(null)
   const [destDeleteTarget, setDestDeleteTarget] = useState<BackupDestination | null>(null)
   const [destRunTarget, setDestRunTarget] = useState<BackupDestination | null>(null)
+  const [pendingDestRestore, setPendingDestRestore] = useState<{ id: number; archiveName: string; password: string } | null>(null)
 
   const reauthOperation =
     reauthPrompt === "dest-create"
@@ -122,7 +132,7 @@ export default function AdminBackupTab({
         ? "backup_destination_update"
         : reauthPrompt === "dest-delete"
           ? "backup_destination_delete"
-          : reauthPrompt === "restore"
+          : reauthPrompt === "restore" || reauthPrompt === "dest-restore"
             ? "restore"
             : reauthPrompt === "dest-run"
               ? "backup_run"
@@ -130,7 +140,9 @@ export default function AdminBackupTab({
 
   // Only update/delete may carry a resource binding: the backend's
   // ValidateTicketBinding rejects a bound create ticket, so create sends no
-  // scope. The per-destination run is unbound for the same reason.
+  // scope. The per-destination run and the per-destination restore are also
+  // unbound for the same reason: neither changes destination configuration,
+  // so ValidateTicketBinding rejects a bound ticket for them too.
   const reauthScope: ReauthScope | undefined =
     reauthPrompt === "dest-update" && pendingDestUpdate
       ? {
@@ -273,6 +285,11 @@ export default function AdminBackupTab({
           setDestRunTarget(destination)
           setReauthPrompt("dest-run")
         }}
+        onLoadDestinationBackups={onLoadDestinationBackups}
+        onRequestRestore={(destination, archiveName, password) => {
+          setPendingDestRestore({ id: destination.id, archiveName, password })
+          setReauthPrompt("dest-restore")
+        }}
       />
 
       <Separator />
@@ -355,6 +372,7 @@ export default function AdminBackupTab({
         onOpenChange={(open) => {
           if (!open) {
             setReauthPrompt(null)
+            setPendingDestRestore(null)
           }
         }}
         onVerified={async (ticket) => {
@@ -381,6 +399,16 @@ export default function AdminBackupTab({
             if (closePrompt) {
               setDestDeleteTarget(null)
             }
+          } else if (reauthPrompt === "dest-restore" && pendingDestRestore) {
+            closePrompt = await onRestoreFromDestination(
+              pendingDestRestore.id,
+              pendingDestRestore.archiveName,
+              pendingDestRestore.password,
+              ticket
+            )
+            if (closePrompt) {
+              setPendingDestRestore(null)
+            }
           }
           if (closePrompt) {
             setReauthPrompt(null)
@@ -398,9 +426,15 @@ export default function AdminBackupTab({
                   ? t("admin.backup.reauth.destinationUpdateDescription")
                   : reauthPrompt === "dest-delete"
                     ? t("admin.backup.reauth.destinationDeleteDescription")
-                    : t("admin.backup.reauth.downloadDescription")
+                    : reauthPrompt === "dest-restore"
+                      ? t("admin.backup.reauth.destinationRestoreDescription")
+                      : t("admin.backup.reauth.downloadDescription")
         }
-        confirmVariant={reauthPrompt === "restore" || reauthPrompt === "dest-delete" ? "destructive" : "default"}
+        confirmVariant={
+          reauthPrompt === "restore" || reauthPrompt === "dest-delete" || reauthPrompt === "dest-restore"
+            ? "destructive"
+            : "default"
+        }
       />
     </TabsContent>
   )

@@ -14,6 +14,8 @@ const backendMessages = {
   "api_key_not_found": "api key not found",
   "authorization_required": "authorization required",
   "backup_archive_is_unavailable_for_retry": "the persisted backup archive is unavailable for retry",
+  "backup_archive_not_found": "backup archive not found at this destination",
+  "backup_archive_download_failed": "the backup archive could not be downloaded from the destination",
   "backup_created": "backup created",
   "backup_failed": "backup failed",
   "backup_file_is_too_large_max_mb": "backup file is too large (max {{max_mb}} MB)",

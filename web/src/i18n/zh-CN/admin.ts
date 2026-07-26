@@ -299,6 +299,7 @@ const admin = {
       destinationCreateDescription: "出于安全考虑，请重新验证身份以添加备份目标。",
       destinationUpdateDescription: "出于安全考虑，请重新验证身份以更新此备份目标。",
       destinationDeleteDescription: "出于安全考虑，请重新验证身份以删除此备份目标。",
+      destinationRestoreDescription: "出于安全考虑，请重新验证身份以从该备份目标恢复。",
       passwordLabel: "账户密码",
       totpCodeLabel: "身份验证器验证码",
       totpCodeDescription:
@@ -413,6 +414,19 @@ const admin = {
       createSuccess: "备份目标已添加",
       updateSuccess: "备份目标已更新",
       deleteSuccess: "备份目标已删除",
+      browse: "从该目标恢复",
+      browseTitle: "该目标的备份",
+      browseDescription: "选择存储在该目标的一个备份进行恢复，这将替换所有当前数据。",
+      browseEmpty: "该目标未找到备份",
+      browseLoading: "正在加载备份...",
+      browseFailed: "从该目标加载备份失败",
+      browseSelect: "恢复此备份",
+      restoreConfirmTitle: "恢复 {{name}}？",
+      restoreConfirmWarning: "这将用该备份替换所有当前数据，确定要继续吗？",
+      restorePasswordOptional: "备份密码（如已加密）",
+      restorePasswordOptionalDescription:
+        "未加密的备份可留空。S3 和 WebDAV 目标无法检测归档是否加密，如果您设置过密码，请输入。",
+      restoreBack: "返回列表",
     },
   },
 } as const;

@@ -174,6 +174,34 @@ func (t *webdavTarget) List(ctx context.Context) ([]BackupObject, error) {
 	return objects, nil
 }
 
+func (t *webdavTarget) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	if !isSafeBackupFileName(name) {
+		return nil, 0, ErrInvalidBackupObjectName
+	}
+	ctx, cancel := context.WithTimeout(ctx, webdavTimeout)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.objectURL(name), nil)
+	if err != nil {
+		cancel()
+		return nil, 0, err
+	}
+	t.authorize(req)
+
+	resp, err := t.client.Do(req)
+	if err != nil {
+		cancel()
+		return nil, 0, err
+	}
+	if !isWebDAVSuccess(resp.StatusCode) {
+		drainAndClose(resp.Body)
+		cancel()
+		return nil, 0, webdavStatusError("download", resp.StatusCode)
+	}
+	// ContentLength is -1 for a chunked response, which is exactly the
+	// "unreported" contract Get documents.
+	return &backupObjectReader{ReadCloser: resp.Body, cancel: cancel}, resp.ContentLength, nil
+}
+
 func (t *webdavTarget) Delete(ctx context.Context, name string) error {
 	if !isSafeBackupFileName(name) {
 		// Defensive: retention only passes back names List produced. Refuse

@@ -14,6 +14,8 @@ const backendMessages = {
   "api_key_not_found": "未找到 API 密钥",
   "authorization_required": "需要授权",
   "backup_archive_is_unavailable_for_retry": "持久化备份归档不可用于重试",
+  "backup_archive_not_found": "该目标未找到此备份归档",
+  "backup_archive_download_failed": "无法从该目标下载备份归档",
   "backup_created": "已创建备份",
   "backup_failed": "备份失败",
   "backup_file_is_too_large_max_mb": "备份文件太大（最大 {{max_mb}} MB）",

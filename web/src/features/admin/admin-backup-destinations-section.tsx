@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Clock, Pencil, PlayCircle, Plus, RefreshCw, Trash2, Wifi } from "lucide-react"
+import { AlertTriangle, Clock, History, Lock, Pencil, PlayCircle, Plus, RefreshCw, Trash2, Wifi } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,12 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { BackupDestination } from "@/types"
+import { Input } from "@/components/ui/input"
+import type { BackupDestination, DestinationBackup } from "@/types"
 
 import AdminBackupDestinationFormFields, {
   type DestinationFormValues,
 } from "./admin-backup-destination-form-fields"
-import { formatDateTime } from "./admin-backup-format"
+import { formatBytes, formatDateTime } from "./admin-backup-format"
 import {
   buildDestinationProbeRequest,
   buildLocalConfig,
@@ -65,6 +66,10 @@ interface AdminBackupDestinationsSectionProps {
   onRequestUpdate: (id: number, revision: number, body: DestinationUpdateBody) => void
   onRequestDelete: (destination: BackupDestination) => void
   onRequestRun: (destination: BackupDestination) => void
+  onLoadDestinationBackups: (id: number) => Promise<DestinationBackup[]>
+  // Reauth-gated like create/update/delete/run: the section only reports the
+  // intent plus its payload; the parent owns the step-up prompt and ticket.
+  onRequestRestore: (destination: BackupDestination, archiveName: string, password: string) => void
 }
 
 const EMPTY_DESTINATION_FORM: DestinationFormValues = {
@@ -102,6 +107,8 @@ export default function AdminBackupDestinationsSection({
   onRequestUpdate,
   onRequestDelete,
   onRequestRun,
+  onLoadDestinationBackups,
+  onRequestRestore,
 }: AdminBackupDestinationsSectionProps) {
   const { t, i18n } = useTranslation()
 
@@ -122,6 +129,55 @@ export default function AdminBackupDestinationsSection({
   // probe's completion clears a later probe's spinner and re-enables the button
   // while it is still running.
   const destProbeRun = useRef(0)
+
+  // Browse-and-restore dialog state
+  const [browseTarget, setBrowseTarget] = useState<BackupDestination | null>(null)
+  const [browseBackups, setBrowseBackups] = useState<DestinationBackup[]>([])
+  const [browseLoading, setBrowseLoading] = useState(false)
+  const [browseSelection, setBrowseSelection] = useState<DestinationBackup | null>(null)
+  const [browsePassword, setBrowsePassword] = useState("")
+  // Guards a superseded load from settling onto a dialog that has since been
+  // closed or reopened on another destination — same reason destProbeRun exists.
+  const browseRun = useRef(0)
+
+  async function openBrowse(dest: BackupDestination) {
+    setBrowseTarget(dest)
+    setBrowseBackups([])
+    setBrowseSelection(null)
+    setBrowsePassword("")
+    browseRun.current += 1
+    const run = browseRun.current
+    setBrowseLoading(true)
+    try {
+      const result = await onLoadDestinationBackups(dest.id)
+      if (browseRun.current === run) {
+        setBrowseBackups(result)
+      }
+    } catch {
+      // Today's loader swallows its own errors, but the prop type does not
+      // promise that — fall back to an empty list so a rejecting loader can
+      // never leave the dialog stuck on its loading state.
+      if (browseRun.current === run) {
+        setBrowseBackups([])
+      }
+    } finally {
+      if (browseRun.current === run) {
+        setBrowseLoading(false)
+      }
+    }
+  }
+
+  // closeBrowse clears all browse state including browsePassword — the
+  // password is a plaintext secret and must not linger, exactly as
+  // closeDestForm drops typed secrets.
+  function closeBrowse() {
+    setBrowseTarget(null)
+    setBrowseBackups([])
+    setBrowseLoading(false)
+    setBrowseSelection(null)
+    setBrowsePassword("")
+    browseRun.current += 1
+  }
 
   function updateDestForm(patch: Partial<DestinationFormValues>) {
     setDestForm((prev) => ({ ...prev, ...patch }))
@@ -425,6 +481,118 @@ export default function AdminBackupDestinationsSection({
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={browseTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) closeBrowse()
+        }}
+      >
+        <DialogContent
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
+        >
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>{t("admin.backup.destinations.browseTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("admin.backup.destinations.browseDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+            {browseSelection === null ? (
+              browseLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.backup.destinations.browseLoading")}
+                </p>
+              ) : browseBackups.length === 0 ? (
+                <p className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                  {t("admin.backup.destinations.browseEmpty")}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {browseBackups.map((backup) => (
+                    <li
+                      key={backup.name}
+                      className="flex items-start justify-between gap-4 rounded-md border p-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate font-mono text-sm">{backup.name}</span>
+                          {backup.encrypted && (
+                            <Badge variant="secondary" className="gap-1">
+                              <Lock className="size-3" />
+                              {t("admin.backup.backupEncryptedBadge")}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatBytes(backup.size, i18n.language)} ·{" "}
+                          {formatDateTime(backup.modified_at, i18n.language)}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="shrink-0"
+                        onClick={() => setBrowseSelection(backup)}
+                      >
+                        {t("admin.backup.destinations.browseSelect")}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-md border border-destructive bg-destructive/10 p-4">
+                  <div className="mb-2 flex items-center gap-2 font-medium text-destructive">
+                    <AlertTriangle className="size-4" />
+                    {t("admin.backup.destinations.restoreConfirmTitle", {
+                      name: browseSelection.name,
+                    })}
+                  </div>
+                  <p className="text-sm text-destructive">
+                    {t("admin.backup.destinations.restoreConfirmWarning")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    {t("admin.backup.destinations.restorePasswordOptional")}
+                  </p>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={browsePassword}
+                    onChange={(event) => setBrowsePassword(event.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin.backup.destinations.restorePasswordOptionalDescription")}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setBrowseSelection(null)}>
+                    {t("admin.backup.destinations.restoreBack")}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (!browseTarget || !browseSelection) return
+                      const target = browseTarget
+                      const archiveName = browseSelection.name
+                      const password = browsePassword
+                      closeBrowse()
+                      onRequestRestore(target, archiveName, password)
+                    }}
+                  >
+                    {t("admin.backup.confirm")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {destinations.length === 0 ? (
         <p className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
           {t("admin.backup.destinations.empty")}
@@ -586,6 +754,14 @@ export default function AdminBackupDestinationsSection({
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title={t("admin.backup.destinations.browse")}
+                    onClick={() => void openBrowse(dest)}
+                  >
+                    <History className="size-3.5" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"

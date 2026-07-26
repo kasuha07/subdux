@@ -329,6 +329,8 @@ const admin = {
         "For security, re-authenticate to update this backup destination.",
       destinationDeleteDescription:
         "For security, re-authenticate to delete this backup destination.",
+      destinationRestoreDescription:
+        "For security, re-authenticate to restore from this destination backup.",
       passwordLabel: "Account password",
       totpCodeLabel: "Authenticator code",
       totpCodeDescription:
@@ -456,6 +458,21 @@ const admin = {
       createSuccess: "Backup destination added",
       updateSuccess: "Backup destination updated",
       deleteSuccess: "Backup destination deleted",
+      browse: "Restore from this destination",
+      browseTitle: "Backups at this destination",
+      browseDescription:
+        "Pick a backup stored at this destination to restore. This replaces ALL current data.",
+      browseEmpty: "No backups found at this destination",
+      browseLoading: "Loading backups...",
+      browseFailed: "Failed to load backups from this destination",
+      browseSelect: "Restore this backup",
+      restoreConfirmTitle: "Restore {{name}}?",
+      restoreConfirmWarning:
+        "This will replace ALL current data with this backup. Are you sure?",
+      restorePasswordOptional: "Backup password (if encrypted)",
+      restorePasswordOptionalDescription:
+        "Leave blank for an unencrypted backup. Encryption cannot be detected for S3 and WebDAV destinations, so enter the password if you set one.",
+      restoreBack: "Back to list",
     },
   },
 } as const;

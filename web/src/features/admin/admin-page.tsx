@@ -396,6 +396,8 @@ export default function AdminPage() {
                   onDeleteDestination={admin.handleDeleteDestination}
                   onRunDestination={admin.handleRunDestinationBackup}
                   onTestDestination={admin.handleTestDestination}
+                  onLoadDestinationBackups={admin.handleListDestinationBackups}
+                  onRestoreFromDestination={admin.handleRestoreFromDestination}
                   onTestDestinationConfig={admin.handleTestDestinationConfig}
                 />
               </Suspense>

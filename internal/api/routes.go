@@ -213,5 +213,7 @@ func (h *AdminHandler) RegisterRoutes(g RouteGroups) {
 	g.Admin.DELETE("/backup/destinations/:id", h.DeleteBackupDestination)
 	g.Admin.POST("/backup/destinations/:id/test", h.TestBackupDestination)
 	g.Admin.POST("/backup/destinations/:id/run", h.RunBackupDestination)
+	g.Admin.GET("/backup/destinations/:id/backups", h.ListBackupDestinationBackups)
+	g.Admin.POST("/backup/destinations/:id/restore", h.RestoreBackupDestination)
 	g.Admin.POST("/restore", h.RestoreDB, apimw.RequestBodyLimitMiddleware(32<<20, nil))
 }

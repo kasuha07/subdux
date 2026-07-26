@@ -146,6 +146,46 @@ func postRunBackupDestination(t *testing.T, e *echo.Echo, token string, id uint,
 	return postRunBackupDestinationRaw(t, e, token, fmt.Sprintf("%d", id), ticket)
 }
 
+// postRestoreBackupDestinationRaw fires the per-destination restore endpoint
+// with the path segment verbatim, so callers can also exercise an unparseable
+// id.
+func postRestoreBackupDestinationRaw(t *testing.T, e *echo.Echo, token, rawID, body, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/backup/destinations/%s/restore", rawID), strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func postRestoreBackupDestination(t *testing.T, e *echo.Echo, token string, id uint, body, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+	return postRestoreBackupDestinationRaw(t, e, token, fmt.Sprintf("%d", id), body, ticket)
+}
+
+// getBackupDestinationBackupsRaw fires the per-destination listing endpoint
+// with the path segment verbatim, so callers can also exercise an unparseable
+// id.
+func getBackupDestinationBackupsRaw(t *testing.T, e *echo.Echo, token, rawID string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/backup/destinations/%s/backups", rawID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func getBackupDestinationBackups(t *testing.T, e *echo.Echo, token string, id uint) *httptest.ResponseRecorder {
+	t.Helper()
+	return getBackupDestinationBackupsRaw(t, e, token, fmt.Sprintf("%d", id))
+}
+
 func putAdminSettings(t *testing.T, e *echo.Echo, token, body, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
