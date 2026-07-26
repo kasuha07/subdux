@@ -22,6 +22,7 @@ const backendMessages = {
   "backup_is_encrypted_a_password_is_required": "バックアップは暗号化されます。パスワードが必要です",
   "backup_local_directory_must_be_an_absolute_path_or_a_clean_relative_path_without_segments": "バックアップ ローカル ディレクトリは、絶対パスまたは「..」セグメントのないクリーンな相対パスである必要があります。",
   "backup_retention_count_must_be_between_1_and_1000": "バックアップ保持数は 1 ～ 1000 でなければなりません",
+  "backup_restored": "バックアップが復元されました",
   "backup_restored_please_restart_server": "バックアップが復元されました - サーバーを再起動してください",
   "backup_time_of_day_must_be_in_hh_mm_24_hour_format": "バックアップ時刻は HH:MM 24 時間形式である必要があります",
   "backup_destination_config_must_be_valid_json": "バックアップ先の設定は有効な JSON である必要があります",

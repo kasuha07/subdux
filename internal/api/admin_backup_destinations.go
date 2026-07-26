@@ -279,7 +279,7 @@ func (h *AdminHandler) RestoreBackupDestination(c echo.Context) error {
 		return writeRestoreBackupError(c, err)
 	}
 
-	return httpx.WriteMessageFields(c, http.StatusOK, "backup_restored_please_restart_server", map[string]any{
+	return httpx.WriteMessageFields(c, http.StatusOK, restoreMessageCode(result), map[string]any{
 		"skipped_asset_count": result.SkippedAssetCount,
 	})
 }

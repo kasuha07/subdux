@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/yeka/zip"
@@ -32,6 +34,11 @@ type restorePayload struct {
 
 type RestoreResult struct {
 	SkippedAssetCount int
+	// Reopened reports whether the process reconnected to the restored
+	// database on its own. When false the restore still succeeded, but the
+	// running process needs an operator-driven restart before it can serve
+	// requests again.
+	Reopened bool
 }
 
 type restoreLimits struct {
@@ -86,6 +93,13 @@ func (s *Service) RestoreBackup(uploadedBackupPath string, password string) (Res
 		return RestoreResult{}, err
 	}
 
+	// Closing the last connection normally checkpoints and deletes the WAL
+	// sidecars, but a leftover pair from a crashed close would be replayed on
+	// top of the incoming database file and silently corrupt the restore.
+	if err := removeSQLiteSidecarFiles(dbPath); err != nil {
+		return RestoreResult{}, err
+	}
+
 	if err := replaceDatabaseFile(restorePayload.dbFilePath, dbPath); err != nil {
 		return RestoreResult{}, err
 	}
@@ -95,7 +109,27 @@ func (s *Service) RestoreBackup(uploadedBackupPath string, password string) (Res
 		}
 	}
 
-	return RestoreResult{SkippedAssetCount: restorePayload.skippedAssetCount}, nil
+	// The restore itself is done at this point. A failed reopen is reported
+	// through Reopened, never as an error: telling the admin the restore failed
+	// would invite a retry that cannot help and would re-upload the archive.
+	if err := pkg.ReopenDatabase(s.DB); err != nil {
+		logging.Warn("database restored but could not be reopened in place; a server restart is required",
+			slog.Any("error", err))
+		return RestoreResult{SkippedAssetCount: restorePayload.skippedAssetCount}, nil
+	}
+
+	return RestoreResult{SkippedAssetCount: restorePayload.skippedAssetCount, Reopened: true}, nil
+}
+
+// removeSQLiteSidecarFiles deletes the WAL and shared-memory files that belong
+// to dbPath. Missing sidecars are the normal case after a clean close.
+func removeSQLiteSidecarFiles(dbPath string) error {
+	for _, sidecarPath := range []string{dbPath + "-wal", dbPath + "-shm"} {
+		if err := os.Remove(sidecarPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
 }
 
 func prepareRestorePayload(uploadedBackupPath string, password string) (*restorePayload, error) {

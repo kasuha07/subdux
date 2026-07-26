@@ -123,9 +123,18 @@ func (h *AdminHandler) RestoreDB(c echo.Context) error {
 		return writeRestoreBackupError(c, err)
 	}
 
-	return httpx.WriteMessageFields(c, http.StatusOK, "backup_restored_please_restart_server", map[string]any{
+	return httpx.WriteMessageFields(c, http.StatusOK, restoreMessageCode(result), map[string]any{
 		"skipped_asset_count": result.SkippedAssetCount,
 	})
+}
+
+// restoreMessageCode reports whether the admin still has to restart the server.
+// The restore always succeeded; only the in-process reconnect can fail.
+func restoreMessageCode(result servicebackup.RestoreResult) string {
+	if result.Reopened {
+		return "backup_restored"
+	}
+	return "backup_restored_please_restart_server"
 }
 
 func writeRestoreBackupError(c echo.Context, err error) error {

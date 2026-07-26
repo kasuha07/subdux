@@ -22,6 +22,7 @@ const backendMessages = {
   "backup_is_encrypted_a_password_is_required": "backup is encrypted; a password is required",
   "backup_local_directory_must_be_an_absolute_path_or_a_clean_relative_path_without_segments": "backup local directory must be an absolute path or a clean relative path without '..' segments",
   "backup_retention_count_must_be_between_1_and_1000": "backup retention count must be between 1 and 1000",
+  "backup_restored": "backup restored",
   "backup_restored_please_restart_server": "backup restored - please restart server",
   "backup_time_of_day_must_be_in_hh_mm_24_hour_format": "backup time of day must be in HH:MM 24-hour format",
   "backup_destination_config_must_be_valid_json": "backup destination config must be valid JSON",

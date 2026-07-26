@@ -53,8 +53,7 @@ func main() {
 	defer cancelBackground()
 
 	db := pkg.InitDB()
-	sqlDB, err := db.DB()
-	if err != nil {
+	if _, err := db.DB(); err != nil {
 		logging.Fatal("failed to access database handle", slog.Any("error", err))
 	}
 	if err := pkg.InitJWTSecret(db); err != nil {
@@ -143,10 +142,17 @@ func main() {
 
 	backgroundTasks.Wait()
 
-	if err := sqlDB.Close(); err != nil {
-		logging.Error("database close error", slog.Any("error", err))
+	// Resolve the pool at shutdown rather than reusing the one captured at
+	// startup: a backup restore closes the original pool and swaps in a new one,
+	// so the startup handle can be the dead pool while the live one leaks.
+	sqlDB, closeErr := db.DB()
+	if closeErr == nil {
+		closeErr = sqlDB.Close()
+	}
+	if closeErr != nil {
+		logging.Error("database close error", slog.Any("error", closeErr))
 		if serveErr == nil {
-			serveErr = err
+			serveErr = closeErr
 		}
 	}
 

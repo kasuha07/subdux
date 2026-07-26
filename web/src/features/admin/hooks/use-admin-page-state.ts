@@ -37,8 +37,13 @@ interface UseAdminPageStateOptions {
 }
 
 interface RestoreBackupResponse {
+  message_code?: string
   skipped_asset_count?: number
 }
+
+// The server now reopens the database in place after a restore. When it cannot,
+// it keeps the legacy message code and the admin still has to restart it.
+const RESTORE_RESTART_REQUIRED_CODE = "backup_restored_please_restart_server"
 
 interface UseAdminPageStateResult {
   backgroundTasks: BackgroundTask[]
@@ -623,7 +628,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       })
 
       setRestoreConfirmOpen(false)
-      toast.success(t("admin.backup.restoreSuccess"))
+      if (result?.message_code === RESTORE_RESTART_REQUIRED_CODE) {
+        toast.warning(t("admin.backup.restoreRestartRequired"))
+      } else {
+        toast.success(t("admin.backup.restoreSuccess"))
+      }
       if ((result?.skipped_asset_count ?? 0) > 0) {
         toast.warning(t("admin.backup.restoreSkippedAssets"))
       }
@@ -652,7 +661,11 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
           errorFallbackKey: "admin.backup.restoreFailed",
         }
       )
-      toast.success(t("admin.backup.restoreSuccess"))
+      if (result?.message_code === RESTORE_RESTART_REQUIRED_CODE) {
+        toast.warning(t("admin.backup.restoreRestartRequired"))
+      } else {
+        toast.success(t("admin.backup.restoreSuccess"))
+      }
       if ((result?.skipped_asset_count ?? 0) > 0) {
         toast.warning(t("admin.backup.restoreSkippedAssets"))
       }

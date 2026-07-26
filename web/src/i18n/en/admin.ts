@@ -351,6 +351,8 @@ const admin = {
       passwordDisabled: "This account uses a passkey, so a password can't be used here. Continue with your passkey or provider sign-in below.",
     },
     restoreSuccess: "Database restored. Please refresh the page.",
+    restoreRestartRequired:
+      "Database restored, but the server could not reconnect automatically. Please restart the server.",
     restoreSkippedAssets:
       "Some icons could not pass restore validation and were skipped.",
     restorePassword: "Backup password",

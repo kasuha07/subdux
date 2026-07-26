@@ -22,6 +22,7 @@ const backendMessages = {
   "backup_is_encrypted_a_password_is_required": "备份已加密；需要密码",
   "backup_local_directory_must_be_an_absolute_path_or_a_clean_relative_path_without_segments": "备份本地目录必须是绝对路径或不带“..”段的干净相对路径",
   "backup_retention_count_must_be_between_1_and_1000": "备份保留计数必须介于 1 到 1000 之间",
+  "backup_restored": "备份已恢复",
   "backup_restored_please_restart_server": "备份已恢复 - 请重新启动服务器",
   "backup_time_of_day_must_be_in_hh_mm_24_hour_format": "一天中的备份时间必须采用 HH:MM 24 小时格式",
   "backup_destination_config_must_be_valid_json": "备份目标配置必须是有效的 JSON",

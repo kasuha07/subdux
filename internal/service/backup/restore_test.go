@@ -243,6 +243,37 @@ func TestPrepareRestorePayloadFromZipRejectsExecutableAssetPath(t *testing.T) {
 	assertNoRestoreAssetsTempDirs(t)
 }
 
+// TestRestoreBackupWithoutPoolWrapperReportsRestartRequired covers the restore
+// success path end to end. The test database is opened with plain gorm.Open (no
+// pkg.InitDB), so the in-process reopen is unavailable and the restore must
+// still succeed while reporting that a restart is required.
+func TestRestoreBackupWithoutPoolWrapperReportsRestartRequired(t *testing.T) {
+	service, dataDir := newBackupTestDB(t)
+	backupPath := makeBackupDBFile(t, service)
+
+	// The pool is closed by RestoreBackup; service.DB must not be touched below.
+	result, err := service.RestoreBackup(backupPath, "")
+	if err != nil {
+		t.Fatalf("RestoreBackup() error = %v, want nil", err)
+	}
+	if result.SkippedAssetCount != 0 {
+		t.Fatalf("result.SkippedAssetCount = %d, want 0", result.SkippedAssetCount)
+	}
+	if result.Reopened {
+		t.Fatal("result.Reopened = true, want false without the pool wrapper")
+	}
+
+	restoredPath := filepath.Join(dataDir, "subdux.db")
+	if !isSQLiteBackupFile(restoredPath) {
+		t.Fatalf("%q is not a valid SQLite database after restore", restoredPath)
+	}
+	for _, sidecarPath := range []string{restoredPath + "-wal", restoredPath + "-shm"} {
+		if _, err := os.Stat(sidecarPath); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("stat %q error = %v, want not exist", sidecarPath, err)
+		}
+	}
+}
+
 func writeRestoreZip(t *testing.T, files map[string][]byte) string {
 	t.Helper()
 

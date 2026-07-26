@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -71,6 +72,19 @@ func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
 	}); err != nil {
 		return nil, err
 	}
+
+	// Indirect every query through a swappable pool so a backup restore can
+	// replace the underlying *sql.DB in place. Nothing else holds this handle
+	// yet, so no synchronization is needed here. Config.ConnPool is what future
+	// sessions clone from and Statement.ConnPool is what the current handle
+	// executes against; both must point at the wrapper.
+	sqlDB, ok := db.ConnPool.(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("unexpected sqlite connection pool type %T", db.ConnPool)
+	}
+	pool := newSwitchableConnPool(sqlDB)
+	db.Config.ConnPool = pool
+	db.Statement.ConnPool = pool
 
 	return db, nil
 }
