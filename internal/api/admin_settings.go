@@ -6,7 +6,6 @@ import (
 	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/api/httpx"
 	adminservice "github.com/kasuha07/subdux/internal/service/admin"
-	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
 )
 
@@ -28,25 +27,9 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return nil
 	}
 
-	if operation, ok := servicereauth.OperationForAdminSettingsUpdate(servicereauth.AdminSettingsUpdateInput{
-		BackupScheduleEnabled:    input.BackupScheduleEnabled,
-		BackupTimeOfDay:          input.BackupTimeOfDay,
-		BackupIncludeAssets:      input.BackupIncludeAssets,
-		BackupEncryptEnabled:     input.BackupEncryptEnabled,
-		BackupEncryptionPassword: input.BackupEncryptionPassword,
-	}); ok {
-		if h.Reauth == nil {
-			return httpx.WriteError(c, http.StatusInternalServerError, "reauthentication_service_is_not_configured")
-		}
-		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
-			apimw.From(c).UserID,
-			operation,
-			apimw.ReauthTicketFromRequest(c),
-		); err != nil {
-			return apimw.WriteReauthError(c, err)
-		}
-	}
-
+	// No admin setting requires step-up re-authentication any more: the backup
+	// schedule moved onto individual destinations, whose own endpoints carry the
+	// destination-bound reauth tickets.
 	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input); err != nil {
 		return err
 	}

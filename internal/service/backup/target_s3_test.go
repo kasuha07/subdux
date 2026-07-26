@@ -396,7 +396,7 @@ func TestS3TargetListScopesPrefixToObjectDirectory(t *testing.T) {
 	}
 }
 
-func TestRunBackupCountsUploadSuccessWhenS3RetentionFails(t *testing.T) {
+func TestRunDestinationBackupCountsUploadSuccessWhenS3RetentionFails(t *testing.T) {
 	stub := &stubS3Server{
 		objects:    map[string][]byte{},
 		listStatus: http.StatusInternalServerError,
@@ -415,15 +415,15 @@ func TestRunBackupCountsUploadSuccessWhenS3RetentionFails(t *testing.T) {
 		t.Fatalf("CreateDestination() error = %v", err)
 	}
 
-	result, err := svc.RunBackup(context.Background())
+	result, err := svc.RunDestinationBackup(context.Background(), destination.ID)
 	if err != nil {
-		t.Fatalf("RunBackup() error = %v, result = %+v, want nil after successful upload", err, result)
+		t.Fatalf("RunDestinationBackup() error = %v, result = %+v, want nil after successful upload", err, result)
 	}
 	if len(result.Results) != 1 {
-		t.Fatalf("RunBackup() results = %d, want 1", len(result.Results))
+		t.Fatalf("RunDestinationBackup() results = %d, want 1", len(result.Results))
 	}
 	if result.Status != StatusPartial || result.RetentionStatus != StatusPartial {
-		t.Fatalf("RunBackup() aggregate status = %q retention = %q, want partial/partial", result.Status, result.RetentionStatus)
+		t.Fatalf("RunDestinationBackup() aggregate status = %q retention = %q, want partial/partial", result.Status, result.RetentionStatus)
 	}
 	outcome := result.Results[0]
 	if outcome.DestinationID != destination.ID || !outcome.Success {

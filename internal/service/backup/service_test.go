@@ -3,8 +3,8 @@ package backup
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,9 +15,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/servicetest"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
-	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
 	yekazip "github.com/yeka/zip"
-	"gorm.io/gorm"
 )
 
 // newBackupTestDB provisions a Service backed by a temp SQLite database with
@@ -48,30 +46,101 @@ func makeBackupDBFile(t *testing.T, svc *Service) string {
 	return dbPath
 }
 
-func applySettings(t *testing.T, svc *Service, input UpdateSettingsInput) error {
-	t.Helper()
-
-	return svc.DB.Transaction(func(tx *gorm.DB) error {
-		return ApplySettings(tx, input)
-	})
+// localPlan describes a local destination's whole backup plan. The schedule now
+// lives in the same config blob as the transport settings, so tests build both
+// halves in one place. The zero value is a plain, unencrypted destination that
+// fires at the default time of day.
+type localPlan struct {
+	dir           string
+	retention     int
+	timeOfDay     string
+	includeAssets bool
+	password      string // a non-empty password also turns encryption on
+	disabled      bool
 }
 
-// createLocalDestination creates and enables a local backup destination with
-// the given directory and retention count, returning its ID. An empty dir means
-// the default <DATA_PATH>/backups.
-func createLocalDestination(t *testing.T, svc *Service, dir string, retention int) uint {
+func (p localPlan) configJSON(t *testing.T) string {
 	t.Helper()
 
-	config := fmt.Sprintf(`{"dir":%q,"retention_count":%d}`, dir, retention)
+	// Fields are omitted rather than zero-filled so each test exercises the same
+	// defaulting the admin UI relies on when it leaves a plan field untouched.
+	config := map[string]any{"dir": p.dir}
+	if p.retention > 0 {
+		config["retention_count"] = p.retention
+	}
+	if p.timeOfDay != "" {
+		config["time_of_day"] = p.timeOfDay
+	}
+	if p.includeAssets {
+		config["include_assets"] = true
+	}
+	if p.password != "" {
+		config["encrypt_enabled"] = true
+		config["encryption_password"] = p.password
+	}
+
+	encoded, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal local destination config: %v", err)
+	}
+	return string(encoded)
+}
+
+// createLocalPlan creates a local backup destination from plan and returns its
+// ID. An empty dir means the default <DATA_PATH>/backups.
+func createLocalPlan(t *testing.T, svc *Service, plan localPlan) uint {
+	t.Helper()
+
 	destination, err := svc.CreateDestination(CreateDestinationInput{
 		Type:    "local",
-		Enabled: true,
-		Config:  config,
+		Enabled: !plan.disabled,
+		Config:  plan.configJSON(t),
 	})
 	if err != nil {
 		t.Fatalf("CreateDestination() error = %v", err)
 	}
 	return destination.ID
+}
+
+// createLocalDestination creates and enables a local backup destination with
+// the given directory and retention count, returning its ID.
+func createLocalDestination(t *testing.T, svc *Service, dir string, retention int) uint {
+	t.Helper()
+
+	return createLocalPlan(t, svc, localPlan{dir: dir, retention: retention})
+}
+
+// loadDestination reloads a persisted destination so tests can assert on the
+// stored plan and on the two independent run timestamps.
+func loadDestination(t *testing.T, svc *Service, id uint) model.BackupDestination {
+	t.Helper()
+
+	var destination model.BackupDestination
+	if err := svc.DB.First(&destination, id).Error; err != nil {
+		t.Fatalf("load destination %d: %v", id, err)
+	}
+	return destination
+}
+
+// loadDestinations returns the rows for ids in the order given so a test can
+// drive runBackup's fan-out directly, the way the scheduler does once it has
+// grouped destinations onto one shared archive.
+func loadDestinations(t *testing.T, svc *Service, ids ...uint) []model.BackupDestination {
+	t.Helper()
+
+	destinations := make([]model.BackupDestination, 0, len(ids))
+	for _, id := range ids {
+		destinations = append(destinations, loadDestination(t, svc, id))
+	}
+	return destinations
+}
+
+// scheduleTime builds an instant on a fixed test day in the timezone the
+// scheduler evaluates plans in. Times of day are compared in that zone, so a
+// literal UTC instant would make every due-check test depend on where the suite
+// happens to run.
+func scheduleTime(hour, minute int) time.Time {
+	return time.Date(2026, 6, 15, hour, minute, 0, 0, pkg.GetSystemTimezone())
 }
 
 func TestWriteBackupZipEncryptedRoundTrip(t *testing.T) {
@@ -365,164 +434,85 @@ func TestBackupDue(t *testing.T) {
 	}
 }
 
-func TestApplySettingsHappyPath(t *testing.T) {
-	svc, _ := newBackupTestDB(t)
-	createLocalDestination(t, svc, "", 7)
-
-	enabled := true
-	timeOfDay := "02:30"
-	includeAssets := true
-
-	if err := applySettings(t, svc, UpdateSettingsInput{
-		ScheduleEnabled: &enabled,
-		TimeOfDay:       &timeOfDay,
-		IncludeAssets:   &includeAssets,
-	}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
-
-	gotEnabled, err := backupsettings.GetBool(context.Background(), svc.DB, KeyScheduleEnabled, false)
-	if err != nil || !gotEnabled {
-		t.Fatalf("backup schedule = %v, err = %v, want true/nil", gotEnabled, err)
-	}
-	gotTime, err := backupsettings.GetString(nil, svc.DB, KeyTimeOfDay, "")
-	if err != nil || gotTime != timeOfDay {
-		t.Fatalf("backup time = %q, err = %v, want %q/nil", gotTime, err, timeOfDay)
-	}
-	gotIncludeAssets, err := backupsettings.GetBool(nil, svc.DB, KeyIncludeAssets, false)
-	if err != nil || !gotIncludeAssets {
-		t.Fatalf("backup include_assets = %v, err = %v, want true/nil", gotIncludeAssets, err)
-	}
-	gotPassword, err := backupsettings.GetString(nil, svc.DB, KeyEncryptionPassword, "")
-	if err != nil || gotPassword != "" {
-		t.Fatalf("backup password = %q, err = %v, want empty/nil", gotPassword, err)
-	}
-}
-
-func TestApplySettingsRejectsEnablingScheduleWithoutEnabledDestination(t *testing.T) {
+// TestDestinationScheduleFromStoredReadsPersistedPlan is the per-destination
+// successor to the old global-settings round trip: the plan an admin saves must
+// come back to the runtime exactly as written, including the archive password
+// that the masked DestinationView deliberately blanks.
+func TestDestinationScheduleFromStoredReadsPersistedPlan(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	enabled := true
-	timeOfDay := "02:30"
-	includeAssets := true
-	err := applySettings(t, svc, UpdateSettingsInput{
-		ScheduleEnabled: &enabled,
-		TimeOfDay:       &timeOfDay,
-		IncludeAssets:   &includeAssets,
+	id := createLocalPlan(t, svc, localPlan{
+		retention:     7,
+		timeOfDay:     "02:30",
+		includeAssets: true,
+		password:      "s3cr3t-backup",
 	})
-	if !errors.Is(err, ErrNoEnabledBackupDestination) {
-		t.Fatalf("ApplySettings() error = %v, want ErrNoEnabledBackupDestination", err)
-	}
 
-	scheduleEnabled, err := backupsettings.GetBool(nil, svc.DB, KeyScheduleEnabled, false)
+	schedule, err := destinationScheduleFromStored(loadDestination(t, svc, id).Config)
 	if err != nil {
-		t.Fatalf("read backup schedule: %v", err)
+		t.Fatalf("destinationScheduleFromStored() error = %v", err)
 	}
-	if scheduleEnabled {
-		t.Fatal("backup schedule persisted as enabled after rejected transaction")
+	if schedule.TimeOfDay != "02:30" || !schedule.IncludeAssets {
+		t.Fatalf("stored schedule = %+v, want 02:30 with assets", schedule)
 	}
-	storedTimeOfDay, err := backupsettings.GetString(nil, svc.DB, KeyTimeOfDay, "03:00")
-	if err != nil {
-		t.Fatalf("read backup time after rejected transaction: %v", err)
-	}
-	if storedTimeOfDay != "03:00" {
-		t.Fatalf("backup time persisted as %q after rejected transaction, want default 03:00", storedTimeOfDay)
-	}
-	storedIncludeAssets, err := backupsettings.GetBool(nil, svc.DB, KeyIncludeAssets, false)
-	if err != nil {
-		t.Fatalf("read include_assets after rejected transaction: %v", err)
-	}
-	if storedIncludeAssets {
-		t.Fatal("backup include_assets persisted after rejected transaction")
+	if !schedule.EncryptEnabled || schedule.EncryptPassword != "s3cr3t-backup" {
+		t.Fatalf("stored encryption = %v/%q, want enabled with the saved password", schedule.EncryptEnabled, schedule.EncryptPassword)
 	}
 }
 
-func TestApplySettingsValidation(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   UpdateSettingsInput
-		wantErr error
-	}{
-		{
-			name:    "invalid time of day",
-			input:   UpdateSettingsInput{TimeOfDay: strPtr("24:00")},
-			wantErr: ErrInvalidBackupTimeOfDay,
-		},
-		{
-			name:    "encrypt enabled without password",
-			input:   UpdateSettingsInput{EncryptEnabled: boolPtr(true)},
-			wantErr: ErrBackupEncryptionPasswordRequired,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			svc, _ := newBackupTestDB(t)
-			err := applySettings(t, svc, tc.input)
-			if !errors.Is(err, tc.wantErr) {
-				t.Fatalf("ApplySettings() error = %v, want %v", err, tc.wantErr)
-			}
-		})
-	}
-}
-
-func TestApplySettingsEncryptionPasswordFlow(t *testing.T) {
+// TestDestinationScheduleDefaultsWhenPlanFieldsAreOmitted covers the other half
+// of the old settings round trip: a destination saved without plan fields is
+// still a complete plan rather than one that never fires.
+func TestDestinationScheduleDefaultsWhenPlanFieldsAreOmitted(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	password := "s3cr3t-backup"
-	enable := true
-	if err := applySettings(t, svc, UpdateSettingsInput{
-		EncryptEnabled:     &enable,
-		EncryptionPassword: &password,
-	}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
+	id := createLocalDestination(t, svc, "", 7)
 
-	gotEnabled, err := backupsettings.GetBool(nil, svc.DB, KeyEncryptEnabled, false)
-	if err != nil || !gotEnabled {
-		t.Fatalf("backup encrypt_enabled = %v, err = %v, want true/nil", gotEnabled, err)
-	}
-
-	var stored model.SystemSetting
-	if err := svc.DB.Where("key = ?", KeyEncryptionPassword).First(&stored).Error; err != nil {
-		t.Fatalf("read stored password: %v", err)
-	}
-	if stored.Value == password {
-		t.Fatal("backup encryption password stored in plaintext")
-	}
-
-	if err := applySettings(t, svc, UpdateSettingsInput{EncryptEnabled: &enable}); err != nil {
-		t.Fatalf("re-enable with stored password error = %v", err)
-	}
-
-	cfg, err := svc.loadRuntimeConfig()
+	schedule, err := destinationScheduleFromStored(loadDestination(t, svc, id).Config)
 	if err != nil {
-		t.Fatalf("loadRuntimeConfig() error = %v", err)
+		t.Fatalf("destinationScheduleFromStored() error = %v", err)
 	}
-	if cfg.EncryptPassword != password {
-		t.Fatalf("decrypted password = %q, want %q", cfg.EncryptPassword, password)
+	if schedule.TimeOfDay != defaultBackupTimeOfDay {
+		t.Fatalf("time of day = %q, want default %q", schedule.TimeOfDay, defaultBackupTimeOfDay)
+	}
+	if schedule.IncludeAssets || schedule.EncryptEnabled || schedule.EncryptPassword != "" {
+		t.Fatalf("schedule = %+v, want a plain db-only plan", schedule)
 	}
 }
 
-func TestRunBackupAndList(t *testing.T) {
+// TestRunScheduledBackupWithoutDestinationsIsANoOp replaces the old "enabling
+// the schedule without a destination is an error" guard. There is no global
+// schedule left to enable, so a pass with nothing configured must simply do
+// nothing rather than fail the background task.
+func TestRunScheduledBackupWithoutDestinationsIsANoOp(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(4, 0)))
+	if err := svc.RunScheduledBackup(serviceutil.NewBackgroundTaskOwnerID()); err != nil {
+		t.Fatalf("RunScheduledBackup() error = %v, want nil with no destinations", err)
+	}
+	if got := countBackupRuns(t, svc); got != 0 {
+		t.Fatalf("backup run count = %d, want 0", got)
+	}
+}
+
+func TestRunDestinationBackupAndList(t *testing.T) {
 	svc, dataDir := newBackupTestDB(t)
 
-	fixedNow := time.Date(2026, 6, 15, 3, 0, 0, 0, time.UTC)
-	restore := pkg.SetNowForTest(fixedNow)
-	t.Cleanup(restore)
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(3, 0)))
 
 	wantDir := filepath.Join(dataDir, "backups")
 	destID := createLocalDestination(t, svc, "", 7)
 
-	result, err := svc.RunBackup(context.Background())
+	result, err := svc.RunDestinationBackup(context.Background(), destID)
 	if err != nil {
-		t.Fatalf("RunBackup() error = %v", err)
+		t.Fatalf("RunDestinationBackup() error = %v", err)
 	}
 	if len(result.Results) != 1 || !result.Results[0].Success {
-		t.Fatalf("RunBackup() results = %+v, want one successful delivery", result.Results)
+		t.Fatalf("RunDestinationBackup() results = %+v, want one successful delivery", result.Results)
 	}
 	if result.Results[0].DestinationID != destID {
-		t.Fatalf("RunBackup() destination id = %d, want %d", result.Results[0].DestinationID, destID)
+		t.Fatalf("RunDestinationBackup() destination id = %d, want %d", result.Results[0].DestinationID, destID)
 	}
 
 	if _, err := os.Stat(filepath.Join(wantDir, result.ArchiveName)); err != nil {
@@ -556,14 +546,28 @@ func TestRunBackupAndList(t *testing.T) {
 	}
 }
 
-// TestRunBackupWithoutDestinationFails confirms a run with no enabled
-// destination is a hard error rather than a silent no-op.
+// TestRunBackupWithoutDestinationFails confirms a run with no destination is a
+// hard error rather than a silent no-op that would create an empty run row and
+// an archive nobody receives.
 func TestRunBackupWithoutDestinationFails(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	_, err := svc.RunBackup(context.Background())
+	_, err := svc.runBackup(context.Background(), backupRunSourceManual, nil, archiveSpec{}, nil)
 	if !errors.Is(err, ErrNoEnabledBackupDestination) {
-		t.Fatalf("RunBackup() error = %v, want ErrNoEnabledBackupDestination", err)
+		t.Fatalf("runBackup() error = %v, want ErrNoEnabledBackupDestination", err)
+	}
+	if got := countBackupRuns(t, svc); got != 0 {
+		t.Fatalf("backup run count = %d, want 0", got)
+	}
+}
+
+// TestRunDestinationBackupRejectsMissingDestination pins the manual-run lookup:
+// an unknown id is a not-found error, not a run over zero destinations.
+func TestRunDestinationBackupRejectsMissingDestination(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	if _, err := svc.RunDestinationBackup(context.Background(), 4242); !errors.Is(err, ErrBackupDestinationNotFound) {
+		t.Fatalf("RunDestinationBackup() error = %v, want ErrBackupDestinationNotFound", err)
 	}
 }
 
@@ -615,12 +619,12 @@ func TestCleanupBackupRunArchiveKeepsPointerWhenRemovalFails(t *testing.T) {
 	if stored.GlobalBookkeepingStatus != StatusFailed {
 		t.Fatalf("global bookkeeping status = %q, want failed", stored.GlobalBookkeepingStatus)
 	}
-	state, err := svc.findResumableScheduledRun()
+	states, err := svc.findResumableScheduledRuns()
 	if err != nil {
-		t.Fatalf("findResumableScheduledRun() error = %v", err)
+		t.Fatalf("findResumableScheduledRuns() error = %v", err)
 	}
-	if state == nil || state.run.ID != run.ID {
-		t.Fatalf("findResumableScheduledRun() = %+v, want cleanup-pending run %d", state, run.ID)
+	if len(states) != 1 || states[0].run.ID != run.ID {
+		t.Fatalf("findResumableScheduledRuns() = %+v, want only cleanup-pending run %d", states, run.ID)
 	}
 }
 
@@ -661,7 +665,7 @@ func TestSupersedeScheduledRunKeepsPointerWhenRemovalFails(t *testing.T) {
 	}
 }
 
-func TestFindResumableScheduledRunSupersedesMissingSpool(t *testing.T) {
+func TestFindResumableScheduledRunsSupersedesMissingSpool(t *testing.T) {
 	svc, dataDir := newBackupTestDB(t)
 	archivePath := filepath.Join(dataDir, backupStagingDirName, "1-subdux-backup-test.zip")
 	run := model.BackupRun{
@@ -679,12 +683,12 @@ func TestFindResumableScheduledRunSupersedesMissingSpool(t *testing.T) {
 		t.Fatalf("create backup run: %v", err)
 	}
 
-	state, err := svc.findResumableScheduledRun()
+	states, err := svc.findResumableScheduledRuns()
 	if err != nil {
-		t.Fatalf("findResumableScheduledRun() error = %v", err)
+		t.Fatalf("findResumableScheduledRuns() error = %v", err)
 	}
-	if state != nil {
-		t.Fatal("findResumableScheduledRun() returned a run with a missing spool")
+	if len(states) != 0 {
+		t.Fatal("findResumableScheduledRuns() returned a run with a missing spool")
 	}
 	var stored model.BackupRun
 	if err := svc.DB.First(&stored, run.ID).Error; err != nil {
@@ -714,36 +718,23 @@ func TestLoadBackupDestinationForRunRejectsStaleRevision(t *testing.T) {
 
 func TestRunScheduledBackupWritesStatus(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
-	createLocalDestination(t, svc, "", 7)
+	destID := createLocalPlan(t, svc, localPlan{retention: 7, timeOfDay: "03:00"})
 
-	enabled := true
-	timeOfDay := "03:00"
-	if err := applySettings(t, svc, UpdateSettingsInput{
-		ScheduleEnabled: &enabled,
-		TimeOfDay:       &timeOfDay,
-	}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
-	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
-	restore := pkg.SetNowForTest(fixedNow)
-	t.Cleanup(restore)
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(4, 0)))
 
 	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("RunScheduledBackup() error = %v", err)
 	}
 
-	lastStatus, err := backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
-	if err != nil || lastStatus != StatusOK {
-		t.Fatalf("backup last_status = %q, err = %v, want %q/nil", lastStatus, err, StatusOK)
+	// The run outcome now lives on the destination itself. LastScheduledRunAt is
+	// what the due check reads, so it is the row that stops a same-day repeat.
+	destination := loadDestination(t, svc, destID)
+	if destination.LastStatus != StatusOK || destination.LastError != "" {
+		t.Fatalf("destination status = %q err = %q, want success/empty", destination.LastStatus, destination.LastError)
 	}
-	lastError, err := backupsettings.GetString(nil, svc.DB, KeyLastError, "")
-	if err != nil || lastError != "" {
-		t.Fatalf("backup last_error = %q, err = %v, want empty/nil", lastError, err)
-	}
-	lastRunAt, err := backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
-	if err != nil || lastRunAt == "" {
-		t.Fatalf("backup last_run_at = %q, err = %v, want set/nil", lastRunAt, err)
+	if destination.LastRunAt == nil || destination.LastScheduledRunAt == nil {
+		t.Fatalf("destination last_run_at = %v last_scheduled_run_at = %v, want both set", destination.LastRunAt, destination.LastScheduledRunAt)
 	}
 
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
@@ -761,25 +752,14 @@ func TestRunScheduledBackupWritesStatus(t *testing.T) {
 func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	enabled := true
-	timeOfDay := "03:00"
-
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
 	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
 		t.Fatalf("failed to create blocking file: %v", err)
 	}
 	badDir := filepath.Join(blockingFile, "backups")
-	destID := createLocalDestination(t, svc, badDir, 7)
-	if err := applySettings(t, svc, UpdateSettingsInput{
-		ScheduleEnabled: &enabled,
-		TimeOfDay:       &timeOfDay,
-	}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
+	destID := createLocalPlan(t, svc, localPlan{dir: badDir, retention: 7, timeOfDay: "03:00"})
 
-	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
-	restore := pkg.SetNowForTest(fixedNow)
-	t.Cleanup(restore)
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(4, 0)))
 
 	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 
@@ -787,38 +767,22 @@ func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
 		t.Fatal("expected RunScheduledBackup() to fail with an unwritable directory")
 	}
 
-	lastStatus, err := backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
-	if err != nil || lastStatus != StatusFailed {
-		t.Fatalf("backup last_status = %q, err = %v, want %q/nil", lastStatus, err, StatusFailed)
-	}
-	lastError, err := backupsettings.GetString(nil, svc.DB, KeyLastError, "")
-	if err != nil || lastError == "" {
-		t.Fatalf("backup last_error = %q, err = %v, want non-empty/nil", lastError, err)
-	}
-	lastRunAt, err := backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
-	if err != nil || lastRunAt != "" {
-		t.Fatalf("backup last_run_at = %q, err = %v, want empty/nil", lastRunAt, err)
-	}
-
-	// The per-destination row must also carry the failure detail.
-	var failed model.BackupDestination
-	if err := svc.DB.First(&failed, destID).Error; err != nil {
-		t.Fatalf("load destination: %v", err)
-	}
+	failed := loadDestination(t, svc, destID)
 	if failed.LastStatus != StatusFailed || failed.LastError == "" {
 		t.Fatalf("destination status = %q err = %q, want failed/non-empty", failed.LastStatus, failed.LastError)
 	}
 	if failed.LastRunAt != nil {
 		t.Fatalf("destination last_run_at = %v, want nil after a failed delivery", failed.LastRunAt)
 	}
+	// A failed delivery must not consume the destination's schedule slot, which
+	// is exactly what leaves it due for the same-day retry below.
+	if failed.LastScheduledRunAt != nil {
+		t.Fatalf("destination last_scheduled_run_at = %v, want nil after a failed delivery", failed.LastScheduledRunAt)
+	}
 
 	goodDir := filepath.Join(t.TempDir(), "backups")
-	goodConfig := fmt.Sprintf(`{"dir":%q,"retention_count":7}`, goodDir)
-	var currentDestination model.BackupDestination
-	if err := svc.DB.First(&currentDestination, destID).Error; err != nil {
-		t.Fatalf("load destination before retry: %v", err)
-	}
-	if _, err := svc.UpdateDestination(destID, UpdateDestinationInput{Revision: currentDestination.Revision, Config: &goodConfig}); err != nil {
+	goodConfig := localPlan{dir: goodDir, retention: 7, timeOfDay: "03:00"}.configJSON(t)
+	if _, err := svc.UpdateDestination(destID, UpdateDestinationInput{Revision: failed.Revision, Config: &goodConfig}); err != nil {
 		t.Fatalf("UpdateDestination() error = %v", err)
 	}
 
@@ -826,17 +790,12 @@ func TestRunScheduledBackupFailureDoesNotBlockSameDayRetry(t *testing.T) {
 		t.Fatalf("retry RunScheduledBackup() error = %v", err)
 	}
 
-	lastStatus, err = backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
-	if err != nil || lastStatus != StatusOK {
-		t.Fatalf("backup last_status = %q, err = %v, want %q/nil after retry", lastStatus, err, StatusOK)
+	repaired := loadDestination(t, svc, destID)
+	if repaired.LastStatus != StatusOK || repaired.LastError != "" {
+		t.Fatalf("destination status = %q err = %q after retry, want success/empty", repaired.LastStatus, repaired.LastError)
 	}
-	lastError, err = backupsettings.GetString(nil, svc.DB, KeyLastError, "")
-	if err != nil || lastError != "" {
-		t.Fatalf("backup last_error = %q, err = %v, want empty/nil after retry", lastError, err)
-	}
-	lastRunAt, err = backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
-	if err != nil || lastRunAt == "" {
-		t.Fatalf("backup last_run_at = %q, err = %v, want set/nil after retry", lastRunAt, err)
+	if repaired.LastScheduledRunAt == nil {
+		t.Fatal("destination last_scheduled_run_at is nil after a successful retry")
 	}
 
 	_, items, err := svc.ListLocalBackups()
@@ -977,7 +936,7 @@ func TestBuildBackupArchiveUsesPrivateTempDirectoryAnd0600Files(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newBackupArchiveName() error = %v", err)
 	}
-	archivePath, cleanup, err := svc.buildBackupArchiveNamed(runtimeConfig{}, archiveName)
+	archivePath, cleanup, err := svc.buildBackupArchiveNamed(archiveSpec{}, archiveName)
 	if err != nil {
 		t.Fatalf("buildBackupArchiveNamed() error = %v", err)
 	}

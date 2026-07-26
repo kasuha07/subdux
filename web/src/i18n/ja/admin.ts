@@ -320,8 +320,6 @@ const admin = {
         "セキュリティのため、今すぐバックアップを作成して配信するには再認証してください。",
       restoreDescription:
         "セキュリティのため、このバックアップから復元するには再認証してください。",
-      scheduleDescription:
-        "セキュリティのため、定期バックアップ設定を変更するには再認証してください。",
       destinationCreateDescription:
         "セキュリティのため、バックアップ先を追加するには再認証してください。",
       destinationUpdateDescription:
@@ -362,19 +360,6 @@ const admin = {
     downloadSuccess: "バックアップをダウンロードしました",
     downloadFailed: "バックアップのダウンロードに失敗しました",
     restoreFailed: "バックアップの復元に失敗しました",
-    scheduleTitle: "定期ローカルバックアップ",
-    scheduleDescription:
-      "毎日のスケジュールでサーバー上に自動でバックアップを作成します",
-    scheduleEnabled: "定期バックアップを有効化",
-    scheduleEnabledDescription:
-      "設定した時刻に毎日自動でバックアップを実行します",
-    timeOfDay: "実行時刻",
-    timeOfDayDescription: "サーバーのタイムゾーンでの 24 時間表記（HH:MM）",
-    scheduleIncludeAssets: "定期バックアップに assets を含める",
-    encrypt: "アーカイブを暗号化",
-    encryptDescription: "定期バックアップのアーカイブをパスワードで保護します",
-    encryptionPassword: "暗号化パスワード",
-    encryptionPasswordConfigured: "空欄の場合は現在のパスワードを維持します",
     localDir: "ローカルバックアップ ディレクトリ",
     localDirDescription:
       "サーバー上の絶対パス。空欄の場合は既定のバックアップディレクトリを使用します。",
@@ -382,8 +367,6 @@ const admin = {
     retentionCount: "保持数",
     retentionCountDescription:
       "保持する最新バックアップの数。古いものは自動的に削除されます。",
-    saveSchedule: "スケジュールを保存",
-    runNow: "今すぐバックアップ",
     runNowSuccess: "バックアップを作成しました",
     runNowPartialSuccess: "バックアップは作成されましたが、次の保存先への配信に失敗しました: {{destinations}}",
     runNowRetentionWarning: "バックアップは作成されましたが、次の保存先の古いバックアップの削除に失敗しました: {{destinations}}",
@@ -395,7 +378,6 @@ const admin = {
     recentBackupsEmpty: "ローカルバックアップはまだありません",
     refreshBackups: "更新",
     backupEncryptedBadge: "暗号化済み",
-    lastRun: "前回の実行",
     lastRunNever: "未実行",
     lastRunSuccess: "成功",
     lastRunFailed: "失敗",
@@ -444,6 +426,20 @@ const admin = {
       webdavPassword: "パスワード",
       webdavPasswordConfigured: "パスワードは設定済みです — 空欄のままにすると保持されます",
       webdavPasswordClear: "保存済みパスワードをクリア",
+      scheduleTimeOfDay: "実行時刻",
+      scheduleTimeOfDayDescription:
+        "この保存先へ毎日この時刻にバックアップします。サーバーのタイムゾーンでの 24 時間表記（HH:MM）です。",
+      scheduleIncludeAssets: "assets を含める",
+      scheduleIncludeAssetsDescription:
+        "アップロード済みのアイコン/ファイルも含めて .zip でバックアップ",
+      scheduleEncrypt: "アーカイブを暗号化",
+      scheduleEncryptDescription:
+        "この保存先へ配信するアーカイブをパスワードで保護します",
+      encryptionPassword: "暗号化パスワード",
+      encryptionPasswordConfigured: "暗号化パスワードは設定済みです — 空欄のままにすると保持されます",
+      encryptionPasswordClear: "保存済み暗号化パスワードをクリア",
+      runNow: "この保存先へ今すぐバックアップ",
+      lastScheduledRun: "前回の定期実行",
       testConnection: "接続をテスト",
       testSuccess: "バックアップ先に接続できます（{{backup_count}} 件のバックアップが見つかりました）",
       createSuccess: "バックアップ先を追加しました",

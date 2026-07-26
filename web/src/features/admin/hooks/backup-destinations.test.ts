@@ -16,6 +16,15 @@ import {
   resolveSecretUpdate,
 } from "./backup-destinations"
 
+// The schedule block is shared by all three destination types, so every
+// build*Config call in these tests carries it.
+const baseSchedule = {
+  timeOfDay: "03:00",
+  includeAssets: false,
+  encryptEnabled: false,
+  encryptionPassword: "",
+}
+
 function makeDestination(overrides: Partial<BackupDestination> = {}): BackupDestination {
   return {
     id: 1,
@@ -73,14 +82,14 @@ describe("parseLocalConfig", () => {
 
 describe("buildLocalConfig", () => {
   it("serialises dir and retention_count", () => {
-    const raw = buildLocalConfig("/srv/backups", 10)
+    const raw = buildLocalConfig({ ...baseSchedule, dir: "/srv/backups", retentionCount: 10 })
     const parsed = JSON.parse(raw) as { dir: string; retention_count: number }
     expect(parsed.dir).toBe("/srv/backups")
     expect(parsed.retention_count).toBe(10)
   })
 
   it("round-trips through parseLocalConfig", () => {
-    const config = buildLocalConfig("/tmp", 3)
+    const config = buildLocalConfig({ ...baseSchedule, dir: "/tmp", retentionCount: 3 })
     const dest = makeDestination({ config })
     const result = parseLocalConfig(dest)
     expect(result.dir).toBe("/tmp")
@@ -121,6 +130,7 @@ describe("BackupDestination configured_secret_fields", () => {
 describe("parseS3Config", () => {
   it("parses all required s3 fields", () => {
     const config = buildS3Config({
+      ...baseSchedule,
       endpoint: "s3.amazonaws.com",
       region: "",
       bucket: "my-bucket",
@@ -144,6 +154,7 @@ describe("parseS3Config", () => {
 
   it("includes optional region and prefix when set", () => {
     const config = buildS3Config({
+      ...baseSchedule,
       endpoint: "minio.local:9000",
       region: "us-east-1",
       bucket: "backups",
@@ -173,6 +184,7 @@ describe("parseS3Config", () => {
 
 describe("buildS3Config", () => {
   const baseFields = {
+    ...baseSchedule,
     endpoint: "s3.amazonaws.com",
     region: "",
     bucket: "bucket",
@@ -298,6 +310,7 @@ describe("resolveSecretUpdate (generic field-name-parameterized helper)", () => 
 describe("parseWebDAVConfig", () => {
   it("parses all webdav fields", () => {
     const config = buildWebDAVConfig({
+      ...baseSchedule,
       url: "https://dav.example.com/remote.php/dav/files/user",
       path: "backups",
       username: "admin",
@@ -326,6 +339,7 @@ describe("parseWebDAVConfig", () => {
 
 describe("buildWebDAVConfig", () => {
   const baseFields = {
+    ...baseSchedule,
     url: "https://dav.example.com/remote.php/dav/files/user",
     path: "",
     username: "",
@@ -360,6 +374,7 @@ describe("buildWebDAVConfig", () => {
 
   it("round-trips through parseWebDAVConfig", () => {
     const fields = {
+      ...baseSchedule,
       url: "https://dav.example.com/dav",
       path: "mypath",
       username: "user",
@@ -399,6 +414,130 @@ describe("webdav password secret resolution (via resolveSecretUpdate)", () => {
   it("sends the password on create (not configured)", () => {
     const result = resolveSecretUpdate("password", "myPass", false, false)
     expect(result.value).toBe("myPass")
+    expect(result.cleared_secret_fields).toBeUndefined()
+  })
+})
+
+describe("shared schedule config fields", () => {
+  const schedule = {
+    timeOfDay: "04:30",
+    includeAssets: true,
+    encryptEnabled: true,
+    encryptionPassword: "archive-pass",
+  }
+
+  it("serialises the schedule block for local destinations", () => {
+    const obj = JSON.parse(
+      buildLocalConfig({ ...schedule, dir: "/srv/backups", retentionCount: 4 })
+    ) as Record<string, unknown>
+    expect(obj.time_of_day).toBe("04:30")
+    expect(obj.include_assets).toBe(true)
+    expect(obj.encrypt_enabled).toBe(true)
+    expect(obj.encryption_password).toBe("archive-pass")
+  })
+
+  it("serialises the schedule block for s3 destinations", () => {
+    const obj = JSON.parse(
+      buildS3Config({
+        ...schedule,
+        endpoint: "s3.amazonaws.com",
+        region: "",
+        bucket: "bucket",
+        prefix: "",
+        accessKeyId: "ID",
+        secretAccessKey: "secret",
+        useSsl: true,
+        usePathStyle: false,
+        retentionCount: 7,
+      })
+    ) as Record<string, unknown>
+    expect(obj.time_of_day).toBe("04:30")
+    expect(obj.include_assets).toBe(true)
+    expect(obj.encrypt_enabled).toBe(true)
+    expect(obj.encryption_password).toBe("archive-pass")
+  })
+
+  it("serialises the schedule block for webdav destinations", () => {
+    const obj = JSON.parse(
+      buildWebDAVConfig({
+        ...schedule,
+        url: "https://dav.example.com/dav",
+        path: "",
+        username: "",
+        password: "secret",
+        retentionCount: 7,
+      })
+    ) as Record<string, unknown>
+    expect(obj.time_of_day).toBe("04:30")
+    expect(obj.include_assets).toBe(true)
+    expect(obj.encrypt_enabled).toBe(true)
+    expect(obj.encryption_password).toBe("archive-pass")
+  })
+
+  // Unlike region/prefix/path/username, the schedule fields are never
+  // omit-empty: a cleared time or a switched-off toggle must overwrite the
+  // stored value rather than silently keep it.
+  it("always emits the schedule keys even when empty or false", () => {
+    const obj = JSON.parse(
+      buildLocalConfig({
+        dir: "",
+        retentionCount: 7,
+        timeOfDay: "",
+        includeAssets: false,
+        encryptEnabled: false,
+        encryptionPassword: "",
+      })
+    ) as Record<string, unknown>
+    expect(Object.prototype.hasOwnProperty.call(obj, "time_of_day")).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(obj, "include_assets")).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(obj, "encrypt_enabled")).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(obj, "encryption_password")).toBe(true)
+    expect(obj.time_of_day).toBe("")
+    expect(obj.include_assets).toBe(false)
+    expect(obj.encrypt_enabled).toBe(false)
+    expect(obj.encryption_password).toBe("")
+  })
+
+  it("round-trips the schedule block through parseLocalConfig", () => {
+    const dest = makeDestination({
+      config: buildLocalConfig({ ...schedule, dir: "/tmp", retentionCount: 3 }),
+    })
+    const parsed = parseLocalConfig(dest)
+    expect(parsed.time_of_day).toBe("04:30")
+    expect(parsed.include_assets).toBe(true)
+    expect(parsed.encrypt_enabled).toBe(true)
+  })
+})
+
+describe("encryption password secret resolution (via resolveSecretUpdate)", () => {
+  it("preserves the stored encryption password when mask is still shown", () => {
+    const result = resolveSecretUpdate(
+      "encryption_password",
+      DESTINATION_SECRET_MASK,
+      false,
+      true
+    )
+    expect(result.value).toBe("")
+    expect(result.cleared_secret_fields).toBeUndefined()
+  })
+
+  // The encryption password is clearable (like the webdav password, unlike the
+  // replace-only s3 secret): turning encryption off should drop it.
+  it("signals cleared_secret_fields=['encryption_password'] when explicitly cleared", () => {
+    const result = resolveSecretUpdate("encryption_password", "", true, true)
+    expect(result.value).toBe("")
+    expect(result.cleared_secret_fields).toEqual(["encryption_password"])
+  })
+
+  it("sends the new encryption password when user typed a replacement", () => {
+    const result = resolveSecretUpdate("encryption_password", "newArchivePass", true, true)
+    expect(result.value).toBe("newArchivePass")
+    expect(result.cleared_secret_fields).toBeUndefined()
+  })
+
+  it("sends the encryption password on create (not configured)", () => {
+    const result = resolveSecretUpdate("encryption_password", "archivePass", false, false)
+    expect(result.value).toBe("archivePass")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 })

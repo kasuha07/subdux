@@ -384,45 +384,18 @@ export default function AdminPage() {
                   onDownloadBackup={admin.handleDownloadBackup}
                   onRestore={admin.handleRestore}
                   onValidateRestoreInputs={admin.handleValidateRestoreInputs}
-                  backupScheduleEnabled={settingsForm.backupScheduleEnabled}
-                  onBackupScheduleEnabledChange={(value) =>
-                    admin.setSettingsField("backupScheduleEnabled", value)
-                  }
-                  backupTimeOfDay={settingsForm.backupTimeOfDay}
-                  onBackupTimeOfDayChange={(value) =>
-                    admin.setSettingsField("backupTimeOfDay", value)
-                  }
-                  backupIncludeAssets={settingsForm.backupIncludeAssets}
-                  onBackupIncludeAssetsChange={(value) =>
-                    admin.setSettingsField("backupIncludeAssets", value)
-                  }
-                  backupEncryptEnabled={settingsForm.backupEncryptEnabled}
-                  onBackupEncryptEnabledChange={(value) =>
-                    admin.setSettingsField("backupEncryptEnabled", value)
-                  }
-                  backupEncryptionPassword={settingsForm.backupEncryptionPassword}
-                  backupEncryptionPasswordConfigured={
-                    settingsForm.backupEncryptionPasswordConfigured
-                  }
-                  onBackupEncryptionPasswordChange={(value) =>
-                    admin.setSettingsField("backupEncryptionPassword", value)
-                  }
-                  onSaveSettings={admin.handleSaveBackupSettings}
-                  onRunBackupNow={admin.handleRunBackupNow}
-                  runningBackup={admin.runningBackup}
                   localBackups={admin.localBackups}
                   localBackupDir={admin.localBackupDir}
                   localBackupsRefreshing={admin.localBackupsRefreshing}
                   onRefreshLocalBackups={admin.handleRefreshLocalBackups}
-                  lastRunAt={admin.backupStatus.lastRunAt}
-                  lastStatus={admin.backupStatus.lastStatus}
-                  lastError={admin.backupStatus.lastError}
                   destinations={admin.destinations}
                   destinationsRefreshing={admin.destinationsRefreshing}
+                  runningDestinationId={admin.runningDestinationId}
                   onRefreshDestinations={admin.handleRefreshDestinations}
                   onCreateDestination={admin.handleCreateDestination}
                   onUpdateDestination={admin.handleUpdateDestination}
                   onDeleteDestination={admin.handleDeleteDestination}
+                  onRunDestination={admin.handleRunDestinationBackup}
                   onTestDestination={admin.handleTestDestination}
                 />
               </Suspense>

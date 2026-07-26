@@ -7,11 +7,10 @@ import (
 )
 
 var encryptedKeys = map[string]struct{}{
-	"smtp_password":              {},
-	"oidc_client_secret":         {},
-	"currencyapi_key":            {},
-	"system_proxy_url":           {},
-	"backup_encryption_password": {},
+	"smtp_password":      {},
+	"oidc_client_secret": {},
+	"currencyapi_key":    {},
+	"system_proxy_url":   {},
 }
 
 func IsEncryptedKey(key string) bool {

@@ -50,7 +50,7 @@ func TestHotQueriesUseCompositeIndexes(t *testing.T) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		t.Fatalf("configureSQLiteDatabase() error = %v", err)
 	}
-	if err := Run(db); err != nil {
+	if err := Run(db, testSecretCodec()); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 
@@ -109,7 +109,7 @@ func TestSubscriptionNextBillingIndexExists(t *testing.T) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		t.Fatalf("configureSQLiteDatabase() error = %v", err)
 	}
-	if err := Run(db); err != nil {
+	if err := Run(db, testSecretCodec()); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 

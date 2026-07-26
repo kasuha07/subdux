@@ -1,15 +1,9 @@
 import type { SystemSettings, UpdateSettingsInput } from "@/types"
 
-export type AdminSettingsSaveScope = "general" | "smtp" | "auth" | "exchange-rates" | "backup"
+export type AdminSettingsSaveScope = "general" | "smtp" | "auth" | "exchange-rates"
 
 export interface AdminSettingsFormState {
   allowImageUpload: boolean
-  backupScheduleEnabled: boolean
-  backupTimeOfDay: string
-  backupIncludeAssets: boolean
-  backupEncryptEnabled: boolean
-  backupEncryptionPassword: string
-  backupEncryptionPasswordConfigured: boolean
   currencyApiKey: string
   currencyApiKeyConfigured: boolean
   emailDomainWhitelist: string
@@ -128,25 +122,11 @@ const formFieldsByScope: Record<AdminSettingsSaveScope, readonly (keyof AdminSet
     "registrationEnabled",
   ],
   "exchange-rates": ["currencyApiKey", "currencyApiKeyConfigured", "exchangeRateSource"],
-  backup: [
-    "backupEncryptEnabled",
-    "backupEncryptionPassword",
-    "backupEncryptionPasswordConfigured",
-    "backupIncludeAssets",
-    "backupScheduleEnabled",
-    "backupTimeOfDay",
-  ],
 }
 
 export function createAdminSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
   return {
     allowImageUpload: settings?.allow_image_upload ?? true,
-    backupScheduleEnabled: settings?.backup_schedule_enabled ?? false,
-    backupTimeOfDay: settings?.backup_time_of_day || "03:00",
-    backupIncludeAssets: settings?.backup_include_assets ?? false,
-    backupEncryptEnabled: settings?.backup_encrypt_enabled ?? false,
-    backupEncryptionPassword: "",
-    backupEncryptionPasswordConfigured: settings?.backup_encryption_password_configured ?? false,
     currencyApiKey: "",
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
     emailDomainWhitelist: settings?.email_domain_whitelist || "",
@@ -221,8 +201,6 @@ export function buildAdminSettingsPayload(
       return buildAuthSettingsPayload(form)
     case "exchange-rates":
       return buildExchangeRateSettingsPayload(form)
-    case "backup":
-      return buildBackupSettingsPayload(form)
   }
 }
 
@@ -327,19 +305,6 @@ function buildExchangeRateSettingsPayload(form: AdminSettingsFormState): UpdateS
   }
   if (form.currencyApiKey.trim()) {
     payload.currencyapi_key = form.currencyApiKey.trim()
-  }
-  return payload
-}
-
-function buildBackupSettingsPayload(form: AdminSettingsFormState): UpdateSettingsInput {
-  const payload: UpdateSettingsInput = {
-    backup_encrypt_enabled: form.backupEncryptEnabled,
-    backup_include_assets: form.backupIncludeAssets,
-    backup_schedule_enabled: form.backupScheduleEnabled,
-    backup_time_of_day: form.backupTimeOfDay,
-  }
-  if (form.backupEncryptionPassword.trim()) {
-    payload.backup_encryption_password = form.backupEncryptionPassword.trim()
   }
   return payload
 }

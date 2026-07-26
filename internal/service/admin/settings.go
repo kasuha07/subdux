@@ -7,7 +7,6 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
-	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
@@ -70,14 +69,6 @@ func defaultAdminSystemSettings() *SystemSettings {
 		OIDCExtraAuthParams:                  "",
 		OIDCReauthACRMFA:                     "",
 		OIDCReauthACRPhishingResistant:       "",
-		BackupScheduleEnabled:                false,
-		BackupTimeOfDay:                      "03:00",
-		BackupIncludeAssets:                  false,
-		BackupEncryptEnabled:                 false,
-		BackupEncryptionPasswordSet:          false,
-		BackupLastRunAt:                      "",
-		BackupLastStatus:                     "",
-		BackupLastError:                      "",
 	}
 }
 
@@ -217,22 +208,6 @@ func (s *Service) GetSettings() (*SystemSettings, error) {
 			settings.OIDCReauthACRMFA = settingValue
 		case "oidc_reauth_acr_phishing_resistant":
 			settings.OIDCReauthACRPhishingResistant = settingValue
-		case servicebackup.KeyScheduleEnabled:
-			settings.BackupScheduleEnabled = settingValue == "true"
-		case servicebackup.KeyTimeOfDay:
-			settings.BackupTimeOfDay = settingValue
-		case servicebackup.KeyIncludeAssets:
-			settings.BackupIncludeAssets = settingValue == "true"
-		case servicebackup.KeyEncryptEnabled:
-			settings.BackupEncryptEnabled = settingValue == "true"
-		case servicebackup.KeyEncryptionPassword:
-			settings.BackupEncryptionPasswordSet = strings.TrimSpace(settingValue) != ""
-		case servicebackup.KeyLastRunAt:
-			settings.BackupLastRunAt = settingValue
-		case servicebackup.KeyLastStatus:
-			settings.BackupLastStatus = settingValue
-		case servicebackup.KeyLastError:
-			settings.BackupLastError = settingValue
 		}
 	}
 
@@ -618,16 +593,6 @@ func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 			if err := saveStringSystemSetting(tx, "oidc_reauth_acr_phishing_resistant", *input.OIDCReauthACRPhishingResistant); err != nil {
 				return err
 			}
-		}
-
-		if err := servicebackup.ApplySettings(tx, servicebackup.UpdateSettingsInput{
-			ScheduleEnabled:    input.BackupScheduleEnabled,
-			TimeOfDay:          input.BackupTimeOfDay,
-			IncludeAssets:      input.BackupIncludeAssets,
-			EncryptEnabled:     input.BackupEncryptEnabled,
-			EncryptionPassword: input.BackupEncryptionPassword,
-		}); err != nil {
-			return err
 		}
 
 		registrationEmailVerificationEnabled, err := isSystemSettingEnabled(

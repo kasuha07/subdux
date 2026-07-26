@@ -65,7 +65,10 @@ func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		return nil, err
 	}
-	if err := migrations.Run(db); err != nil {
+	if err := migrations.Run(db, migrations.SecretCodec{
+		Encrypt: EncryptSystemSettingValue,
+		Decrypt: DecryptSystemSettingValue,
+	}); err != nil {
 		return nil, err
 	}
 

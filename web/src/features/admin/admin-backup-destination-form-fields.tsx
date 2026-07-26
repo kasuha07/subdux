@@ -41,6 +41,11 @@ export interface DestinationFormValues {
   webdavPath: string
   webdavUsername: string
   webdavPassword: string
+  // schedule — every destination is its own backup plan, so all types carry these
+  timeOfDay: string
+  includeAssets: boolean
+  encryptEnabled: boolean
+  encryptionPassword: string
 }
 
 interface AdminBackupDestinationFormFieldsProps {
@@ -53,6 +58,8 @@ interface AdminBackupDestinationFormFieldsProps {
   onEditingS3SecretChange: (editing: boolean) => void
   editingWebdavSecret: boolean
   onEditingWebdavSecretChange: (editing: boolean) => void
+  editingEncryptionSecret: boolean
+  onEditingEncryptionSecretChange: (editing: boolean) => void
 }
 
 export default function AdminBackupDestinationFormFields({
@@ -63,6 +70,8 @@ export default function AdminBackupDestinationFormFields({
   onEditingS3SecretChange,
   editingWebdavSecret,
   onEditingWebdavSecretChange,
+  editingEncryptionSecret,
+  onEditingEncryptionSecretChange,
 }: AdminBackupDestinationFormFieldsProps) {
   const { t } = useTranslation()
 
@@ -376,6 +385,110 @@ export default function AdminBackupDestinationFormFields({
             </p>
           </div>
         </>
+      )}
+
+      {/* Schedule block. Every destination is a self-contained backup plan, so
+          these fields are shared by all types instead of being repeated inside
+          each type's branch above. */}
+      <div className="space-y-2">
+        <Label htmlFor="dest-time-of-day">
+          {t("admin.backup.destinations.scheduleTimeOfDay")}
+        </Label>
+        <Input
+          id="dest-time-of-day"
+          type="time"
+          className="w-40"
+          value={values.timeOfDay}
+          onChange={(event) => onValuesChange({ timeOfDay: event.target.value })}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("admin.backup.destinations.scheduleTimeOfDayDescription")}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+        <div className="space-y-0.5">
+          <Label htmlFor="dest-include-assets">
+            {t("admin.backup.destinations.scheduleIncludeAssets")}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.backup.destinations.scheduleIncludeAssetsDescription")}
+          </p>
+        </div>
+        <Switch
+          id="dest-include-assets"
+          checked={values.includeAssets}
+          onCheckedChange={(checked) => onValuesChange({ includeAssets: checked })}
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+        <div className="space-y-0.5">
+          <Label htmlFor="dest-encrypt-enabled">
+            {t("admin.backup.destinations.scheduleEncrypt")}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.backup.destinations.scheduleEncryptDescription")}
+          </p>
+        </div>
+        <Switch
+          id="dest-encrypt-enabled"
+          checked={values.encryptEnabled}
+          onCheckedChange={(checked) => onValuesChange({ encryptEnabled: checked })}
+        />
+      </div>
+
+      {values.encryptEnabled && (
+        <div className="space-y-2">
+          <Label htmlFor="dest-encryption-password">
+            {t("admin.backup.destinations.encryptionPassword")}
+          </Label>
+          {/* Same masked replace-only presentation as the webdav password: the
+              server blanks configured secrets, so the stored value can only be
+              kept, replaced, or explicitly cleared — never read back. */}
+          {editTarget &&
+          editTarget.configured_secret_fields.includes("encryption_password") &&
+          !editingEncryptionSecret ? (
+            <div className="flex items-center gap-2">
+              <Input
+                id="dest-encryption-password"
+                type="password"
+                value={DESTINATION_SECRET_MASK}
+                readOnly
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  onEditingEncryptionSecretChange(true)
+                  onValuesChange({ encryptionPassword: "" })
+                }}
+              >
+                {t("admin.backup.destinations.encryptionPasswordClear")}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Input
+                id="dest-encryption-password"
+                type="password"
+                autoComplete="new-password"
+                value={values.encryptionPassword}
+                onChange={(event) => onValuesChange({ encryptionPassword: event.target.value })}
+                placeholder={
+                  editTarget ? t("admin.backup.destinations.encryptionPasswordConfigured") : undefined
+                }
+              />
+              {editTarget && editingEncryptionSecret && (
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.backup.destinations.encryptionPasswordConfigured")}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
     </>
   )

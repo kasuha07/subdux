@@ -71,26 +71,49 @@ func (s *Service) beginBackupRun(source, archiveName string, destinations []mode
 	return state, nil
 }
 
-func (s *Service) findResumableScheduledRun() (*backupRunState, error) {
-	var run model.BackupRun
-	err := s.DB.Where("source = ?", backupRunSourceScheduled).Order("id DESC").First(&run).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
+// findResumableScheduledRuns returns every scheduled run that still has work
+// left. Per-destination schedules mean a single pass can leave several runs in
+// flight at once (one per archive variant), so resumption is a set operation
+// rather than "the latest run".
+//
+// The SQL filter mirrors the terminal conditions checked below so completed runs
+// are excluded by the database rather than scanned and discarded in Go as the
+// run history grows.
+func (s *Service) findResumableScheduledRuns() ([]backupRunState, error) {
+	var runs []model.BackupRun
+	err := s.DB.
+		Where("source = ?", backupRunSourceScheduled).
+		Where("status <> ?", StatusSuperseded).
+		Where(
+			"status <> ? OR bookkeeping_status <> ? OR global_bookkeeping_status <> ? OR (archive_path IS NOT NULL AND archive_path <> '')",
+			StatusOK, StatusOK, StatusOK,
+		).
+		Order("id ASC").
+		Find(&runs).Error
 	if err != nil {
 		return nil, err
 	}
 
+	var states []backupRunState
+	for i := range runs {
+		state, resumeErr := s.resumableScheduledRun(runs[i])
+		if resumeErr != nil {
+			return nil, resumeErr
+		}
+		if state != nil {
+			states = append(states, *state)
+		}
+	}
+	return states, nil
+}
+
+// resumableScheduledRun decides whether one run may still be resumed, retiring
+// it when its archive has gone stale, its spool has vanished, or its
+// destinations have moved out from under it.
+func (s *Service) resumableScheduledRun(run model.BackupRun) (*backupRunState, error) {
 	var destinations []model.BackupRunDestination
 	if err := s.DB.Where("run_id = ?", run.ID).Order("id ASC").Find(&destinations).Error; err != nil {
 		return nil, err
-	}
-	if run.Status == StatusSuperseded {
-		return nil, nil
-	}
-	if run.Status == StatusOK && run.BookkeepingStatus == StatusOK &&
-		run.GlobalBookkeepingStatus == StatusOK && strings.TrimSpace(run.ArchivePath) == "" {
-		return nil, nil
 	}
 	if pkg.Now().Sub(run.StartedAt) >= backupRunResumeWindow {
 		// The run has held the schedule for longer than its archive stays worth

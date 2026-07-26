@@ -8,12 +8,22 @@ import type { BackupDestination } from "@/types"
 // secret is already stored server-side (the backend never returns the value).
 export const DESTINATION_SECRET_MASK = "••••••••"
 
-export interface LocalDestConfig {
+// ScheduleDestConfig is the per-destination backup plan shared by every
+// destination type: each destination carries its own daily schedule rather than
+// inheriting one global one.
+interface ScheduleDestConfig {
+  time_of_day?: string
+  include_assets?: boolean
+  encrypt_enabled?: boolean
+  encryption_password?: string
+}
+
+export interface LocalDestConfig extends ScheduleDestConfig {
   dir?: string
   retention_count?: number
 }
 
-export interface S3DestConfig {
+export interface S3DestConfig extends ScheduleDestConfig {
   endpoint?: string
   region?: string
   bucket?: string
@@ -25,12 +35,33 @@ export interface S3DestConfig {
   retention_count?: number
 }
 
-export interface WebDAVDestConfig {
+export interface WebDAVDestConfig extends ScheduleDestConfig {
   url?: string
   path?: string
   username?: string
   password?: string
   retention_count?: number
+}
+
+// ScheduleConfigFields are the schedule form values every build*Config call
+// carries. They are ALWAYS serialised (never omit-empty) so a cleared time or a
+// toggled-off switch actually overwrites the stored value; encryptionPassword is
+// the one exception and follows resolveSecretUpdate's preserve/clear/replace
+// rules like the other destination secrets.
+export interface ScheduleConfigFields {
+  timeOfDay: string
+  includeAssets: boolean
+  encryptEnabled: boolean
+  encryptionPassword: string
+}
+
+function scheduleConfigEntries(fields: ScheduleConfigFields): Record<string, unknown> {
+  return {
+    time_of_day: fields.timeOfDay,
+    include_assets: fields.includeAssets,
+    encrypt_enabled: fields.encryptEnabled,
+    encryption_password: fields.encryptionPassword,
+  }
 }
 
 export function parseLocalConfig(dest: BackupDestination): LocalDestConfig {
@@ -42,8 +73,21 @@ export function parseLocalConfig(dest: BackupDestination): LocalDestConfig {
   }
 }
 
-export function buildLocalConfig(dir: string, retentionCount: number): string {
-  return JSON.stringify({ dir, retention_count: retentionCount })
+export interface LocalConfigFields extends ScheduleConfigFields {
+  dir: string
+  retentionCount: number
+}
+
+// buildLocalConfig serialises the local form fields into the config JSON the
+// backend expects. It takes a fields object rather than positional arguments so
+// it matches buildS3Config/buildWebDAVConfig now that all three carry the
+// shared schedule block.
+export function buildLocalConfig(fields: LocalConfigFields): string {
+  return JSON.stringify({
+    dir: fields.dir,
+    retention_count: fields.retentionCount,
+    ...scheduleConfigEntries(fields),
+  })
 }
 
 export function parseS3Config(dest: BackupDestination): S3DestConfig {
@@ -55,7 +99,7 @@ export function parseS3Config(dest: BackupDestination): S3DestConfig {
   }
 }
 
-export interface S3ConfigFields {
+export interface S3ConfigFields extends ScheduleConfigFields {
   endpoint: string
   region: string
   bucket: string
@@ -78,6 +122,7 @@ export function buildS3Config(fields: S3ConfigFields): string {
     use_ssl: fields.useSsl,
     use_path_style: fields.usePathStyle,
     retention_count: fields.retentionCount,
+    ...scheduleConfigEntries(fields),
   }
   if (fields.region) config.region = fields.region
   if (fields.prefix) config.prefix = fields.prefix
@@ -93,7 +138,7 @@ export function parseWebDAVConfig(dest: BackupDestination): WebDAVDestConfig {
   }
 }
 
-export interface WebDAVConfigFields {
+export interface WebDAVConfigFields extends ScheduleConfigFields {
   url: string
   path: string
   username: string
@@ -109,6 +154,7 @@ export function buildWebDAVConfig(fields: WebDAVConfigFields): string {
     url: fields.url,
     password: fields.password,
     retention_count: fields.retentionCount,
+    ...scheduleConfigEntries(fields),
   }
   if (fields.path) config.path = fields.path
   if (fields.username) config.username = fields.username
@@ -152,9 +198,10 @@ export interface S3SecretResolution {
 
 // resolveS3SecretUpdate wraps resolveSecretUpdate to make the S3 secret
 // REPLACEMENT-ONLY: emptying the field while editing preserves the stored
-// secret instead of clearing it. The WebDAV password, which goes through
-// resolveSecretUpdate directly, can be cleared. That asymmetry is deliberate
-// and follows from backend validation:
+// secret instead of clearing it. The WebDAV password and the per-destination
+// encryption_password, which go through resolveSecretUpdate directly, can be
+// cleared — turning encryption off legitimately drops the password. That
+// asymmetry is deliberate and follows from backend validation:
 //   - internal/service/backup/target_s3.go -> parseS3Config rejects a config
 //     whose secret_access_key is blank (ErrS3CredentialsRequired), so "S3 with
 //     no secret" is never a valid saved state; offering a clear could only ever

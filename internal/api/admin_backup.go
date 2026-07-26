@@ -56,36 +56,6 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 	return c.File(backupPath)
 }
 
-func (h *AdminHandler) RunBackupNow(c echo.Context) error {
-	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
-		apimw.From(c).UserID,
-		servicereauth.ReauthOperationBackupRun,
-		apimw.ReauthTicketFromRequest(c),
-	); err != nil {
-		return apimw.WriteReauthError(c, err)
-	}
-
-	result, err := h.Backup.WithContext(c.Request().Context()).RunBackup(c.Request().Context())
-	if err != nil {
-		if _, ok := serviceerr.KindOf(err); ok {
-			return err
-		}
-		return httpx.WriteError(c, http.StatusInternalServerError, "backup_failed")
-	}
-
-	return httpx.WriteMessageFields(c, http.StatusOK, "backup_created", map[string]any{
-		"file":                      result.ArchiveName,
-		"run_id":                    result.RunID,
-		"status":                    result.Status,
-		"delivery_status":           result.DeliveryStatus,
-		"retention_status":          result.RetentionStatus,
-		"bookkeeping_status":        result.BookkeepingStatus,
-		"global_bookkeeping_status": result.GlobalBookkeepingStatus,
-		"error":                     result.Error,
-		"results":                   result.Results,
-	})
-}
-
 type localBackupResponse struct {
 	Directory string                          `json:"directory"`
 	Backups   []servicebackup.LocalBackupInfo `json:"backups"`

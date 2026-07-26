@@ -323,8 +323,6 @@ const admin = {
         "For security, re-authenticate to create and deliver a backup now.",
       restoreDescription:
         "For security, re-authenticate to restore from this backup.",
-      scheduleDescription:
-        "For security, re-authenticate to change the scheduled backup settings.",
       destinationCreateDescription:
         "For security, re-authenticate to add a backup destination.",
       destinationUpdateDescription:
@@ -364,19 +362,6 @@ const admin = {
     downloadSuccess: "Backup downloaded",
     downloadFailed: "Failed to download backup",
     restoreFailed: "Failed to restore backup",
-    scheduleTitle: "Scheduled Local Backup",
-    scheduleDescription:
-      "Automatically create backups on the server on a daily schedule",
-    scheduleEnabled: "Enable scheduled backup",
-    scheduleEnabledDescription:
-      "Run an automatic backup every day at the configured time",
-    timeOfDay: "Time of day",
-    timeOfDayDescription: "24-hour time (HH:MM) in the server's timezone",
-    scheduleIncludeAssets: "Include assets in scheduled backup",
-    encrypt: "Encrypt archive",
-    encryptDescription: "Protect scheduled backup archives with a password",
-    encryptionPassword: "Encryption password",
-    encryptionPasswordConfigured: "Leave blank to keep current password",
     localDir: "Local backup directory",
     localDirDescription:
       "Absolute path on the server. Leave empty to use the default backups directory.",
@@ -384,8 +369,6 @@ const admin = {
     retentionCount: "Retention count",
     retentionCountDescription:
       "Number of most recent backups to keep. Older ones are pruned automatically.",
-    saveSchedule: "Save schedule",
-    runNow: "Run backup now",
     runNowSuccess: "Backup created",
     runNowPartialSuccess: "Backup created, but delivery failed for: {{destinations}}",
     runNowRetentionWarning: "Backup created, but cleanup failed for: {{destinations}}",
@@ -397,7 +380,6 @@ const admin = {
     recentBackupsEmpty: "No local backups yet",
     refreshBackups: "Refresh",
     backupEncryptedBadge: "Encrypted",
-    lastRun: "Last run",
     lastRunNever: "Never",
     lastRunSuccess: "Success",
     lastRunFailed: "Failed",
@@ -446,6 +428,20 @@ const admin = {
       webdavPassword: "Password",
       webdavPasswordConfigured: "Password configured — leave blank to keep",
       webdavPasswordClear: "Clear saved password",
+      scheduleTimeOfDay: "Time of day",
+      scheduleTimeOfDayDescription:
+        "Back up to this destination daily at this time, as 24-hour time (HH:MM) in the server's timezone.",
+      scheduleIncludeAssets: "Include assets",
+      scheduleIncludeAssetsDescription:
+        "Also include uploaded icons/files in a .zip backup",
+      scheduleEncrypt: "Encrypt archive",
+      scheduleEncryptDescription:
+        "Protect the archives delivered to this destination with a password",
+      encryptionPassword: "Encryption password",
+      encryptionPasswordConfigured: "Encryption password configured — leave blank to keep",
+      encryptionPasswordClear: "Clear saved encryption password",
+      runNow: "Back up to this destination now",
+      lastScheduledRun: "Last scheduled run",
       testConnection: "Test connection",
       testSuccess: "Backup destination is reachable ({{backup_count}} backups found)",
       createSuccess: "Backup destination added",

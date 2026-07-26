@@ -13,14 +13,6 @@ function settings(overrides: Partial<SystemSettings> = {}): SystemSettings {
   return {
     allow_image_upload: true,
     audit_enabled: true,
-    backup_encrypt_enabled: false,
-    backup_encryption_password_configured: false,
-    backup_include_assets: false,
-    backup_last_error: "",
-    backup_last_run_at: "",
-    backup_last_status: "",
-    backup_schedule_enabled: false,
-    backup_time_of_day: "03:00",
     currencyapi_key_configured: false,
     email_domain_whitelist: "",
     exchange_rate_source: "auto",
@@ -78,7 +70,6 @@ function settings(overrides: Partial<SystemSettings> = {}): SystemSettings {
 function form(overrides: Partial<AdminSettingsFormState> = {}): AdminSettingsFormState {
   return {
     ...createAdminSettingsForm(settings()),
-    backupEncryptionPassword: " backup-secret ",
     currencyApiKey: " currency-secret ",
     oidcClientSecret: " oidc-secret ",
     smtpPassword: " smtp-secret ",
@@ -169,19 +160,6 @@ describe("buildAdminSettingsPayload", () => {
     )
   })
 
-  it("builds only backup settings for the reauth-protected backup save button", () => {
-    expect(payloadKeys("backup")).toEqual([
-      "backup_encrypt_enabled",
-      "backup_encryption_password",
-      "backup_include_assets",
-      "backup_schedule_enabled",
-      "backup_time_of_day",
-    ])
-    expect(buildAdminSettingsPayload(form(), "backup").backup_encryption_password).toBe(
-      "backup-secret"
-    )
-  })
-
   it("omits secret values when the secret input is blank", () => {
     expect(
       buildAdminSettingsPayload(form({ systemProxyUrl: "  " }), "general")
@@ -195,21 +173,18 @@ describe("buildAdminSettingsPayload", () => {
     expect(
       buildAdminSettingsPayload(form({ currencyApiKey: "  " }), "exchange-rates")
     ).not.toHaveProperty("currencyapi_key")
-    expect(
-      buildAdminSettingsPayload(form({ backupEncryptionPassword: "  " }), "backup")
-    ).not.toHaveProperty("backup_encryption_password")
   })
 })
 
 describe("mergeAdminSettingsFormScope", () => {
   it("merges normalized settings only for the saved scope", () => {
     const current = form({
-      backupTimeOfDay: "09:30",
+      exchangeRateSource: "draft source",
       siteName: "draft site",
       smtpHost: "draft.smtp.example",
     })
     const fresh = settings({
-      backup_time_of_day: "03:00",
+      exchange_rate_source: "auto",
       site_name: "server site",
       smtp_host: "server.smtp.example",
     })
@@ -217,22 +192,22 @@ describe("mergeAdminSettingsFormScope", () => {
     const merged = mergeAdminSettingsFormScope(current, fresh, "smtp")
 
     expect(merged.smtpHost).toBe("server.smtp.example")
-    expect(merged.backupTimeOfDay).toBe("09:30")
+    expect(merged.exchangeRateSource).toBe("draft source")
     expect(merged.siteName).toBe("draft site")
   })
 
   it("clears only the saved scope's secret draft after a successful save", () => {
     const current = form({
-      backupEncryptionPassword: "backup draft",
-      backupEncryptionPasswordConfigured: false,
+      currencyApiKey: "currency draft",
+      currencyApiKeyConfigured: false,
       smtpPassword: "smtp draft",
     })
-    const fresh = settings({ backup_encryption_password_configured: true })
+    const fresh = settings({ currencyapi_key_configured: true })
 
-    const merged = mergeAdminSettingsFormScope(current, fresh, "backup")
+    const merged = mergeAdminSettingsFormScope(current, fresh, "exchange-rates")
 
-    expect(merged.backupEncryptionPassword).toBe("")
-    expect(merged.backupEncryptionPasswordConfigured).toBe(true)
+    expect(merged.currencyApiKey).toBe("")
+    expect(merged.currencyApiKeyConfigured).toBe(true)
     expect(merged.smtpPassword).toBe("smtp draft")
   })
 })

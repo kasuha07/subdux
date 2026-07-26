@@ -5,7 +5,6 @@ package reauth
 const (
 	ReauthOperationBackup                  = "backup"
 	ReauthOperationBackupRun               = "backup_run"
-	ReauthOperationBackupSchedule          = "backup_schedule"
 	ReauthOperationBackupDestinationCreate = "backup_destination_create"
 	ReauthOperationBackupDestinationUpdate = "backup_destination_update"
 	ReauthOperationBackupDestinationDelete = "backup_destination_delete"
@@ -35,7 +34,6 @@ func IsValidReauthOperation(operation string) bool {
 	switch operation {
 	case ReauthOperationBackup,
 		ReauthOperationBackupRun,
-		ReauthOperationBackupSchedule,
 		ReauthOperationBackupDestinationCreate,
 		ReauthOperationBackupDestinationUpdate,
 		ReauthOperationBackupDestinationDelete,
@@ -63,34 +61,12 @@ func IsValidReauthOperation(operation string) bool {
 	}
 }
 
-type AdminSettingsUpdateInput struct {
-	BackupScheduleEnabled    *bool
-	BackupTimeOfDay          *string
-	BackupIncludeAssets      *bool
-	BackupEncryptEnabled     *bool
-	BackupEncryptionPassword *string
-}
-
 // OperationForCreateUserRole returns the step-up operation needed by the
 // current admin-user creation policy. Creating a regular user remains unchanged
 // and does not require a reauth ticket.
 func OperationForCreateUserRole(role string) (string, bool) {
 	if role == "admin" {
 		return ReauthOperationCreateAdminUser, true
-	}
-	return "", false
-}
-
-// OperationForAdminSettingsUpdate returns the step-up operation needed by
-// the current admin settings policy. Only backup-schedule settings require a
-// reauth ticket today.
-func OperationForAdminSettingsUpdate(input AdminSettingsUpdateInput) (string, bool) {
-	if input.BackupScheduleEnabled != nil ||
-		input.BackupTimeOfDay != nil ||
-		input.BackupIncludeAssets != nil ||
-		input.BackupEncryptEnabled != nil ||
-		input.BackupEncryptionPassword != nil {
-		return ReauthOperationBackupSchedule, true
 	}
 	return "", false
 }

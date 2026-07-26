@@ -34,12 +34,6 @@ interface UseAdminPageStateOptions {
   t: (key: string, options?: Record<string, unknown>) => string
 }
 
-interface BackupStatus {
-  lastRunAt: string
-  lastStatus: string
-  lastError: string
-}
-
 interface RestoreBackupResponse {
   skipped_asset_count?: number
 }
@@ -47,7 +41,6 @@ interface RestoreBackupResponse {
 interface UseAdminPageStateResult {
   backgroundTasks: BackgroundTask[]
   backgroundTasksRefreshing: boolean
-  backupStatus: BackupStatus
   createDialogOpen: boolean
   destinations: BackupDestination[]
   destinationsRefreshing: boolean
@@ -60,6 +53,7 @@ interface UseAdminPageStateResult {
   handleUpdateDestination: (id: number, body: { revision: number; enabled?: boolean; config?: string; sort_order?: number; cleared_secret_fields?: string[] }, reauthTicket: string) => Promise<boolean>
   handleDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
   handleTestDestination: (id: number) => Promise<void>
+  handleRunDestinationBackup: (id: number, reauthTicket: string) => Promise<void>
   handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
   handleDisableUserPasskeys: (user: AdminUser, reauthTicket: string) => Promise<void>
   handleDisableUserTOTP: (user: AdminUser, reauthTicket: string) => Promise<void>
@@ -68,9 +62,7 @@ interface UseAdminPageStateResult {
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
   handleRestore: (reauthTicket: string) => Promise<boolean>
   handleValidateRestoreInputs: () => Promise<boolean>
-  handleRunBackupNow: (reauthTicket: string) => Promise<void>
   handleSaveAuthSettings: () => Promise<void>
-  handleSaveBackupSettings: (reauthTicket: string) => Promise<void>
   handleSaveExchangeRateSettings: () => Promise<void>
   handleSaveGeneralSettings: () => Promise<void>
   handleSaveSMTPSettings: () => Promise<void>
@@ -94,7 +86,7 @@ interface UseAdminPageStateResult {
   restoreEncrypted: boolean
   restoreFile: File | null
   restorePassword: string
-  runningBackup: boolean
+  runningDestinationId: number | null
   roleReauthUser: AdminUser | null
   setCreateDialogOpen: (open: boolean) => void
   setDownloadPassword: (value: string) => void
@@ -133,14 +125,6 @@ function parseFilenameFromContentDisposition(contentDisposition: string | null):
   }
 
   return match[1]
-}
-
-function createBackupStatus(settings?: SystemSettings): BackupStatus {
-  return {
-    lastRunAt: settings?.backup_last_run_at || "",
-    lastStatus: settings?.backup_last_status || "",
-    lastError: settings?.backup_last_error || "",
-  }
 }
 
 function hasSMTPConfigForRegistrationVerification(form: AdminSettingsFormState): boolean {
@@ -192,8 +176,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   )
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
 
-  const [backupStatus, setBackupStatus] = useState<BackupStatus>(() => createBackupStatus())
-  const [runningBackup, setRunningBackup] = useState(false)
+  // Id of the destination whose manual run is in flight, or null when idle.
+  const [runningDestinationId, setRunningDestinationId] = useState<number | null>(null)
   const [localBackups, setLocalBackups] = useState<LocalBackupInfo[]>([])
   const [localBackupDir, setLocalBackupDir] = useState("")
   const [localBackupsRefreshing, setLocalBackupsRefreshing] = useState(false)
@@ -239,7 +223,6 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         const form = createAdminSettingsForm(settingsData)
         setSettingsForm(form)
         setSavedSettingsForm(form)
-        setBackupStatus(createBackupStatus(settingsData))
         setRateStatus(rateStatusData)
         setBackgroundTasks(backgroundTasksData || [])
       })
@@ -395,19 +378,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function saveSettingsScope(scope: AdminSettingsSaveScope, reauthTicket?: string) {
+  async function saveSettingsScope(scope: AdminSettingsSaveScope) {
     try {
       const payload = buildAdminSettingsPayload(settingsForm, scope)
-      const headers = reauthTicket ? { "X-Reauth-Ticket": reauthTicket } : undefined
-      await api.put(
-        "/admin/settings",
-        payload,
-        headers ? { headers, errorHandling: "toast" } : { errorHandling: "toast" }
-      )
+      await api.put("/admin/settings", payload, { errorHandling: "toast" })
       const fresh = await api.get<SystemSettings>("/admin/settings", { errorHandling: "toast" })
       setSavedSettingsForm(createAdminSettingsForm(fresh))
       setSettingsForm((current) => mergeAdminSettingsFormScope(current, fresh, scope))
-      setBackupStatus(createBackupStatus(fresh))
       if (scope === "general") {
         updateSiteTitle(fresh.site_name)
       }
@@ -431,10 +408,6 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   function handleSaveExchangeRateSettings() {
     return saveSettingsScope("exchange-rates")
-  }
-
-  function handleSaveBackupSettings(reauthTicket: string) {
-    return saveSettingsScope("backup", reauthTicket)
   }
 
   function handleRegistrationEmailVerificationChange(enabled: boolean) {
@@ -746,12 +719,15 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleRunBackupNow(reauthTicket: string) {
-    setRunningBackup(true)
+  // handleRunDestinationBackup runs ONE destination's backup plan on demand. The
+  // result handling is identical to a scheduled run's, so the same
+  // summarizeBackupRun toasts apply.
+  async function handleRunDestinationBackup(id: number, reauthTicket: string) {
+    setRunningDestinationId(id)
     try {
       let result: BackupRunResponse
       try {
-        result = await api.post<BackupRunResponse>("/admin/backup/run", {}, {
+        result = await api.post<BackupRunResponse>(`/admin/backup/destinations/${id}/run`, {}, {
           headers: { "X-Reauth-Ticket": reauthTicket },
         })
       } catch (error) {
@@ -823,18 +799,16 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
       // The backup has already completed at this point. Refreshes are
       // best-effort and must not turn a delivered backup into a failed run.
       try {
-        const [localBackupsResult, settingsResult] = await Promise.allSettled([
+        const [localBackupsResult] = await Promise.allSettled([
           api.get<LocalBackupList>("/admin/backup/local"),
-          api.get<SystemSettings>("/admin/settings"),
         ])
         if (localBackupsResult.status === "fulfilled") {
           const data = localBackupsResult.value
           setLocalBackups(data?.backups || [])
           setLocalBackupDir(data?.directory || "")
         }
-        if (settingsResult.status === "fulfilled") {
-          setBackupStatus(createBackupStatus(settingsResult.value))
-        }
+        // Refresh the destinations so this row's status badges and last-run
+        // timestamps reflect the run that just finished.
         await handleRefreshDestinations()
       } catch {
         // A completed backup remains successful even if a refresh helper
@@ -842,14 +816,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         void 0
       }
     } finally {
-      setRunningBackup(false)
+      setRunningDestinationId(null)
     }
   }
 
   return {
     backgroundTasks,
     backgroundTasksRefreshing,
-    backupStatus,
     createDialogOpen,
     destinations,
     destinationsRefreshing,
@@ -862,6 +835,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleUpdateDestination,
     handleDeleteDestination,
     handleTestDestination,
+    handleRunDestinationBackup,
     handleDeleteUser,
     handleDisableUserPasskeys,
     handleDisableUserTOTP,
@@ -870,9 +844,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleRegistrationEmailVerificationChange,
     handleRestore,
     handleValidateRestoreInputs: validateRestoreInputs,
-    handleRunBackupNow,
     handleSaveAuthSettings,
-    handleSaveBackupSettings,
     handleSaveExchangeRateSettings,
     handleSaveGeneralSettings,
     handleSaveSMTPSettings,
@@ -896,7 +868,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     restoreEncrypted,
     restoreFile,
     restorePassword,
-    runningBackup,
+    runningDestinationId,
     roleReauthUser,
     setCreateDialogOpen,
     setDownloadPassword,

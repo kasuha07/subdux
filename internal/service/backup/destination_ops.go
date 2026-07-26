@@ -9,7 +9,6 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
-	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"gorm.io/gorm"
 )
 
@@ -156,21 +155,10 @@ func (s *Service) UpdateDestination(id uint, input UpdateDestinationInput) (*Des
 
 		updates := make(map[string]any)
 		if input.Enabled != nil {
-			if !*input.Enabled && destination.Enabled {
-				scheduleEnabled, err := backupsettings.GetBool(context.Background(), tx, KeyScheduleEnabled, false)
-				if err != nil {
-					return err
-				}
-				if scheduleEnabled {
-					var enabledCount int64
-					if err := tx.Model(&model.BackupDestination{}).Where("enabled = ?", true).Count(&enabledCount).Error; err != nil {
-						return err
-					}
-					if enabledCount <= 1 {
-						return ErrNoEnabledBackupDestination
-					}
-				}
-			}
+			// Disabling is unconditional now that each destination owns its own
+			// schedule: switching one plan off simply stops that plan, and no
+			// global "schedule enabled with nowhere to deliver" state exists for
+			// it to strand.
 			updates["enabled"] = *input.Enabled
 		}
 		if input.SortOrder != nil {
@@ -247,22 +235,6 @@ func (s *Service) DeleteDestination(id uint, revision uint64) error {
 			return ErrBackupDestinationChanged
 		}
 
-		if destination.Enabled {
-			scheduleEnabled, err := backupsettings.GetBool(context.Background(), tx, KeyScheduleEnabled, false)
-			if err != nil {
-				return err
-			}
-			if scheduleEnabled {
-				var enabledCount int64
-				if err := tx.Model(&model.BackupDestination{}).Where("enabled = ?", true).Count(&enabledCount).Error; err != nil {
-					return err
-				}
-				if enabledCount <= 1 {
-					return ErrNoEnabledBackupDestination
-				}
-			}
-		}
-
 		result := tx.Where("id = ? AND revision = ?", id, revision).Delete(&model.BackupDestination{})
 		if result.Error != nil {
 			return result.Error
@@ -297,6 +269,13 @@ func (s *Service) validateAndCanonicalizeConfig(destinationType, config string) 
 	// Constructing the target validates type-specific invariants without
 	// persisting anything.
 	if _, err := newBackupTargetFromConfig(destinationType, parsed, s.DB); err != nil {
+		return "", err
+	}
+
+	// The schedule half is validated separately because the target constructors
+	// deliberately never see it. Rejecting an unusable plan here keeps a saved
+	// destination from failing only later, at its first scheduled firing.
+	if _, err := parseScheduleConfig(parsed); err != nil {
 		return "", err
 	}
 

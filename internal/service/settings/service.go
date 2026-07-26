@@ -85,14 +85,6 @@ var DefaultSystemSettings = []model.SystemSetting{
 	{Key: "oidc_audience", Value: ""},
 	{Key: "oidc_resource", Value: ""},
 	{Key: "oidc_extra_auth_params", Value: ""},
-	{Key: "backup_schedule_enabled", Value: "false"},
-	{Key: "backup_time_of_day", Value: "03:00"},
-	{Key: "backup_include_assets", Value: "false"},
-	{Key: "backup_encrypt_enabled", Value: "false"},
-	{Key: "backup_encryption_password", Value: ""},
-	{Key: "backup_last_run_at", Value: ""},
-	{Key: "backup_last_status", Value: ""},
-	{Key: "backup_last_error", Value: ""},
 }
 
 func (s *Service) SeedDefaults() error {

@@ -19,20 +19,8 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
-	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/yeka/zip"
 	"gorm.io/gorm"
-)
-
-const (
-	KeyScheduleEnabled    = "backup_schedule_enabled"
-	KeyTimeOfDay          = "backup_time_of_day"
-	KeyIncludeAssets      = "backup_include_assets"
-	KeyEncryptEnabled     = "backup_encrypt_enabled"
-	KeyEncryptionPassword = "backup_encryption_password"
-	KeyLastRunAt          = "backup_last_run_at"
-	KeyLastStatus         = "backup_last_status"
-	KeyLastError          = "backup_last_error"
 )
 
 const (
@@ -62,9 +50,10 @@ const (
 	// superseded and the next due tick starts a new one.
 	backupRunResumeWindow = 24 * time.Hour
 
-	defaultRetentionCount = 7
-	backupTempDirPattern  = "subdux-backup-*"
-	backupStagingDirName  = "backup-staging"
+	defaultRetentionCount  = 7
+	defaultBackupTimeOfDay = "03:00"
+	backupTempDirPattern   = "subdux-backup-*"
+	backupStagingDirName   = "backup-staging"
 )
 
 var (
@@ -90,14 +79,6 @@ type LocalBackupInfo struct {
 	Size       int64  `json:"size"`
 	ModifiedAt string `json:"modified_at"`
 	Encrypted  bool   `json:"encrypted"`
-}
-
-type UpdateSettingsInput struct {
-	ScheduleEnabled    *bool
-	TimeOfDay          *string
-	IncludeAssets      *bool
-	EncryptEnabled     *bool
-	EncryptionPassword *string
 }
 
 type Service struct {
@@ -226,56 +207,6 @@ func addDirectoryToBackupZip(zipWriter *zip.Writer, archivePath string) error {
 
 	_, err := zipWriter.CreateHeader(header)
 	return err
-}
-
-type runtimeConfig struct {
-	ScheduleEnabled bool
-	TimeOfDay       string
-	IncludeAssets   bool
-	EncryptEnabled  bool
-	EncryptPassword string
-}
-
-func (s *Service) loadRuntimeConfig() (runtimeConfig, error) {
-	cfg := runtimeConfig{
-		TimeOfDay: "03:00",
-	}
-
-	scheduleEnabled, err := backupsettings.GetBool(context.Background(), s.DB, KeyScheduleEnabled, false)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.ScheduleEnabled = scheduleEnabled
-
-	timeOfDay, err := backupsettings.GetString(context.Background(), s.DB, KeyTimeOfDay, "03:00")
-	if err != nil {
-		return cfg, err
-	}
-	if strings.TrimSpace(timeOfDay) != "" {
-		cfg.TimeOfDay = timeOfDay
-	}
-
-	includeAssets, err := backupsettings.GetBool(context.Background(), s.DB, KeyIncludeAssets, false)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.IncludeAssets = includeAssets
-
-	encryptEnabled, err := backupsettings.GetBool(context.Background(), s.DB, KeyEncryptEnabled, false)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.EncryptEnabled = encryptEnabled
-
-	if encryptEnabled {
-		storedPassword, err := backupsettings.GetString(context.Background(), s.DB, KeyEncryptionPassword, "")
-		if err != nil {
-			return cfg, err
-		}
-		cfg.EncryptPassword = storedPassword
-	}
-
-	return cfg, nil
 }
 
 // resolveBackupDir returns the absolute target directory for local backups,
@@ -506,34 +437,56 @@ type BackupRunResult struct {
 	Results                 []DestinationRunResult `json:"results"`
 }
 
-func (s *Service) RunBackup(ctx context.Context) (BackupRunResult, error) {
-	return s.runBackup(ctx, backupRunSourceManual, nil)
-}
+// RunDestinationBackup runs one destination's plan immediately, using that
+// destination's own archive settings. It is the manual counterpart to a
+// scheduled firing and deliberately does not touch last_scheduled_run_at, so an
+// ad-hoc run never consumes the destination's slot for the day.
+func (s *Service) RunDestinationBackup(ctx context.Context, id uint) (BackupRunResult, error) {
+	var destination model.BackupDestination
+	if err := s.DB.First(&destination, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return BackupRunResult{}, ErrBackupDestinationNotFound
+		}
+		return BackupRunResult{}, err
+	}
 
-// runBackup starts a new run, or continues the run in resumed when the caller
-// has already resolved one. A resume reuses the persisted archive name and
-// destination stage rows, so completed delivery stages are never retried as a
-// new archive merely because retention or bookkeeping was incomplete. The
-// caller resolves the resumable run rather than this function so the scheduler
-// can apply its retry spacing to the same run it then hands over here.
-func (s *Service) runBackup(ctx context.Context, source string, resumed *backupRunState) (BackupRunResult, error) {
-	cfg, err := s.loadRuntimeConfig()
+	schedule, err := destinationScheduleFromStored(destination.Config)
 	if err != nil {
 		return BackupRunResult{}, err
 	}
-	if cfg.EncryptEnabled && cfg.EncryptPassword == "" {
-		return BackupRunResult{}, ErrBackupEncryptionPasswordRequired
-	}
 
+	return s.runBackup(
+		ctx,
+		backupRunSourceManual,
+		[]model.BackupDestination{destination},
+		schedule.archiveSpec(),
+		nil,
+	)
+}
+
+// runBackup starts a new run over destinations, or continues the run in resumed
+// when the caller has already resolved one. A resume reuses the persisted
+// archive name and destination stage rows, so completed delivery stages are
+// never retried as a new archive merely because retention or bookkeeping was
+// incomplete. The caller resolves the resumable run rather than this function so
+// the scheduler can apply its retry spacing to the same run it then hands over
+// here.
+//
+// Every destination in one call must share spec: the run produces a single
+// archive, so its contents cannot vary per destination.
+func (s *Service) runBackup(
+	ctx context.Context,
+	source string,
+	destinations []model.BackupDestination,
+	spec archiveSpec,
+	resumed *backupRunState,
+) (BackupRunResult, error) {
 	var state backupRunState
+	var err error
 	if resumed != nil {
 		state = *resumed
 	}
 	if state.run.ID == 0 {
-		destinations, listErr := s.listEnabledDestinations()
-		if listErr != nil {
-			return BackupRunResult{}, listErr
-		}
 		if len(destinations) == 0 {
 			return BackupRunResult{}, ErrNoEnabledBackupDestination
 		}
@@ -558,7 +511,7 @@ func (s *Service) runBackup(ctx context.Context, source string, resumed *backupR
 		}
 	} else {
 		var builtPath string
-		builtPath, cleanup, err = s.buildBackupArchiveNamed(cfg, state.run.ArchiveName)
+		builtPath, cleanup, err = s.buildBackupArchiveNamed(spec, state.run.ArchiveName)
 		archivePath = builtPath
 		if err == nil && source == backupRunSourceScheduled {
 			var stageErr error
@@ -648,7 +601,7 @@ func joinErrors(errs []error) string {
 // removes both the archive and the intermediate DB snapshot. The caller supplies
 // the name so a resumed run rebuilds under the name already persisted on the
 // run row, keeping delivery idempotent across retries.
-func (s *Service) buildBackupArchiveNamed(cfg runtimeConfig, archiveName string) (string, func(), error) {
+func (s *Service) buildBackupArchiveNamed(spec archiveSpec, archiveName string) (string, func(), error) {
 	tempDir, err := newPrivateBackupTempDir()
 	if err != nil {
 		return "", func() {}, err
@@ -676,11 +629,7 @@ func (s *Service) buildBackupArchiveNamed(cfg runtimeConfig, archiveName string)
 
 	archivePath := filepath.Join(tempDir, archiveName)
 
-	password := ""
-	if cfg.EncryptEnabled {
-		password = cfg.EncryptPassword
-	}
-	if err := writeBackupZipFromDB(archivePath, dbTempPath, cfg.IncludeAssets, password); err != nil {
+	if err := writeBackupZipFromDB(archivePath, dbTempPath, spec.IncludeAssets, spec.Password); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
@@ -1008,87 +957,186 @@ func backupArchiveIsEncrypted(archivePath string) bool {
 	return false
 }
 
-// RunScheduledBackup runs a lease-guarded scheduled backup. Incomplete runs
-// are resumed before a new run is created; only a fully successful run advances
-// last_run_at. Partial runs remain due, but their persisted destination stages
-// make retries target only the unfinished delivery/retention work.
+// RunScheduledBackup runs a lease-guarded scheduled backup pass. Each enabled
+// destination is its own plan, so one pass may start several runs: incomplete
+// runs are resumed first, then every destination that has come due and is not
+// already owned by a resumed run is grouped onto a shared archive.
+//
+// Only a destination whose delivery succeeds advances its last_scheduled_run_at,
+// so a partial run leaves the unsatisfied destinations due. Their persisted
+// stage rows make the retry target only the unfinished delivery/retention work.
 func (s *Service) RunScheduledBackup(ownerID string) error {
 	return serviceutil.WithBackgroundTaskLease(s.DB, ownerID, backupTaskKey, backupLeaseTTL, func() error {
-		cfg, err := s.loadRuntimeConfig()
+		resumables, err := s.findResumableScheduledRuns()
 		if err != nil {
 			return err
 		}
-		if !cfg.ScheduleEnabled {
-			return nil
+
+		var errs []error
+
+		// A destination inside an incomplete run is spoken for: starting a second
+		// run for it would deliver two archives for the same due window and race
+		// the first run's retention. Resuming that run is the only way it makes
+		// progress.
+		claimed := make(map[uint]struct{})
+		for _, resumable := range resumables {
+			for _, runDestination := range resumable.destinations {
+				claimed[runDestination.DestinationID] = struct{}{}
+			}
 		}
 
-		loc := pkg.GetSystemTimezone()
-		now := pkg.NowInSystemTimezone()
-
-		lastRunRaw, err := backupsettings.GetString(context.Background(), s.DB, KeyLastRunAt, "")
-		if err != nil {
-			return err
-		}
-		lastRunAt := parseBackupLastRunAt(lastRunRaw)
-
-		resumable, err := s.findResumableScheduledRun()
-		if err != nil {
-			return err
-		}
-		if resumable != nil {
-			// An incomplete run owns the schedule until it finishes or exceeds the
-			// resume window, so a second run is never started alongside it. Space
-			// the retries instead: a failing run must not consume a build and
+		for i := range resumables {
+			resumable := &resumables[i]
+			// Space the retries: a failing run must not consume a build and
 			// delivery cycle on every scheduler tick.
 			if !scheduledRunResumeDue(resumable.run, pkg.Now()) {
-				return nil
+				continue
 			}
-		} else if !backupDue(now, cfg.TimeOfDay, lastRunAt, loc) {
-			return nil
+			spec, specErr := s.archiveSpecForResumedRun(*resumable)
+			if specErr != nil {
+				errs = append(errs, specErr)
+				continue
+			}
+			errs = append(errs, s.runScheduledGroup(nil, spec, resumable))
 		}
 
-		result, backupErr := s.runBackup(context.Background(), backupRunSourceScheduled, resumable)
-		if result.RunID == 0 {
-			if backupErr == nil {
-				return nil
-			}
-			if statusErr := s.recordBackupRunFailure(backupErr.Error()); statusErr != nil {
-				return errors.Join(backupErr, statusErr)
-			}
-			return backupErr
+		due, dueErr := s.dueScheduledDestinations(claimed)
+		errs = append(errs, dueErr)
+		for _, group := range due {
+			errs = append(errs, s.runScheduledGroup(group.destinations, group.spec, nil))
 		}
 
-		if statusErr := s.recordBackupRunResult(result, now); statusErr != nil {
-			_ = s.markGlobalBookkeepingFailure(result.RunID, statusErr)
-			if backupErr != nil {
-				return errors.Join(backupErr, statusErr)
-			}
-			return statusErr
-		}
-		if bookkeepingErr := s.markGlobalBookkeepingSuccess(result.RunID); bookkeepingErr != nil {
-			return bookkeepingErr
-		}
-		if result.Status == StatusOK {
-			if cleanupErr := s.cleanupBackupRunArchive(result.RunID); cleanupErr != nil {
-				return cleanupErr
-			}
-		}
-		return backupErr
+		return errors.Join(errs...)
 	})
 }
 
-// parseBackupLastRunAt parses the persisted last-run timestamp. An empty or
-// unparseable value yields the zero time, meaning "never run".
-func parseBackupLastRunAt(raw string) time.Time {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return time.Time{}
-	}
-	parsed, err := time.Parse(time.RFC3339, trimmed)
+// scheduledGroup is a set of due destinations that agree on archive contents and
+// therefore share one archive for this pass.
+type scheduledGroup struct {
+	spec         archiveSpec
+	destinations []model.BackupDestination
+}
+
+// dueScheduledDestinations returns the destinations whose plans have come due,
+// grouped onto shared archives. Destinations in claimed are skipped because an
+// incomplete run already owns them.
+//
+// A destination whose stored config cannot be read or whose schedule is invalid
+// is reported rather than skipped silently: it is configured to be backed up and
+// is not being backed up, which the operator must see.
+func (s *Service) dueScheduledDestinations(claimed map[uint]struct{}) ([]scheduledGroup, error) {
+	destinations, err := s.listEnabledDestinations()
 	if err != nil {
+		return nil, err
+	}
+
+	loc := pkg.GetSystemTimezone()
+	now := pkg.NowInSystemTimezone()
+
+	var errs []error
+	var order []archiveSpec
+	grouped := make(map[archiveSpec][]model.BackupDestination)
+	for _, destination := range destinations {
+		if _, busy := claimed[destination.ID]; busy {
+			continue
+		}
+		schedule, scheduleErr := destinationScheduleFromStored(destination.Config)
+		if scheduleErr != nil {
+			errs = append(errs, fmt.Errorf("backup destination %d schedule: %w", destination.ID, scheduleErr))
+			continue
+		}
+		if !backupDue(now, schedule.TimeOfDay, lastScheduledRunAt(destination), loc) {
+			continue
+		}
+		spec := schedule.archiveSpec()
+		if _, seen := grouped[spec]; !seen {
+			order = append(order, spec)
+		}
+		grouped[spec] = append(grouped[spec], destination)
+	}
+
+	groups := make([]scheduledGroup, 0, len(order))
+	for _, spec := range order {
+		groups = append(groups, scheduledGroup{spec: spec, destinations: grouped[spec]})
+	}
+	return groups, errors.Join(errs...)
+}
+
+// runScheduledGroup performs one scheduled run and its bookkeeping: recording
+// which destinations satisfied their schedule, then releasing the staged archive
+// once nothing is left to retry.
+func (s *Service) runScheduledGroup(destinations []model.BackupDestination, spec archiveSpec, resumed *backupRunState) error {
+	result, backupErr := s.runBackup(context.Background(), backupRunSourceScheduled, destinations, spec, resumed)
+	if result.RunID == 0 {
+		return backupErr
+	}
+
+	if statusErr := s.recordScheduledRunOutcome(result); statusErr != nil {
+		_ = s.markGlobalBookkeepingFailure(result.RunID, statusErr)
+		return errors.Join(backupErr, statusErr)
+	}
+	if bookkeepingErr := s.markGlobalBookkeepingSuccess(result.RunID); bookkeepingErr != nil {
+		return errors.Join(backupErr, bookkeepingErr)
+	}
+	if result.Status == StatusOK {
+		if cleanupErr := s.cleanupBackupRunArchive(result.RunID); cleanupErr != nil {
+			return errors.Join(backupErr, cleanupErr)
+		}
+	}
+	return backupErr
+}
+
+// recordScheduledRunOutcome marks each destination that actually received the
+// archive as having satisfied its schedule. A destination whose delivery failed
+// is deliberately left alone so it stays due and is retried.
+func (s *Service) recordScheduledRunOutcome(result BackupRunResult) error {
+	now := pkg.Now()
+	var errs []error
+	for _, item := range result.Results {
+		if !item.Success {
+			continue
+		}
+		dbResult := s.DB.Model(&model.BackupDestination{}).
+			Where("id = ?", item.DestinationID).
+			Update("last_scheduled_run_at", now)
+		if dbResult.Error != nil {
+			errs = append(errs, dbResult.Error)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// archiveSpecForResumedRun re-derives the archive settings of an in-flight run
+// from its destinations' current configs. findResumableScheduledRuns has already
+// superseded any run whose destination revisions moved, so the stored config
+// still describes the archive this run was started to produce — which is why the
+// spec is not persisted on the run row alongside the (secret) password.
+func (s *Service) archiveSpecForResumedRun(state backupRunState) (archiveSpec, error) {
+	for _, runDestination := range state.destinations {
+		var destination model.BackupDestination
+		if err := s.DB.First(&destination, runDestination.DestinationID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return archiveSpec{}, err
+		}
+		schedule, err := destinationScheduleFromStored(destination.Config)
+		if err != nil {
+			return archiveSpec{}, err
+		}
+		return schedule.archiveSpec(), nil
+	}
+	return archiveSpec{}, ErrNoEnabledBackupDestination
+}
+
+// lastScheduledRunAt is the due-check anchor for one destination. A destination
+// that has never completed a scheduled run yields the zero time, which
+// backupDue reads as "due as soon as today's firing time passes".
+func lastScheduledRunAt(destination model.BackupDestination) time.Time {
+	if destination.LastScheduledRunAt == nil {
 		return time.Time{}
 	}
-	return parsed
+	return *destination.LastScheduledRunAt
 }
 
 // backupDue reports whether a scheduled backup should run at now given the
@@ -1120,108 +1168,6 @@ func backupDue(now time.Time, timeOfDay string, lastRunAt time.Time, loc *time.L
 	lastRunLocal := pkg.NormalizeDateInTimezone(lastRunAt, loc)
 	today := pkg.NormalizeDateInTimezone(nowLocal, loc)
 	return lastRunLocal.Before(today)
-}
-
-// recordBackupRunResult persists the aggregate runtime status. A partial or
-// failed run deliberately leaves last_run_at unchanged, so the scheduler can
-// resume it on a later tick without treating it as a completed day.
-func (s *Service) recordBackupRunResult(result BackupRunResult, runAt time.Time) error {
-	return s.DB.Transaction(func(tx *gorm.DB) error {
-		status := result.Status
-		if status == "" {
-			status = StatusFailed
-		}
-		if err := backupsettings.SaveString(tx, KeyLastStatus, status); err != nil {
-			return err
-		}
-		if err := backupsettings.SaveString(tx, KeyLastError, result.Error); err != nil {
-			return err
-		}
-		if status == StatusOK {
-			return backupsettings.SaveString(tx, KeyLastRunAt, runAt.Format(time.RFC3339))
-		}
-		return nil
-	})
-}
-
-// recordBackupRunFailure persists the failure status and error for a scheduled
-// run without touching KeyLastRunAt. Because backupDue gates on the last
-// successful run, leaving the timestamp untouched allows retries to proceed on
-// subsequent ticks the same day once the failure condition clears.
-func (s *Service) recordBackupRunFailure(runErr string) error {
-	return s.recordBackupRunResult(BackupRunResult{Status: StatusFailed, Error: runErr}, pkg.NowInSystemTimezone())
-}
-
-// ApplySettings validates and persists the user-editable backup settings within
-// the caller's transaction.
-func ApplySettings(tx *gorm.DB, input UpdateSettingsInput) error {
-	if input.TimeOfDay != nil {
-		trimmed := strings.TrimSpace(*input.TimeOfDay)
-		if !backupTimeOfDayPattern.MatchString(trimmed) {
-			return ErrInvalidBackupTimeOfDay
-		}
-		if err := backupsettings.SaveString(tx, KeyTimeOfDay, trimmed); err != nil {
-			return err
-		}
-	}
-
-	if input.IncludeAssets != nil {
-		if err := backupsettings.SaveBool(tx, KeyIncludeAssets, *input.IncludeAssets); err != nil {
-			return err
-		}
-	}
-
-	if input.ScheduleEnabled != nil {
-		if *input.ScheduleEnabled {
-			var enabledDestination model.BackupDestination
-			if err := tx.Where("enabled = ?", true).First(&enabledDestination).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return ErrNoEnabledBackupDestination
-				}
-				return err
-			}
-		}
-		if err := backupsettings.SaveBool(tx, KeyScheduleEnabled, *input.ScheduleEnabled); err != nil {
-			return err
-		}
-	}
-
-	if input.EncryptionPassword != nil {
-		if err := backupsettings.SaveEncrypted(tx, KeyEncryptionPassword, *input.EncryptionPassword); err != nil {
-			return err
-		}
-	}
-
-	if input.EncryptEnabled != nil {
-		if *input.EncryptEnabled {
-			if err := ensureBackupEncryptionPasswordAvailable(tx, input); err != nil {
-				return err
-			}
-		}
-		if err := backupsettings.SaveBool(tx, KeyEncryptEnabled, *input.EncryptEnabled); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// ensureBackupEncryptionPasswordAvailable confirms a password is available when
-// enabling encryption: either provided in this request or already stored.
-func ensureBackupEncryptionPasswordAvailable(tx *gorm.DB, input UpdateSettingsInput) error {
-	if input.EncryptionPassword != nil && strings.TrimSpace(*input.EncryptionPassword) != "" {
-		return nil
-	}
-
-	stored, err := backupsettings.GetString(context.Background(), tx, KeyEncryptionPassword, "")
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(stored) != "" {
-		return nil
-	}
-
-	return ErrBackupEncryptionPasswordRequired
 }
 
 // normalizeBackupLocalDir validates and normalizes a configured backup

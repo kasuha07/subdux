@@ -43,6 +43,13 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260707_01_notification_quiet_hours", Checksum: "8f4f38eefaf226063a55efab892d433c722df441a319553c8ca6cff7ab402e74", Run: migrateNotificationQuietHours},
 	{Name: "20260713_01_backup_destinations", Checksum: "79a58cf376923d88b3640d5590ddf0635a8332997cf84de4004ee002dc57b55f", Run: migrateBackupDestinations},
 	{Name: "20260717_01_backup_run_state", Checksum: "e02814fe9c2d974ebfa66222f0bdae6dcf2c2e9b396440dacea29b31466b5ef2", Run: migrateBackupRunState},
+	{
+		Name:          "20260726_01_backup_per_destination_schedule",
+		Checksum:      "5f5862fccea6706c59887670a1a380b7379744edea91695862f86f7d7bf03947",
+		Run:           migrateBackupPerDestinationSchedule,
+		Destructive:   true,
+		DiscardPolicy: "Fold the global backup schedule into every destination's config (time of day, include assets, archive encryption and its password), preserving the old effective state by disabling destinations when the global schedule was off, then delete the retired backup_schedule_enabled, backup_time_of_day, backup_include_assets, backup_encrypt_enabled, backup_encryption_password, backup_last_run_at, backup_last_status and backup_last_error settings rows.",
+	},
 }
 
 func autoMigrate20260512ApplicationSchema(db *gorm.DB) error {

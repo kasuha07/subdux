@@ -2,10 +2,8 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
-  Clock,
   Download,
   Lock,
-  PlayCircle,
   RefreshCw,
 } from "lucide-react"
 
@@ -22,34 +20,21 @@ import AdminBackupDestinationsSection, {
   type DestinationCreateBody,
   type DestinationUpdateBody,
 } from "./admin-backup-destinations-section"
-import { DESTINATION_SECRET_MASK } from "./hooks/backup-destinations"
 import ReauthDialog, { type ReauthScope } from "./reauth-dialog"
 
 interface AdminBackupTabProps {
-  backupEncryptEnabled: boolean
-  backupEncryptionPassword: string
-  backupEncryptionPasswordConfigured: boolean
-  backupIncludeAssets: boolean
-  backupScheduleEnabled: boolean
-  backupTimeOfDay: string
   destinations: BackupDestination[]
   destinationsRefreshing: boolean
   downloadPassword: string
   includeAssetsInBackup: boolean
-  lastRunAt: string
-  lastError: string
-  lastStatus: string
   localBackupDir: string
   localBackups: LocalBackupInfo[]
   localBackupsRefreshing: boolean
-  onBackupEncryptEnabledChange: (value: boolean) => void
-  onBackupEncryptionPasswordChange: (value: string) => void
-  onBackupIncludeAssetsChange: (value: boolean) => void
-  onBackupScheduleEnabledChange: (value: boolean) => void
-  onBackupTimeOfDayChange: (value: string) => void
+  runningDestinationId: number | null
   onCreateDestination: (body: DestinationCreateBody, reauthTicket: string) => Promise<boolean>
   onUpdateDestination: (id: number, body: DestinationUpdateBody, reauthTicket: string) => Promise<boolean>
   onDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
+  onRunDestination: (id: number, reauthTicket: string) => void | Promise<void>
   onTestDestination: (id: number) => Promise<void>
   onDownloadBackup: (reauthTicket: string) => Promise<boolean>
   onDownloadPasswordChange: (value: string) => void
@@ -61,40 +46,25 @@ interface AdminBackupTabProps {
   onRestoreConfirmOpenChange: (open: boolean) => void
   onRestoreFileChange: (file: File | null) => void
   onRestorePasswordChange: (value: string) => void
-  onRunBackupNow: (reauthTicket: string) => void | Promise<void>
-  onSaveSettings: (reauthTicket: string) => void | Promise<void>
   restoreConfirmOpen: boolean
   restoreEncrypted: boolean
   restoreFile: File | null
   restorePassword: string
-  runningBackup: boolean
 }
 
 export default function AdminBackupTab({
-  backupEncryptEnabled,
-  backupEncryptionPassword,
-  backupEncryptionPasswordConfigured,
-  backupIncludeAssets,
-  backupScheduleEnabled,
-  backupTimeOfDay,
   destinations,
   destinationsRefreshing,
   downloadPassword,
   includeAssetsInBackup,
-  lastRunAt,
-  lastError,
-  lastStatus,
   localBackupDir,
   localBackups,
   localBackupsRefreshing,
-  onBackupEncryptEnabledChange,
-  onBackupEncryptionPasswordChange,
-  onBackupIncludeAssetsChange,
-  onBackupScheduleEnabledChange,
-  onBackupTimeOfDayChange,
+  runningDestinationId,
   onCreateDestination,
   onUpdateDestination,
   onDeleteDestination,
+  onRunDestination,
   onTestDestination,
   onDownloadBackup,
   onDownloadPasswordChange,
@@ -106,18 +76,14 @@ export default function AdminBackupTab({
   onRestoreConfirmOpenChange,
   onRestoreFileChange,
   onRestorePasswordChange,
-  onRunBackupNow,
-  onSaveSettings,
   restoreConfirmOpen,
   restoreEncrypted,
   restoreFile,
   restorePassword,
-  runningBackup,
 }: AdminBackupTabProps) {
   const { t, i18n } = useTranslation()
-  const [editingEncryptionPassword, setEditingEncryptionPassword] = useState(false)
   // Which flow, if any, is awaiting step-up re-authentication.
-  const [reauthPrompt, setReauthPrompt] = useState<"download" | "run" | "restore" | "schedule" | "dest-create" | "dest-update" | "dest-delete" | null>(null)
+  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "dest-create" | "dest-update" | "dest-delete" | "dest-run" | null>(null)
 
   // Pending destination mutation params waiting for a reauth ticket. The
   // destination form itself lives in AdminBackupDestinationsSection; only the
@@ -125,21 +91,7 @@ export default function AdminBackupTab({
   const [pendingDestCreate, setPendingDestCreate] = useState<DestinationCreateBody | null>(null)
   const [pendingDestUpdate, setPendingDestUpdate] = useState<{ id: number; revision: number; body: DestinationUpdateBody } | null>(null)
   const [destDeleteTarget, setDestDeleteTarget] = useState<BackupDestination | null>(null)
-
-  const configuredMaskValue = DESTINATION_SECRET_MASK
-  const encryptionPasswordDisplayValue = editingEncryptionPassword
-    ? backupEncryptionPassword
-    : backupEncryptionPassword ||
-      (backupEncryptionPasswordConfigured ? configuredMaskValue : "")
-
-  const lastRunLabel =
-    lastStatus === "success"
-      ? t("admin.backup.lastRunSuccess")
-      : lastStatus === "failed"
-        ? t("admin.backup.lastRunFailed")
-        : lastStatus === "partial"
-          ? t("admin.backup.lastRunPartial")
-        : t("admin.backup.lastRunNever")
+  const [destRunTarget, setDestRunTarget] = useState<BackupDestination | null>(null)
 
   const reauthOperation =
     reauthPrompt === "dest-create"
@@ -150,14 +102,13 @@ export default function AdminBackupTab({
           ? "backup_destination_delete"
           : reauthPrompt === "restore"
             ? "restore"
-            : reauthPrompt === "run"
+            : reauthPrompt === "dest-run"
               ? "backup_run"
-              : reauthPrompt === "schedule"
-                ? "backup_schedule"
-                : "backup"
+              : "backup"
 
   // Only update/delete may carry a resource binding: the backend's
-  // ValidateTicketBinding rejects a bound create ticket, so create sends no scope.
+  // ValidateTicketBinding rejects a bound create ticket, so create sends no
+  // scope. The per-destination run is unbound for the same reason.
   const reauthScope: ReauthScope | undefined =
     reauthPrompt === "dest-update" && pendingDestUpdate
       ? {
@@ -277,112 +228,10 @@ export default function AdminBackupTab({
 
       <Separator />
 
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-medium">{t("admin.backup.scheduleTitle")}</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {t("admin.backup.scheduleDescription")}
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 rounded-md border p-3">
-          <div className="space-y-0.5">
-            <Label htmlFor="backup-schedule-enabled">{t("admin.backup.scheduleEnabled")}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t("admin.backup.scheduleEnabledDescription")}
-            </p>
-          </div>
-          <Switch
-            id="backup-schedule-enabled"
-            checked={backupScheduleEnabled}
-            onCheckedChange={onBackupScheduleEnabledChange}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="backup-time-of-day">{t("admin.backup.timeOfDay")}</Label>
-          <Input
-            id="backup-time-of-day"
-            type="time"
-            className="w-40"
-            value={backupTimeOfDay}
-            onChange={(event) => onBackupTimeOfDayChange(event.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">{t("admin.backup.timeOfDayDescription")}</p>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 rounded-md border p-3">
-          <div className="space-y-0.5">
-            <Label htmlFor="backup-schedule-include-assets">
-              {t("admin.backup.scheduleIncludeAssets")}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t("admin.backup.includeAssetsDescription")}
-            </p>
-          </div>
-          <Switch
-            id="backup-schedule-include-assets"
-            checked={backupIncludeAssets}
-            onCheckedChange={onBackupIncludeAssetsChange}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-4 rounded-md border p-3">
-          <div className="space-y-0.5">
-            <Label htmlFor="backup-encrypt-enabled">{t("admin.backup.encrypt")}</Label>
-            <p className="text-xs text-muted-foreground">
-              {t("admin.backup.encryptDescription")}
-            </p>
-          </div>
-          <Switch
-            id="backup-encrypt-enabled"
-            checked={backupEncryptEnabled}
-            onCheckedChange={onBackupEncryptEnabledChange}
-          />
-        </div>
-
-        {backupEncryptEnabled && (
-          <div className="space-y-2">
-            <Label htmlFor="backup-encryption-password">
-              {t("admin.backup.encryptionPassword")}
-            </Label>
-            <Input
-              id="backup-encryption-password"
-              type="password"
-              value={encryptionPasswordDisplayValue}
-              onFocus={() => setEditingEncryptionPassword(true)}
-              onBlur={() => setEditingEncryptionPassword(false)}
-              onChange={(event) => onBackupEncryptionPasswordChange(event.target.value)}
-              placeholder={t("admin.backup.encryptionPasswordConfigured")}
-            />
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setReauthPrompt("schedule")}>{t("admin.backup.saveSchedule")}</Button>
-          <Button variant="outline" disabled={runningBackup} onClick={() => setReauthPrompt("run")}>
-            <PlayCircle className="size-4" />
-            {t("admin.backup.runNow")}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="size-3.5" />
-          <span>
-            {t("admin.backup.lastRun")}: {lastRunLabel}
-            {lastRunAt ? ` (${formatDateTime(lastRunAt, i18n.language)})` : ""}
-          </span>
-        </div>
-        {(lastStatus === "failed" || lastStatus === "partial") && lastError && (
-          <p className="text-xs text-destructive">{lastError}</p>
-        )}
-      </div>
-
-      <Separator />
-
       <AdminBackupDestinationsSection
         destinations={destinations}
         destinationsRefreshing={destinationsRefreshing}
+        runningDestinationId={runningDestinationId}
         onRefreshDestinations={onRefreshDestinations}
         onTestDestination={onTestDestination}
         onRequestCreate={(body) => {
@@ -396,6 +245,10 @@ export default function AdminBackupTab({
         onRequestDelete={(destination) => {
           setDestDeleteTarget(destination)
           setReauthPrompt("dest-delete")
+        }}
+        onRequestRun={(destination) => {
+          setDestRunTarget(destination)
+          setReauthPrompt("dest-run")
         }}
       />
 
@@ -469,12 +322,11 @@ export default function AdminBackupTab({
           let closePrompt = true
           if (reauthPrompt === "download") {
             await onDownloadBackup(ticket)
-          } else if (reauthPrompt === "run") {
-            await onRunBackupNow(ticket)
           } else if (reauthPrompt === "restore") {
             await onRestore(ticket)
-          } else if (reauthPrompt === "schedule") {
-            await onSaveSettings(ticket)
+          } else if (reauthPrompt === "dest-run" && destRunTarget) {
+            await onRunDestination(destRunTarget.id, ticket)
+            setDestRunTarget(null)
           } else if (reauthPrompt === "dest-create" && pendingDestCreate) {
             closePrompt = await onCreateDestination(pendingDestCreate, ticket)
             if (closePrompt) {
@@ -499,17 +351,15 @@ export default function AdminBackupTab({
         description={
           reauthPrompt === "restore"
             ? t("admin.backup.reauth.restoreDescription")
-            : reauthPrompt === "run"
+            : reauthPrompt === "dest-run"
               ? t("admin.backup.reauth.runNowDescription")
-              : reauthPrompt === "schedule"
-                ? t("admin.backup.reauth.scheduleDescription")
-                : reauthPrompt === "dest-create"
-                  ? t("admin.backup.reauth.destinationCreateDescription")
-                  : reauthPrompt === "dest-update"
-                    ? t("admin.backup.reauth.destinationUpdateDescription")
-                    : reauthPrompt === "dest-delete"
-                      ? t("admin.backup.reauth.destinationDeleteDescription")
-                      : t("admin.backup.reauth.downloadDescription")
+              : reauthPrompt === "dest-create"
+                ? t("admin.backup.reauth.destinationCreateDescription")
+                : reauthPrompt === "dest-update"
+                  ? t("admin.backup.reauth.destinationUpdateDescription")
+                  : reauthPrompt === "dest-delete"
+                    ? t("admin.backup.reauth.destinationDeleteDescription")
+                    : t("admin.backup.reauth.downloadDescription")
         }
         confirmVariant={reauthPrompt === "restore" || reauthPrompt === "dest-delete" ? "destructive" : "default"}
       />

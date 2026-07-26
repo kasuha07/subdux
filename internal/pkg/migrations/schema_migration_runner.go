@@ -11,11 +11,50 @@ import (
 
 const schemaMigrationLockID = 1
 
+// SecretCodec gives migrations read/write access to values that are encrypted
+// at rest. It is injected rather than imported because the package that owns
+// the encryption key (internal/pkg) already imports this one, so a direct
+// import would be a cycle.
+//
+// Encrypt and Decrypt must be inverses over the same envelope used by the
+// running application; otherwise a migration that rewrites a secret would leave
+// it unreadable.
+type SecretCodec struct {
+	Encrypt func(string) (string, error)
+	Decrypt func(string) (string, error)
+}
+
+// errSecretCodecUnavailable guards the migrations that touch secrets. Failing
+// loudly is required: silently skipping the rewrite would leave a secret either
+// unmigrated or, worse, written back in plaintext.
+var errSecretCodecUnavailable = errors.New("schema migration requires a secret codec but none was provided")
+
+func (c SecretCodec) decrypt(value string) (string, error) {
+	if c.Decrypt == nil {
+		return "", errSecretCodecUnavailable
+	}
+	return c.Decrypt(value)
+}
+
+func (c SecretCodec) encrypt(value string) (string, error) {
+	if c.Encrypt == nil {
+		return "", errSecretCodecUnavailable
+	}
+	return c.Encrypt(value)
+}
+
+// activeSecretCodec is set for the duration of a Run so individual migration
+// funcs keep the plain func(db) signature the registry is built around.
+var activeSecretCodec SecretCodec
+
 func nowUTC() time.Time {
 	return time.Now().UTC()
 }
 
-func Run(db *gorm.DB) error {
+func Run(db *gorm.DB, codec SecretCodec) error {
+	activeSecretCodec = codec
+	defer func() { activeSecretCodec = SecretCodec{} }()
+
 	if err := ensureSchemaMigrationMetadata(db); err != nil {
 		return err
 	}

@@ -23,7 +23,7 @@ import (
 )
 
 // The backup/restore step-up gates live in AdminHandler.BackupDB,
-// AdminHandler.RunBackupNow, and AdminHandler.RestoreDB, which call
+// AdminHandler.RunBackupDestination, and AdminHandler.RestoreDB, which call
 // ReauthService.Consume before doing any work. The service-level Consume tests
 // prove ticket semantics in isolation; these tests prove the wiring end-to-end
 // through the router — that the sensitive endpoints actually refuse a request
@@ -126,10 +126,12 @@ func postBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.Resp
 	return rec
 }
 
-func postRunBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
+// postRunBackupDestinationRaw fires the per-destination run endpoint with the
+// path segment verbatim, so callers can also exercise an unparseable id.
+func postRunBackupDestinationRaw(t *testing.T, e *echo.Echo, token, rawID, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/backup/run", nil)
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/backup/destinations/%s/run", rawID), nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
 		req.Header.Set(apimw.ReauthTicketHeader, ticket)
@@ -137,6 +139,11 @@ func postRunBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.R
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
+}
+
+func postRunBackupDestination(t *testing.T, e *echo.Echo, token string, id uint, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+	return postRunBackupDestinationRaw(t, e, token, fmt.Sprintf("%d", id), ticket)
 }
 
 func putAdminSettings(t *testing.T, e *echo.Echo, token, body, ticket string) *httptest.ResponseRecorder {
@@ -148,6 +155,16 @@ func putAdminSettings(t *testing.T, e *echo.Echo, token, body, ticket string) *h
 	if ticket != "" {
 		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func getAdminSettings(t *testing.T, e *echo.Echo, token string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
@@ -357,54 +374,73 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 	})
 }
 
-func TestRunBackupNowGateRequiresValidReauthTicket(t *testing.T) {
-	db := newHumanOnlyRouteTestDB(t)
-	if err := db.AutoMigrate(&model.BackupDestination{}); err != nil {
-		t.Fatalf("failed to migrate backup destinations: %v", err)
-	}
+// TestRunBackupDestinationGateRequiresValidReauthTicket proves the step-up gate
+// that used to guard the global run-now route now guards the per-destination
+// run endpoint. A run ships a full database snapshot to a configured target, so
+// it stays proven-present-admin work even though it changes no configuration.
+func TestRunBackupDestinationGateRequiresValidReauthTicket(t *testing.T) {
+	db := newBackupRunTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
 	e := newHumanOnlyRouteTestServer(t, db)
 	token := reauthGateTestToken(t, admin)
 
-	t.Run("missing ticket is refused", func(t *testing.T) {
-		rec := postRunBackup(t, e, token, "")
+	destination := createLocalRunTestDestination(t, db)
+
+	t.Run("missing ticket is refused and performs no run", func(t *testing.T) {
+		rec := postRunBackupDestination(t, e, token, destination.ID, "")
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
 		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
+
+		// The gate runs before any backup work, so a refused request must leave
+		// no run row behind and no delivery recorded on the destination. Status
+		// alone would not catch a gate that refuses only after firing the run.
+		assertNoBackupRunPerformed(t, db, destination.ID)
 	})
 
 	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
 		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
-		rec := postRunBackup(t, e, token, backupTicket)
+		rec := postRunBackupDestination(t, e, token, destination.ID, backupTicket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
 		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
 			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
 		}
+		assertNoBackupRunPerformed(t, db, destination.ID)
 	})
 
-	t.Run("valid ticket reaches backup service and is single-use", func(t *testing.T) {
+	t.Run("a destination-bound ticket is refused for this unbound operation", func(t *testing.T) {
+		// Unlike create/update/delete, a run alters no configuration, so there is
+		// no revision for the admin to confirm and backup_run is deliberately
+		// unbound. The refusal lands at the mint step: a client cannot obtain a
+		// destination-scoped backup_run ticket to present here in the first place.
+		rec := issueDestinationReauthTicket(t, e, token, servicereauth.ReauthOperationBackupRun, destination.ID, destination.Revision)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("bound backup_run mint status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), `"ticket"`) {
+			t.Fatalf("body = %s, a bound backup_run ticket must not be issued", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket runs the destination and is single-use", func(t *testing.T) {
 		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupRun)
 
-		// The empty destination table stops the service before any backup I/O. A
-		// typed service error here proves the reauth gate passed first.
-		rec := postRunBackup(t, e, token, ticket)
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		rec := postRunBackupDestination(t, e, token, destination.ID, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 		}
-		if hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
-			t.Fatalf("body = %s, ticket should have cleared the gate", rec.Body.String())
-		}
-		if !hasErrorCodeForMessage(rec.Body.String(), "no enabled backup destination is configured") {
-			t.Fatalf("body = %s, want no enabled backup destination", rec.Body.String())
-		}
+		assertBackupCreatedBody(t, rec)
 
 		// The same ticket must not authorize a second run.
-		rec = postRunBackup(t, e, token, ticket)
+		rec = postRunBackupDestination(t, e, token, destination.ID, ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
@@ -1033,88 +1069,72 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 	})
 }
 
-func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T) {
+// TestUpdateSettingsNoLongerRequiresReauthTicket is the successor of the retired
+// backup-schedule gate. Admin settings used to demand a backup_schedule ticket
+// because they carried the global scheduled-backup configuration; that
+// configuration now lives on individual destinations, so no admin setting is a
+// step-up operation any more. The protection it provided did not disappear — it
+// moved to the destination endpoints, which
+// TestRunBackupDestinationGateRequiresValidReauthTicket and
+// TestBackupDestinationReauthScopesIntentAndRevision cover.
+//
+// The retired operation itself must be rejected end to end: leaving it mintable
+// would hand clients a ticket that unlocks nothing while looking like a
+// successful step-up.
+func TestUpdateSettingsNoLongerRequiresReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
-	if err := db.AutoMigrate(&model.BackupDestination{}); err != nil {
-		t.Fatalf("failed to migrate backup destinations: %v", err)
-	}
-	if err := db.Create(&model.BackupDestination{
-		Revision: 1,
-		Type:     "local",
-		Enabled:  true,
-		Config:   "{}",
-	}).Error; err != nil {
-		t.Fatalf("failed to create enabled backup destination: %v", err)
-	}
 	admin := createReauthGateTestAdmin(t, db)
 	e := newHumanOnlyRouteTestServer(t, db)
 	token := reauthGateTestToken(t, admin)
 
-	t.Run("ordinary settings do not require reauth", func(t *testing.T) {
+	t.Run("settings update succeeds without a ticket", func(t *testing.T) {
 		rec := putAdminSettings(t, e, token, `{"site_name":"Subdux Test"}`, "")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 		}
-	})
 
-	t.Run("missing ticket is refused", func(t *testing.T) {
-		rec := putAdminSettings(t, e, token, `{"backup_schedule_enabled":true}`, "")
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
-		}
-		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
-			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
-		}
-
+		// The write really landed: a gate that silently swallowed the update
+		// would also return 200.
 		settings, err := adminservice.NewService(db).GetSettings()
 		if err != nil {
 			t.Fatalf("GetSettings() error = %v", err)
 		}
-		if settings.BackupScheduleEnabled {
-			t.Fatal("BackupScheduleEnabled = true after refused update, want false")
+		if settings.SiteName != "Subdux Test" {
+			t.Fatalf("SiteName = %q, want %q", settings.SiteName, "Subdux Test")
 		}
 	})
 
-	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
-		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
-		rec := putAdminSettings(t, e, token, `{"backup_time_of_day":"04:30"}`, backupTicket)
+	t.Run("the retired backup_schedule operation cannot mint a ticket", func(t *testing.T) {
+		body := fmt.Sprintf(`{"operation":"backup_schedule","password":%q,"code":""}`, reauthGateTestPassword)
+		req := httptest.NewRequest(http.MethodPost, "/api/reauth/password", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
-			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		if !hasErrorCodeForMessage(rec.Body.String(), "invalid reauth operation") {
+			t.Fatalf("body = %s, want invalid reauth operation", rec.Body.String())
+		}
+		// The correct password must not earn a ticket for an unknown operation.
+		if strings.Contains(rec.Body.String(), `"ticket"`) {
+			t.Fatalf("body = %s, want no ticket for a retired operation", rec.Body.String())
 		}
 	})
 
-	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
-		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupSchedule)
-		body := `{"backup_schedule_enabled":true,"backup_time_of_day":"04:30","backup_include_assets":true}`
+	t.Run("the retired backup_schedule operation offers no reauth methods", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/reauth/methods?operation=backup_schedule", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
 
-		rec := putAdminSettings(t, e, token, body, ticket)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-
-		settings, err := adminservice.NewService(db).GetSettings()
-		if err != nil {
-			t.Fatalf("GetSettings() error = %v", err)
-		}
-		if !settings.BackupScheduleEnabled {
-			t.Fatal("BackupScheduleEnabled = false, want true")
-		}
-		if settings.BackupTimeOfDay != "04:30" {
-			t.Fatalf("BackupTimeOfDay = %q, want 04:30", settings.BackupTimeOfDay)
-		}
-		if !settings.BackupIncludeAssets {
-			t.Fatal("BackupIncludeAssets = false, want true")
-		}
-
-		rec = putAdminSettings(t, e, token, `{"backup_time_of_day":"05:15"}`, ticket)
 		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
-		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
-			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		if !hasErrorCodeForMessage(rec.Body.String(), "invalid reauth operation") {
+			t.Fatalf("body = %s, want invalid reauth operation", rec.Body.String())
 		}
 	})
 }

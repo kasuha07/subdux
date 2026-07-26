@@ -13,11 +13,14 @@ import (
 // destinationSecretFields lists, per destination type, the config fields that
 // hold credentials. These are masked on read (never returned to the client in
 // plaintext) and preserved on update when the client submits an empty value,
-// mirroring the notification-channel secret handling. "local" has no secrets.
+// mirroring the notification-channel secret handling. Every type carries
+// encryption_password because the archive password is a property of the backup
+// plan, not of the transport: a local destination writing to disk can still be
+// the one that must produce an encrypted archive.
 var destinationSecretFields = map[string]map[string]struct{}{
-	"local":  {},
-	"s3":     {"secret_access_key": {}},
-	"webdav": {"password": {}},
+	"local":  {"encryption_password": {}},
+	"s3":     {"secret_access_key": {}, "encryption_password": {}},
+	"webdav": {"password": {}, "encryption_password": {}},
 }
 
 func destinationSecretFieldSet(destinationType string) map[string]struct{} {

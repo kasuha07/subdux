@@ -120,6 +120,46 @@ func (h *AdminHandler) DeleteBackupDestination(c echo.Context) error {
 	return httpx.WriteMessage(c, http.StatusOK, "backup_destination_deleted")
 }
 
+// RunBackupDestination fires one destination's backup plan immediately, using
+// that destination's own archive settings. It is gated by the same step-up
+// operation the old global run-now used: a run ships a full database snapshot
+// to the configured target, so it is proven-present-admin work.
+//
+// The ticket is intentionally unbound. Unlike create/update/delete, this changes
+// no configuration — the destination it delivers to was already reviewed behind
+// a bound ticket when it was saved — so there is no revision for the admin to
+// confirm here.
+func (h *AdminHandler) RunBackupDestination(c echo.Context) error {
+	id, ok := httpx.ParseUintParam(c, "id", "invalid_backup_destination_id")
+	if !ok {
+		return nil
+	}
+
+	if err := h.consumeBackupDestinationReauth(c, servicereauth.ReauthOperationBackupRun, nil); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
+
+	result, err := h.Backup.WithContext(c.Request().Context()).RunDestinationBackup(c.Request().Context(), id)
+	if err != nil {
+		if _, ok := serviceerr.KindOf(err); ok {
+			return err
+		}
+		return httpx.WriteError(c, http.StatusInternalServerError, "backup_failed")
+	}
+
+	return httpx.WriteMessageFields(c, http.StatusOK, "backup_created", map[string]any{
+		"file":                      result.ArchiveName,
+		"run_id":                    result.RunID,
+		"status":                    result.Status,
+		"delivery_status":           result.DeliveryStatus,
+		"retention_status":          result.RetentionStatus,
+		"bookkeeping_status":        result.BookkeepingStatus,
+		"global_bookkeeping_status": result.GlobalBookkeepingStatus,
+		"error":                     result.Error,
+		"results":                   result.Results,
+	})
+}
+
 // TestBackupDestination runs a read-only connectivity probe against a saved
 // destination. It writes nothing, so it does not require a reauth ticket: it
 // only reveals whether the stored configuration can reach and list the target.

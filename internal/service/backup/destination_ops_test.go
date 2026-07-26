@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +14,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
-	backupsettings "github.com/kasuha07/subdux/internal/service/settings"
+	"gorm.io/gorm"
 )
 
 // decodeStoredConfig returns the decrypted config map for a persisted
@@ -168,78 +167,56 @@ func TestDestinationRevisionGuardsUpdateAndDelete(t *testing.T) {
 	}
 }
 
-func TestUpdateDestinationRejectsDisablingLastEnabledDestinationWhenScheduleEnabled(t *testing.T) {
-	svc, _ := newBackupTestDB(t)
-	destination, err := svc.CreateDestination(CreateDestinationInput{Type: "local", Enabled: true, Config: `{}`})
-	if err != nil {
-		t.Fatalf("CreateDestination() error = %v", err)
-	}
-	enabled := true
-	if err := applySettings(t, svc, UpdateSettingsInput{ScheduleEnabled: &enabled}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
-
-	disabled := false
-	if _, err := svc.UpdateDestination(destination.ID, UpdateDestinationInput{
-		Revision: destination.Revision,
-		Enabled:  &disabled,
-	}); !errors.Is(err, ErrNoEnabledBackupDestination) {
-		t.Fatalf("UpdateDestination() error = %v, want ErrNoEnabledBackupDestination", err)
-	}
-
-	var stored model.BackupDestination
-	if err := svc.DB.First(&stored, destination.ID).Error; err != nil {
-		t.Fatalf("load destination after rejected update: %v", err)
-	}
-	if !stored.Enabled || stored.Revision != destination.Revision {
-		t.Fatalf("destination changed after rejected update: enabled=%v revision=%d, want enabled=true revision=%d", stored.Enabled, stored.Revision, destination.Revision)
-	}
-}
-
-func TestDeleteDestinationRejectsDeletingLastEnabledDestinationWhenScheduleEnabled(t *testing.T) {
-	svc, _ := newBackupTestDB(t)
-	destination, err := svc.CreateDestination(CreateDestinationInput{Type: "local", Enabled: true, Config: `{}`})
-	if err != nil {
-		t.Fatalf("CreateDestination() error = %v", err)
-	}
-	enabled := true
-	if err := applySettings(t, svc, UpdateSettingsInput{ScheduleEnabled: &enabled}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
-
-	if err := svc.DeleteDestination(destination.ID, destination.Revision); !errors.Is(err, ErrNoEnabledBackupDestination) {
-		t.Fatalf("DeleteDestination() error = %v, want ErrNoEnabledBackupDestination", err)
-	}
-
-	var stored model.BackupDestination
-	if err := svc.DB.First(&stored, destination.ID).Error; err != nil {
-		t.Fatalf("load destination after rejected delete: %v", err)
-	}
-	if stored.Revision != destination.Revision || !stored.Enabled {
-		t.Fatalf("destination changed after rejected delete: enabled=%v revision=%d, want enabled=true revision=%d", stored.Enabled, stored.Revision, destination.Revision)
-	}
-}
-
-func TestDestinationDisableAndDeleteRemainAllowedWhenScheduleDisabled(t *testing.T) {
+// TestDisablingTheLastEnabledDestinationIsAllowed pins the removal of the old
+// "you may not switch off the last enabled destination" guard. That guard
+// existed to stop a global schedule from being left with nowhere to deliver;
+// each destination now carries its own schedule, so switching one off simply
+// stops that one plan and strands nothing.
+func TestDisablingTheLastEnabledDestinationIsAllowed(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 	destination, err := svc.CreateDestination(CreateDestinationInput{Type: "local", Enabled: true, Config: `{}`})
 	if err != nil {
 		t.Fatalf("CreateDestination() error = %v", err)
 	}
 
-	disabled := false
 	updated, err := svc.UpdateDestination(destination.ID, UpdateDestinationInput{
 		Revision: destination.Revision,
-		Enabled:  &disabled,
+		Enabled:  boolPtr(false),
 	})
 	if err != nil {
-		t.Fatalf("UpdateDestination() error = %v, want nil with schedule disabled", err)
+		t.Fatalf("UpdateDestination() error = %v, want nil", err)
 	}
 	if updated.Enabled {
-		t.Fatal("destination remains enabled after schedule-disabled update")
+		t.Fatal("destination is still enabled after disabling the only enabled plan")
 	}
-	if err := svc.DeleteDestination(destination.ID, updated.Revision); err != nil {
-		t.Fatalf("DeleteDestination() error = %v, want nil with schedule disabled", err)
+
+	// A disabled destination must also drop out of the scheduler's candidate set,
+	// otherwise "disabled" would only be cosmetic.
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(4, 0)))
+	groups, err := svc.dueScheduledDestinations(nil)
+	if err != nil {
+		t.Fatalf("dueScheduledDestinations() error = %v", err)
+	}
+	if len(groups) != 0 {
+		t.Fatalf("dueScheduledDestinations() = %+v, want none after the plan was disabled", groups)
+	}
+}
+
+// TestDeletingTheLastEnabledDestinationIsAllowed is the delete-side counterpart
+// of the same removed guard.
+func TestDeletingTheLastEnabledDestinationIsAllowed(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+	destination, err := svc.CreateDestination(CreateDestinationInput{Type: "local", Enabled: true, Config: `{}`})
+	if err != nil {
+		t.Fatalf("CreateDestination() error = %v", err)
+	}
+
+	if err := svc.DeleteDestination(destination.ID, destination.Revision); err != nil {
+		t.Fatalf("DeleteDestination() error = %v, want nil", err)
+	}
+	var stored model.BackupDestination
+	if err := svc.DB.First(&stored, destination.ID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("load deleted destination error = %v, want record not found", err)
 	}
 }
 
@@ -271,6 +248,209 @@ func TestUpdateDestinationRollsBackWhenUpdatedViewCannotBeBuilt(t *testing.T) {
 	if !stored.Enabled || stored.Revision != destination.Revision || stored.Config != corruptConfig {
 		t.Fatalf("destination changed after view failure: enabled=%v revision=%d config=%q, want enabled=true revision=%d config=%q", stored.Enabled, stored.Revision, stored.Config, destination.Revision, corruptConfig)
 	}
+}
+
+// TestCreateLocalDestinationRoundTripsSchedule pins the newly shared plan fields
+// on the type that used to have no secrets at all: a local destination now
+// carries an archive password, so the create view and the list view must mask it
+// and advertise it through configured_secret_fields exactly like an S3 key.
+func TestCreateLocalDestinationRoundTripsSchedule(t *testing.T) {
+	svc, _ := newBackupTestDB(t)
+
+	dir := filepath.Join(t.TempDir(), "backups")
+	created, err := svc.CreateDestination(CreateDestinationInput{
+		Type:    "local",
+		Enabled: true,
+		Config: localPlan{
+			dir:           dir,
+			retention:     4,
+			timeOfDay:     "23:45",
+			includeAssets: true,
+			password:      "archive-secret",
+		}.configJSON(t),
+	})
+	if err != nil {
+		t.Fatalf("CreateDestination() error = %v", err)
+	}
+
+	views, err := svc.ListDestinations()
+	if err != nil {
+		t.Fatalf("ListDestinations() error = %v", err)
+	}
+	if len(views) != 1 {
+		t.Fatalf("ListDestinations() = %d rows, want 1", len(views))
+	}
+
+	for _, view := range []DestinationView{*created, views[0]} {
+		if strings.Contains(view.Config, "archive-secret") {
+			t.Fatalf("destination view leaked the archive password: %q", view.Config)
+		}
+		assertDestinationSecretMasked(t, view.Config, "encryption_password")
+		if len(view.ConfiguredSecretFields) != 1 || view.ConfiguredSecretFields[0] != "encryption_password" {
+			t.Fatalf("configured secret fields = %v, want [encryption_password]", view.ConfiguredSecretFields)
+		}
+
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(view.Config), &parsed); err != nil {
+			t.Fatalf("unmarshal destination view config: %v", err)
+		}
+		// The non-secret half of the plan is what the admin form re-populates from,
+		// so it must survive the masking pass unchanged.
+		if parsed["time_of_day"] != "23:45" || parsed["include_assets"] != true || parsed["encrypt_enabled"] != true {
+			t.Fatalf("schedule fields did not round trip: %+v", parsed)
+		}
+		if parsed["dir"] != dir || parsed["retention_count"] != float64(4) {
+			t.Fatalf("transport fields did not round trip: %+v", parsed)
+		}
+	}
+
+	// The runtime reads the plan through the decrypting path, which is the only
+	// place the password is still readable.
+	schedule, err := destinationScheduleFromStored(loadDestination(t, svc, created.ID).Config)
+	if err != nil {
+		t.Fatalf("destinationScheduleFromStored() error = %v", err)
+	}
+	if schedule.EncryptPassword != "archive-secret" {
+		t.Fatalf("stored password = %q, want archive-secret", schedule.EncryptPassword)
+	}
+}
+
+func TestCreateDestinationRejectsInvalidSchedule(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		want   error
+	}{
+		{
+			name:   "invalid time of day",
+			config: `{"time_of_day":"24:00"}`,
+			want:   ErrInvalidBackupTimeOfDay,
+		},
+		{
+			name:   "encryption enabled without a password",
+			config: `{"encrypt_enabled":true}`,
+			want:   ErrBackupEncryptionPasswordRequired,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, _ := newBackupTestDB(t)
+
+			// Rejecting here is what keeps an unusable plan from being discovered
+			// only at its first scheduled firing, hours later and unattended.
+			if _, err := svc.CreateDestination(CreateDestinationInput{
+				Type:   "local",
+				Config: tc.config,
+			}); !errors.Is(err, tc.want) {
+				t.Fatalf("CreateDestination() error = %v, want %v", err, tc.want)
+			}
+			var count int64
+			if err := svc.DB.Model(&model.BackupDestination{}).Count(&count).Error; err != nil {
+				t.Fatalf("count destinations: %v", err)
+			}
+			if count != 0 {
+				t.Fatalf("destination count = %d, want 0 after a rejected plan", count)
+			}
+		})
+	}
+}
+
+// TestUpdateDestinationEncryptionPasswordLifecycle walks the three ways an admin
+// can touch the archive password on an existing destination. The password is now
+// masked on read, so an empty submission means "unchanged" and wiping it takes
+// an explicit cleared_secret_fields entry.
+func TestUpdateDestinationEncryptionPasswordLifecycle(t *testing.T) {
+	newEncryptingDestination := func(t *testing.T) (*Service, *DestinationView) {
+		t.Helper()
+
+		svc, _ := newBackupTestDB(t)
+		created, err := svc.CreateDestination(CreateDestinationInput{
+			Type:   "local",
+			Config: `{"time_of_day":"03:00","encrypt_enabled":true,"encryption_password":"original-secret"}`,
+		})
+		if err != nil {
+			t.Fatalf("CreateDestination() error = %v", err)
+		}
+		return svc, created
+	}
+
+	t.Run("empty submission preserves the stored password", func(t *testing.T) {
+		svc, created := newEncryptingDestination(t)
+
+		updated, err := svc.UpdateDestination(created.ID, UpdateDestinationInput{
+			Revision: created.Revision,
+			Config:   strPtr(`{"time_of_day":"04:15","encrypt_enabled":true,"encryption_password":""}`),
+		})
+		if err != nil {
+			t.Fatalf("UpdateDestination() error = %v", err)
+		}
+		if len(updated.ConfiguredSecretFields) != 1 || updated.ConfiguredSecretFields[0] != "encryption_password" {
+			t.Fatalf("configured secret fields = %v, want [encryption_password]", updated.ConfiguredSecretFields)
+		}
+
+		schedule, err := destinationScheduleFromStored(loadDestination(t, svc, created.ID).Config)
+		if err != nil {
+			t.Fatalf("destinationScheduleFromStored() error = %v", err)
+		}
+		if schedule.EncryptPassword != "original-secret" {
+			t.Fatalf("stored password = %q, want the preserved original", schedule.EncryptPassword)
+		}
+		if schedule.TimeOfDay != "04:15" {
+			t.Fatalf("time of day = %q, want the submitted 04:15", schedule.TimeOfDay)
+		}
+	})
+
+	t.Run("clearing while encryption stays on is rejected", func(t *testing.T) {
+		svc, created := newEncryptingDestination(t)
+
+		// Wiping the password of a still-encrypting plan would leave a destination
+		// that can only fail at its next firing, so validation refuses the pair.
+		_, err := svc.UpdateDestination(created.ID, UpdateDestinationInput{
+			Revision:            created.Revision,
+			Config:              strPtr(`{"time_of_day":"03:00","encrypt_enabled":true,"encryption_password":""}`),
+			ClearedSecretFields: []string{"encryption_password"},
+		})
+		if !errors.Is(err, ErrBackupEncryptionPasswordRequired) {
+			t.Fatalf("UpdateDestination() error = %v, want ErrBackupEncryptionPasswordRequired", err)
+		}
+
+		stored := loadDestination(t, svc, created.ID)
+		if stored.Revision != created.Revision {
+			t.Fatalf("revision = %d, want %d unchanged after a rejected update", stored.Revision, created.Revision)
+		}
+		schedule, err := destinationScheduleFromStored(stored.Config)
+		if err != nil {
+			t.Fatalf("destinationScheduleFromStored() error = %v", err)
+		}
+		if schedule.EncryptPassword != "original-secret" {
+			t.Fatalf("stored password = %q, want the original after a rejected update", schedule.EncryptPassword)
+		}
+	})
+
+	t.Run("clearing together with turning encryption off wipes it", func(t *testing.T) {
+		svc, created := newEncryptingDestination(t)
+
+		updated, err := svc.UpdateDestination(created.ID, UpdateDestinationInput{
+			Revision:            created.Revision,
+			Config:              strPtr(`{"time_of_day":"03:00","encrypt_enabled":false,"encryption_password":""}`),
+			ClearedSecretFields: []string{"encryption_password"},
+		})
+		if err != nil {
+			t.Fatalf("UpdateDestination() error = %v", err)
+		}
+		if len(updated.ConfiguredSecretFields) != 0 {
+			t.Fatalf("configured secret fields = %v, want none after clearing", updated.ConfiguredSecretFields)
+		}
+
+		schedule, err := destinationScheduleFromStored(loadDestination(t, svc, created.ID).Config)
+		if err != nil {
+			t.Fatalf("destinationScheduleFromStored() error = %v", err)
+		}
+		if schedule.EncryptEnabled || schedule.EncryptPassword != "" {
+			t.Fatalf("schedule = %+v, want encryption off with no password", schedule)
+		}
+	})
 }
 
 func assertDestinationSecretMasked(t *testing.T, config, field string) {
@@ -522,15 +702,15 @@ func TestDeleteDestination(t *testing.T) {
 	}
 }
 
-// TestRunBackupPartialFailureDeliversToHealthyTargets confirms that when one of
-// several enabled destinations fails, the others still receive the archive and
-// the run is not reported as a total failure.
-func TestRunBackupPartialFailureDeliversToHealthyTargets(t *testing.T) {
+// TestSharedArchiveRunPartialFailureDeliversToHealthyTargets confirms that when
+// one of several destinations sharing an archive fails, the others still
+// receive it and the run is not reported as a total failure. The fan-out is
+// driven directly because grouping (not a global setting) is what puts several
+// destinations on one archive now.
+func TestSharedArchiveRunPartialFailureDeliversToHealthyTargets(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	fixedNow := time.Date(2026, 6, 15, 3, 0, 0, 0, time.UTC)
-	restore := pkg.SetNowForTest(fixedNow)
-	t.Cleanup(restore)
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(3, 0)))
 
 	goodDir := filepath.Join(t.TempDir(), "good")
 	goodID := createLocalDestination(t, svc, goodDir, 7)
@@ -543,15 +723,21 @@ func TestRunBackupPartialFailureDeliversToHealthyTargets(t *testing.T) {
 	}
 	badID := createLocalDestination(t, svc, filepath.Join(blockingFile, "backups"), 7)
 
-	result, err := svc.RunBackup(context.Background())
+	result, err := svc.runBackup(
+		context.Background(),
+		backupRunSourceManual,
+		loadDestinations(t, svc, goodID, badID),
+		archiveSpec{},
+		nil,
+	)
 	if err != nil {
-		t.Fatalf("RunBackup() error = %v, want nil for partial success", err)
+		t.Fatalf("runBackup() error = %v, want nil for partial success", err)
 	}
 	if result.Status != StatusPartial || result.DeliveryStatus != StatusPartial {
-		t.Fatalf("RunBackup() aggregate status = %q/%q, want partial/partial", result.Status, result.DeliveryStatus)
+		t.Fatalf("runBackup() aggregate status = %q/%q, want partial/partial", result.Status, result.DeliveryStatus)
 	}
 	if len(result.Results) != 2 {
-		t.Fatalf("RunBackup() results = %d, want 2", len(result.Results))
+		t.Fatalf("runBackup() results = %d, want 2", len(result.Results))
 	}
 
 	outcome := map[uint]DestinationRunResult{}
@@ -607,27 +793,25 @@ func TestRunBackupPartialFailureDeliversToHealthyTargets(t *testing.T) {
 	}
 }
 
-// TestRunBackupAllTargetsFail confirms a run where every enabled destination
+// TestRunDestinationBackupAllTargetsFail confirms a run where every destination
 // fails surfaces as a total-failure error.
-func TestRunBackupAllTargetsFail(t *testing.T) {
+func TestRunDestinationBackupAllTargetsFail(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	fixedNow := time.Date(2026, 6, 15, 3, 0, 0, 0, time.UTC)
-	restore := pkg.SetNowForTest(fixedNow)
-	t.Cleanup(restore)
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(3, 0)))
 
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
 	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write blocking file: %v", err)
 	}
-	createLocalDestination(t, svc, filepath.Join(blockingFile, "backups"), 7)
+	id := createLocalDestination(t, svc, filepath.Join(blockingFile, "backups"), 7)
 
-	if _, err := svc.RunBackup(context.Background()); err == nil {
-		t.Fatal("expected RunBackup to fail when every destination fails")
+	if _, err := svc.RunDestinationBackup(context.Background(), id); err == nil {
+		t.Fatal("expected RunDestinationBackup to fail when every destination fails")
 	}
 }
 
-func TestRunBackupDoesNotTurnDeliveredArchiveIntoRequestFailureWhenStatusWriteFails(t *testing.T) {
+func TestRunDestinationBackupDoesNotTurnDeliveredArchiveIntoRequestFailureWhenStatusWriteFails(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
 	dir := filepath.Join(t.TempDir(), "backups")
@@ -642,15 +826,15 @@ END`).Error; err != nil {
 		t.Fatalf("create status trigger: %v", err)
 	}
 
-	result, err := svc.RunBackup(context.Background())
+	result, err := svc.RunDestinationBackup(context.Background(), destinationID)
 	if err != nil {
-		t.Fatalf("RunBackup() error = %v, want nil after delivered archive", err)
+		t.Fatalf("RunDestinationBackup() error = %v, want nil after delivered archive", err)
 	}
 	if len(result.Results) != 1 || !result.Results[0].Success {
-		t.Fatalf("RunBackup() results = %+v, want one delivered destination", result.Results)
+		t.Fatalf("RunDestinationBackup() results = %+v, want one delivered destination", result.Results)
 	}
 	if result.Status != StatusPartial || result.BookkeepingStatus != StatusFailed {
-		t.Fatalf("RunBackup() status = %q bookkeeping = %q, want partial/failed", result.Status, result.BookkeepingStatus)
+		t.Fatalf("RunDestinationBackup() status = %q bookkeeping = %q, want partial/failed", result.Status, result.BookkeepingStatus)
 	}
 	if result.Results[0].BookkeepingStatus != StatusFailed || !strings.Contains(result.Results[0].BookkeepingError, "forced destination success status write failure") {
 		t.Fatalf("destination result = %+v, want bookkeeping failure", result.Results[0])
@@ -685,39 +869,32 @@ END`).Error; err != nil {
 func TestRunScheduledBackupPersistsPartialAndResumesWithoutRedeliveringSuccess(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	enabled := true
-	timeOfDay := "03:00"
-
 	goodDir := filepath.Join(t.TempDir(), "good")
-	goodID := createLocalDestination(t, svc, goodDir, 7)
+	goodID := createLocalPlan(t, svc, localPlan{dir: goodDir, retention: 7, timeOfDay: "03:00"})
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
 	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write blocking file: %v", err)
 	}
-	badID := createLocalDestination(t, svc, filepath.Join(blockingFile, "backups"), 7)
-	if err := applySettings(t, svc, UpdateSettingsInput{ScheduleEnabled: &enabled, TimeOfDay: &timeOfDay}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
+	badID := createLocalPlan(t, svc, localPlan{dir: filepath.Join(blockingFile, "backups"), retention: 7, timeOfDay: "03:00"})
 
-	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
+	fixedNow := scheduleTime(4, 0)
 	restore := pkg.SetNowForTest(fixedNow)
 	t.Cleanup(restore)
 	ownerID := serviceutil.NewBackgroundTaskOwnerID()
-	previousRunAt := "2026-06-14T04:00:00Z"
-	if err := backupsettings.SaveString(svc.DB, KeyLastRunAt, previousRunAt); err != nil {
-		t.Fatalf("seed previous backup last_run_at: %v", err)
-	}
 
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("partial RunScheduledBackup() error = %v, want nil", err)
 	}
-	lastStatus, err := backupsettings.GetString(context.Background(), svc.DB, KeyLastStatus, "")
-	if err != nil || lastStatus != StatusPartial {
-		t.Fatalf("backup last_status = %q, err = %v, want partial/nil", lastStatus, err)
+	// The two destinations agree on archive contents, so they share one run whose
+	// outcome splits per destination: only the delivered one consumes its slot.
+	if got := countBackupRuns(t, svc); got != 1 {
+		t.Fatalf("backup run count = %d, want 1 shared run", got)
 	}
-	lastRunAt, err := backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
-	if err != nil || lastRunAt != previousRunAt {
-		t.Fatalf("backup last_run_at = %q, err = %v, want previous value %q for partial run", lastRunAt, err, previousRunAt)
+	if scheduled := loadDestination(t, svc, goodID).LastScheduledRunAt; scheduled == nil {
+		t.Fatal("good destination last_scheduled_run_at is nil after a successful delivery")
+	}
+	if scheduled := loadDestination(t, svc, badID).LastScheduledRunAt; scheduled != nil {
+		t.Fatalf("bad destination last_scheduled_run_at = %v, want nil so it stays due", scheduled)
 	}
 	if got := countBackupArchives(t, goodDir); got != 1 {
 		t.Fatalf("good destination archive count after partial run = %d, want 1", got)
@@ -740,11 +917,7 @@ func TestRunScheduledBackupPersistsPartialAndResumesWithoutRedeliveringSuccess(t
 		t.Fatalf("remove blocking file: %v", err)
 	}
 
-	var bad model.BackupDestination
-	if err := svc.DB.First(&bad, badID).Error; err != nil {
-		t.Fatalf("load bad destination: %v", err)
-	}
-	if bad.Revision == 0 {
+	if bad := loadDestination(t, svc, badID); bad.Revision == 0 {
 		t.Fatal("bad destination revision = 0, want a revision-bound retry")
 	}
 
@@ -757,23 +930,20 @@ func TestRunScheduledBackupPersistsPartialAndResumesWithoutRedeliveringSuccess(t
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("resumed RunScheduledBackup() error = %v", err)
 	}
-	lastStatus, err = backupsettings.GetString(nil, svc.DB, KeyLastStatus, "")
-	if err != nil || lastStatus != StatusOK {
-		t.Fatalf("backup last_status after resume = %q, err = %v, want success/nil", lastStatus, err)
-	}
-	lastRunAt, err = backupsettings.GetString(nil, svc.DB, KeyLastRunAt, "")
-	if err != nil || lastRunAt == "" || lastRunAt == previousRunAt {
-		t.Fatalf("backup last_run_at after resume = %q, err = %v, want set/nil", lastRunAt, err)
+	// The resume must reuse the same run rather than start a second one, which is
+	// what keeps the already-delivered destination from receiving a new archive.
+	if got := countBackupRuns(t, svc); got != 1 {
+		t.Fatalf("backup run count after resume = %d, want 1 (same run resumed)", got)
 	}
 	if got := countBackupArchives(t, goodDir); got != 1 {
 		t.Fatalf("good destination archive count after resume = %d, want 1", got)
 	}
-	var good model.BackupDestination
-	if err := svc.DB.First(&good, goodID).Error; err != nil {
-		t.Fatalf("load good destination: %v", err)
-	}
+	good := loadDestination(t, svc, goodID)
 	if good.LastStatus != StatusOK || good.LastBookkeepingStatus != StatusOK {
 		t.Fatalf("good destination final status = %q/%q, want success/success", good.LastStatus, good.LastBookkeepingStatus)
+	}
+	if scheduled := loadDestination(t, svc, badID).LastScheduledRunAt; scheduled == nil {
+		t.Fatal("bad destination last_scheduled_run_at is nil after the resume delivered it")
 	}
 	var completedRun model.BackupRun
 	if err := svc.DB.First(&completedRun, partialRun.ID).Error; err != nil {
@@ -787,23 +957,15 @@ func TestRunScheduledBackupPersistsPartialAndResumesWithoutRedeliveringSuccess(t
 func TestRunScheduledBackupStartsNewRunAfterDestinationRevisionChanges(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
-	enabled := true
-	timeOfDay := "03:00"
-
 	goodDir := filepath.Join(t.TempDir(), "good")
-	goodID := createLocalDestination(t, svc, goodDir, 7)
+	goodID := createLocalPlan(t, svc, localPlan{dir: goodDir, retention: 7, timeOfDay: "03:00"})
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
 	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write blocking file: %v", err)
 	}
-	badID := createLocalDestination(t, svc, filepath.Join(blockingFile, "backups"), 7)
-	if err := applySettings(t, svc, UpdateSettingsInput{ScheduleEnabled: &enabled, TimeOfDay: &timeOfDay}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
+	badID := createLocalPlan(t, svc, localPlan{dir: filepath.Join(blockingFile, "backups"), retention: 7, timeOfDay: "03:00"})
 
-	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
-	restore := pkg.SetNowForTest(fixedNow)
-	t.Cleanup(restore)
+	t.Cleanup(pkg.SetNowForTest(scheduleTime(4, 0)))
 	ownerID := serviceutil.NewBackgroundTaskOwnerID()
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("initial partial RunScheduledBackup() error = %v", err)
@@ -813,20 +975,15 @@ func TestRunScheduledBackupStartsNewRunAfterDestinationRevisionChanges(t *testin
 	if err := svc.DB.Where("status = ?", StatusPartial).Order("id DESC").First(&oldRun).Error; err != nil {
 		t.Fatalf("load old partial run: %v", err)
 	}
-	var bad model.BackupDestination
-	if err := svc.DB.First(&bad, badID).Error; err != nil {
-		t.Fatalf("load bad destination: %v", err)
-	}
-	recoveredConfig := fmt.Sprintf(`{"dir":%q,"retention_count":7}`, filepath.Join(t.TempDir(), "recovered"))
+	recoveredDir := filepath.Join(t.TempDir(), "recovered")
+	recoveredConfig := localPlan{dir: recoveredDir, retention: 7, timeOfDay: "03:00"}.configJSON(t)
+	bad := loadDestination(t, svc, badID)
 	if _, err := svc.UpdateDestination(badID, UpdateDestinationInput{Revision: bad.Revision, Config: &recoveredConfig}); err != nil {
 		t.Fatalf("UpdateDestination() error = %v", err)
 	}
 
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("new-run RunScheduledBackup() error = %v", err)
-	}
-	if got := countBackupArchives(t, goodDir); got != 2 {
-		t.Fatalf("good destination archive count after revision boundary = %d, want 2", got)
 	}
 	var superseded model.BackupRun
 	if err := svc.DB.First(&superseded, oldRun.ID).Error; err != nil {
@@ -835,6 +992,10 @@ func TestRunScheduledBackupStartsNewRunAfterDestinationRevisionChanges(t *testin
 	if superseded.Status != StatusSuperseded || superseded.ArchivePath != "" {
 		t.Fatalf("old run status/path = %q/%q, want superseded/empty", superseded.Status, superseded.ArchivePath)
 	}
+
+	// The replacement run covers only the repaired destination: the healthy one
+	// already satisfied its own schedule today, so a revision change on its
+	// neighbour must not drag it into a second archive.
 	var latest model.BackupRun
 	if err := svc.DB.Where("source = ?", backupRunSourceScheduled).Order("id DESC").First(&latest).Error; err != nil {
 		t.Fatalf("load latest scheduled run: %v", err)
@@ -842,18 +1003,33 @@ func TestRunScheduledBackupStartsNewRunAfterDestinationRevisionChanges(t *testin
 	if latest.ID == oldRun.ID || latest.Status != StatusOK {
 		t.Fatalf("latest run = %+v, want a new successful run", latest)
 	}
-	var good model.BackupDestination
-	if err := svc.DB.First(&good, goodID).Error; err != nil {
-		t.Fatalf("reload good destination: %v", err)
+	var latestDestinations []model.BackupRunDestination
+	if err := svc.DB.Where("run_id = ?", latest.ID).Find(&latestDestinations).Error; err != nil {
+		t.Fatalf("load latest run destinations: %v", err)
 	}
-	if good.LastStatus != StatusOK {
+	if len(latestDestinations) != 1 || latestDestinations[0].DestinationID != badID {
+		t.Fatalf("latest run destinations = %+v, want only the repaired destination %d", latestDestinations, badID)
+	}
+	if got := countBackupArchives(t, goodDir); got != 1 {
+		t.Fatalf("good destination archive count after revision boundary = %d, want 1", got)
+	}
+	if got := countBackupArchives(t, recoveredDir); got != 1 {
+		t.Fatalf("recovered destination archive count = %d, want 1", got)
+	}
+	if good := loadDestination(t, svc, goodID); good.LastStatus != StatusOK {
 		t.Fatalf("good destination status = %q, want success", good.LastStatus)
 	}
 }
 
+// countBackupArchives counts the delivered archives in dir. A directory that was
+// never created counts as zero so a test can assert that a destination which was
+// not due received nothing at all.
 func countBackupArchives(t *testing.T, dir string) int {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return 0
+	}
 	if err != nil {
 		t.Fatalf("read backup directory %s: %v", dir, err)
 	}
@@ -866,7 +1042,7 @@ func countBackupArchives(t *testing.T, dir string) int {
 	return count
 }
 
-func TestRunBackupAggregatesDestinationFailureStatusWriteFailure(t *testing.T) {
+func TestRunDestinationBackupAggregatesDestinationFailureStatusWriteFailure(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
@@ -884,89 +1060,64 @@ END`).Error; err != nil {
 		t.Fatalf("create status trigger: %v", err)
 	}
 
-	_, err := svc.RunBackup(context.Background())
+	_, err := svc.RunDestinationBackup(context.Background(), destinationID)
 	if !errors.Is(err, ErrAllBackupDestinationsFailed) || !strings.Contains(err.Error(), "forced destination failure status write failure") {
-		t.Fatalf("RunBackup() error = %v, want aggregated delivery and status write failures", err)
+		t.Fatalf("RunDestinationBackup() error = %v, want aggregated delivery and status write failures", err)
 	}
 
-	var destination model.BackupDestination
-	if err := svc.DB.First(&destination, destinationID).Error; err != nil {
-		t.Fatalf("load destination: %v", err)
-	}
+	destination := loadDestination(t, svc, destinationID)
 	if destination.LastStatus != "" || destination.LastError != "" {
 		t.Fatalf("destination status = %q error = %q, want unchanged after rejected write", destination.LastStatus, destination.LastError)
 	}
 }
 
 // TestPerDestinationRetentionIsIndependent confirms each destination prunes to
-// its own retention count.
+// its own retention count even when they share one archive.
 func TestPerDestinationRetentionIsIndependent(t *testing.T) {
 	svc, _ := newBackupTestDB(t)
 
 	keepManyDir := filepath.Join(t.TempDir(), "many")
 	keepOneDir := filepath.Join(t.TempDir(), "one")
-	createLocalDestination(t, svc, keepManyDir, 5)
-	createLocalDestination(t, svc, keepOneDir, 1)
+	keepManyID := createLocalDestination(t, svc, keepManyDir, 5)
+	keepOneID := createLocalDestination(t, svc, keepOneDir, 1)
+	destinations := loadDestinations(t, svc, keepManyID, keepOneID)
 
 	// Run three backups on distinct clock-seconds so retention has something to
 	// prune at the retention=1 destination.
 	for i := 0; i < 3; i++ {
-		fixedNow := time.Date(2026, 6, 15, 3, 0, i, 0, time.UTC)
-		restore := pkg.SetNowForTest(fixedNow)
-		if _, err := svc.RunBackup(context.Background()); err != nil {
-			restore()
-			t.Fatalf("RunBackup() iteration %d error = %v", i, err)
-		}
+		restore := pkg.SetNowForTest(scheduleTime(3, 0).Add(time.Duration(i) * time.Second))
+		_, err := svc.runBackup(context.Background(), backupRunSourceManual, destinations, archiveSpec{}, nil)
 		restore()
-	}
-
-	countArchives := func(dir string) int {
-		entries, err := os.ReadDir(dir)
 		if err != nil {
-			t.Fatalf("read dir %s: %v", dir, err)
+			t.Fatalf("runBackup() iteration %d error = %v", i, err)
 		}
-		n := 0
-		for _, entry := range entries {
-			if backupFileNamePattern.MatchString(entry.Name()) {
-				n++
-			}
-		}
-		return n
 	}
 
-	if got := countArchives(keepManyDir); got != 3 {
+	if got := countBackupArchives(t, keepManyDir); got != 3 {
 		t.Fatalf("retention=5 destination has %d archives, want 3", got)
 	}
-	if got := countArchives(keepOneDir); got != 1 {
+	if got := countBackupArchives(t, keepOneDir); got != 1 {
 		t.Fatalf("retention=1 destination has %d archives, want 1", got)
 	}
 }
 
-// newFailingScheduledRunFixture wires a schedule whose only destination cannot
-// be written to, so every run terminates as failed. It returns the service, the
-// pinned clock, and the background-task owner id.
-func newFailingScheduledRunFixture(t *testing.T) (*Service, time.Time, string) {
+// newFailingScheduledRunFixture wires a destination that cannot be written to,
+// so every scheduled run terminates as failed. It returns the service, that
+// destination's id, the pinned clock, and the background-task owner id.
+func newFailingScheduledRunFixture(t *testing.T) (*Service, uint, time.Time, string) {
 	t.Helper()
 
 	svc, _ := newBackupTestDB(t)
-	enabled := true
-	timeOfDay := "03:00"
 
 	blockingFile := filepath.Join(t.TempDir(), "not-a-dir")
 	if err := os.WriteFile(blockingFile, []byte("x"), 0o600); err != nil {
 		t.Fatalf("write blocking file: %v", err)
 	}
-	createLocalDestination(t, svc, filepath.Join(blockingFile, "backups"), 7)
-	if err := applySettings(t, svc, UpdateSettingsInput{ScheduleEnabled: &enabled, TimeOfDay: &timeOfDay}); err != nil {
-		t.Fatalf("ApplySettings() error = %v", err)
-	}
+	id := createLocalPlan(t, svc, localPlan{dir: filepath.Join(blockingFile, "backups"), retention: 7, timeOfDay: "03:00"})
 
-	fixedNow := time.Date(2026, 6, 15, 4, 0, 0, 0, time.UTC)
+	fixedNow := scheduleTime(4, 0)
 	t.Cleanup(pkg.SetNowForTest(fixedNow))
-	if err := backupsettings.SaveString(svc.DB, KeyLastRunAt, "2026-06-14T04:00:00Z"); err != nil {
-		t.Fatalf("seed last_run_at: %v", err)
-	}
-	return svc, fixedNow, serviceutil.NewBackgroundTaskOwnerID()
+	return svc, id, fixedNow, serviceutil.NewBackgroundTaskOwnerID()
 }
 
 func countBackupRuns(t *testing.T, svc *Service) int64 {
@@ -986,27 +1137,30 @@ func countBackupRuns(t *testing.T, svc *Service) int64 {
 // destination consumed a full build and delivery cycle 60 times an hour forever,
 // bypassing the configured schedule entirely.
 func TestScheduledBackupRetryIsSpacedAcrossTicks(t *testing.T) {
-	svc, fixedNow, ownerID := newFailingScheduledRunFixture(t)
+	svc, destinationID, fixedNow, ownerID := newFailingScheduledRunFixture(t)
 
 	// First tick is due and runs, failing on the unwritable destination.
 	_ = svc.RunScheduledBackup(ownerID)
-	if status, _ := backupsettings.GetString(context.Background(), svc.DB, KeyLastStatus, ""); status != StatusFailed {
-		t.Fatalf("last_status after first run = %q, want %q", status, StatusFailed)
+	if status := loadDestination(t, svc, destinationID).LastStatus; status != StatusFailed {
+		t.Fatalf("destination last_status after first run = %q, want %q", status, StatusFailed)
 	}
 	if got := countBackupRuns(t, svc); got != 1 {
 		t.Fatalf("backup run count after first tick = %d, want 1", got)
 	}
 
-	// An immediately following tick must be a no-op. A sentinel detects whether
-	// the run executed at all, because a real execution rewrites last_status.
-	if err := backupsettings.SaveString(svc.DB, KeyLastStatus, "sentinel"); err != nil {
+	// An immediately following tick must be a no-op. A sentinel on the
+	// destination summary detects whether the run executed at all, because a real
+	// execution rewrites last_status.
+	if err := svc.DB.Model(&model.BackupDestination{}).
+		Where("id = ?", destinationID).
+		Update("last_status", "sentinel").Error; err != nil {
 		t.Fatalf("seed sentinel: %v", err)
 	}
 	if err := svc.RunScheduledBackup(ownerID); err != nil {
 		t.Fatalf("throttled RunScheduledBackup() error = %v, want nil", err)
 	}
-	if status, _ := backupsettings.GetString(context.Background(), svc.DB, KeyLastStatus, ""); status != "sentinel" {
-		t.Fatalf("last_status after throttled tick = %q, want the run to be skipped", status)
+	if status := loadDestination(t, svc, destinationID).LastStatus; status != "sentinel" {
+		t.Fatalf("destination last_status after throttled tick = %q, want the run to be skipped", status)
 	}
 	if got := countBackupRuns(t, svc); got != 1 {
 		t.Fatalf("backup run count after throttled tick = %d, want 1 (no duplicate run)", got)
@@ -1017,8 +1171,8 @@ func TestScheduledBackupRetryIsSpacedAcrossTicks(t *testing.T) {
 	if err := svc.RunScheduledBackup(ownerID); err == nil {
 		t.Fatal("resumed RunScheduledBackup() error = nil, want the destination failure")
 	}
-	if status, _ := backupsettings.GetString(context.Background(), svc.DB, KeyLastStatus, ""); status != StatusFailed {
-		t.Fatalf("last_status after retry interval = %q, want %q", status, StatusFailed)
+	if status := loadDestination(t, svc, destinationID).LastStatus; status != StatusFailed {
+		t.Fatalf("destination last_status after retry interval = %q, want %q", status, StatusFailed)
 	}
 	if got := countBackupRuns(t, svc); got != 1 {
 		t.Fatalf("backup run count after resume = %d, want 1 (same run resumed)", got)
@@ -1030,7 +1184,7 @@ func TestScheduledBackupRetryIsSpacedAcrossTicks(t *testing.T) {
 // archive is a stale snapshot, so the run is abandoned (releasing its spool) and
 // the next due tick takes a fresh backup instead of retrying old bytes forever.
 func TestScheduledBackupResumeWindowSupersedesStaleRun(t *testing.T) {
-	svc, fixedNow, ownerID := newFailingScheduledRunFixture(t)
+	svc, _, fixedNow, ownerID := newFailingScheduledRunFixture(t)
 
 	_ = svc.RunScheduledBackup(ownerID)
 	var stale model.BackupRun

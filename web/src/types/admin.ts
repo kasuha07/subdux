@@ -79,14 +79,6 @@ export interface SystemSettings {
   oidc_extra_auth_params: string
   oidc_reauth_acr_mfa: string
   oidc_reauth_acr_phishing_resistant: string
-  backup_schedule_enabled: boolean
-  backup_time_of_day: string
-  backup_include_assets: boolean
-  backup_encrypt_enabled: boolean
-  backup_encryption_password_configured: boolean
-  backup_last_run_at: string
-  backup_last_status: string
-  backup_last_error: string
 }
 
 export interface UpdateSettingsInput {
@@ -142,11 +134,6 @@ export interface UpdateSettingsInput {
   oidc_extra_auth_params?: string
   oidc_reauth_acr_mfa?: string
   oidc_reauth_acr_phishing_resistant?: string
-  backup_schedule_enabled?: boolean
-  backup_time_of_day?: string
-  backup_include_assets?: boolean
-  backup_encrypt_enabled?: boolean
-  backup_encryption_password?: string
 }
 
 export interface LocalBackupInfo {
@@ -194,7 +181,10 @@ export interface BackupDestination {
   type: "local" | "s3" | "webdav"
   enabled: boolean
   config: string
+  // last_run_at covers a run of any kind (scheduled or manual);
+  // last_scheduled_run_at only advances when this destination's own schedule fired.
   last_run_at: string
+  last_scheduled_run_at?: string
   last_status: string
   last_error: string
   last_retention_status?: string

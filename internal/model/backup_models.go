@@ -2,18 +2,23 @@ package model
 
 import "time"
 
-// BackupDestination is a system-scoped target that scheduled backups are
-// delivered to. Unlike NotificationChannel (which is per-user), backup is a
-// global admin feature, so destinations have no owning user. Multiple
-// destinations may be enabled at once: a single scheduled run produces one
-// archive and fans it out to every enabled destination (3-2-1 backup: a local
-// copy plus an offsite S3/WebDAV copy in the same run).
+// BackupDestination is a system-scoped backup plan: one storage target plus the
+// schedule that delivers to it. Unlike NotificationChannel (which is per-user),
+// backup is a global admin feature, so destinations have no owning user. Each
+// destination carries its own time of day, include-assets choice, and archive
+// encryption, so "nightly encrypted offsite copy" and "hourly plain local copy"
+// are two independent plans rather than one global schedule with a fan-out list.
+//
+// Destinations that come due at the same time and agree on the archive contents
+// (include-assets plus encryption password) still share a single archive, so the
+// 3-2-1 case — a local copy and an offsite S3/WebDAV copy of the same bytes —
+// costs one snapshot rather than one per destination.
 //
 // Config holds a destination-type-specific JSON object, encrypted at rest with
 // the same envelope used by notification channel configs so secrets (S3 secret
-// keys, WebDAV passwords) never land in plaintext. LastRunAt/LastStatus/
-// LastError are recorded per destination because a fan-out run can succeed for
-// one target and fail for another.
+// keys, WebDAV passwords, the archive encryption password) never land in
+// plaintext. LastRunAt/LastStatus/LastError are recorded per destination
+// because a shared-archive run can succeed for one target and fail for another.
 type BackupDestination struct {
 	ID       uint   `gorm:"primaryKey" json:"id"`
 	Revision uint64 `gorm:"not null;default:1" json:"revision"`
@@ -21,16 +26,22 @@ type BackupDestination struct {
 	Enabled  bool   `gorm:"default:false" json:"enabled"`
 	Config   string `gorm:"type:text" json:"config"`
 
-	LastRunAt             *time.Time `json:"last_run_at"`
-	LastStatus            string     `gorm:"size:20;default:''" json:"last_status"` // success | failed
-	LastError             string     `gorm:"type:text" json:"last_error"`
-	LastRetentionStatus   string     `gorm:"size:20;default:'not_attempted'" json:"last_retention_status"`
-	LastRetentionError    string     `gorm:"type:text" json:"last_retention_error"`
-	LastBookkeepingStatus string     `gorm:"size:20;default:'pending'" json:"last_bookkeeping_status"`
-	LastBookkeepingError  string     `gorm:"type:text" json:"last_bookkeeping_error"`
-	SortOrder             int        `gorm:"default:0" json:"sort_order"`
-	CreatedAt             time.Time  `json:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at"`
+	// LastRunAt advances on every successful delivery, manual or scheduled.
+	// LastScheduledRunAt advances only for scheduled runs and is what the due
+	// check consults, so running a destination by hand does not consume its
+	// slot for the day.
+	LastRunAt          *time.Time `json:"last_run_at"`
+	LastScheduledRunAt *time.Time `json:"last_scheduled_run_at"`
+
+	LastStatus            string    `gorm:"size:20;default:''" json:"last_status"` // success | failed
+	LastError             string    `gorm:"type:text" json:"last_error"`
+	LastRetentionStatus   string    `gorm:"size:20;default:'not_attempted'" json:"last_retention_status"`
+	LastRetentionError    string    `gorm:"type:text" json:"last_retention_error"`
+	LastBookkeepingStatus string    `gorm:"size:20;default:'pending'" json:"last_bookkeeping_status"`
+	LastBookkeepingError  string    `gorm:"type:text" json:"last_bookkeeping_error"`
+	SortOrder             int       `gorm:"default:0" json:"sort_order"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 // BackupRun is the durable aggregate for one archive fan-out attempt. The

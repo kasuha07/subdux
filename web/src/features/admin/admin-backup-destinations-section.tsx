@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Clock, Pencil, Plus, RefreshCw, Trash2, Wifi } from "lucide-react"
+import { Clock, Pencil, PlayCircle, Plus, RefreshCw, Trash2, Wifi } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -43,13 +43,16 @@ export interface DestinationUpdateBody {
 interface AdminBackupDestinationsSectionProps {
   destinations: BackupDestination[]
   destinationsRefreshing: boolean
+  // Id of the destination whose run is currently in flight, or null.
+  runningDestinationId: number | null
   onRefreshDestinations: () => void | Promise<void>
   onTestDestination: (id: number) => Promise<void>
-  // Create/update/delete are reauth-gated, so the section only reports the
-  // intent plus its payload; the parent owns the step-up prompt and the ticket.
+  // Create/update/delete and run are reauth-gated, so the section only reports
+  // the intent plus its payload; the parent owns the step-up prompt and ticket.
   onRequestCreate: (body: DestinationCreateBody) => void
   onRequestUpdate: (id: number, revision: number, body: DestinationUpdateBody) => void
   onRequestDelete: (destination: BackupDestination) => void
+  onRequestRun: (destination: BackupDestination) => void
 }
 
 const EMPTY_DESTINATION_FORM: DestinationFormValues = {
@@ -69,16 +72,22 @@ const EMPTY_DESTINATION_FORM: DestinationFormValues = {
   webdavPath: "",
   webdavUsername: "",
   webdavPassword: "",
+  timeOfDay: "03:00",
+  includeAssets: false,
+  encryptEnabled: false,
+  encryptionPassword: "",
 }
 
 export default function AdminBackupDestinationsSection({
   destinations,
   destinationsRefreshing,
+  runningDestinationId,
   onRefreshDestinations,
   onTestDestination,
   onRequestCreate,
   onRequestUpdate,
   onRequestDelete,
+  onRequestRun,
 }: AdminBackupDestinationsSectionProps) {
   const { t, i18n } = useTranslation()
 
@@ -88,6 +97,7 @@ export default function AdminBackupDestinationsSection({
   const [destForm, setDestForm] = useState<DestinationFormValues>(EMPTY_DESTINATION_FORM)
   const [editingS3Secret, setEditingS3Secret] = useState(false)
   const [editingWebdavSecret, setEditingWebdavSecret] = useState(false)
+  const [editingEncryptionSecret, setEditingEncryptionSecret] = useState(false)
   // in-flight test destination id
   const [testingDestinationId, setTestingDestinationId] = useState<number | null>(null)
 
@@ -100,7 +110,25 @@ export default function AdminBackupDestinationsSection({
     setDestForm({ ...EMPTY_DESTINATION_FORM })
     setEditingS3Secret(false)
     setEditingWebdavSecret(false)
+    setEditingEncryptionSecret(false)
     setDestFormOpen(true)
+  }
+
+  // scheduleFormValues maps the shared schedule block of a stored config onto
+  // the form. encryption_password is blanked by the server, so it gets the same
+  // mask-if-configured treatment as the other destination secrets.
+  function scheduleFormValues(
+    parsed: { time_of_day?: string; include_assets?: boolean; encrypt_enabled?: boolean },
+    dest: BackupDestination
+  ): Pick<DestinationFormValues, "timeOfDay" | "includeAssets" | "encryptEnabled" | "encryptionPassword"> {
+    return {
+      timeOfDay: parsed.time_of_day || EMPTY_DESTINATION_FORM.timeOfDay,
+      includeAssets: parsed.include_assets ?? false,
+      encryptEnabled: parsed.encrypt_enabled ?? false,
+      encryptionPassword: dest.configured_secret_fields.includes("encryption_password")
+        ? DESTINATION_SECRET_MASK
+        : "",
+    }
   }
 
   // openEditForm always rebuilds the whole form from the destination, so fields
@@ -109,6 +137,7 @@ export default function AdminBackupDestinationsSection({
     setDestEditTarget(dest)
     setEditingS3Secret(false)
     setEditingWebdavSecret(false)
+    setEditingEncryptionSecret(false)
     if (dest.type === "s3") {
       const parsed = parseS3Config(dest)
       setDestForm({
@@ -127,6 +156,7 @@ export default function AdminBackupDestinationsSection({
         useSsl: parsed.use_ssl ?? true,
         usePathStyle: parsed.use_path_style ?? false,
         retention: parsed.retention_count ?? 7,
+        ...scheduleFormValues(parsed, dest),
       })
     } else if (dest.type === "webdav") {
       const parsed = parseWebDAVConfig(dest)
@@ -142,6 +172,7 @@ export default function AdminBackupDestinationsSection({
           ? DESTINATION_SECRET_MASK
           : "",
         retention: parsed.retention_count ?? 7,
+        ...scheduleFormValues(parsed, dest),
       })
     } else {
       const parsed = parseLocalConfig(dest)
@@ -151,6 +182,7 @@ export default function AdminBackupDestinationsSection({
         enabled: dest.enabled,
         dir: parsed.dir ?? "",
         retention: parsed.retention_count ?? 7,
+        ...scheduleFormValues(parsed, dest),
       })
     }
     setDestFormOpen(true)
@@ -158,7 +190,31 @@ export default function AdminBackupDestinationsSection({
 
   function handleDestFormSave() {
     let config: string
-    let clearedSecretFields: string[] | undefined
+    const clearedSecretFieldNames: string[] = []
+
+    // The encryption password is shared by every destination type, so resolve it
+    // once here and feed the result into whichever build*Config runs below.
+    let encryptionPassword = destForm.encryptionPassword
+    if (destEditTarget) {
+      const encryptionIsConfigured =
+        destEditTarget.configured_secret_fields.includes("encryption_password")
+      const resolution = resolveSecretUpdate(
+        "encryption_password",
+        destForm.encryptionPassword,
+        editingEncryptionSecret,
+        encryptionIsConfigured
+      )
+      encryptionPassword = resolution.value
+      if (resolution.cleared_secret_fields) {
+        clearedSecretFieldNames.push(...resolution.cleared_secret_fields)
+      }
+    }
+    const schedule = {
+      timeOfDay: destForm.timeOfDay,
+      includeAssets: destForm.includeAssets,
+      encryptEnabled: destForm.encryptEnabled,
+      encryptionPassword,
+    }
 
     if (destForm.type === "s3") {
       let secretAccessKey = destForm.secretAccessKey
@@ -166,7 +222,9 @@ export default function AdminBackupDestinationsSection({
         const secretIsConfigured = destEditTarget.configured_secret_fields.includes("secret_access_key")
         const resolution = resolveS3SecretUpdate(destForm.secretAccessKey, editingS3Secret, secretIsConfigured)
         secretAccessKey = resolution.secret_access_key
-        clearedSecretFields = resolution.cleared_secret_fields
+        if (resolution.cleared_secret_fields) {
+          clearedSecretFieldNames.push(...resolution.cleared_secret_fields)
+        }
       }
       config = buildS3Config({
         endpoint: destForm.endpoint,
@@ -178,6 +236,7 @@ export default function AdminBackupDestinationsSection({
         useSsl: destForm.useSsl,
         usePathStyle: destForm.usePathStyle,
         retentionCount: destForm.retention,
+        ...schedule,
       })
     } else if (destForm.type === "webdav") {
       let password = destForm.webdavPassword
@@ -185,7 +244,9 @@ export default function AdminBackupDestinationsSection({
         const passwordIsConfigured = destEditTarget.configured_secret_fields.includes("password")
         const resolution = resolveSecretUpdate("password", destForm.webdavPassword, editingWebdavSecret, passwordIsConfigured)
         password = resolution.value
-        clearedSecretFields = resolution.cleared_secret_fields
+        if (resolution.cleared_secret_fields) {
+          clearedSecretFieldNames.push(...resolution.cleared_secret_fields)
+        }
       }
       config = buildWebDAVConfig({
         url: destForm.webdavUrl,
@@ -193,10 +254,18 @@ export default function AdminBackupDestinationsSection({
         username: destForm.webdavUsername,
         password,
         retentionCount: destForm.retention,
+        ...schedule,
       })
     } else {
-      config = buildLocalConfig(destForm.dir, destForm.retention)
+      config = buildLocalConfig({
+        dir: destForm.dir,
+        retentionCount: destForm.retention,
+        ...schedule,
+      })
     }
+
+    const clearedSecretFields =
+      clearedSecretFieldNames.length > 0 ? clearedSecretFieldNames : undefined
 
     if (destEditTarget) {
       const body: DestinationUpdateBody = {
@@ -268,6 +337,8 @@ export default function AdminBackupDestinationsSection({
             onEditingS3SecretChange={setEditingS3Secret}
             editingWebdavSecret={editingWebdavSecret}
             onEditingWebdavSecretChange={setEditingWebdavSecret}
+            editingEncryptionSecret={editingEncryptionSecret}
+            onEditingEncryptionSecretChange={setEditingEncryptionSecret}
           />
 
           <div className="flex gap-2">
@@ -295,6 +366,9 @@ export default function AdminBackupDestinationsSection({
             const webdavParsed = parseWebDAVConfig(dest)
             const dir = localParsed.dir
             const retention = localParsed.retention_count
+            // The schedule block lives in every type's config, so read it back
+            // from whichever parser matches this destination's type.
+            const schedule = isS3 ? s3Parsed : isWebDAV ? webdavParsed : localParsed
             return (
               <li
                 key={dest.id}
@@ -393,15 +467,53 @@ export default function AdminBackupDestinationsSection({
                         )}
                       </>
                     )}
+                    {(schedule.time_of_day || schedule.include_assets || schedule.encrypt_enabled) && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {schedule.time_of_day && (
+                          <span>
+                            {t("admin.backup.destinations.scheduleTimeOfDay")}:{" "}
+                            <span className="font-mono">{schedule.time_of_day}</span>
+                          </span>
+                        )}
+                        {schedule.include_assets && (
+                          <Badge variant="outline">
+                            {t("admin.backup.destinations.scheduleIncludeAssets")}
+                          </Badge>
+                        )}
+                        {schedule.encrypt_enabled && (
+                          <Badge variant="outline">
+                            {t("admin.backup.destinations.scheduleEncrypt")}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                     {dest.last_run_at && (
                       <p className="flex items-center gap-1">
                         <Clock className="size-3" />
                         {formatDateTime(dest.last_run_at, i18n.language)}
                       </p>
                     )}
+                    {dest.last_scheduled_run_at && (
+                      <p className="flex items-center gap-1">
+                        <Clock className="size-3" />
+                        {t("admin.backup.destinations.lastScheduledRun")}:{" "}
+                        {formatDateTime(dest.last_scheduled_run_at, i18n.language)}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={runningDestinationId === dest.id}
+                    title={t("admin.backup.destinations.runNow")}
+                    onClick={() => onRequestRun(dest)}
+                  >
+                    <PlayCircle
+                      className={`size-3.5 ${runningDestinationId === dest.id ? "animate-pulse" : ""}`}
+                    />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"

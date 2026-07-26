@@ -84,14 +84,6 @@ type SystemSettings struct {
 	OIDCExtraAuthParams                  string `json:"oidc_extra_auth_params"`
 	OIDCReauthACRMFA                     string `json:"oidc_reauth_acr_mfa"`
 	OIDCReauthACRPhishingResistant       string `json:"oidc_reauth_acr_phishing_resistant"`
-	BackupScheduleEnabled                bool   `json:"backup_schedule_enabled"`
-	BackupTimeOfDay                      string `json:"backup_time_of_day"`
-	BackupIncludeAssets                  bool   `json:"backup_include_assets"`
-	BackupEncryptEnabled                 bool   `json:"backup_encrypt_enabled"`
-	BackupEncryptionPasswordSet          bool   `json:"backup_encryption_password_configured"`
-	BackupLastRunAt                      string `json:"backup_last_run_at"`
-	BackupLastStatus                     string `json:"backup_last_status"`
-	BackupLastError                      string `json:"backup_last_error"`
 }
 
 type UpdateSettingsInput struct {
@@ -147,11 +139,6 @@ type UpdateSettingsInput struct {
 	OIDCExtraAuthParams                  *string `json:"oidc_extra_auth_params"`
 	OIDCReauthACRMFA                     *string `json:"oidc_reauth_acr_mfa"`
 	OIDCReauthACRPhishingResistant       *string `json:"oidc_reauth_acr_phishing_resistant"`
-	BackupScheduleEnabled                *bool   `json:"backup_schedule_enabled"`
-	BackupTimeOfDay                      *string `json:"backup_time_of_day"`
-	BackupIncludeAssets                  *bool   `json:"backup_include_assets"`
-	BackupEncryptEnabled                 *bool   `json:"backup_encrypt_enabled"`
-	BackupEncryptionPassword             *string `json:"backup_encryption_password"`
 }
 
 type SSRFTestInput struct {

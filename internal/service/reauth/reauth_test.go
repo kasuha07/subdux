@@ -454,13 +454,11 @@ func TestReauthOperationSelectors(t *testing.T) {
 		}
 	})
 
-	t.Run("admin settings backup schedule only", func(t *testing.T) {
-		enabled := true
-		if op, ok := OperationForAdminSettingsUpdate(AdminSettingsUpdateInput{BackupScheduleEnabled: &enabled}); !ok || op != ReauthOperationBackupSchedule {
-			t.Fatalf("ReauthOperationForAdminSettingsUpdate(backup) = %q/%v, want %q/true", op, ok, ReauthOperationBackupSchedule)
-		}
-		if op, ok := OperationForAdminSettingsUpdate(AdminSettingsUpdateInput{}); ok || op != "" {
-			t.Fatalf("ReauthOperationForAdminSettingsUpdate(site name) = %q/%v, want empty/false", op, ok)
+	// The retired backup_schedule operation must not be revivable by a stale
+	// client: an unknown operation cannot mint a ticket at all.
+	t.Run("retired backup schedule operation is rejected", func(t *testing.T) {
+		if IsValidReauthOperation("backup_schedule") {
+			t.Fatal(`IsValidReauthOperation("backup_schedule") = true, want false`)
 		}
 	})
 
