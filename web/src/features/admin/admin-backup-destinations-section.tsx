@@ -4,6 +4,13 @@ import { Clock, Pencil, PlayCircle, Plus, RefreshCw, Trash2, Wifi } from "lucide
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import type { BackupDestination } from "@/types"
 
 import AdminBackupDestinationFormFields, {
@@ -14,12 +21,11 @@ import {
   buildLocalConfig,
   buildS3Config,
   buildWebDAVConfig,
-  DESTINATION_SECRET_MASK,
   destStatusVariant,
   parseLocalConfig,
   parseS3Config,
   parseWebDAVConfig,
-  resolveS3SecretUpdate,
+  resolveEncryptionSecretUpdate,
   resolveSecretUpdate,
 } from "./hooks/backup-destinations"
 
@@ -95,9 +101,7 @@ export default function AdminBackupDestinationsSection({
   const [destFormOpen, setDestFormOpen] = useState(false)
   const [destEditTarget, setDestEditTarget] = useState<BackupDestination | null>(null)
   const [destForm, setDestForm] = useState<DestinationFormValues>(EMPTY_DESTINATION_FORM)
-  const [editingS3Secret, setEditingS3Secret] = useState(false)
-  const [editingWebdavSecret, setEditingWebdavSecret] = useState(false)
-  const [editingEncryptionSecret, setEditingEncryptionSecret] = useState(false)
+  const [clearedWebdavSecret, setClearedWebdavSecret] = useState(false)
   // in-flight test destination id
   const [testingDestinationId, setTestingDestinationId] = useState<number | null>(null)
 
@@ -105,29 +109,34 @@ export default function AdminBackupDestinationsSection({
     setDestForm((prev) => ({ ...prev, ...patch }))
   }
 
+  // closeDestForm also drops the form values so a typed (plaintext) secret does
+  // not linger in component state after the dialog is dismissed.
+  function closeDestForm() {
+    setDestFormOpen(false)
+    setDestForm({ ...EMPTY_DESTINATION_FORM })
+    setClearedWebdavSecret(false)
+  }
+
   function openCreateForm() {
     setDestEditTarget(null)
     setDestForm({ ...EMPTY_DESTINATION_FORM })
-    setEditingS3Secret(false)
-    setEditingWebdavSecret(false)
-    setEditingEncryptionSecret(false)
+    setClearedWebdavSecret(false)
     setDestFormOpen(true)
   }
 
   // scheduleFormValues maps the shared schedule block of a stored config onto
-  // the form. encryption_password is blanked by the server, so it gets the same
-  // mask-if-configured treatment as the other destination secrets.
-  function scheduleFormValues(
-    parsed: { time_of_day?: string; include_assets?: boolean; encrypt_enabled?: boolean },
-    dest: BackupDestination
-  ): Pick<DestinationFormValues, "timeOfDay" | "includeAssets" | "encryptEnabled" | "encryptionPassword"> {
+  // the form. encryption_password is blanked by the server and only ever holds
+  // what the admin types; SecretInput renders the configured mask on its own.
+  function scheduleFormValues(parsed: {
+    time_of_day?: string
+    include_assets?: boolean
+    encrypt_enabled?: boolean
+  }): Pick<DestinationFormValues, "timeOfDay" | "includeAssets" | "encryptEnabled" | "encryptionPassword"> {
     return {
       timeOfDay: parsed.time_of_day || EMPTY_DESTINATION_FORM.timeOfDay,
       includeAssets: parsed.include_assets ?? false,
       encryptEnabled: parsed.encrypt_enabled ?? false,
-      encryptionPassword: dest.configured_secret_fields.includes("encryption_password")
-        ? DESTINATION_SECRET_MASK
-        : "",
+      encryptionPassword: "",
     }
   }
 
@@ -135,9 +144,7 @@ export default function AdminBackupDestinationsSection({
   // belonging to the other destination types return to their defaults.
   function openEditForm(dest: BackupDestination) {
     setDestEditTarget(dest)
-    setEditingS3Secret(false)
-    setEditingWebdavSecret(false)
-    setEditingEncryptionSecret(false)
+    setClearedWebdavSecret(false)
     if (dest.type === "s3") {
       const parsed = parseS3Config(dest)
       setDestForm({
@@ -149,14 +156,13 @@ export default function AdminBackupDestinationsSection({
         bucket: parsed.bucket ?? "",
         prefix: parsed.prefix ?? "",
         accessKeyId: parsed.access_key_id ?? "",
-        // secret_access_key is blanked by the server; use mask if configured
-        secretAccessKey: dest.configured_secret_fields.includes("secret_access_key")
-          ? DESTINATION_SECRET_MASK
-          : "",
+        // secret_access_key is blanked by the server; the form starts empty and
+        // SecretInput shows the configured mask without holding the value
+        secretAccessKey: "",
         useSsl: parsed.use_ssl ?? true,
         usePathStyle: parsed.use_path_style ?? false,
         retention: parsed.retention_count ?? 7,
-        ...scheduleFormValues(parsed, dest),
+        ...scheduleFormValues(parsed),
       })
     } else if (dest.type === "webdav") {
       const parsed = parseWebDAVConfig(dest)
@@ -167,12 +173,10 @@ export default function AdminBackupDestinationsSection({
         webdavUrl: parsed.url ?? "",
         webdavPath: parsed.path ?? "",
         webdavUsername: parsed.username ?? "",
-        // password is blanked by the server; use mask if configured
-        webdavPassword: dest.configured_secret_fields.includes("password")
-          ? DESTINATION_SECRET_MASK
-          : "",
+        // password is blanked by the server; same empty-start treatment
+        webdavPassword: "",
         retention: parsed.retention_count ?? 7,
-        ...scheduleFormValues(parsed, dest),
+        ...scheduleFormValues(parsed),
       })
     } else {
       const parsed = parseLocalConfig(dest)
@@ -182,7 +186,7 @@ export default function AdminBackupDestinationsSection({
         enabled: dest.enabled,
         dir: parsed.dir ?? "",
         retention: parsed.retention_count ?? 7,
-        ...scheduleFormValues(parsed, dest),
+        ...scheduleFormValues(parsed),
       })
     }
     setDestFormOpen(true)
@@ -191,68 +195,64 @@ export default function AdminBackupDestinationsSection({
   function handleDestFormSave() {
     let config: string
     const clearedSecretFieldNames: string[] = []
+    const secretIsConfigured = (field: string) =>
+      destEditTarget?.configured_secret_fields.includes(field) ?? false
 
     // The encryption password is shared by every destination type, so resolve it
     // once here and feed the result into whichever build*Config runs below.
-    let encryptionPassword = destForm.encryptionPassword
-    if (destEditTarget) {
-      const encryptionIsConfigured =
-        destEditTarget.configured_secret_fields.includes("encryption_password")
-      const resolution = resolveSecretUpdate(
-        "encryption_password",
-        destForm.encryptionPassword,
-        editingEncryptionSecret,
-        encryptionIsConfigured
-      )
-      encryptionPassword = resolution.value
-      if (resolution.cleared_secret_fields) {
-        clearedSecretFieldNames.push(...resolution.cleared_secret_fields)
-      }
+    // Saving with encryption off drops any stored password; on create the typed
+    // value passes through.
+    const encryptionResolution = resolveEncryptionSecretUpdate(
+      destForm.encryptEnabled,
+      destForm.encryptionPassword,
+      secretIsConfigured("encryption_password")
+    )
+    if (encryptionResolution.cleared_secret_fields) {
+      clearedSecretFieldNames.push(...encryptionResolution.cleared_secret_fields)
     }
     const schedule = {
       timeOfDay: destForm.timeOfDay,
       includeAssets: destForm.includeAssets,
       encryptEnabled: destForm.encryptEnabled,
-      encryptionPassword,
+      encryptionPassword: encryptionResolution.value,
     }
 
     if (destForm.type === "s3") {
-      let secretAccessKey = destForm.secretAccessKey
-      if (destEditTarget) {
-        const secretIsConfigured = destEditTarget.configured_secret_fields.includes("secret_access_key")
-        const resolution = resolveS3SecretUpdate(destForm.secretAccessKey, editingS3Secret, secretIsConfigured)
-        secretAccessKey = resolution.secret_access_key
-        if (resolution.cleared_secret_fields) {
-          clearedSecretFieldNames.push(...resolution.cleared_secret_fields)
-        }
-      }
+      // The s3 secret is replace-only (no clear affordance, cleared is always
+      // false): empty preserves the stored secret on update.
+      const secretResolution = resolveSecretUpdate(
+        "secret_access_key",
+        destForm.secretAccessKey,
+        false,
+        secretIsConfigured("secret_access_key")
+      )
       config = buildS3Config({
         endpoint: destForm.endpoint,
         region: destForm.region,
         bucket: destForm.bucket,
         prefix: destForm.prefix,
         accessKeyId: destForm.accessKeyId,
-        secretAccessKey,
+        secretAccessKey: secretResolution.value,
         useSsl: destForm.useSsl,
         usePathStyle: destForm.usePathStyle,
         retentionCount: destForm.retention,
         ...schedule,
       })
     } else if (destForm.type === "webdav") {
-      let password = destForm.webdavPassword
-      if (destEditTarget) {
-        const passwordIsConfigured = destEditTarget.configured_secret_fields.includes("password")
-        const resolution = resolveSecretUpdate("password", destForm.webdavPassword, editingWebdavSecret, passwordIsConfigured)
-        password = resolution.value
-        if (resolution.cleared_secret_fields) {
-          clearedSecretFieldNames.push(...resolution.cleared_secret_fields)
-        }
+      const passwordResolution = resolveSecretUpdate(
+        "password",
+        destForm.webdavPassword,
+        clearedWebdavSecret,
+        secretIsConfigured("password")
+      )
+      if (passwordResolution.cleared_secret_fields) {
+        clearedSecretFieldNames.push(...passwordResolution.cleared_secret_fields)
       }
       config = buildWebDAVConfig({
         url: destForm.webdavUrl,
         path: destForm.webdavPath,
         username: destForm.webdavUsername,
-        password,
+        password: passwordResolution.value,
         retentionCount: destForm.retention,
         ...schedule,
       })
@@ -275,10 +275,10 @@ export default function AdminBackupDestinationsSection({
         sort_order: destEditTarget.sort_order,
       }
       if (clearedSecretFields) body.cleared_secret_fields = clearedSecretFields
-      setDestFormOpen(false)
+      closeDestForm()
       onRequestUpdate(destEditTarget.id, destEditTarget.revision, body)
     } else {
-      setDestFormOpen(false)
+      closeDestForm()
       onRequestCreate({
         type: destForm.type,
         enabled: destForm.enabled,
@@ -321,38 +321,55 @@ export default function AdminBackupDestinationsSection({
         </div>
       </div>
 
-      {destFormOpen && (
-        <div className="rounded-md border p-4 space-y-4">
-          <h4 className="text-sm font-medium">
-            {destEditTarget
-              ? t("admin.backup.destinations.editTitle")
-              : t("admin.backup.destinations.addTitle")}
-          </h4>
+      <Dialog
+        open={destFormOpen}
+        onOpenChange={(open) => {
+          if (!open) closeDestForm()
+        }}
+      >
+        <DialogContent
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className="flex max-h-[calc(100vh-1.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
+        >
+          <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
+            <DialogTitle>
+              {destEditTarget
+                ? t("admin.backup.destinations.editTitle")
+                : t("admin.backup.destinations.addTitle")}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("admin.backup.destinations.description")}
+            </DialogDescription>
+          </DialogHeader>
 
-          <AdminBackupDestinationFormFields
-            values={destForm}
-            onValuesChange={updateDestForm}
-            editTarget={destEditTarget}
-            editingS3Secret={editingS3Secret}
-            onEditingS3SecretChange={setEditingS3Secret}
-            editingWebdavSecret={editingWebdavSecret}
-            onEditingWebdavSecretChange={setEditingWebdavSecret}
-            editingEncryptionSecret={editingEncryptionSecret}
-            onEditingEncryptionSecretChange={setEditingEncryptionSecret}
-          />
-
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleDestFormSave}>
-              {t("admin.backup.destinations.save")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setDestFormOpen(false)}>
-              {t("admin.backup.cancel")}
-            </Button>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+            <AdminBackupDestinationFormFields
+              key={destEditTarget?.id ?? "create"}
+              values={destForm}
+              onValuesChange={updateDestForm}
+              editTarget={destEditTarget}
+              clearedWebdavSecret={clearedWebdavSecret}
+              onClearWebdavSecret={() => {
+                setClearedWebdavSecret(true)
+                updateDestForm({ webdavPassword: "" })
+              }}
+            />
           </div>
-        </div>
-      )}
 
-      {destinations.length === 0 && !destFormOpen ? (
+          <div className="border-t px-5 py-4 sm:px-6">
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={closeDestForm}>
+                {t("admin.backup.cancel")}
+              </Button>
+              <Button className="flex-1" onClick={handleDestFormSave}>
+                {t("admin.backup.destinations.save")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {destinations.length === 0 ? (
         <p className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
           {t("admin.backup.destinations.empty")}
         </p>

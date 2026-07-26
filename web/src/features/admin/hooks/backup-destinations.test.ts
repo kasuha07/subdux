@@ -6,13 +6,12 @@ import {
   buildLocalConfig,
   buildS3Config,
   buildWebDAVConfig,
-  DESTINATION_SECRET_MASK,
   destStatusVariant,
   parseLocalConfig,
   parseS3Config,
   parseWebDAVConfig,
   mutationSucceeded,
-  resolveS3SecretUpdate,
+  resolveEncryptionSecretUpdate,
   resolveSecretUpdate,
 } from "./backup-destinations"
 
@@ -226,33 +225,25 @@ describe("buildS3Config", () => {
   })
 })
 
-describe("resolveS3SecretUpdate (replacement-only)", () => {
-  it("preserves the stored secret when mask is still shown", () => {
-    const result = resolveS3SecretUpdate(DESTINATION_SECRET_MASK, false, true)
-    expect(result.secret_access_key).toBe("")
-    expect(result.cleared_secret_fields).toBeUndefined()
-  })
-
-  it("preserves the stored secret when the replacement field is left empty", () => {
-    const result = resolveS3SecretUpdate("", true, true)
-    expect(result.secret_access_key).toBe("")
+// The s3 secret is replace-only: the save path calls resolveSecretUpdate with
+// cleared always false, so an empty field on edit must preserve the stored
+// secret rather than wipe it.
+describe("s3 secret resolution (replace-only via resolveSecretUpdate)", () => {
+  it("preserves the stored secret when the field is left empty on edit", () => {
+    const result = resolveSecretUpdate("secret_access_key", "", false, true)
+    expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 
   it("sends the new value when user typed a replacement secret", () => {
-    const result = resolveS3SecretUpdate("newSecret123", true, true)
-    expect(result.secret_access_key).toBe("newSecret123")
+    const result = resolveSecretUpdate("secret_access_key", "newSecret123", false, true)
+    expect(result.value).toBe("newSecret123")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 
   it("sends the new value on create (not configured)", () => {
-    const result = resolveS3SecretUpdate("mySecret", false, false)
-    expect(result.secret_access_key).toBe("mySecret")
-    expect(result.cleared_secret_fields).toBeUndefined()
-  })
-
-  it("does not emit cleared_secret_fields when not previously configured", () => {
-    const result = resolveS3SecretUpdate("", false, false)
+    const result = resolveSecretUpdate("secret_access_key", "mySecret", false, false)
+    expect(result.value).toBe("mySecret")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 })
@@ -266,14 +257,14 @@ describe("mutationSucceeded", () => {
 })
 
 describe("resolveSecretUpdate (generic field-name-parameterized helper)", () => {
-  it("preserves the stored secret when mask is still shown", () => {
-    const result = resolveSecretUpdate("password", DESTINATION_SECRET_MASK, false, true)
+  it("preserves the configured secret when the field is left empty and not cleared", () => {
+    const result = resolveSecretUpdate("password", "", false, true)
     expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 
-  it("preserves the configured secret when an empty value is not being edited", () => {
-    const result = resolveSecretUpdate("password", "", false, true)
+  it("treats a whitespace-only value as empty (preserve)", () => {
+    const result = resolveSecretUpdate("password", "   ", false, true)
     expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
@@ -284,8 +275,14 @@ describe("resolveSecretUpdate (generic field-name-parameterized helper)", () => 
     expect(result.cleared_secret_fields).toEqual(["password"])
   })
 
-  it("sends the new value when user typed a replacement secret", () => {
+  it("lets a typed value win over a stale cleared flag", () => {
     const result = resolveSecretUpdate("password", "newPass123", true, true)
+    expect(result.value).toBe("newPass123")
+    expect(result.cleared_secret_fields).toBeUndefined()
+  })
+
+  it("sends the new value when user typed a replacement secret", () => {
+    const result = resolveSecretUpdate("password", "newPass123", false, true)
     expect(result.value).toBe("newPass123")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
@@ -297,7 +294,8 @@ describe("resolveSecretUpdate (generic field-name-parameterized helper)", () => 
   })
 
   it("does not emit cleared_secret_fields when not previously configured", () => {
-    const result = resolveSecretUpdate("password", "", false, false)
+    const result = resolveSecretUpdate("password", "", true, false)
+    expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 
@@ -393,8 +391,8 @@ describe("buildWebDAVConfig", () => {
 })
 
 describe("webdav password secret resolution (via resolveSecretUpdate)", () => {
-  it("preserves the stored password when mask is still shown", () => {
-    const result = resolveSecretUpdate("password", DESTINATION_SECRET_MASK, false, true)
+  it("preserves the stored password when the field is left untouched", () => {
+    const result = resolveSecretUpdate("password", "", false, true)
     expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
@@ -406,7 +404,7 @@ describe("webdav password secret resolution (via resolveSecretUpdate)", () => {
   })
 
   it("sends the new password when user typed a replacement", () => {
-    const result = resolveSecretUpdate("password", "newPass", true, true)
+    const result = resolveSecretUpdate("password", "newPass", false, true)
     expect(result.value).toBe("newPass")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
@@ -509,35 +507,42 @@ describe("shared schedule config fields", () => {
   })
 })
 
-describe("encryption password secret resolution (via resolveSecretUpdate)", () => {
-  it("preserves the stored encryption password when mask is still shown", () => {
-    const result = resolveSecretUpdate(
-      "encryption_password",
-      DESTINATION_SECRET_MASK,
-      false,
-      true
-    )
+describe("resolveEncryptionSecretUpdate (tied to the encrypt toggle)", () => {
+  it("preserves the stored password when encryption stays on and the field is untouched", () => {
+    const result = resolveEncryptionSecretUpdate(true, "", true)
     expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 
-  // The encryption password is clearable (like the webdav password, unlike the
-  // replace-only s3 secret): turning encryption off should drop it.
-  it("signals cleared_secret_fields=['encryption_password'] when explicitly cleared", () => {
-    const result = resolveSecretUpdate("encryption_password", "", true, true)
-    expect(result.value).toBe("")
-    expect(result.cleared_secret_fields).toEqual(["encryption_password"])
-  })
-
-  it("sends the new encryption password when user typed a replacement", () => {
-    const result = resolveSecretUpdate("encryption_password", "newArchivePass", true, true)
+  it("sends the new password when encryption is on and user typed a replacement", () => {
+    const result = resolveEncryptionSecretUpdate(true, "newArchivePass", true)
     expect(result.value).toBe("newArchivePass")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 
-  it("sends the encryption password on create (not configured)", () => {
-    const result = resolveSecretUpdate("encryption_password", "archivePass", false, false)
+  it("sends the password on create (not configured)", () => {
+    const result = resolveEncryptionSecretUpdate(true, "archivePass", false)
     expect(result.value).toBe("archivePass")
+    expect(result.cleared_secret_fields).toBeUndefined()
+  })
+
+  // Turning encryption off is the clear affordance: the stored password is
+  // dropped rather than silently kept as an unreachable configured secret.
+  it("clears the stored password when saving with encryption off", () => {
+    const result = resolveEncryptionSecretUpdate(false, "", true)
+    expect(result.value).toBe("")
+    expect(result.cleared_secret_fields).toEqual(["encryption_password"])
+  })
+
+  it("discards a typed password when encryption is off", () => {
+    const result = resolveEncryptionSecretUpdate(false, "abandoned", true)
+    expect(result.value).toBe("")
+    expect(result.cleared_secret_fields).toEqual(["encryption_password"])
+  })
+
+  it("does not emit cleared_secret_fields when encryption is off and nothing is stored", () => {
+    const result = resolveEncryptionSecretUpdate(false, "typed-then-toggled-off", false)
+    expect(result.value).toBe("")
     expect(result.cleared_secret_fields).toBeUndefined()
   })
 })

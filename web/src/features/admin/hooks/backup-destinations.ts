@@ -4,9 +4,10 @@ import type { BackupDestination } from "@/types"
 // component so the form/list logic and its tests exercise the SAME code rather
 // than a copy that can silently drift.
 
-// DESTINATION_SECRET_MASK is the placeholder shown in a secret input when a
-// secret is already stored server-side (the backend never returns the value).
-export const DESTINATION_SECRET_MASK = "••••••••"
+// Secret inputs render through the shared SecretInput component (the SMTP
+// password treatment): the form state only ever holds what the admin actually
+// typed, and the "configured" mask is purely presentational. The stored secret
+// therefore never round-trips through the form, not even as a sentinel value.
 
 // ScheduleDestConfig is the per-destination backup plan shared by every
 // destination type: each destination carries its own daily schedule rather than
@@ -168,58 +169,58 @@ export interface SecretResolution {
 
 // resolveSecretUpdate encodes the three secret paths on save for any named
 // secret field:
-//   - mask still shown (configured, untouched)  -> preserve: send ""
-//   - explicitly cleared (configured, editing, emptied)
-//                                                -> wipe: send "" + cleared field
-//   - a new value typed (or on create)           -> replace: send the value
-// `fieldName` is the backend field identifier (e.g. "secret_access_key",
-// "password"). `isConfigured` is whether the server currently holds a secret
-// for this field; `editing` is whether the admin switched the field into edit
-// mode.
+//   - a new value typed                      -> replace: send the value
+//   - explicitly cleared (configured, admin
+//     pressed the clear affordance)          -> wipe: send "" + cleared field
+//   - left untouched/empty                   -> preserve: send ""
+// `fieldName` is the backend field identifier (e.g. "password"). `isConfigured`
+// is whether the server currently holds a secret for this field; `cleared` is
+// whether the admin explicitly asked for the stored secret to be dropped.
+// A typed value always wins over a stale cleared flag: replacing after clearing
+// is a change of mind, not a request to do both.
+//
+// The S3 secret_access_key deliberately never goes through the cleared path
+// (its field has no clear affordance): target_s3.go's parseS3Config rejects a
+// config with a blank secret (ErrS3CredentialsRequired), so "S3 with no
+// secret" is never a valid saved state. The WebDAV password is the one secret
+// with a clear affordance — anonymous WebDAV is legitimate. The encryption
+// password goes through resolveEncryptionSecretUpdate below, which derives
+// clearing from the encrypt toggle instead.
 export function resolveSecretUpdate(
   fieldName: string,
   secretFieldValue: string,
-  editing: boolean,
+  cleared: boolean,
   isConfigured: boolean
 ): SecretResolution {
-  if (isConfigured && secretFieldValue === DESTINATION_SECRET_MASK) {
-    return { value: "" }
+  if (secretFieldValue.trim() !== "") {
+    return { value: secretFieldValue }
   }
-  if (isConfigured && secretFieldValue === "" && editing) {
+  if (isConfigured && cleared) {
     return { value: "", cleared_secret_fields: [fieldName] }
   }
-  return { value: secretFieldValue }
+  return { value: "" }
 }
 
-export interface S3SecretResolution {
-  secret_access_key: string
-  cleared_secret_fields?: string[]
-}
-
-// resolveS3SecretUpdate wraps resolveSecretUpdate to make the S3 secret
-// REPLACEMENT-ONLY: emptying the field while editing preserves the stored
-// secret instead of clearing it. The WebDAV password and the per-destination
-// encryption_password, which go through resolveSecretUpdate directly, can be
-// cleared — turning encryption off legitimately drops the password. That
-// asymmetry is deliberate and follows from backend validation:
-//   - internal/service/backup/target_s3.go -> parseS3Config rejects a config
-//     whose secret_access_key is blank (ErrS3CredentialsRequired), so "S3 with
-//     no secret" is never a valid saved state; offering a clear could only ever
-//     produce a rejected save.
-//   - internal/service/backup/target_webdav.go -> parseWebDAVConfig does not
-//     require a password, and authorize() only sends basic auth when the
-//     username or password is non-empty. Anonymous WebDAV is therefore
-//     legitimate, so clearing the password is a real user intent.
-export function resolveS3SecretUpdate(
+// resolveEncryptionSecretUpdate ties the encryption password's lifecycle to the
+// encrypt toggle instead of a clear affordance: an enabled toggle follows the
+// ordinary replace-or-preserve rules, while saving with encryption off drops
+// any stored password. "Encryption on without a password" is rejected by the
+// backend (ErrBackupEncryptionPasswordRequired), so a clear button could only
+// ever produce a failed save; turning encryption off is the one real way to
+// stop needing the secret, and keeping it stored past that point would
+// contradict the field's own hygiene story.
+export function resolveEncryptionSecretUpdate(
+  encryptEnabled: boolean,
   secretFieldValue: string,
-  editing: boolean,
   isConfigured: boolean
-): S3SecretResolution {
-  const r =
-    isConfigured && editing && secretFieldValue === ""
-      ? { value: "" }
-      : resolveSecretUpdate("secret_access_key", secretFieldValue, editing, isConfigured)
-  return { secret_access_key: r.value, cleared_secret_fields: r.cleared_secret_fields }
+): SecretResolution {
+  if (encryptEnabled) {
+    return resolveSecretUpdate("encryption_password", secretFieldValue, false, isConfigured)
+  }
+  if (isConfigured) {
+    return { value: "", cleared_secret_fields: ["encryption_password"] }
+  }
+  return { value: "" }
 }
 
 export function mutationSucceeded<T>(value: T | undefined): value is T {

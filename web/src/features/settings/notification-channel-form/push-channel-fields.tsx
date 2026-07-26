@@ -1,3 +1,4 @@
+import { SecretInput } from "@/components/secret-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +18,6 @@ import {
   PUSHOVER_SOUND_OPTIONS,
 } from "./constants"
 import type { BaseChannelConfigFieldProps } from "./field-props"
-import { SecretInput } from "./secret-input"
 
 export function PushdeerConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (

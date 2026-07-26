@@ -1,3 +1,4 @@
+import { SecretInput } from "@/components/secret-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -9,7 +10,6 @@ import {
 } from "@/components/ui/select"
 
 import type { BaseChannelConfigFieldProps } from "./field-props"
-import { SecretInput } from "./secret-input"
 import { parseWebhookMethod } from "./utils"
 
 export function TelegramConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {

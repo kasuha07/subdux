@@ -1,7 +1,7 @@
+import { SecretInput } from "@/components/secret-input"
 import { Label } from "@/components/ui/label"
 
 import type { BaseChannelConfigFieldProps } from "./field-props"
-import { SecretInput } from "./secret-input"
 
 export function FeishuConfigFields({ isSecretFieldConfigured, onValueChange, t, values }: BaseChannelConfigFieldProps) {
   return (

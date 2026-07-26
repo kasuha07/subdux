@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 
+import { SecretInput } from "@/components/secret-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,8 +13,6 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import type { BackupDestination } from "@/types"
-
-import { DESTINATION_SECRET_MASK } from "./hooks/backup-destinations"
 
 export type DestinationType = "local" | "s3" | "webdav"
 
@@ -52,28 +51,28 @@ interface AdminBackupDestinationFormFieldsProps {
   values: DestinationFormValues
   onValuesChange: (patch: Partial<DestinationFormValues>) => void
   // The destination being edited, or null when creating. Editing locks the type
-  // and switches configured secrets into a masked replace-only presentation.
+  // and switches configured secrets into the masked SecretInput presentation:
+  // the server never returns the stored value, so the form only ever holds what
+  // the admin typed. The cleared flag marks the stored webdav password for
+  // removal on save; the s3 secret is replace-only, and the encryption password
+  // is cleared by saving with the encrypt toggle off.
   editTarget: BackupDestination | null
-  editingS3Secret: boolean
-  onEditingS3SecretChange: (editing: boolean) => void
-  editingWebdavSecret: boolean
-  onEditingWebdavSecretChange: (editing: boolean) => void
-  editingEncryptionSecret: boolean
-  onEditingEncryptionSecretChange: (editing: boolean) => void
+  clearedWebdavSecret: boolean
+  onClearWebdavSecret: () => void
 }
 
 export default function AdminBackupDestinationFormFields({
   values,
   onValuesChange,
   editTarget,
-  editingS3Secret,
-  onEditingS3SecretChange,
-  editingWebdavSecret,
-  onEditingWebdavSecretChange,
-  editingEncryptionSecret,
-  onEditingEncryptionSecretChange,
+  clearedWebdavSecret,
+  onClearWebdavSecret,
 }: AdminBackupDestinationFormFieldsProps) {
   const { t } = useTranslation()
+
+  function isConfigured(field: string) {
+    return editTarget?.configured_secret_fields.includes(field) ?? false
+  }
 
   return (
     <>
@@ -202,43 +201,18 @@ export default function AdminBackupDestinationFormFields({
 
           <div className="space-y-2">
             <Label htmlFor="dest-s3-secret">{t("admin.backup.destinations.s3SecretAccessKey")}</Label>
-            {editTarget && editTarget.configured_secret_fields.includes("secret_access_key") && !editingS3Secret ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  id="dest-s3-secret"
-                  type="password"
-                  value={DESTINATION_SECRET_MASK}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    onEditingS3SecretChange(true)
-                    onValuesChange({ secretAccessKey: "" })
-                  }}
-                >
-                  {t("admin.backup.destinations.s3SecretAccessKey")}
-                </Button>
-              </div>
-            ) : (
-              <>
-                <Input
-                  id="dest-s3-secret"
-                  type="password"
-                  autoComplete="new-password"
-                  value={values.secretAccessKey}
-                  onChange={(event) => onValuesChange({ secretAccessKey: event.target.value })}
-                  placeholder={editTarget ? t("admin.backup.destinations.s3SecretConfigured") : undefined}
-                />
-                {editTarget && editingS3Secret && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("admin.backup.destinations.s3SecretConfigured")}
-                  </p>
-                )}
-              </>
+            <SecretInput
+              id="dest-s3-secret"
+              type="password"
+              autoComplete="new-password"
+              value={values.secretAccessKey}
+              configured={isConfigured("secret_access_key")}
+              onValueChange={(value) => onValuesChange({ secretAccessKey: value })}
+            />
+            {isConfigured("secret_access_key") && (
+              <p className="text-xs text-muted-foreground">
+                {t("admin.backup.destinations.s3SecretConfigured")}
+              </p>
             )}
           </div>
 
@@ -324,44 +298,32 @@ export default function AdminBackupDestinationFormFields({
 
           <div className="space-y-2">
             <Label htmlFor="dest-webdav-password">{t("admin.backup.destinations.webdavPassword")}</Label>
-            {editTarget && editTarget.configured_secret_fields.includes("password") && !editingWebdavSecret ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  id="dest-webdav-password"
-                  type="password"
-                  value={DESTINATION_SECRET_MASK}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    onEditingWebdavSecretChange(true)
-                    onValuesChange({ webdavPassword: "" })
-                  }}
-                >
+            <div className="flex items-center gap-2">
+              <SecretInput
+                id="dest-webdav-password"
+                type="password"
+                autoComplete="new-password"
+                className="flex-1"
+                value={values.webdavPassword}
+                configured={isConfigured("password") && !clearedWebdavSecret}
+                onValueChange={(value) => onValuesChange({ webdavPassword: value })}
+              />
+              {isConfigured("password") && !clearedWebdavSecret && (
+                <Button type="button" size="sm" variant="outline" onClick={onClearWebdavSecret}>
                   {t("admin.backup.destinations.webdavPasswordClear")}
                 </Button>
-              </div>
-            ) : (
-              <>
-                <Input
-                  id="dest-webdav-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={values.webdavPassword}
-                  onChange={(event) => onValuesChange({ webdavPassword: event.target.value })}
-                  placeholder={editTarget ? t("admin.backup.destinations.webdavPasswordConfigured") : undefined}
-                />
-                {editTarget && editingWebdavSecret && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("admin.backup.destinations.webdavPasswordConfigured")}
-                  </p>
-                )}
-              </>
-            )}
+              )}
+            </div>
+            {isConfigured("password") &&
+              (clearedWebdavSecret && values.webdavPassword.trim() === "" ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.backup.destinations.secretClearPending")}
+                </p>
+              ) : !clearedWebdavSecret ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("admin.backup.destinations.webdavPasswordConfigured")}
+                </p>
+              ) : null)}
           </div>
 
           <div className="space-y-2">
@@ -443,50 +405,23 @@ export default function AdminBackupDestinationFormFields({
           <Label htmlFor="dest-encryption-password">
             {t("admin.backup.destinations.encryptionPassword")}
           </Label>
-          {/* Same masked replace-only presentation as the webdav password: the
+          {/* Same masked SecretInput presentation as the webdav password: the
               server blanks configured secrets, so the stored value can only be
-              kept, replaced, or explicitly cleared — never read back. */}
-          {editTarget &&
-          editTarget.configured_secret_fields.includes("encryption_password") &&
-          !editingEncryptionSecret ? (
-            <div className="flex items-center gap-2">
-              <Input
-                id="dest-encryption-password"
-                type="password"
-                value={DESTINATION_SECRET_MASK}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  onEditingEncryptionSecretChange(true)
-                  onValuesChange({ encryptionPassword: "" })
-                }}
-              >
-                {t("admin.backup.destinations.encryptionPasswordClear")}
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Input
-                id="dest-encryption-password"
-                type="password"
-                autoComplete="new-password"
-                value={values.encryptionPassword}
-                onChange={(event) => onValuesChange({ encryptionPassword: event.target.value })}
-                placeholder={
-                  editTarget ? t("admin.backup.destinations.encryptionPasswordConfigured") : undefined
-                }
-              />
-              {editTarget && editingEncryptionSecret && (
-                <p className="text-xs text-muted-foreground">
-                  {t("admin.backup.destinations.encryptionPasswordConfigured")}
-                </p>
-              )}
-            </>
+              kept or replaced — never read back. There is no clear button; the
+              backend requires a password while encryption is on, so the stored
+              password is dropped by saving with the encrypt toggle off. */}
+          <SecretInput
+            id="dest-encryption-password"
+            type="password"
+            autoComplete="new-password"
+            value={values.encryptionPassword}
+            configured={isConfigured("encryption_password")}
+            onValueChange={(value) => onValuesChange({ encryptionPassword: value })}
+          />
+          {isConfigured("encryption_password") && (
+            <p className="text-xs text-muted-foreground">
+              {t("admin.backup.destinations.encryptionPasswordConfigured")}
+            </p>
           )}
         </div>
       )}
