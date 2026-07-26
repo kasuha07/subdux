@@ -21,7 +21,7 @@ import type {
   SystemSettings,
 } from "@/types"
 import { summarizeBackupRun } from "./backup-run"
-import { mutationSucceeded } from "./backup-destinations"
+import { mutationSucceeded, type DestinationProbeRequest } from "./backup-destinations"
 import {
   buildAdminSettingsPayload,
   createAdminSettingsForm,
@@ -53,6 +53,7 @@ interface UseAdminPageStateResult {
   handleUpdateDestination: (id: number, body: { revision: number; enabled?: boolean; config?: string; sort_order?: number; cleared_secret_fields?: string[] }, reauthTicket: string) => Promise<boolean>
   handleDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
   handleTestDestination: (id: number) => Promise<void>
+  handleTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
   handleRunDestinationBackup: (id: number, reauthTicket: string) => Promise<void>
   handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
   handleDisableUserPasskeys: (user: AdminUser, reauthTicket: string) => Promise<void>
@@ -704,6 +705,24 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
+  // handleTestDestinationConfig probes a destination the admin is still editing,
+  // so it takes the form's own config instead of a saved id. It carries no
+  // reauth ticket for the same reason the saved-destination probe does not: it
+  // only reads. The server refuses to pair a stored secret with an endpoint
+  // changed in the same request, and that refusal surfaces here as an ordinary
+  // toast telling the admin to re-enter the secret.
+  async function handleTestDestinationConfig(body: DestinationProbeRequest) {
+    try {
+      const result = await api.post<{
+        message_code?: string
+        message_params?: Record<string, unknown>
+      }>("/admin/backup/destinations/test", body, { errorHandling: "toast" })
+      toast.success(localizeBackendMessage(result?.message_code, result?.message_params, "admin.backup.destinations.testSuccess"))
+    } catch {
+      void 0
+    }
+  }
+
   async function handleRefreshLocalBackups() {
     setLocalBackupsRefreshing(true)
     try {
@@ -835,6 +854,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleUpdateDestination,
     handleDeleteDestination,
     handleTestDestination,
+    handleTestDestinationConfig,
     handleRunDestinationBackup,
     handleDeleteUser,
     handleDisableUserPasskeys,

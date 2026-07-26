@@ -208,6 +208,7 @@ func (h *AdminHandler) RegisterRoutes(g RouteGroups) {
 	g.Admin.GET("/backup/local", h.ListLocalBackups)
 	g.Admin.GET("/backup/destinations", h.ListBackupDestinations)
 	g.Admin.POST("/backup/destinations", h.CreateBackupDestination)
+	g.Admin.POST("/backup/destinations/test", h.TestBackupDestinationConfig)
 	g.Admin.PUT("/backup/destinations/:id", h.UpdateBackupDestination)
 	g.Admin.DELETE("/backup/destinations/:id", h.DeleteBackupDestination)
 	g.Admin.POST("/backup/destinations/:id/test", h.TestBackupDestination)

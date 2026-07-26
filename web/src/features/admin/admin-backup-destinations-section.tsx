@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Clock, Pencil, PlayCircle, Plus, RefreshCw, Trash2, Wifi } from "lucide-react"
 
@@ -18,6 +18,7 @@ import AdminBackupDestinationFormFields, {
 } from "./admin-backup-destination-form-fields"
 import { formatDateTime } from "./admin-backup-format"
 import {
+  buildDestinationProbeRequest,
   buildLocalConfig,
   buildS3Config,
   buildWebDAVConfig,
@@ -27,6 +28,7 @@ import {
   parseWebDAVConfig,
   resolveEncryptionSecretUpdate,
   resolveSecretUpdate,
+  type DestinationProbeRequest,
 } from "./hooks/backup-destinations"
 
 // Request bodies handed back to the parent, which holds them until a reauth
@@ -53,6 +55,10 @@ interface AdminBackupDestinationsSectionProps {
   runningDestinationId: number | null
   onRefreshDestinations: () => void | Promise<void>
   onTestDestination: (id: number) => Promise<void>
+  // Probes the config currently in the add/edit dialog, which is how a
+  // destination can be checked before it is saved. Unlike onTestDestination it
+  // needs no id, so it also serves a destination that does not exist yet.
+  onTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
   // Create/update/delete and run are reauth-gated, so the section only reports
   // the intent plus its payload; the parent owns the step-up prompt and ticket.
   onRequestCreate: (body: DestinationCreateBody) => void
@@ -91,6 +97,7 @@ export default function AdminBackupDestinationsSection({
   runningDestinationId,
   onRefreshDestinations,
   onTestDestination,
+  onTestDestinationConfig,
   onRequestCreate,
   onRequestUpdate,
   onRequestDelete,
@@ -105,6 +112,16 @@ export default function AdminBackupDestinationsSection({
   const [clearedWebdavSecret, setClearedWebdavSecret] = useState(false)
   // in-flight test destination id
   const [testingDestinationId, setTestingDestinationId] = useState<number | null>(null)
+  // Whether the dialog's own connectivity test is in flight. It is tracked
+  // separately from testingDestinationId because it can run for a destination
+  // that has no id yet.
+  const [destFormTesting, setDestFormTesting] = useState(false)
+  // Identifies the probe the dialog is currently showing state for. A probe that
+  // has been superseded (the dialog was closed, or reopened on another
+  // destination) must not settle onto the current one: without this, an earlier
+  // probe's completion clears a later probe's spinner and re-enables the button
+  // while it is still running.
+  const destProbeRun = useRef(0)
 
   function updateDestForm(patch: Partial<DestinationFormValues>) {
     setDestForm((prev) => ({ ...prev, ...patch }))
@@ -116,6 +133,8 @@ export default function AdminBackupDestinationsSection({
     setDestFormOpen(false)
     setDestForm({ ...EMPTY_DESTINATION_FORM })
     setClearedWebdavSecret(false)
+    setDestFormTesting(false)
+    destProbeRun.current += 1
   }
 
   function openCreateForm() {
@@ -293,6 +312,26 @@ export default function AdminBackupDestinationsSection({
     }
   }
 
+  // handleDestFormTest checks the values in the dialog without saving them, so
+  // an admin can find out whether a destination works before committing it. The
+  // dialog deliberately stays open on both outcomes: a failed probe is something
+  // to correct in place, and a successful one still has to be saved.
+  function handleDestFormTest() {
+    // The dialog animates out, so the button stays clickable for a moment after
+    // close. Firing then would probe an emptied form under the previous
+    // destination's id.
+    if (!destFormOpen) return
+
+    destProbeRun.current += 1
+    const run = destProbeRun.current
+    setDestFormTesting(true)
+    void onTestDestinationConfig(
+      buildDestinationProbeRequest(destForm, destEditTarget, clearedWebdavSecret)
+    ).finally(() => {
+      if (destProbeRun.current === run) setDestFormTesting(false)
+    })
+  }
+
   function destStatusLabel(status: string) {
     if (status === "success") return t("admin.backup.lastRunSuccess")
     if (status === "failed") return t("admin.backup.lastRunFailed")
@@ -362,13 +401,25 @@ export default function AdminBackupDestinationsSection({
           </div>
 
           <div className="border-t px-5 py-4 sm:px-6">
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={closeDestForm}>
-                {t("admin.backup.cancel")}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={destFormTesting}
+                className="sm:mr-auto"
+                onClick={handleDestFormTest}
+              >
+                <Wifi className={`size-4 ${destFormTesting ? "animate-pulse" : ""}`} />
+                {t("admin.backup.destinations.testConnection")}
               </Button>
-              <Button className="flex-1" onClick={handleDestFormSave}>
-                {t("admin.backup.destinations.save")}
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 sm:flex-none" onClick={closeDestForm}>
+                  {t("admin.backup.cancel")}
+                </Button>
+                <Button className="flex-1 sm:flex-none" onClick={handleDestFormSave}>
+                  {t("admin.backup.destinations.save")}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

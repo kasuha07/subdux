@@ -76,9 +76,18 @@ export function parseLocalConfig(dest: BackupDestination): LocalDestConfig {
   }
 }
 
-export interface LocalConfigFields extends ScheduleConfigFields {
+export interface LocalTransportFields {
   dir: string
   retentionCount: number
+}
+
+export interface LocalConfigFields extends LocalTransportFields, ScheduleConfigFields {}
+
+function localTransportEntries(fields: LocalTransportFields): Record<string, unknown> {
+  return {
+    dir: fields.dir,
+    retention_count: fields.retentionCount,
+  }
 }
 
 // buildLocalConfig serialises the local form fields into the config JSON the
@@ -87,10 +96,16 @@ export interface LocalConfigFields extends ScheduleConfigFields {
 // shared schedule block.
 export function buildLocalConfig(fields: LocalConfigFields): string {
   return JSON.stringify({
-    dir: fields.dir,
-    retention_count: fields.retentionCount,
+    ...localTransportEntries(fields),
     ...scheduleConfigEntries(fields),
   })
+}
+
+// buildLocalProbeConfig is the connectivity-test half of buildLocalConfig: same
+// transport fields, no schedule block. See buildDestinationProbeRequest for why
+// the two are split.
+export function buildLocalProbeConfig(fields: LocalTransportFields): string {
+  return JSON.stringify(localTransportEntries(fields))
 }
 
 export function parseS3Config(dest: BackupDestination): S3DestConfig {
@@ -102,7 +117,7 @@ export function parseS3Config(dest: BackupDestination): S3DestConfig {
   }
 }
 
-export interface S3ConfigFields extends ScheduleConfigFields {
+export interface S3TransportFields {
   endpoint: string
   region: string
   bucket: string
@@ -115,12 +130,9 @@ export interface S3ConfigFields extends ScheduleConfigFields {
   retentionCount: number
 }
 
-// buildS3Config serialises the s3 form fields into the config JSON the backend
-// expects. Empty region/prefix are omitted so the stored config stays clean.
-// skip_tls_verify is always written, like the other switches: omitting it when
-// off would leave a previously enabled destination skipping verification after
-// the admin turned the toggle back off.
-export function buildS3Config(fields: S3ConfigFields): string {
+export interface S3ConfigFields extends S3TransportFields, ScheduleConfigFields {}
+
+function s3TransportEntries(fields: S3TransportFields): Record<string, unknown> {
   const config: Record<string, unknown> = {
     endpoint: fields.endpoint,
     bucket: fields.bucket,
@@ -130,11 +142,26 @@ export function buildS3Config(fields: S3ConfigFields): string {
     use_path_style: fields.usePathStyle,
     skip_tls_verify: fields.skipTlsVerify,
     retention_count: fields.retentionCount,
-    ...scheduleConfigEntries(fields),
   }
   if (fields.region) config.region = fields.region
   if (fields.prefix) config.prefix = fields.prefix
-  return JSON.stringify(config)
+  return config
+}
+
+// buildS3Config serialises the s3 form fields into the config JSON the backend
+// expects. Empty region/prefix are omitted so the stored config stays clean.
+// skip_tls_verify is always written, like the other switches: omitting it when
+// off would leave a previously enabled destination skipping verification after
+// the admin turned the toggle back off.
+export function buildS3Config(fields: S3ConfigFields): string {
+  return JSON.stringify({
+    ...s3TransportEntries(fields),
+    ...scheduleConfigEntries(fields),
+  })
+}
+
+export function buildS3ProbeConfig(fields: S3TransportFields): string {
+  return JSON.stringify(s3TransportEntries(fields))
 }
 
 export function parseWebDAVConfig(dest: BackupDestination): WebDAVDestConfig {
@@ -146,7 +173,7 @@ export function parseWebDAVConfig(dest: BackupDestination): WebDAVDestConfig {
   }
 }
 
-export interface WebDAVConfigFields extends ScheduleConfigFields {
+export interface WebDAVTransportFields {
   url: string
   path: string
   username: string
@@ -155,21 +182,62 @@ export interface WebDAVConfigFields extends ScheduleConfigFields {
   retentionCount: number
 }
 
-// buildWebDAVConfig serialises the webdav form fields into the config JSON the
-// backend expects. Empty path/username are omitted so the stored config stays
-// clean (mirrors s3's omit-empty treatment for region/prefix); skip_tls_verify
-// is always written for the same reason it is in buildS3Config.
-export function buildWebDAVConfig(fields: WebDAVConfigFields): string {
+export interface WebDAVConfigFields extends WebDAVTransportFields, ScheduleConfigFields {}
+
+function webdavTransportEntries(fields: WebDAVTransportFields): Record<string, unknown> {
   const config: Record<string, unknown> = {
     url: fields.url,
     password: fields.password,
     skip_tls_verify: fields.skipTlsVerify,
     retention_count: fields.retentionCount,
-    ...scheduleConfigEntries(fields),
   }
   if (fields.path) config.path = fields.path
   if (fields.username) config.username = fields.username
-  return JSON.stringify(config)
+  return config
+}
+
+// buildWebDAVConfig serialises the webdav form fields into the config JSON the
+// backend expects. Empty path/username are omitted so the stored config stays
+// clean (mirrors s3's omit-empty treatment for region/prefix); skip_tls_verify
+// is always written for the same reason it is in buildS3Config.
+export function buildWebDAVConfig(fields: WebDAVConfigFields): string {
+  return JSON.stringify({
+    ...webdavTransportEntries(fields),
+    ...scheduleConfigEntries(fields),
+  })
+}
+
+export function buildWebDAVProbeConfig(fields: WebDAVTransportFields): string {
+  return JSON.stringify(webdavTransportEntries(fields))
+}
+
+// DestinationProbeFormValues is the slice of the destination form a connectivity
+// test reads. It is declared structurally rather than imported from the form
+// component so this module keeps depending on nothing but the DTO, and so the
+// list doubles as a statement of what a probe does NOT look at: `enabled` and
+// the whole schedule block, none of which affect whether the target answers.
+//
+// DestinationFormValues satisfies it, so renaming or removing a form field fails
+// to compile at the call site. Adding one does not, and does not need to: the
+// guard against a new transport field reaching only the save path is that both
+// builders take the same *TransportFields types, so it breaks both or neither.
+export interface DestinationProbeFormValues {
+  type: string
+  dir: string
+  retention: number
+  endpoint: string
+  region: string
+  bucket: string
+  prefix: string
+  accessKeyId: string
+  secretAccessKey: string
+  useSsl: boolean
+  usePathStyle: boolean
+  webdavUrl: string
+  webdavPath: string
+  webdavUsername: string
+  webdavPassword: string
+  skipTlsVerify: boolean
 }
 
 export interface SecretResolution {
@@ -231,6 +299,91 @@ export function resolveEncryptionSecretUpdate(
     return { value: "", cleared_secret_fields: ["encryption_password"] }
   }
   return { value: "" }
+}
+
+// DestinationProbeRequest is the body of the unsaved-config connectivity test,
+// which is how the add/edit dialog checks a destination before committing to it.
+export interface DestinationProbeRequest {
+  type: string
+  config: string
+  destination_id?: number
+  cleared_secret_fields?: string[]
+}
+
+// buildDestinationProbeRequest assembles a connectivity test for whatever is in
+// the add/edit form right now, saved or not.
+//
+// The config it sends carries transport fields only. The schedule block — when
+// the plan fires, whether assets are included, and the archive encryption
+// password — never reaches the storage target, so a reachability check neither
+// needs those fields nor should make the admin complete them first.
+//
+// Secrets follow the same three paths as a save (see resolveSecretUpdate): a
+// typed value is sent, an explicitly cleared one is reported as cleared, and a
+// blank one is left for the server to fill in from the saved destination named
+// by destination_id. The server only performs that inheritance while the
+// credential still points at the address it already reaches, so an endpoint
+// edited in the same breath as a blank secret comes back asking for the secret
+// rather than quietly shipping it somewhere new.
+export function buildDestinationProbeRequest(
+  values: DestinationProbeFormValues,
+  editTarget: BackupDestination | null,
+  clearedWebdavSecret: boolean
+): DestinationProbeRequest {
+  const secretIsConfigured = (field: string) =>
+    editTarget?.configured_secret_fields.includes(field) ?? false
+
+  let config: string
+  let clearedSecretFields: string[] | undefined
+
+  if (values.type === "s3") {
+    // Replace-only, exactly like the save path: the s3 secret has no clear
+    // affordance, so cleared is always false.
+    const secret = resolveSecretUpdate(
+      "secret_access_key",
+      values.secretAccessKey,
+      false,
+      secretIsConfigured("secret_access_key")
+    )
+    config = buildS3ProbeConfig({
+      endpoint: values.endpoint,
+      region: values.region,
+      bucket: values.bucket,
+      prefix: values.prefix,
+      accessKeyId: values.accessKeyId,
+      secretAccessKey: secret.value,
+      useSsl: values.useSsl,
+      usePathStyle: values.usePathStyle,
+      skipTlsVerify: values.skipTlsVerify,
+      retentionCount: values.retention,
+    })
+  } else if (values.type === "webdav") {
+    const password = resolveSecretUpdate(
+      "password",
+      values.webdavPassword,
+      clearedWebdavSecret,
+      secretIsConfigured("password")
+    )
+    clearedSecretFields = password.cleared_secret_fields
+    config = buildWebDAVProbeConfig({
+      url: values.webdavUrl,
+      path: values.webdavPath,
+      username: values.webdavUsername,
+      password: password.value,
+      skipTlsVerify: values.skipTlsVerify,
+      retentionCount: values.retention,
+    })
+  } else {
+    config = buildLocalProbeConfig({
+      dir: values.dir,
+      retentionCount: values.retention,
+    })
+  }
+
+  const request: DestinationProbeRequest = { type: values.type, config }
+  if (editTarget) request.destination_id = editTarget.id
+  if (clearedSecretFields) request.cleared_secret_fields = clearedSecretFields
+  return request
 }
 
 export function mutationSucceeded<T>(value: T | undefined): value is T {

@@ -32,6 +32,17 @@ type updateDestinationRequest struct {
 	ClearedSecretFields []string `json:"cleared_secret_fields"`
 }
 
+// testDestinationConfigRequest probes a config the admin has not saved yet.
+// DestinationID names the destination the edit form was opened from, which is
+// what lets secrets left blank be inherited from storage; cleared_secret_fields
+// carries the same "drop this secret" intent as an update.
+type testDestinationConfigRequest struct {
+	Type                string   `json:"type"`
+	Config              string   `json:"config"`
+	DestinationID       uint     `json:"destination_id"`
+	ClearedSecretFields []string `json:"cleared_secret_fields"`
+}
+
 func (h *AdminHandler) ListBackupDestinations(c echo.Context) error {
 	destinations, err := h.Backup.WithContext(c.Request().Context()).ListDestinations()
 	if err != nil {
@@ -171,7 +182,58 @@ func (h *AdminHandler) TestBackupDestination(c echo.Context) error {
 
 	count, err := h.Backup.WithContext(c.Request().Context()).TestDestination(c.Request().Context(), id)
 	if err != nil {
-		return writeBackupDestinationError(c, err)
+		return writeBackupDestinationProbeError(c, err)
+	}
+	return httpx.WriteMessageCodeFields(
+		c,
+		http.StatusOK,
+		"backup_destination_reachable",
+		map[string]any{"backup_count": count},
+		nil,
+	)
+}
+
+// TestBackupDestinationConfig runs the same read-only connectivity probe as
+// TestBackupDestination against a config the admin has not saved yet, so a
+// destination can be validated from the add/edit dialog before it is committed.
+//
+// It writes nothing and carries no reauth ticket, matching the saved-config probe
+// above. Be precise about what that costs, because it is easy to overstate the
+// precedent: POST /admin/settings/ssrf/test does NOT reach out — it resolves DNS
+// and evaluates policy (see outbound.TestSSRF) — so it is not the thing that
+// makes this safe. What does hold is that UpdateSettings carries no step-up
+// ticket either, and the OIDC issuer and exchange-rate endpoint it writes are
+// themselves exempt from the SSRF filter, so a session-only admin already has
+// SSRF-exempt outbound reach. This endpoint makes that reach more direct rather
+// than newly possible.
+//
+// What it must not become is a way around the step-up gate on where credentials
+// are sent, so the service refuses to pair a stored secret with an endpoint
+// changed in the same request.
+//
+// For a local destination the exposure is a filesystem rather than a network one:
+// an unticketed probe reveals whether an arbitrary absolute path is readable and
+// how many backup archives sit in it. The yield is a count of subdux-backup-*.zip
+// files. It is deliberately not confined to the data directory, because the save
+// path accepts any absolute path (resolveBackupDir) and a probe that rejected
+// configs which save fine would be worse than the disclosure it prevents.
+func (h *AdminHandler) TestBackupDestinationConfig(c echo.Context) error {
+	var input testDestinationConfigRequest
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
+		return nil
+	}
+
+	count, err := h.Backup.WithContext(c.Request().Context()).TestDestinationConfig(
+		c.Request().Context(),
+		servicebackup.TestDestinationConfigInput{
+			Type:                input.Type,
+			Config:              input.Config,
+			DestinationID:       input.DestinationID,
+			ClearedSecretFields: input.ClearedSecretFields,
+		},
+	)
+	if err != nil {
+		return writeBackupDestinationProbeError(c, err)
 	}
 	return httpx.WriteMessageCodeFields(
 		c,
@@ -235,4 +297,20 @@ func writeBackupDestinationError(c echo.Context, err error) error {
 		return err
 	}
 	return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_save_backup_destination")
+}
+
+// writeBackupDestinationProbeError is the connectivity-probe counterpart. The
+// probes need their own fallback because their most common failure — a wrong
+// endpoint, a rejected credential, a refused connection, an unverifiable
+// certificate — arrives as an untyped error from minio-go, net/http, or os, and
+// the mutation fallback above would report it as a 500 reading "failed to save
+// backup destination" for a request that saves nothing.
+//
+// 502 is the honest status: the request was well formed and the server worked;
+// the destination beyond it did not answer.
+func writeBackupDestinationProbeError(c echo.Context, err error) error {
+	if _, ok := serviceerr.KindOf(err); ok {
+		return err
+	}
+	return httpx.WriteError(c, http.StatusBadGateway, "backup_destination_unreachable")
 }

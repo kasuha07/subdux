@@ -3,9 +3,13 @@ import { describe, expect, it } from "vitest"
 import type { BackupDestination } from "@/types"
 
 import {
+  buildDestinationProbeRequest,
   buildLocalConfig,
+  buildLocalProbeConfig,
   buildS3Config,
+  buildS3ProbeConfig,
   buildWebDAVConfig,
+  buildWebDAVProbeConfig,
   destStatusVariant,
   parseLocalConfig,
   parseS3Config,
@@ -13,6 +17,7 @@ import {
   mutationSucceeded,
   resolveEncryptionSecretUpdate,
   resolveSecretUpdate,
+  type DestinationProbeFormValues,
 } from "./backup-destinations"
 
 // The schedule block is shared by all three destination types, so every
@@ -539,6 +544,181 @@ describe("shared schedule config fields", () => {
     expect(parsed.time_of_day).toBe("04:30")
     expect(parsed.include_assets).toBe(true)
     expect(parsed.encrypt_enabled).toBe(true)
+  })
+})
+
+// The probe builders are the connectivity-test twins of the save builders: same
+// transport fields, no schedule block. The schedule never reaches the storage
+// target, so sending it would only let an unrelated field (an unset archive
+// password, say) block a reachability check.
+describe("probe config builders omit the schedule block", () => {
+  const schedule = {
+    timeOfDay: "04:30",
+    includeAssets: true,
+    encryptEnabled: true,
+    encryptionPassword: "archive-pass",
+  }
+  const scheduleKeys = ["time_of_day", "include_assets", "encrypt_enabled", "encryption_password"]
+
+  it("keeps local transport fields and drops the schedule", () => {
+    const transport = { dir: "/srv/backups", retentionCount: 4 }
+    const probe = JSON.parse(buildLocalProbeConfig(transport)) as Record<string, unknown>
+    expect(probe.dir).toBe("/srv/backups")
+    expect(probe.retention_count).toBe(4)
+    for (const key of scheduleKeys) {
+      expect(Object.prototype.hasOwnProperty.call(probe, key)).toBe(false)
+    }
+
+    // Everything the save path emits apart from the schedule must still be here,
+    // so a probe can never test a different transport than the one being saved.
+    const saved = JSON.parse(buildLocalConfig({ ...schedule, ...transport })) as Record<string, unknown>
+    for (const key of scheduleKeys) delete saved[key]
+    expect(probe).toEqual(saved)
+  })
+
+  it("keeps s3 transport fields and drops the schedule", () => {
+    const transport = {
+      endpoint: "s3.amazonaws.com",
+      region: "eu-west-1",
+      bucket: "bucket",
+      prefix: "prod/",
+      accessKeyId: "ID",
+      secretAccessKey: "secret",
+      useSsl: true,
+      usePathStyle: false,
+      skipTlsVerify: true,
+      retentionCount: 7,
+    }
+    const probe = JSON.parse(buildS3ProbeConfig(transport)) as Record<string, unknown>
+    expect(probe.endpoint).toBe("s3.amazonaws.com")
+    expect(probe.secret_access_key).toBe("secret")
+    expect(probe.skip_tls_verify).toBe(true)
+    for (const key of scheduleKeys) {
+      expect(Object.prototype.hasOwnProperty.call(probe, key)).toBe(false)
+    }
+
+    const saved = JSON.parse(buildS3Config({ ...schedule, ...transport })) as Record<string, unknown>
+    for (const key of scheduleKeys) delete saved[key]
+    expect(probe).toEqual(saved)
+  })
+
+  it("keeps webdav transport fields and drops the schedule", () => {
+    const transport = {
+      url: "https://dav.example.com/dav",
+      path: "backups",
+      username: "admin",
+      password: "secret",
+      skipTlsVerify: false,
+      retentionCount: 3,
+    }
+    const probe = JSON.parse(buildWebDAVProbeConfig(transport)) as Record<string, unknown>
+    expect(probe.url).toBe("https://dav.example.com/dav")
+    expect(probe.password).toBe("secret")
+    for (const key of scheduleKeys) {
+      expect(Object.prototype.hasOwnProperty.call(probe, key)).toBe(false)
+    }
+
+    const saved = JSON.parse(buildWebDAVConfig({ ...schedule, ...transport })) as Record<string, unknown>
+    for (const key of scheduleKeys) delete saved[key]
+    expect(probe).toEqual(saved)
+  })
+})
+
+describe("buildDestinationProbeRequest", () => {
+  const baseValues: DestinationProbeFormValues = {
+    type: "local",
+    dir: "/srv/backups",
+    retention: 7,
+    endpoint: "s3.example.com",
+    region: "",
+    bucket: "bucket",
+    prefix: "",
+    accessKeyId: "AKID",
+    secretAccessKey: "",
+    useSsl: true,
+    usePathStyle: false,
+    webdavUrl: "https://dav.example.com/dav",
+    webdavPath: "",
+    webdavUsername: "admin",
+    webdavPassword: "",
+    skipTlsVerify: false,
+  }
+
+  // On create there is nothing stored to fall back on, so the probe must stand
+  // entirely on the typed values.
+  it("omits destination_id when creating", () => {
+    const request = buildDestinationProbeRequest(baseValues, null, false)
+    expect(request.type).toBe("local")
+    expect(request.destination_id).toBeUndefined()
+    expect(request.cleared_secret_fields).toBeUndefined()
+    expect(JSON.parse(request.config)).toMatchObject({ dir: "/srv/backups", retention_count: 7 })
+  })
+
+  it("sends destination_id when editing so a blank secret can be inherited", () => {
+    const editTarget = makeDestination({
+      id: 42,
+      type: "s3",
+      configured_secret_fields: ["secret_access_key"],
+    })
+    const request = buildDestinationProbeRequest({ ...baseValues, type: "s3" }, editTarget, false)
+    expect(request.destination_id).toBe(42)
+    const config = JSON.parse(request.config) as Record<string, unknown>
+    expect(config.secret_access_key).toBe("")
+  })
+
+  it("sends a typed secret instead of relying on inheritance", () => {
+    const editTarget = makeDestination({
+      id: 42,
+      type: "s3",
+      configured_secret_fields: ["secret_access_key"],
+    })
+    const request = buildDestinationProbeRequest(
+      { ...baseValues, type: "s3", secretAccessKey: "retyped" },
+      editTarget,
+      false
+    )
+    const config = JSON.parse(request.config) as Record<string, unknown>
+    expect(config.secret_access_key).toBe("retyped")
+  })
+
+  // A cleared webdav password means the admin wants to probe anonymous access,
+  // so the server must be told not to revive the stored one.
+  it("reports a cleared webdav password so the stored one is not inherited", () => {
+    const editTarget = makeDestination({
+      id: 7,
+      type: "webdav",
+      configured_secret_fields: ["password"],
+    })
+    const request = buildDestinationProbeRequest({ ...baseValues, type: "webdav" }, editTarget, true)
+    expect(request.cleared_secret_fields).toEqual(["password"])
+    const config = JSON.parse(request.config) as Record<string, unknown>
+    expect(config.password).toBe("")
+  })
+
+  it("lets a retyped webdav password win over a stale cleared flag", () => {
+    const editTarget = makeDestination({
+      id: 7,
+      type: "webdav",
+      configured_secret_fields: ["password"],
+    })
+    const request = buildDestinationProbeRequest(
+      { ...baseValues, type: "webdav", webdavPassword: "newPass" },
+      editTarget,
+      true
+    )
+    expect(request.cleared_secret_fields).toBeUndefined()
+    const config = JSON.parse(request.config) as Record<string, unknown>
+    expect(config.password).toBe("newPass")
+  })
+
+  // The archive password protects the archive bytes, never the connection, so it
+  // must not appear in a probe body at all.
+  it("never carries the encryption password", () => {
+    for (const type of ["local", "s3", "webdav"]) {
+      const request = buildDestinationProbeRequest({ ...baseValues, type }, null, false)
+      const config = JSON.parse(request.config) as Record<string, unknown>
+      expect(Object.prototype.hasOwnProperty.call(config, "encryption_password")).toBe(false)
+    }
   })
 })
 

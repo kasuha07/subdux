@@ -20,6 +20,7 @@ import AdminBackupDestinationsSection, {
   type DestinationCreateBody,
   type DestinationUpdateBody,
 } from "./admin-backup-destinations-section"
+import type { DestinationProbeRequest } from "./hooks/backup-destinations"
 import ReauthDialog, { type ReauthScope } from "./reauth-dialog"
 
 interface AdminBackupTabProps {
@@ -36,6 +37,7 @@ interface AdminBackupTabProps {
   onDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
   onRunDestination: (id: number, reauthTicket: string) => void | Promise<void>
   onTestDestination: (id: number) => Promise<void>
+  onTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
   onDownloadBackup: (reauthTicket: string) => Promise<boolean>
   onDownloadPasswordChange: (value: string) => void
   onIncludeAssetsInBackupChange: (value: boolean) => void
@@ -66,6 +68,7 @@ export default function AdminBackupTab({
   onDeleteDestination,
   onRunDestination,
   onTestDestination,
+  onTestDestinationConfig,
   onDownloadBackup,
   onDownloadPasswordChange,
   onIncludeAssetsInBackupChange,
@@ -234,6 +237,7 @@ export default function AdminBackupTab({
         runningDestinationId={runningDestinationId}
         onRefreshDestinations={onRefreshDestinations}
         onTestDestination={onTestDestination}
+        onTestDestinationConfig={onTestDestinationConfig}
         onRequestCreate={(body) => {
           setPendingDestCreate(body)
           setReauthPrompt("dest-create")

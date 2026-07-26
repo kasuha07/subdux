@@ -16,7 +16,7 @@ admin/
 ├── hooks/use-admin-page-state.ts          # Fetching, mutations, backup/restore, reauth, save flows
 ├── hooks/admin-settings-form.ts           # Admin settings form state/builders/mappers
 ├── hooks/admin-settings-form.test.ts      # Form-state regression tests
-├── hooks/backup-destinations.ts           # Destination config parse/build helpers, secret masking
+├── hooks/backup-destinations.ts           # Destination config parse/build helpers, secret masking, probe requests
 ├── hooks/backup-destinations.test.ts      # Destination config helper tests
 ├── hooks/backup-run.ts                    # Backup run result summarization (delivery/retention/bookkeeping)
 ├── hooks/backup-run.test.ts               # Backup run summary tests
@@ -37,7 +37,7 @@ admin/
 ├── admin-background-tasks-tab.tsx         # Background task status and refresh
 ├── admin-audit-tab.tsx                    # Admin audit-event view
 ├── admin-backup-tab.tsx                   # Multi-destination backup (local/S3/WebDAV), run/test, local backups, restore upload
-├── admin-backup-destinations-section.tsx  # Destination list, add/edit/delete, connectivity test
+├── admin-backup-destinations-section.tsx  # Destination list, add/edit/delete, saved and in-dialog connectivity tests
 ├── admin-backup-destination-form-fields.tsx # Type-switched local/S3/WebDAV config fields
 ├── admin-backup-format.ts                 # Byte/date formatting shared by the backup tab and its sections
 ├── admin-loading-skeleton.tsx             # Initial loading state
@@ -58,7 +58,7 @@ admin/
 | Exchange rates | `admin-exchange-rates-tab.tsx` | Source/API key/status/refresh |
 | Background tasks | `admin-background-tasks-tab.tsx` | Task monitor display and manual refresh |
 | Audit events | `admin-audit-tab.tsx` | Admin audit endpoint |
-| Backup/restore | `admin-backup-tab.tsx`, `hooks/backup-destinations.ts`, `hooks/backup-run.ts` | Destination CRUD/test (reauth-gated), include-assets option, local backups, restore confirmation |
+| Backup/restore | `admin-backup-tab.tsx`, `hooks/backup-destinations.ts`, `hooks/backup-run.ts` | Destination CRUD and run are reauth-gated; the read-only connectivity probes are not. Include-assets option, local backups, restore confirmation |
 
 ## CONVENTIONS
 
