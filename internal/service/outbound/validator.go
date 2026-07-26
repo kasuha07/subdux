@@ -107,6 +107,7 @@ func PurposeAppliesSSRFPolicy(purpose Purpose) bool {
 	case PurposeOIDC,
 		PurposeFixedNotification,
 		PurposeIconProxy,
+		PurposeBackupDestination,
 		PurposeExchangeRate:
 		return false
 	default:

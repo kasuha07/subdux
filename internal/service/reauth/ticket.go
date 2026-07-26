@@ -19,13 +19,24 @@ const (
 type reauthTicket struct {
 	userID    uint
 	operation string
+	binding   *TicketBinding
 	expiresAt time.Time
 	createdAt time.Time
 }
 
-// Consume validates and atomically spends a ticket. A ticket is valid only for
-// the same user and operation it was minted for, and only once.
+// Consume validates and atomically spends an unbound ticket. A ticket is valid
+// only for the same user and operation it was minted for, and only once.
 func (s *Service) Consume(userID uint, operation string, ticket string) error {
+	return s.ConsumeWithBinding(userID, operation, nil, ticket)
+}
+
+// ConsumeWithBinding validates and atomically spends a ticket that may also be
+// bound to a specific mutable resource revision.
+func (s *Service) ConsumeWithBinding(userID uint, operation string, binding *TicketBinding, ticket string) error {
+	if err := ValidateTicketBinding(operation, binding); err != nil {
+		return err
+	}
+
 	ticket = strings.TrimSpace(ticket)
 	if ticket == "" {
 		return ErrReauthRequired
@@ -44,7 +55,7 @@ func (s *Service) Consume(userID uint, operation string, ticket string) error {
 	// cannot be probed against multiple users/operations.
 	delete(s.tickets, ticket)
 
-	if entry.userID != userID || entry.operation != operation {
+	if entry.userID != userID || entry.operation != operation || !sameTicketBinding(entry.binding, binding) {
 		return ErrReauthRequired
 	}
 	if pkg.NowUTC().After(entry.expiresAt) {
@@ -54,6 +65,14 @@ func (s *Service) Consume(userID uint, operation string, ticket string) error {
 }
 
 func (s *Service) mintTicket(userID uint, operation string) (string, error) {
+	return s.mintTicketWithBinding(userID, operation, nil)
+}
+
+func (s *Service) mintTicketWithBinding(userID uint, operation string, binding *TicketBinding) (string, error) {
+	if err := ValidateTicketBinding(operation, binding); err != nil {
+		return "", err
+	}
+
 	// generateSecureToken returns URL-safe base64 with no padding.
 	ticket, err := serviceutil.GenerateSecureToken(reauthTicketBytes)
 	if err != nil {
@@ -70,6 +89,7 @@ func (s *Service) mintTicket(userID uint, operation string) (string, error) {
 	s.tickets[ticket] = reauthTicket{
 		userID:    userID,
 		operation: operation,
+		binding:   cloneTicketBinding(binding),
 		expiresAt: now.Add(reauthTicketTTL),
 		createdAt: now,
 	}

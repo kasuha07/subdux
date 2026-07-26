@@ -34,8 +34,6 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		BackupIncludeAssets:      input.BackupIncludeAssets,
 		BackupEncryptEnabled:     input.BackupEncryptEnabled,
 		BackupEncryptionPassword: input.BackupEncryptionPassword,
-		BackupLocalDir:           input.BackupLocalDir,
-		BackupRetentionCount:     input.BackupRetentionCount,
 	}); ok {
 		if h.Reauth == nil {
 			return httpx.WriteError(c, http.StatusInternalServerError, "reauthentication_service_is_not_configured")

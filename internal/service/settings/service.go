@@ -90,8 +90,6 @@ var DefaultSystemSettings = []model.SystemSetting{
 	{Key: "backup_include_assets", Value: "false"},
 	{Key: "backup_encrypt_enabled", Value: "false"},
 	{Key: "backup_encryption_password", Value: ""},
-	{Key: "backup_local_dir", Value: ""},
-	{Key: "backup_retention_count", Value: "7"},
 	{Key: "backup_last_run_at", Value: ""},
 	{Key: "backup_last_status", Value: ""},
 	{Key: "backup_last_error", Value: ""},

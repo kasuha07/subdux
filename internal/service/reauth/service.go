@@ -120,8 +120,17 @@ func (s *Service) WithContext(ctx context.Context) *Service {
 // for the account (a passkey enrolled without TOTP). On success it mints a ticket
 // for the given operation.
 func (s *Service) VerifyPassword(userID uint, operation string, password string, code string) (string, error) {
+	return s.VerifyPasswordWithBinding(userID, operation, password, code, nil)
+}
+
+// VerifyPasswordWithBinding verifies the password factor and mints a ticket
+// carrying the optional destination binding.
+func (s *Service) VerifyPasswordWithBinding(userID uint, operation string, password string, code string, binding *TicketBinding) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
+	}
+	if err := ValidateTicketBinding(operation, binding); err != nil {
+		return "", err
 	}
 	if password == "" {
 		return "", ErrReauthRequired
@@ -140,38 +149,68 @@ func (s *Service) VerifyPassword(userID uint, operation string, password string,
 		return "", ErrReauthRequired
 	}
 
-	return s.mintTicket(userID, operation)
+	return s.mintTicketWithBinding(userID, operation, binding)
 }
 
 // BeginPasskey starts a user-scoped passkey assertion for the operation. The
 // operation is validated here; the challenge itself is issued by AuthService.
 func (s *Service) BeginPasskey(userID uint, operation string, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
+	return s.BeginPasskeyWithBinding(userID, operation, nil, origin, host, scheme)
+}
+
+// BeginPasskeyWithBinding starts a passkey assertion carrying the optional
+// destination binding through the challenge session.
+func (s *Service) BeginPasskeyWithBinding(userID uint, operation string, binding *TicketBinding, origin string, host string, scheme string) (*PasskeyBeginResult, error) {
 	if !IsValidReauthOperation(operation) {
 		return nil, ErrInvalidReauthOperation
 	}
-	return s.auth.BeginPasskeyReauth(userID, operation, origin, host, scheme)
+	scoped, err := scopedOperation(operation, binding)
+	if err != nil {
+		return nil, err
+	}
+	return s.auth.BeginPasskeyReauth(userID, scoped, origin, host, scheme)
 }
 
 // FinishPasskey validates a passkey assertion for the user and, on success,
 // mints a ticket for the operation.
 func (s *Service) FinishPasskey(userID uint, operation string, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (string, error) {
+	return s.FinishPasskeyWithBinding(userID, operation, nil, sessionID, parsedResponse, origin, host, scheme)
+}
+
+// FinishPasskeyWithBinding completes a passkey assertion and mints a ticket
+// carrying the same destination binding used to start the challenge.
+func (s *Service) FinishPasskeyWithBinding(userID uint, operation string, binding *TicketBinding, sessionID string, parsedResponse *protocol.ParsedCredentialAssertionData, origin string, host string, scheme string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
-	if err := s.auth.FinishPasskeyReauth(userID, operation, sessionID, parsedResponse, origin, host, scheme); err != nil {
+	scoped, err := scopedOperation(operation, binding)
+	if err != nil {
 		return "", err
 	}
-	return s.mintTicket(userID, operation)
+	if err := s.auth.FinishPasskeyReauth(userID, scoped, sessionID, parsedResponse, origin, host, scheme); err != nil {
+		return "", err
+	}
+	return s.mintTicketWithBinding(userID, operation, binding)
 }
 
 // BeginOIDC starts an OIDC step-up for the operation, returning the provider
 // authorization URL the client opens (in a popup) to authenticate. The operation
 // is validated here and carried through the OIDC state session.
 func (s *Service) BeginOIDC(userID uint, operation string) (*OIDCStartResult, error) {
+	return s.BeginOIDCWithBinding(userID, operation, nil)
+}
+
+// BeginOIDCWithBinding starts an OIDC step-up carrying the optional
+// destination binding through the provider state session.
+func (s *Service) BeginOIDCWithBinding(userID uint, operation string, binding *TicketBinding) (*OIDCStartResult, error) {
 	if !IsValidReauthOperation(operation) {
 		return nil, ErrInvalidReauthOperation
 	}
-	return s.auth.BeginOIDCReauth(userID, operation)
+	scoped, err := scopedOperation(operation, binding)
+	if err != nil {
+		return nil, err
+	}
+	return s.auth.BeginOIDCReauth(userID, scoped)
 }
 
 // VerifyOIDC completes an OIDC step-up: it spends the single-use reauth result
@@ -180,11 +219,22 @@ func (s *Service) BeginOIDC(userID uint, operation string) (*OIDCStartResult, er
 // account's enrolled factors, and on success mints a ticket. Mirrors
 // FinishPasskey — the sensitive endpoints never learn which factor was used.
 func (s *Service) VerifyOIDC(userID uint, operation string, sessionID string) (string, error) {
+	return s.VerifyOIDCWithBinding(userID, operation, nil, sessionID)
+}
+
+// VerifyOIDCWithBinding consumes the OIDC result for the same operation and
+// destination binding that started the provider flow, then mints the bound
+// ticket.
+func (s *Service) VerifyOIDCWithBinding(userID uint, operation string, binding *TicketBinding, sessionID string) (string, error) {
 	if !IsValidReauthOperation(operation) {
 		return "", ErrInvalidReauthOperation
 	}
 
-	grade, err := s.auth.ConsumeOIDCReauthResult(sessionID, userID, operation)
+	scoped, err := scopedOperation(operation, binding)
+	if err != nil {
+		return "", err
+	}
+	grade, err := s.auth.ConsumeOIDCReauthResult(sessionID, userID, scoped)
 	if err != nil {
 		return "", err
 	}
@@ -198,5 +248,5 @@ func (s *Service) VerifyOIDC(userID uint, operation string, sessionID string) (s
 		return "", ErrOIDCReauthInsufficient
 	}
 
-	return s.mintTicket(userID, operation)
+	return s.mintTicketWithBinding(userID, operation, binding)
 }

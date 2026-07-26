@@ -22,13 +22,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// The backup/restore step-up gates live in AdminHandler.BackupDB and
-// AdminHandler.RestoreDB, which call ReauthService.Consume before doing any
-// work. The service-level Consume tests prove ticket semantics in isolation;
-// these tests prove the wiring end-to-end through the router — that the
-// sensitive endpoints actually refuse a request with no ticket, a
-// wrong-operation ticket, or an already-spent ticket, and only proceed once a
-// valid, operation-matched ticket is presented.
+// The backup/restore step-up gates live in AdminHandler.BackupDB,
+// AdminHandler.RunBackupNow, and AdminHandler.RestoreDB, which call
+// ReauthService.Consume before doing any work. The service-level Consume tests
+// prove ticket semantics in isolation; these tests prove the wiring end-to-end
+// through the router — that the sensitive endpoints actually refuse a request
+// with no ticket, a wrong-operation ticket, or an already-spent ticket, and only
+// proceed once a valid, operation-matched ticket is presented.
 //
 // The router builds its own ReauthService internally, so the only way to obtain
 // a ticket the handler will accept is to mint one through the real
@@ -117,6 +117,19 @@ func postBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.Resp
 	body := `{"include_assets":false,"password":""}`
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/backup", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if ticket != "" {
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func postRunBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/backup/run", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ticket != "" {
 		req.Header.Set(apimw.ReauthTicketHeader, ticket)
@@ -335,6 +348,63 @@ func TestBackupDBGateRequiresValidReauthTicket(t *testing.T) {
 
 		// The same ticket must not authorize a second backup.
 		rec = postBackup(t, e, token, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+}
+
+func TestRunBackupNowGateRequiresValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	if err := db.AutoMigrate(&model.BackupDestination{}); err != nil {
+		t.Fatalf("failed to migrate backup destinations: %v", err)
+	}
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	t.Run("missing ticket is refused", func(t *testing.T) {
+		rec := postRunBackup(t, e, token, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		backupTicket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
+		rec := postRunBackup(t, e, token, backupTicket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, want re-authentication required", rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket reaches backup service and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupRun)
+
+		// The empty destination table stops the service before any backup I/O. A
+		// typed service error here proves the reauth gate passed first.
+		rec := postRunBackup(t, e, token, ticket)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("body = %s, ticket should have cleared the gate", rec.Body.String())
+		}
+		if !hasErrorCodeForMessage(rec.Body.String(), "no enabled backup destination is configured") {
+			t.Fatalf("body = %s, want no enabled backup destination", rec.Body.String())
+		}
+
+		// The same ticket must not authorize a second run.
+		rec = postRunBackup(t, e, token, ticket)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("reused ticket status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
@@ -965,6 +1035,17 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 
 func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
+	if err := db.AutoMigrate(&model.BackupDestination{}); err != nil {
+		t.Fatalf("failed to migrate backup destinations: %v", err)
+	}
+	if err := db.Create(&model.BackupDestination{
+		Revision: 1,
+		Type:     "local",
+		Enabled:  true,
+		Config:   "{}",
+	}).Error; err != nil {
+		t.Fatalf("failed to create enabled backup destination: %v", err)
+	}
 	admin := createReauthGateTestAdmin(t, db)
 	e := newHumanOnlyRouteTestServer(t, db)
 	token := reauthGateTestToken(t, admin)
@@ -1007,7 +1088,7 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 
 	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
 		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupSchedule)
-		body := `{"backup_schedule_enabled":true,"backup_time_of_day":"04:30","backup_include_assets":true,"backup_retention_count":3}`
+		body := `{"backup_schedule_enabled":true,"backup_time_of_day":"04:30","backup_include_assets":true}`
 
 		rec := putAdminSettings(t, e, token, body, ticket)
 		if rec.Code != http.StatusOK {
@@ -1026,9 +1107,6 @@ func TestUpdateSettingsBackupScheduleGateRequiresValidReauthTicket(t *testing.T)
 		}
 		if !settings.BackupIncludeAssets {
 			t.Fatal("BackupIncludeAssets = false, want true")
-		}
-		if settings.BackupRetentionCount != 3 {
-			t.Fatalf("BackupRetentionCount = %d, want 3", settings.BackupRetentionCount)
 		}
 
 		rec = putAdminSettings(t, e, token, `{"backup_time_of_day":"05:15"}`, ticket)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
-import { api, getAPIErrorMessage, getUser, localizeBackendMessageResponse } from "@/lib/api"
+import { api, getAPIErrorMessage, getUser, localizeBackendMessage, localizeBackendMessageResponse } from "@/lib/api"
 import {
   detectZipEncryption,
   verifyZipPassword,
@@ -11,12 +11,17 @@ import { toast } from "@/lib/toast"
 import type {
   AdminUser,
   BackgroundTask,
+  BackupDestination,
+  BackupDestinationRunResult,
+  BackupRunResponse,
   ExchangeRateStatus,
   LocalBackupInfo,
   LocalBackupList,
   SSRFTestResult,
   SystemSettings,
 } from "@/types"
+import { summarizeBackupRun } from "./backup-run"
+import { mutationSucceeded } from "./backup-destinations"
 import {
   buildAdminSettingsPayload,
   createAdminSettingsForm,
@@ -26,7 +31,7 @@ import {
 } from "./admin-settings-form"
 
 interface UseAdminPageStateOptions {
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 }
 
 interface BackupStatus {
@@ -44,10 +49,17 @@ interface UseAdminPageStateResult {
   backgroundTasksRefreshing: boolean
   backupStatus: BackupStatus
   createDialogOpen: boolean
+  destinations: BackupDestination[]
+  destinationsRefreshing: boolean
   downloadPassword: string
   handleCreateUser: (reauthTicket?: string) => Promise<void>
   handleRefreshBackgroundTasks: () => Promise<void>
   handleRefreshLocalBackups: () => Promise<void>
+  handleRefreshDestinations: () => Promise<void>
+  handleCreateDestination: (body: { type: string; enabled: boolean; config: string; sort_order: number }, reauthTicket: string) => Promise<boolean>
+  handleUpdateDestination: (id: number, body: { revision: number; enabled?: boolean; config?: string; sort_order?: number; cleared_secret_fields?: string[] }, reauthTicket: string) => Promise<boolean>
+  handleDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
+  handleTestDestination: (id: number) => Promise<void>
   handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
   handleDisableUserPasskeys: (user: AdminUser, reauthTicket: string) => Promise<void>
   handleDisableUserTOTP: (user: AdminUser, reauthTicket: string) => Promise<void>
@@ -56,7 +68,7 @@ interface UseAdminPageStateResult {
   handleRegistrationEmailVerificationChange: (enabled: boolean) => void
   handleRestore: (reauthTicket: string) => Promise<boolean>
   handleValidateRestoreInputs: () => Promise<boolean>
-  handleRunBackupNow: () => Promise<void>
+  handleRunBackupNow: (reauthTicket: string) => Promise<void>
   handleSaveAuthSettings: () => Promise<void>
   handleSaveBackupSettings: (reauthTicket: string) => Promise<void>
   handleSaveExchangeRateSettings: () => Promise<void>
@@ -195,6 +207,9 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   const [ssrfTestResult, setSSRFTestResult] = useState<SSRFTestResult | null>(null)
   const [ssrfTesting, setSSRFTesting] = useState(false)
 
+  const [destinations, setDestinations] = useState<BackupDestination[]>([])
+  const [destinationsRefreshing, setDestinationsRefreshing] = useState(false)
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [roleReauthUser, setRoleReauthUser] = useState<AdminUser | null>(null)
   const [newUsername, setNewUsername] = useState("")
@@ -239,6 +254,13 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
         setLocalBackups(localBackupsData?.backups || [])
         setLocalBackupDir(localBackupsData?.directory || "")
       })
+      .catch(() => void 0)
+
+    // Fetch backup destinations separately; a failure here also shouldn't
+    // prevent the rest of the admin page from loading.
+    api
+      .get<BackupDestination[]>("/admin/backup/destinations")
+      .then((data) => setDestinations(data || []))
       .catch(() => void 0)
   }, [])
 
@@ -628,6 +650,87 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
+  async function handleRefreshDestinations() {
+    setDestinationsRefreshing(true)
+    try {
+      const data = await api.get<BackupDestination[]>("/admin/backup/destinations", {
+        errorHandling: "toast",
+      })
+      setDestinations(data || [])
+    } catch {
+      void 0
+    } finally {
+      setDestinationsRefreshing(false)
+    }
+  }
+
+  async function handleCreateDestination(
+    body: { type: string; enabled: boolean; config: string; sort_order: number },
+    reauthTicket: string
+  ): Promise<boolean> {
+    try {
+      const created = await api.post<BackupDestination>("/admin/backup/destinations", body, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        errorHandling: "toast",
+      })
+      if (mutationSucceeded(created)) {
+        setDestinations((prev) => [...prev, created])
+        toast.success(t("admin.backup.destinations.createSuccess"))
+        return true
+      }
+    } catch {
+      return false
+    }
+    return false
+  }
+
+  async function handleUpdateDestination(
+    id: number,
+    body: { revision: number; enabled?: boolean; config?: string; sort_order?: number; cleared_secret_fields?: string[] },
+    reauthTicket: string
+  ): Promise<boolean> {
+    try {
+      const updated = await api.put<BackupDestination>(`/admin/backup/destinations/${id}`, body, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        errorHandling: "toast",
+      })
+      if (mutationSucceeded(updated)) {
+        setDestinations((prev) => prev.map((d) => (d.id === id ? updated : d)))
+        toast.success(t("admin.backup.destinations.updateSuccess"))
+        return true
+      }
+    } catch {
+      return false
+    }
+    return false
+  }
+
+  async function handleDeleteDestination(id: number, revision: number, reauthTicket: string): Promise<boolean> {
+    try {
+      await api.delete(`/admin/backup/destinations/${id}?revision=${encodeURIComponent(String(revision))}`, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        errorHandling: "toast",
+      })
+      setDestinations((prev) => prev.filter((d) => d.id !== id))
+      toast.success(t("admin.backup.destinations.deleteSuccess"))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  async function handleTestDestination(id: number) {
+    try {
+      const result = await api.post<{
+        message_code?: string
+        message_params?: Record<string, unknown>
+      }>(`/admin/backup/destinations/${id}/test`, {}, { errorHandling: "toast" })
+      toast.success(localizeBackendMessage(result?.message_code, result?.message_params, "admin.backup.destinations.testSuccess"))
+    } catch {
+      void 0
+    }
+  }
+
   async function handleRefreshLocalBackups() {
     setLocalBackupsRefreshing(true)
     try {
@@ -643,24 +746,101 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleRunBackupNow() {
+  async function handleRunBackupNow(reauthTicket: string) {
     setRunningBackup(true)
     try {
-      const result = await api.post<{
-        message_code?: string
-        message_params?: Record<string, unknown>
-        file: string
-      }>("/admin/backup/run", {})
-      toast.success(localizeBackendMessageResponse(result, "admin.backup.runNowSuccess"))
-      const [data, fresh] = await Promise.all([
-        api.get<LocalBackupList>("/admin/backup/local"),
-        api.get<SystemSettings>("/admin/settings"),
-      ])
-      setLocalBackups(data?.backups || [])
-      setLocalBackupDir(data?.directory || "")
-      setBackupStatus(createBackupStatus(fresh))
-    } catch {
-      toast.error(t("admin.backup.runNowFailed"))
+      let result: BackupRunResponse
+      try {
+        result = await api.post<BackupRunResponse>("/admin/backup/run", {}, {
+          headers: { "X-Reauth-Ticket": reauthTicket },
+        })
+      } catch (error) {
+        // Only a failed backup POST means the backup itself did not complete.
+        toast.error(getAPIErrorMessage(error, "admin.backup.runNowFailed"))
+        return
+      }
+
+      const { failedDestinations, retentionFailures, bookkeepingFailures, topLevelFailure, globalBookkeepingFailure } = summarizeBackupRun(result)
+      const formatDestination = (destination: BackupDestinationRunResult) => {
+        const typeLabel =
+          destination.type === "s3"
+            ? t("admin.backup.destinations.typeS3")
+            : destination.type === "webdav"
+              ? t("admin.backup.destinations.typeWebDAV")
+              : destination.type === "local"
+                ? t("admin.backup.destinations.typeLocal")
+                : destination.type
+        return `${typeLabel} #${destination.destination_id}`
+      }
+
+      if (failedDestinations.length > 0) {
+        toast.warning(
+          t("admin.backup.runNowPartialSuccess", {
+            destinations: failedDestinations.map(formatDestination).join(", "),
+          })
+        )
+      }
+      if (retentionFailures.length > 0) {
+        toast.warning(
+          t("admin.backup.runNowRetentionWarning", {
+            destinations: retentionFailures.map(formatDestination).join(", "),
+          })
+        )
+      }
+      if (bookkeepingFailures.length > 0) {
+        toast.warning(
+          t("admin.backup.runNowBookkeepingWarning", {
+            destinations: bookkeepingFailures.map(formatDestination).join(", "),
+          })
+        )
+      }
+      if (globalBookkeepingFailure) {
+        toast.warning(
+          t("admin.backup.runNowStatusWarning", {
+            error:
+              result.global_bookkeeping_error ||
+              result.error ||
+              t("admin.backup.runNowStatusWarningFallback"),
+          })
+        )
+      }
+      if (
+        topLevelFailure &&
+        failedDestinations.length === 0 &&
+        retentionFailures.length === 0 &&
+        bookkeepingFailures.length === 0 &&
+        !globalBookkeepingFailure
+      ) {
+        toast.warning(
+          t("admin.backup.runNowStatusWarning", {
+            error: result.error || t("admin.backup.runNowStatusWarningFallback"),
+          })
+        )
+      }
+      if (!topLevelFailure && failedDestinations.length === 0 && retentionFailures.length === 0 && bookkeepingFailures.length === 0) {
+        toast.success(localizeBackendMessageResponse(result, "admin.backup.runNowSuccess"))
+      }
+      // The backup has already completed at this point. Refreshes are
+      // best-effort and must not turn a delivered backup into a failed run.
+      try {
+        const [localBackupsResult, settingsResult] = await Promise.allSettled([
+          api.get<LocalBackupList>("/admin/backup/local"),
+          api.get<SystemSettings>("/admin/settings"),
+        ])
+        if (localBackupsResult.status === "fulfilled") {
+          const data = localBackupsResult.value
+          setLocalBackups(data?.backups || [])
+          setLocalBackupDir(data?.directory || "")
+        }
+        if (settingsResult.status === "fulfilled") {
+          setBackupStatus(createBackupStatus(settingsResult.value))
+        }
+        await handleRefreshDestinations()
+      } catch {
+        // A completed backup remains successful even if a refresh helper
+        // unexpectedly fails outside its own request-level handling.
+        void 0
+      }
     } finally {
       setRunningBackup(false)
     }
@@ -671,10 +851,17 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     backgroundTasksRefreshing,
     backupStatus,
     createDialogOpen,
+    destinations,
+    destinationsRefreshing,
     downloadPassword,
     handleCreateUser,
     handleRefreshBackgroundTasks,
     handleRefreshLocalBackups,
+    handleRefreshDestinations,
+    handleCreateDestination,
+    handleUpdateDestination,
+    handleDeleteDestination,
+    handleTestDestination,
     handleDeleteUser,
     handleDisableUserPasskeys,
     handleDisableUserTOTP,

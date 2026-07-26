@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-Business logic layer for auth, reauthentication, subscriptions, lifecycle actions, reports, imports/exports, notifications, audit, API keys, calendar feeds, admin operations, system settings, outbound HTTP policy, icon proxying, SMTP, backup/restore, and background tasks.
+Business logic layer for auth, reauthentication, subscriptions, lifecycle actions, reports, imports/exports, notifications, audit, API keys, calendar feeds, admin operations, system settings, outbound HTTP policy, icon proxying, SMTP, multi-destination backup/restore, and background tasks.
 
 The service layer is now package-oriented: concrete domain logic lives in subpackages under `internal/service/*`. Do not add new Go files directly in `internal/service/` unless you are deliberately reintroducing a narrowly scoped compatibility facade with a clear reason.
 
@@ -21,7 +21,7 @@ service/
 ├── audit/           # Audit event creation/listing and audit-enabled setting checks
 ├── auth/            # Registration, login, sessions, password, email policy, OIDC, passkeys, TOTP
 ├── authreauth/      # Bridge between auth factor verification and reauth service contracts
-├── backup/          # Backup settings plus restore/export archive behavior
+├── backup/          # Multi-destination backup (local/S3/WebDAV) fan-out, per-destination retention, durable run state, plus restore/export archive behavior
 ├── calendar/        # Calendar feed tokens and event generation
 ├── catalog/         # Categories, currencies, payment methods
 ├── exchangerate/    # Exchange-rate preferences, fetching, conversion helpers
@@ -59,7 +59,7 @@ service/
 | Outbound network | `outbound/` | Use central client/dialer/policy helpers for OIDC, webhooks, icon proxy, exchange rates, and release checks |
 | Icon proxy/upload helpers | `iconproxy/`, `serviceutil/` | Keep domain policy and upload validation centralized |
 | System/security settings | `settings/`, `admin/` | Handle configured-secret flags carefully; do not clear secrets on placeholder input |
-| Backup/restore | `backup/` | Keep archive extraction, path safety, and restore semantics tested |
+| Backup/restore | `backup/` | Pluggable `BackupTarget` transports (local/S3/WebDAV) fan out one archive per run; keep per-destination retention, durable/resumable run state, archive extraction, path safety, and restore semantics tested |
 | Typed service errors | `serviceerr/` | Add or reuse `Kind`-based errors instead of transport-specific status logic |
 | Shared service tests | `servicetest/` | Reuse `NewDB` and user helpers instead of copying test setup |
 

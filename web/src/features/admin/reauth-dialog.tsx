@@ -31,6 +31,7 @@ import type {
 
 type ReauthOperation =
   | "backup"
+  | "backup_run"
   | "backup_schedule"
   | "restore"
   | "change_email"
@@ -49,7 +50,15 @@ type ReauthOperation =
   | "export_redacted"
   | "export_secrets"
   | "import_subdux"
-  | "import_wallos";
+  | "import_wallos"
+  | "backup_destination_create"
+  | "backup_destination_update"
+  | "backup_destination_delete";
+
+export interface ReauthScope {
+  destination_id: number;
+  destination_revision: number;
+}
 
 // Base path for the step-up re-authentication API. The endpoints live in a
 // shared (human-session, not admin-only) group, so this dialog is not coupled
@@ -58,6 +67,7 @@ const REAUTH_API_BASE = "/reauth";
 
 interface ReauthDialogProps {
   operation: ReauthOperation;
+  scope?: ReauthScope;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   // Called once a factor is verified, receiving the single-use ticket to pass
@@ -71,6 +81,7 @@ interface ReauthDialogProps {
 
 export default function ReauthDialog({
   operation,
+  scope,
   open,
   onOpenChange,
   onVerified,
@@ -117,14 +128,26 @@ export default function ReauthDialog({
 
   const passkeySupported = isPasskeySupported();
 
+  function withScope(payload: Record<string, unknown>): Record<string, unknown> {
+    return scope ? { ...payload, ...scope } : payload;
+  }
+
+  const scopeDestinationId = scope?.destination_id;
+  const scopeDestinationRevision = scope?.destination_revision;
+
   useEffect(() => {
     if (!open) {
       return;
     }
     // Discover which factors this user can present.
     let cancelled = false;
+    const methodParams = new URLSearchParams({ operation });
+    if (scopeDestinationId !== undefined && scopeDestinationRevision !== undefined) {
+      methodParams.set("destination_id", String(scopeDestinationId));
+      methodParams.set("destination_revision", String(scopeDestinationRevision));
+    }
     api
-      .get<ReauthMethods>(`${REAUTH_API_BASE}/methods?operation=${operation}`)
+      .get<ReauthMethods>(`${REAUTH_API_BASE}/methods?${methodParams.toString()}`)
       .then((result) => {
         if (!cancelled && result) {
           setMethods(result);
@@ -154,7 +177,7 @@ export default function ReauthDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, operation]);
+  }, [open, operation, scopeDestinationId, scopeDestinationRevision]);
 
   // If the dialog unmounts (parent closes it) while an OIDC popup is still open,
   // close the orphaned popup so it can't post back to a gone listener.
@@ -182,11 +205,11 @@ export default function ReauthDialog({
     try {
       const { ticket } = await api.post<{ ticket: string }>(
         `${REAUTH_API_BASE}/password`,
-        {
+        withScope({
           operation,
           password,
           code: totpCode.trim(),
-        },
+        }),
         { errorHandling: "toast" },
       );
       await verified(ticket);
@@ -209,17 +232,17 @@ export default function ReauthDialog({
     try {
       const begin = await api.post<PasskeyBeginResult<CredentialAssertionJSON>>(
         `${REAUTH_API_BASE}/passkey/start`,
-        { operation },
+        withScope({ operation }),
         { errorHandling: "toast" },
       );
       const credential = await getPasskeyCredential(begin.options);
       const { ticket } = await api.post<{ ticket: string }>(
         `${REAUTH_API_BASE}/passkey/finish`,
-        {
+        withScope({
           operation,
           session_id: begin.session_id,
           credential,
-        },
+        }),
         { errorHandling: "toast" },
       );
       await verified(ticket);
@@ -258,9 +281,7 @@ export default function ReauthDialog({
     try {
       const { authorization_url } = await api.post<OIDCStartResponse>(
         `${REAUTH_API_BASE}/oidc/start`,
-        {
-          operation,
-        },
+        withScope({ operation }),
         { errorHandling: "toast" },
       );
       popupWin.location.href = authorization_url;
@@ -295,9 +316,7 @@ export default function ReauthDialog({
 
       const { ticket } = await api.post<{ ticket: string }>(
         `${REAUTH_API_BASE}/oidc/finish`,
-        {
-          operation,
-        },
+        withScope({ operation }),
         { errorHandling: "toast" },
       );
       await verified(ticket);

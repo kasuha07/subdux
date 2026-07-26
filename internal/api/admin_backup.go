@@ -42,7 +42,7 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 	if err != nil {
 		return httpx.WriteError(c, http.StatusInternalServerError, "backup_failed")
 	}
-	defer os.Remove(backupPath)
+	defer os.RemoveAll(filepath.Dir(backupPath))
 
 	filename := filepath.Base(backupPath)
 	contentType := "application/octet-stream"
@@ -57,13 +57,32 @@ func (h *AdminHandler) BackupDB(c echo.Context) error {
 }
 
 func (h *AdminHandler) RunBackupNow(c echo.Context) error {
-	backupPath, err := h.Backup.WithContext(c.Request().Context()).CreateLocalBackup()
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		apimw.From(c).UserID,
+		servicereauth.ReauthOperationBackupRun,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
+
+	result, err := h.Backup.WithContext(c.Request().Context()).RunBackup(c.Request().Context())
 	if err != nil {
-		return err
+		if _, ok := serviceerr.KindOf(err); ok {
+			return err
+		}
+		return httpx.WriteError(c, http.StatusInternalServerError, "backup_failed")
 	}
 
 	return httpx.WriteMessageFields(c, http.StatusOK, "backup_created", map[string]any{
-		"file": filepath.Base(backupPath),
+		"file":                      result.ArchiveName,
+		"run_id":                    result.RunID,
+		"status":                    result.Status,
+		"delivery_status":           result.DeliveryStatus,
+		"retention_status":          result.RetentionStatus,
+		"bookkeeping_status":        result.BookkeepingStatus,
+		"global_bookkeeping_status": result.GlobalBookkeepingStatus,
+		"error":                     result.Error,
+		"results":                   result.Results,
 	})
 }
 

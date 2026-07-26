@@ -10,8 +10,6 @@ export interface AdminSettingsFormState {
   backupEncryptEnabled: boolean
   backupEncryptionPassword: string
   backupEncryptionPasswordConfigured: boolean
-  backupLocalDir: string
-  backupRetentionCount: number
   currencyApiKey: string
   currencyApiKeyConfigured: boolean
   emailDomainWhitelist: string
@@ -135,8 +133,6 @@ const formFieldsByScope: Record<AdminSettingsSaveScope, readonly (keyof AdminSet
     "backupEncryptionPassword",
     "backupEncryptionPasswordConfigured",
     "backupIncludeAssets",
-    "backupLocalDir",
-    "backupRetentionCount",
     "backupScheduleEnabled",
     "backupTimeOfDay",
   ],
@@ -151,8 +147,6 @@ export function createAdminSettingsForm(settings?: SystemSettings): AdminSetting
     backupEncryptEnabled: settings?.backup_encrypt_enabled ?? false,
     backupEncryptionPassword: "",
     backupEncryptionPasswordConfigured: settings?.backup_encryption_password_configured ?? false,
-    backupLocalDir: settings?.backup_local_dir || "",
-    backupRetentionCount: settings?.backup_retention_count ?? 7,
     currencyApiKey: "",
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
     emailDomainWhitelist: settings?.email_domain_whitelist || "",
@@ -341,8 +335,6 @@ function buildBackupSettingsPayload(form: AdminSettingsFormState): UpdateSetting
   const payload: UpdateSettingsInput = {
     backup_encrypt_enabled: form.backupEncryptEnabled,
     backup_include_assets: form.backupIncludeAssets,
-    backup_local_dir: form.backupLocalDir,
-    backup_retention_count: form.backupRetentionCount,
     backup_schedule_enabled: form.backupScheduleEnabled,
     backup_time_of_day: form.backupTimeOfDay,
   }

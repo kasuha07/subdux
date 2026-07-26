@@ -17,7 +17,8 @@ model/
 ├── subscription_models.go   # Subscriptions, lifecycle events, categories, payment methods
 ├── notification_models.go   # Channels, templates, policies, outbox, logs
 ├── audit_models.go          # Audit events and related enums
-└── idempotency_models.go    # MCP/API idempotency records
+├── idempotency_models.go    # MCP/API idempotency records
+└── backup_models.go         # Backup destinations, durable backup runs, per-destination run state
 ```
 
 ## WHERE TO LOOK
@@ -30,6 +31,7 @@ model/
 | Notification persistence | `notification_models.go` | Coordinate with `internal/service/notification` and settings UI |
 | Audit storage | `audit_models.go` | Coordinate with `internal/service/audit` and admin/user audit views |
 | Idempotency records | `idempotency_models.go` | Coordinate with `internal/service/idempotency` and `internal/api/mcp` |
+| Backup destination/run schema | `backup_models.go` | Coordinate with `internal/service/backup` and the matching migrations in `internal/pkg/migrations/` |
 
 ## CONVENTIONS
 

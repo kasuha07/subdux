@@ -407,14 +407,6 @@ export default function AdminPage() {
                   onBackupEncryptionPasswordChange={(value) =>
                     admin.setSettingsField("backupEncryptionPassword", value)
                   }
-                  backupLocalDir={settingsForm.backupLocalDir}
-                  onBackupLocalDirChange={(value) =>
-                    admin.setSettingsField("backupLocalDir", value)
-                  }
-                  backupRetentionCount={settingsForm.backupRetentionCount}
-                  onBackupRetentionCountChange={(value) =>
-                    admin.setSettingsField("backupRetentionCount", value)
-                  }
                   onSaveSettings={admin.handleSaveBackupSettings}
                   onRunBackupNow={admin.handleRunBackupNow}
                   runningBackup={admin.runningBackup}
@@ -425,6 +417,13 @@ export default function AdminPage() {
                   lastRunAt={admin.backupStatus.lastRunAt}
                   lastStatus={admin.backupStatus.lastStatus}
                   lastError={admin.backupStatus.lastError}
+                  destinations={admin.destinations}
+                  destinationsRefreshing={admin.destinationsRefreshing}
+                  onRefreshDestinations={admin.handleRefreshDestinations}
+                  onCreateDestination={admin.handleCreateDestination}
+                  onUpdateDestination={admin.handleUpdateDestination}
+                  onDeleteDestination={admin.handleDeleteDestination}
+                  onTestDestination={admin.handleTestDestination}
                 />
               </Suspense>
             )}

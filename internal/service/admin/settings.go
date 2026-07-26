@@ -75,8 +75,6 @@ func defaultAdminSystemSettings() *SystemSettings {
 		BackupIncludeAssets:                  false,
 		BackupEncryptEnabled:                 false,
 		BackupEncryptionPasswordSet:          false,
-		BackupLocalDir:                       "",
-		BackupRetentionCount:                 7,
 		BackupLastRunAt:                      "",
 		BackupLastStatus:                     "",
 		BackupLastError:                      "",
@@ -229,12 +227,6 @@ func (s *Service) GetSettings() (*SystemSettings, error) {
 			settings.BackupEncryptEnabled = settingValue == "true"
 		case servicebackup.KeyEncryptionPassword:
 			settings.BackupEncryptionPasswordSet = strings.TrimSpace(settingValue) != ""
-		case servicebackup.KeyLocalDir:
-			settings.BackupLocalDir = settingValue
-		case servicebackup.KeyRetentionCount:
-			if v, err := strconv.ParseInt(settingValue, 10, 64); err == nil {
-				settings.BackupRetentionCount = v
-			}
 		case servicebackup.KeyLastRunAt:
 			settings.BackupLastRunAt = settingValue
 		case servicebackup.KeyLastStatus:
@@ -634,8 +626,6 @@ func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 			IncludeAssets:      input.BackupIncludeAssets,
 			EncryptEnabled:     input.BackupEncryptEnabled,
 			EncryptionPassword: input.BackupEncryptionPassword,
-			LocalDir:           input.BackupLocalDir,
-			RetentionCount:     input.BackupRetentionCount,
 		}); err != nil {
 			return err
 		}

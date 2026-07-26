@@ -84,8 +84,6 @@ export interface SystemSettings {
   backup_include_assets: boolean
   backup_encrypt_enabled: boolean
   backup_encryption_password_configured: boolean
-  backup_local_dir: string
-  backup_retention_count: number
   backup_last_run_at: string
   backup_last_status: string
   backup_last_error: string
@@ -149,8 +147,6 @@ export interface UpdateSettingsInput {
   backup_include_assets?: boolean
   backup_encrypt_enabled?: boolean
   backup_encryption_password?: string
-  backup_local_dir?: string
-  backup_retention_count?: number
 }
 
 export interface LocalBackupInfo {
@@ -163,6 +159,52 @@ export interface LocalBackupInfo {
 export interface LocalBackupList {
   directory: string
   backups: LocalBackupInfo[]
+}
+
+export interface BackupDestinationRunResult {
+  destination_id: number
+  type: string
+  delivery_status: string
+  success: boolean
+  error?: string
+  retention_status: string
+  retention_error?: string
+  bookkeeping_status: string
+  bookkeeping_error?: string
+}
+
+export interface BackupRunResponse {
+  message_code?: string
+  message_params?: Record<string, unknown>
+  file: string
+  run_id?: number
+  status?: string
+  delivery_status?: string
+  retention_status?: string
+  bookkeeping_status?: string
+  global_bookkeeping_status?: string
+  global_bookkeeping_error?: string
+  error?: string
+  results?: BackupDestinationRunResult[]
+}
+
+export interface BackupDestination {
+  id: number
+  revision: number
+  type: "local" | "s3" | "webdav"
+  enabled: boolean
+  config: string
+  last_run_at: string
+  last_status: string
+  last_error: string
+  last_retention_status?: string
+  last_retention_error?: string
+  last_bookkeeping_status?: string
+  last_bookkeeping_error?: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+  configured_secret_fields: string[]
 }
 
 export interface SSRFTestResult {

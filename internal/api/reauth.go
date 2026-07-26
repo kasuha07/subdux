@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -40,6 +42,13 @@ func (h *ReauthHandler) Methods(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	if err := validateReauthScope(operation, reauthScopeInput{
+		Operation:           operation,
+		DestinationID:       parseReauthUintQuery(c.QueryParam("destination_id")),
+		DestinationRevision: parseReauthUint64Query(c.QueryParam("destination_revision")),
+	}); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
 
 	methods, err := h.Service.WithContext(c.Request().Context()).AvailableMethods(apimw.From(c).UserID, operation)
 	if err != nil {
@@ -48,10 +57,49 @@ func (h *ReauthHandler) Methods(c echo.Context) error {
 	return c.JSON(http.StatusOK, methods)
 }
 
+type reauthScopeInput struct {
+	Operation           string `json:"operation"`
+	DestinationID       uint   `json:"destination_id,omitempty"`
+	DestinationRevision uint64 `json:"destination_revision,omitempty"`
+}
+
+func (input reauthScopeInput) binding() *servicereauth.TicketBinding {
+	if input.DestinationID == 0 && input.DestinationRevision == 0 {
+		return nil
+	}
+	return &servicereauth.TicketBinding{
+		DestinationID:       input.DestinationID,
+		DestinationRevision: input.DestinationRevision,
+	}
+}
+
+func validateReauthScope(operation string, input reauthScopeInput) error {
+	if operation != input.Operation {
+		return servicereauth.ErrInvalidReauthOperation
+	}
+	return servicereauth.ValidateTicketBinding(operation, input.binding())
+}
+
+func parseReauthUintQuery(raw string) uint {
+	value, err := strconv.ParseUint(strings.TrimSpace(raw), 10, strconv.IntSize)
+	if err != nil {
+		return 0
+	}
+	return uint(value)
+}
+
+func parseReauthUint64Query(raw string) uint64 {
+	value, err := strconv.ParseUint(strings.TrimSpace(raw), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return value
+}
+
 type reauthPasswordInput struct {
-	Operation string `json:"operation"`
-	Password  string `json:"password"`
-	Code      string `json:"code"`
+	reauthScopeInput
+	Password string `json:"password"`
+	Code     string `json:"code"`
 }
 
 func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
@@ -63,9 +111,12 @@ func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	if err := validateReauthScope(operation, input.reauthScopeInput); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
 
-	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyPassword(
-		apimw.From(c).UserID, operation, input.Password, input.Code,
+	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyPasswordWithBinding(
+		apimw.From(c).UserID, operation, input.Password, input.Code, input.binding(),
 	)
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
@@ -73,9 +124,7 @@ func (h *ReauthHandler) VerifyPassword(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"ticket": ticket})
 }
 
-type reauthPasskeyStartInput struct {
-	Operation string `json:"operation"`
-}
+type reauthPasskeyStartInput struct{ reauthScopeInput }
 
 func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 	var input reauthPasskeyStartInput
@@ -86,9 +135,12 @@ func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	if err := validateReauthScope(operation, input.reauthScopeInput); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
 
-	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskey(
-		apimw.From(c).UserID, operation, c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme(),
+	result, err := h.Service.WithContext(c.Request().Context()).BeginPasskeyWithBinding(
+		apimw.From(c).UserID, operation, input.binding(), c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme(),
 	)
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
@@ -97,7 +149,7 @@ func (h *ReauthHandler) BeginPasskey(c echo.Context) error {
 }
 
 type reauthPasskeyFinishInput struct {
-	Operation  string          `json:"operation"`
+	reauthScopeInput
 	SessionID  string          `json:"session_id"`
 	Credential json.RawMessage `json:"credential"`
 }
@@ -111,6 +163,9 @@ func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	if err := validateReauthScope(operation, input.reauthScopeInput); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
 	if input.SessionID == "" || len(input.Credential) == 0 {
 		return httpx.WriteError(c, http.StatusBadRequest, "session_id_and_credential_are_required")
 	}
@@ -120,8 +175,8 @@ func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_credential_payload")
 	}
 
-	ticket, err := h.Service.WithContext(c.Request().Context()).FinishPasskey(
-		apimw.From(c).UserID, operation, input.SessionID, parsedResponse,
+	ticket, err := h.Service.WithContext(c.Request().Context()).FinishPasskeyWithBinding(
+		apimw.From(c).UserID, operation, input.binding(), input.SessionID, parsedResponse,
 		c.Request().Header.Get("Origin"), c.Request().Host, c.Scheme(),
 	)
 	if err != nil {
@@ -130,9 +185,7 @@ func (h *ReauthHandler) FinishPasskey(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"ticket": ticket})
 }
 
-type reauthOIDCStartInput struct {
-	Operation string `json:"operation"`
-}
+type reauthOIDCStartInput struct{ reauthScopeInput }
 
 // BeginOIDC starts an OIDC step-up for the operation and returns the provider
 // authorization URL. The client opens it in a popup; the callback lands on the
@@ -147,17 +200,18 @@ func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	if err := validateReauthScope(operation, input.reauthScopeInput); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
 
-	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDC(apimw.From(c).UserID, operation)
+	result, err := h.Service.WithContext(c.Request().Context()).BeginOIDCWithBinding(apimw.From(c).UserID, operation, input.binding())
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
 	return c.JSON(http.StatusOK, result)
 }
 
-type reauthOIDCFinishInput struct {
-	Operation string `json:"operation"`
-}
+type reauthOIDCFinishInput struct{ reauthScopeInput }
 
 // FinishOIDC completes an OIDC step-up: it reads the reauth-scoped session cookie
 // set by the callback, spends it for this user and operation, and mints a ticket.
@@ -171,6 +225,9 @@ func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	if err := validateReauthScope(operation, input.reauthScopeInput); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
 
 	sessionID := apimw.GetCookieValue(c, apimw.OIDCReauthSessionCookieName)
 	apimw.ClearOIDCReauthSessionCookie(c)
@@ -178,7 +235,7 @@ func (h *ReauthHandler) FinishOIDC(c echo.Context) error {
 		return apimw.WriteReauthError(c, servicereauth.ErrReauthRequired)
 	}
 
-	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyOIDC(apimw.From(c).UserID, operation, sessionID)
+	ticket, err := h.Service.WithContext(c.Request().Context()).VerifyOIDCWithBinding(apimw.From(c).UserID, operation, input.binding(), sessionID)
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}

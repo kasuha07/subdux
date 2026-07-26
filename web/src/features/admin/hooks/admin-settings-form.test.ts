@@ -19,8 +19,6 @@ function settings(overrides: Partial<SystemSettings> = {}): SystemSettings {
     backup_last_error: "",
     backup_last_run_at: "",
     backup_last_status: "",
-    backup_local_dir: "",
-    backup_retention_count: 7,
     backup_schedule_enabled: false,
     backup_time_of_day: "03:00",
     currencyapi_key_configured: false,
@@ -176,8 +174,6 @@ describe("buildAdminSettingsPayload", () => {
       "backup_encrypt_enabled",
       "backup_encryption_password",
       "backup_include_assets",
-      "backup_local_dir",
-      "backup_retention_count",
       "backup_schedule_enabled",
       "backup_time_of_day",
     ])

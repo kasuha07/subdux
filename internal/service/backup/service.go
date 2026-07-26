@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
@@ -29,21 +30,41 @@ const (
 	KeyIncludeAssets      = "backup_include_assets"
 	KeyEncryptEnabled     = "backup_encrypt_enabled"
 	KeyEncryptionPassword = "backup_encryption_password"
-	KeyLocalDir           = "backup_local_dir"
-	KeyRetentionCount     = "backup_retention_count"
 	KeyLastRunAt          = "backup_last_run_at"
 	KeyLastStatus         = "backup_last_status"
 	KeyLastError          = "backup_last_error"
 )
 
 const (
-	StatusOK     = "success"
-	StatusFailed = "failed"
+	StatusPending      = "pending"
+	StatusOK           = "success"
+	StatusPartial      = "partial"
+	StatusFailed       = "failed"
+	StatusSuperseded   = "superseded"
+	StatusNotAttempted = "not_attempted"
 
 	backupTaskKey      = "scheduled_backup"
 	backupLeaseTTL     = 30 * time.Minute
 	minBackupRetention = 1
 	maxBackupRetention = 1000
+
+	// backupRunRetryInterval is the minimum gap between resume attempts for an
+	// incomplete scheduled run. The scheduler ticks every minute and the task
+	// lease is re-acquirable by its current owner, so without this spacing a
+	// destination that keeps failing would be retried ~60 times an hour, and a
+	// run that failed before staging would rebuild the entire database snapshot
+	// on every one of those attempts.
+	backupRunRetryInterval = 15 * time.Minute
+
+	// backupRunResumeWindow bounds how long one incomplete run may keep owning
+	// the schedule. Past it the staged archive is a stale snapshot, so retrying
+	// the same bytes is worth less than taking a fresh backup: the run is
+	// superseded and the next due tick starts a new one.
+	backupRunResumeWindow = 24 * time.Hour
+
+	defaultRetentionCount = 7
+	backupTempDirPattern  = "subdux-backup-*"
+	backupStagingDirName  = "backup-staging"
 )
 
 var (
@@ -51,6 +72,9 @@ var (
 	ErrInvalidBackupRetentionCount      = serviceerr.New(serviceerr.KindInvalid, "backup_retention_count_must_be_between_1_and_1000", "backup retention count must be between 1 and 1000")
 	ErrInvalidBackupLocalDir            = serviceerr.New(serviceerr.KindInvalid, "backup_local_directory_must_be_an_absolute_path_or_a_clean_relative_path_without_segments", "backup local directory must be an absolute path or a clean relative path without '..' segments")
 	ErrBackupEncryptionPasswordRequired = serviceerr.New(serviceerr.KindInvalid, "encryption_password_is_required_when_backup_encryption_is_enabled", "encryption password is required when backup encryption is enabled")
+	ErrNoEnabledBackupDestination       = serviceerr.New(serviceerr.KindInvalid, "no_enabled_backup_destination_is_configured", "no enabled backup destination is configured")
+	ErrAllBackupDestinationsFailed      = serviceerr.New(serviceerr.KindInternal, "all_backup_destinations_failed", "all backup destinations failed")
+	ErrBackupArchiveUnavailable         = serviceerr.New(serviceerr.KindInternal, "backup_archive_is_unavailable_for_retry", "the persisted backup archive is unavailable for retry")
 )
 
 var backupTimeOfDayPattern = regexp.MustCompile(`^([01]\d|2[0-3]):([0-5]\d)$`)
@@ -74,8 +98,6 @@ type UpdateSettingsInput struct {
 	IncludeAssets      *bool
 	EncryptEnabled     *bool
 	EncryptionPassword *string
-	LocalDir           *string
-	RetentionCount     *int64
 }
 
 type Service struct {
@@ -106,11 +128,14 @@ func (s *Service) WithContext(ctx context.Context) *Service {
 // entries with byte-identical internal structure. This single routine backs
 // both the download path (plain) and the scheduled local-backup path.
 func writeBackupZipFromDB(archivePath string, dbPath string, includeAssets bool, encryptPassword string) error {
-	file, err := os.Create(archivePath) // #nosec G304 -- archivePath is generated under a server-controlled backup directory.
+	file, err := os.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- archivePath is generated under a server-controlled backup directory.
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+	if err := file.Chmod(0o600); err != nil {
+		return err
+	}
 
 	zipWriter := zip.NewWriter(file)
 
@@ -209,14 +234,11 @@ type runtimeConfig struct {
 	IncludeAssets   bool
 	EncryptEnabled  bool
 	EncryptPassword string
-	LocalDir        string
-	RetentionCount  int64
 }
 
 func (s *Service) loadRuntimeConfig() (runtimeConfig, error) {
 	cfg := runtimeConfig{
-		TimeOfDay:      "03:00",
-		RetentionCount: 7,
+		TimeOfDay: "03:00",
 	}
 
 	scheduleEnabled, err := backupsettings.GetBool(context.Background(), s.DB, KeyScheduleEnabled, false)
@@ -244,20 +266,6 @@ func (s *Service) loadRuntimeConfig() (runtimeConfig, error) {
 		return cfg, err
 	}
 	cfg.EncryptEnabled = encryptEnabled
-
-	localDir, err := backupsettings.GetString(context.Background(), s.DB, KeyLocalDir, "")
-	if err != nil {
-		return cfg, err
-	}
-	cfg.LocalDir = strings.TrimSpace(localDir)
-
-	retentionCount, err := backupsettings.GetInt(context.Background(), s.DB, KeyRetentionCount, 7)
-	if err != nil {
-		return cfg, err
-	}
-	if retentionCount >= minBackupRetention {
-		cfg.RetentionCount = int64(retentionCount)
-	}
 
 	if encryptEnabled {
 		storedPassword, err := backupsettings.GetString(context.Background(), s.DB, KeyEncryptionPassword, "")
@@ -295,6 +303,134 @@ func newBackupToken() (string, error) {
 	return hex.EncodeToString(buf[:]), nil
 }
 
+// newPrivateBackupTempDir creates the short-lived directory used for backup
+// snapshots and archives. MkdirTemp already requests 0700, and the explicit
+// Chmod keeps that permission an invariant even when the platform or runtime
+// applies different defaults.
+func newPrivateBackupTempDir() (string, error) {
+	dir, err := os.MkdirTemp("", backupTempDirPattern)
+	if err != nil {
+		return "", err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", err
+	}
+	return dir, nil
+}
+
+func backupStagingDir() string {
+	return filepath.Join(pkg.GetDataPath(), backupStagingDirName)
+}
+
+func isPrivateStagedArchivePath(path string) bool {
+	cleanPath := filepath.Clean(path)
+	cleanDir := filepath.Clean(backupStagingDir())
+	if filepath.Dir(cleanPath) != cleanDir {
+		return false
+	}
+	parts := strings.SplitN(filepath.Base(cleanPath), "-", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	if _, err := strconv.ParseUint(parts[0], 10, 64); err != nil {
+		return false
+	}
+	return backupFileNamePattern.MatchString(parts[1])
+}
+
+// stageBackupArchive moves a scheduled archive into a private, persistent
+// spool before external delivery. A scheduled retry must use these exact bytes;
+// rebuilding the database snapshot under the same filename would make one run
+// inconsistent across destinations.
+func (s *Service) stageBackupArchive(runID uint, archiveName, archivePath string) (string, error) {
+	if strings.ContainsAny(archiveName, `/\\`) || filepath.Base(archiveName) != archiveName || !backupFileNamePattern.MatchString(archiveName) {
+		return "", ErrBackupArchiveUnavailable
+	}
+	dir := backupStagingDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return "", err
+	}
+	stagedPath := filepath.Join(dir, fmt.Sprintf("%d-%s", runID, archiveName))
+	if err := os.Rename(archivePath, stagedPath); err != nil {
+		if copyErr := copyBackupArchive(archivePath, stagedPath); copyErr != nil {
+			return "", copyErr
+		}
+		if removeErr := os.Remove(archivePath); removeErr != nil {
+			_ = os.Remove(stagedPath)
+			return "", removeErr
+		}
+	}
+	if err := os.Chmod(stagedPath, 0o600); err != nil {
+		_ = os.Remove(stagedPath)
+		return "", err
+	}
+	result := s.DB.Model(&model.BackupRun{}).Where("id = ?", runID).Updates(map[string]any{"archive_path": stagedPath})
+	if result.Error != nil {
+		_ = os.Remove(stagedPath)
+		return "", result.Error
+	}
+	if result.RowsAffected != 1 {
+		_ = os.Remove(stagedPath)
+		return "", ErrBackupRunNotFound
+	}
+	return stagedPath, nil
+}
+
+func copyBackupArchive(sourcePath, targetPath string) error {
+	source, err := os.Open(sourcePath) // #nosec G304 -- both paths are generated by the backup service.
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+	target, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- targetPath is the private backup spool.
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(target, source); err != nil {
+		_ = target.Close()
+		_ = os.Remove(targetPath)
+		return err
+	}
+	if err := target.Chmod(0o600); err != nil {
+		_ = target.Close()
+		_ = os.Remove(targetPath)
+		return err
+	}
+	return target.Close()
+}
+
+func (s *Service) cleanupBackupRunArchive(runID uint) error {
+	var run model.BackupRun
+	if err := s.DB.First(&run, runID).Error; err != nil {
+		return err
+	}
+	archivePath := strings.TrimSpace(run.ArchivePath)
+	if archivePath == "" {
+		return nil
+	}
+	if err := os.Remove(archivePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if bookkeepingErr := s.markGlobalBookkeepingFailure(runID, err); bookkeepingErr != nil {
+			return errors.Join(err, bookkeepingErr)
+		}
+		return err
+	}
+	result := s.DB.Model(&model.BackupRun{}).Where("id = ?", runID).Update("archive_path", "")
+	if result.Error != nil {
+		if bookkeepingErr := s.markGlobalBookkeepingFailure(runID, result.Error); bookkeepingErr != nil {
+			return errors.Join(result.Error, bookkeepingErr)
+		}
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrBackupRunNotFound
+	}
+	return nil
+}
+
 // BackupDB produces an on-demand backup and returns the path of the file to
 // serve. When password is empty the historical behavior is preserved: a raw
 // SQLite .db file when includeAssets is false, or a plain .zip when true.
@@ -305,10 +441,23 @@ func newBackupToken() (string, error) {
 func (s *Service) BackupDB(includeAssets bool, password string) (string, error) {
 	password = strings.TrimSpace(password)
 
+	tempDir, err := newPrivateBackupTempDir()
+	if err != nil {
+		return "", err
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(tempDir)
+	}
+
 	timestamp := pkg.Now().Format("20060102-150405")
-	backupPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.db", timestamp))
+	backupPath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s.db", timestamp))
 
 	if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
+		cleanup()
+		return "", err
+	}
+	if err := os.Chmod(backupPath, 0o600); err != nil {
+		cleanup()
 		return "", err
 	}
 
@@ -316,10 +465,9 @@ func (s *Service) BackupDB(includeAssets bool, password string) (string, error) 
 		return backupPath, nil
 	}
 
-	archivePath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s.zip", timestamp))
+	archivePath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s.zip", timestamp))
 	if err := writeBackupZipFromDB(archivePath, backupPath, includeAssets, password); err != nil {
-		_ = os.Remove(backupPath)
-		_ = os.Remove(archivePath)
+		cleanup()
 		return "", err
 	}
 
@@ -328,159 +476,516 @@ func (s *Service) BackupDB(includeAssets bool, password string) (string, error) 
 	return archivePath, nil
 }
 
-// CreateLocalBackup builds a local backup archive using the saved configuration
-// and returns the absolute path of the created file. Retention is applied after
-// a successful write.
-func (s *Service) CreateLocalBackup() (string, error) {
+// DestinationRunResult captures the per-destination outcome of a fan-out run.
+// Delivery, retention, and bookkeeping are independent stages: a successful
+// delivery remains successful even when later cleanup or status persistence
+// fails.
+type DestinationRunResult struct {
+	DestinationID     uint   `json:"destination_id"`
+	Type              string `json:"type"`
+	DeliveryStatus    string `json:"delivery_status"`
+	Success           bool   `json:"success"` // archive delivery succeeded
+	Error             string `json:"error,omitempty"`
+	RetentionStatus   string `json:"retention_status"`
+	RetentionError    string `json:"retention_error,omitempty"`
+	BookkeepingStatus string `json:"bookkeeping_status"`
+	BookkeepingError  string `json:"bookkeeping_error,omitempty"`
+}
+
+// BackupRunResult summarizes a single scheduled/manual run: the archive name
+// shared across all destinations and one entry per enabled destination.
+type BackupRunResult struct {
+	RunID                   uint                   `json:"run_id"`
+	ArchiveName             string                 `json:"archive_name"`
+	Status                  string                 `json:"status"`
+	DeliveryStatus          string                 `json:"delivery_status"`
+	RetentionStatus         string                 `json:"retention_status"`
+	BookkeepingStatus       string                 `json:"bookkeeping_status"`
+	GlobalBookkeepingStatus string                 `json:"global_bookkeeping_status"`
+	Error                   string                 `json:"error,omitempty"`
+	Results                 []DestinationRunResult `json:"results"`
+}
+
+func (s *Service) RunBackup(ctx context.Context) (BackupRunResult, error) {
+	return s.runBackup(ctx, backupRunSourceManual, nil)
+}
+
+// runBackup starts a new run, or continues the run in resumed when the caller
+// has already resolved one. A resume reuses the persisted archive name and
+// destination stage rows, so completed delivery stages are never retried as a
+// new archive merely because retention or bookkeeping was incomplete. The
+// caller resolves the resumable run rather than this function so the scheduler
+// can apply its retry spacing to the same run it then hands over here.
+func (s *Service) runBackup(ctx context.Context, source string, resumed *backupRunState) (BackupRunResult, error) {
 	cfg, err := s.loadRuntimeConfig()
 	if err != nil {
-		return "", err
+		return BackupRunResult{}, err
 	}
-
 	if cfg.EncryptEnabled && cfg.EncryptPassword == "" {
-		return "", ErrBackupEncryptionPasswordRequired
+		return BackupRunResult{}, ErrBackupEncryptionPasswordRequired
 	}
 
-	dir, err := resolveBackupDir(cfg.LocalDir)
+	var state backupRunState
+	if resumed != nil {
+		state = *resumed
+	}
+	if state.run.ID == 0 {
+		destinations, listErr := s.listEnabledDestinations()
+		if listErr != nil {
+			return BackupRunResult{}, listErr
+		}
+		if len(destinations) == 0 {
+			return BackupRunResult{}, ErrNoEnabledBackupDestination
+		}
+		archiveName, nameErr := newBackupArchiveName()
+		if nameErr != nil {
+			return BackupRunResult{}, nameErr
+		}
+		state, err = s.beginBackupRun(source, archiveName, destinations)
+		if err != nil {
+			return BackupRunResult{}, err
+		}
+	}
+
+	var archivePath string
+	cleanup := func() {}
+	if source == backupRunSourceScheduled && strings.TrimSpace(state.run.ArchivePath) != "" {
+		archivePath = state.run.ArchivePath
+		if !isPrivateStagedArchivePath(archivePath) {
+			err = ErrBackupArchiveUnavailable
+		} else if _, statErr := os.Stat(archivePath); statErr != nil {
+			err = fmt.Errorf("%w: %v", ErrBackupArchiveUnavailable, statErr)
+		}
+	} else {
+		var builtPath string
+		builtPath, cleanup, err = s.buildBackupArchiveNamed(cfg, state.run.ArchiveName)
+		archivePath = builtPath
+		if err == nil && source == backupRunSourceScheduled {
+			var stageErr error
+			archivePath, stageErr = s.stageBackupArchive(state.run.ID, state.run.ArchiveName, builtPath)
+			cleanup()
+			cleanup = func() {}
+			err = stageErr
+		}
+	}
 	if err != nil {
-		return "", err
+		result := BackupRunResult{
+			RunID:                   state.run.ID,
+			ArchiveName:             state.run.ArchiveName,
+			Status:                  StatusFailed,
+			DeliveryStatus:          StatusFailed,
+			RetentionStatus:         StatusNotAttempted,
+			BookkeepingStatus:       StatusOK,
+			GlobalBookkeepingStatus: StatusPending,
+			Error:                   err.Error(),
+		}
+		if finalizeErr := s.finalizeBackupRun(state.run.ID, result, source == backupRunSourceScheduled); finalizeErr != nil {
+			return result, errors.Join(err, finalizeErr)
+		}
+		return result, err
 	}
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return "", err
+	if source == backupRunSourceManual {
+		defer cleanup()
 	}
 
-	// The timestamp is second-precision, so two concurrent runs (e.g. the
-	// manual POST /backup/run firing in the same clock-second as the scheduled
-	// run) would otherwise resolve to the same paths and race on os.Create. A
-	// random token makes every run's temp DB and archive paths unique. The
-	// suffix is compatible with backupFileNamePattern and the mod-time based
-	// listing/retention ordering.
+	// deliverToDestination resolves and revision-checks the destination row
+	// itself, so the loop stays a plain fan-out: every outcome, including a
+	// deleted or replaced destination, is recorded on the run-destination row by
+	// that one code path.
+	for i := range state.destinations {
+		_, _ = s.deliverToDestination(ctx, archivePath, state.run.ArchiveName, &state.destinations[i])
+	}
+
+	result := aggregateBackupRunResult(state.run, state.destinations)
+	if finalizeErr := s.finalizeBackupRun(state.run.ID, result, source == backupRunSourceScheduled); finalizeErr != nil {
+		result.BookkeepingStatus = StatusFailed
+		if result.Status == StatusOK {
+			result.Status = StatusPartial
+		}
+		result.Error = joinErrors([]error{errors.New(result.Error), finalizeErr})
+		if result.Status == StatusFailed {
+			return result, errorForBackupRunResult(result)
+		}
+		return result, nil
+	}
+	if source == backupRunSourceManual {
+		result.GlobalBookkeepingStatus = StatusOK
+	}
+	if result.Status == StatusFailed {
+		return result, errorForBackupRunResult(result)
+	}
+	return result, nil
+}
+
+func newBackupArchiveName() (string, error) {
 	token, err := newBackupToken()
 	if err != nil {
 		return "", err
 	}
-	timestamp := pkg.Now().Format("20060102-150405")
-	dbTempPath := filepath.Join(os.TempDir(), fmt.Sprintf("subdux-backup-%s-%s.db", timestamp, token))
-	if err := s.DB.Exec("VACUUM INTO ?", dbTempPath).Error; err != nil {
-		return "", err
-	}
-	defer os.Remove(dbTempPath)
+	return fmt.Sprintf("subdux-backup-%s-%s.zip", pkg.Now().Format("20060102-150405"), token), nil
+}
 
-	archivePath := filepath.Join(dir, fmt.Sprintf("subdux-backup-%s-%s.zip", timestamp, token))
+func errorForBackupRunResult(result BackupRunResult) error {
+	parts := []error{ErrAllBackupDestinationsFailed}
+	if strings.TrimSpace(result.Error) != "" {
+		parts = append(parts, errors.New(result.Error))
+	}
+	return errors.Join(parts...)
+}
+
+func joinErrors(errs []error) string {
+	messages := make([]string, 0, len(errs))
+	for _, err := range errs {
+		if err != nil && strings.TrimSpace(err.Error()) != "" {
+			messages = append(messages, err.Error())
+		}
+	}
+	return strings.Join(messages, "; ")
+}
+
+// buildBackupArchiveNamed writes a backup archive under archiveName into a
+// private temp directory and returns its path plus a cleanup closure that
+// removes both the archive and the intermediate DB snapshot. The caller supplies
+// the name so a resumed run rebuilds under the name already persisted on the
+// run row, keeping delivery idempotent across retries.
+func (s *Service) buildBackupArchiveNamed(cfg runtimeConfig, archiveName string) (string, func(), error) {
+	tempDir, err := newPrivateBackupTempDir()
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(tempDir)
+	}
+
+	token, err := newBackupToken()
+	if err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	timestamp := pkg.Now().Format("20060102-150405")
+
+	dbTempPath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s-%s.db", timestamp, token))
+	if err := s.DB.Exec("VACUUM INTO ?", dbTempPath).Error; err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	if err := os.Chmod(dbTempPath, 0o600); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+
+	archivePath := filepath.Join(tempDir, archiveName)
+
 	password := ""
 	if cfg.EncryptEnabled {
 		password = cfg.EncryptPassword
 	}
 	if err := writeBackupZipFromDB(archivePath, dbTempPath, cfg.IncludeAssets, password); err != nil {
-		_ = os.Remove(archivePath)
-		return "", err
+		cleanup()
+		return "", func() {}, err
 	}
 
-	if err := s.applyLocalBackupRetention(dir, cfg.RetentionCount); err != nil {
-		return archivePath, err
-	}
-
-	return archivePath, nil
+	return archivePath, cleanup, nil
 }
 
-// applyLocalBackupRetention deletes local backup files beyond the newest keep
-// files. It only ever considers non-recursive entries in dir whose basename
-// matches backupFileNamePattern, so unrelated files are never removed.
-func (s *Service) applyLocalBackupRetention(dir string, keep int64) error {
-	if keep < minBackupRetention {
-		keep = minBackupRetention
+// deliverToDestination advances one destination through delivery, retention,
+// and bookkeeping. The persisted run-destination row is updated after each
+// stage, so a scheduled retry can resume at the first incomplete stage. The
+// destination row is loaded and revision-checked here, which makes this the
+// single place that decides what a stale, deleted, or unbuildable destination
+// does to the run.
+func (s *Service) deliverToDestination(ctx context.Context, archivePath, archiveName string, runDestination *model.BackupRunDestination) (DestinationRunResult, []error) {
+	var bookkeepingErrors []error
+	destinationID := runDestination.DestinationID
+	if runDestination.RetentionStatus == "" {
+		runDestination.RetentionStatus = StatusNotAttempted
+	}
+	if runDestination.BookkeepingStatus == "" {
+		runDestination.BookkeepingStatus = StatusPending
 	}
 
-	entries, err := os.ReadDir(dir)
+	persist := func(updates map[string]any) {
+		if err := s.persistRunDestination(runDestination.ID, updates); err != nil {
+			bookkeepingErrors = appendBackupBookkeepingError(bookkeepingErrors, destinationID, err)
+		}
+	}
+	finish := func() (DestinationRunResult, []error) {
+		runDestination.BookkeepingStatus = StatusOK
+		runDestination.BookkeepingError = ""
+		if len(bookkeepingErrors) > 0 {
+			runDestination.BookkeepingStatus = StatusFailed
+			runDestination.BookkeepingError = joinErrors(bookkeepingErrors)
+		}
+		before := len(bookkeepingErrors)
+		persist(map[string]any{
+			"bookkeeping_status": runDestination.BookkeepingStatus,
+			"bookkeeping_error":  runDestination.BookkeepingError,
+		})
+		if len(bookkeepingErrors) > before {
+			runDestination.BookkeepingStatus = StatusFailed
+			runDestination.BookkeepingError = joinErrors(bookkeepingErrors)
+		}
+		result := destinationRunResult(*runDestination)
+		result.BookkeepingStatus = runDestination.BookkeepingStatus
+		result.BookkeepingError = runDestination.BookkeepingError
+		return result, bookkeepingErrors
+	}
+
+	// loadBackupDestinationForRun is the revision gate for active runs. Keep its
+	// error on the same failure path as target construction below.
+	destination, err := s.loadBackupDestinationForRun(*runDestination)
+	var target BackupTarget
+	if err == nil {
+		target, err = newBackupTarget(destination, s.DB)
+	}
+	if err != nil {
+		runDestination.DeliveryStatus = StatusFailed
+		runDestination.DeliveryError = err.Error()
+		runDestination.RetentionStatus = StatusNotAttempted
+		runDestination.RetentionError = ""
+		persist(map[string]any{
+			"delivery_status":  runDestination.DeliveryStatus,
+			"delivery_error":   runDestination.DeliveryError,
+			"retention_status": runDestination.RetentionStatus,
+			"retention_error":  runDestination.RetentionError,
+		})
+		// Skip the destination summary write when there is no row this run may
+		// write to. ErrBackupDestinationChanged means the row was replaced after
+		// this run's snapshot, so the newer row must not inherit the old run's
+		// failure; ErrBackupDestinationNotFound means the row is gone entirely.
+		// Either way the run-destination row above already carries the outcome.
+		if !errors.Is(err, ErrBackupDestinationChanged) && !errors.Is(err, ErrBackupDestinationNotFound) {
+			if statusErr := s.recordDestinationOutcome(destinationID, runDestination.DeliveryStatus, runDestination.DeliveryError, runDestination.RetentionStatus, runDestination.RetentionError); statusErr != nil {
+				bookkeepingErrors = appendBackupBookkeepingError(bookkeepingErrors, destinationID, statusErr)
+			}
+		}
+		return finish()
+	}
+
+	if runDestination.DeliveryStatus != StatusOK {
+		alreadyDelivered := false
+		if runDestination.DeliveryAttempted {
+			objects, listErr := target.List(ctx)
+			if listErr != nil {
+				runDestination.DeliveryStatus = StatusFailed
+				runDestination.DeliveryError = fmt.Sprintf("delivery state could not be confirmed: %v", listErr)
+				runDestination.RetentionStatus = StatusNotAttempted
+				runDestination.RetentionError = ""
+				persist(map[string]any{
+					"delivery_status":  runDestination.DeliveryStatus,
+					"delivery_error":   runDestination.DeliveryError,
+					"retention_status": runDestination.RetentionStatus,
+					"retention_error":  runDestination.RetentionError,
+				})
+				if statusErr := s.recordDestinationOutcome(destinationID, runDestination.DeliveryStatus, runDestination.DeliveryError, runDestination.RetentionStatus, runDestination.RetentionError); statusErr != nil {
+					bookkeepingErrors = appendBackupBookkeepingError(bookkeepingErrors, destinationID, statusErr)
+				}
+				return finish()
+			}
+			for _, object := range objects {
+				if object.Name == archiveName {
+					alreadyDelivered = true
+					break
+				}
+			}
+		}
+
+		if !runDestination.DeliveryAttempted {
+			runDestination.DeliveryAttempted = true
+			persist(map[string]any{"delivery_attempted": true})
+			if len(bookkeepingErrors) > 0 {
+				return finish()
+			}
+		}
+		if !alreadyDelivered {
+			if err := s.deliver(ctx, target, archivePath, archiveName); err != nil {
+				runDestination.DeliveryStatus = StatusFailed
+				runDestination.DeliveryError = err.Error()
+				runDestination.RetentionStatus = StatusNotAttempted
+				runDestination.RetentionError = ""
+				persist(map[string]any{
+					"delivery_status":  runDestination.DeliveryStatus,
+					"delivery_error":   runDestination.DeliveryError,
+					"retention_status": runDestination.RetentionStatus,
+					"retention_error":  runDestination.RetentionError,
+				})
+				if statusErr := s.recordDestinationOutcome(destinationID, runDestination.DeliveryStatus, runDestination.DeliveryError, runDestination.RetentionStatus, runDestination.RetentionError); statusErr != nil {
+					bookkeepingErrors = appendBackupBookkeepingError(bookkeepingErrors, destinationID, statusErr)
+				}
+				return finish()
+			}
+		}
+
+		now := pkg.Now()
+		runDestination.DeliveryStatus = StatusOK
+		runDestination.DeliveryError = ""
+		runDestination.DeliveredAt = &now
+		persist(map[string]any{
+			"delivery_status": runDestination.DeliveryStatus,
+			"delivery_error":  "",
+			"delivered_at":    now,
+		})
+	}
+
+	if runDestination.RetentionStatus != StatusOK {
+		if err := applyTargetRetention(ctx, target); err != nil {
+			runDestination.RetentionStatus = StatusFailed
+			runDestination.RetentionError = err.Error()
+		} else {
+			runDestination.RetentionStatus = StatusOK
+			runDestination.RetentionError = ""
+		}
+		now := pkg.Now()
+		runDestination.RetentionFinishedAt = &now
+		persist(map[string]any{
+			"retention_status":      runDestination.RetentionStatus,
+			"retention_error":       runDestination.RetentionError,
+			"retention_finished_at": now,
+		})
+	}
+
+	if statusErr := s.recordDestinationOutcome(destination.ID, runDestination.DeliveryStatus, runDestination.DeliveryError, runDestination.RetentionStatus, runDestination.RetentionError); statusErr != nil {
+		bookkeepingErrors = appendBackupBookkeepingError(bookkeepingErrors, destination.ID, statusErr)
+	}
+	return finish()
+}
+
+// deliver uploads the archive to one already-constructed target. Retention is
+// deliberately separate because a successful upload must not be retried merely
+// because listing or deleting stale objects failed afterward. The target is
+// passed in rather than rebuilt so one delivery attempt uses exactly one client
+// (which for S3 means one connection pool, not two).
+func (s *Service) deliver(ctx context.Context, target BackupTarget, archivePath, archiveName string) error {
+	archive, err := os.Open(archivePath) // #nosec G304 -- archivePath is a server-generated temp file created by buildBackupArchiveNamed, or the private staging spool.
+	if err != nil {
+		return err
+	}
+	defer archive.Close()
+
+	info, err := archive.Stat()
 	if err != nil {
 		return err
 	}
 
-	type backupEntry struct {
-		path    string
-		modTime time.Time
-	}
-	matches := make([]backupEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if !backupFileNamePattern.MatchString(entry.Name()) {
-			continue
-		}
-		info, infoErr := entry.Info()
-		if infoErr != nil {
-			continue
-		}
-		matches = append(matches, backupEntry{
-			path:    filepath.Join(dir, entry.Name()),
-			modTime: info.ModTime(),
-		})
+	return target.Put(ctx, archiveName, archive, info.Size())
+}
+
+// applyTargetRetention lists the archives at a target and deletes all but the
+// newest RetentionCount by modification time. Listing errors abort retention
+// (the upload already succeeded); individual delete failures are surfaced so a
+// destination that cannot prune is not silently reported as fully healthy.
+func applyTargetRetention(ctx context.Context, target BackupTarget) error {
+	keep := target.RetentionCount()
+	if keep < minBackupRetention {
+		keep = minBackupRetention
 	}
 
-	if int64(len(matches)) <= keep {
+	objects, err := target.List(ctx)
+	if err != nil {
+		return err
+	}
+	if len(objects) <= keep {
 		return nil
 	}
+	for _, object := range objects {
+		if object.ModifiedAt.IsZero() {
+			// An unknown timestamp cannot safely participate in retention
+			// ordering: it might be newer than every known object. Fail closed
+			// before deleting anything rather than treating it as the oldest.
+			return fmt.Errorf("backup object %q has no modification time", object.Name)
+		}
+	}
 
-	sort.Slice(matches, func(i, j int) bool {
-		return matches[i].modTime.After(matches[j].modTime)
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].ModifiedAt.After(objects[j].ModifiedAt)
 	})
 
-	for _, stale := range matches[keep:] {
-		if err := os.Remove(stale.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+	for _, stale := range objects[keep:] {
+		if err := target.Delete(ctx, stale.Name); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-// ListLocalBackups returns the resolved backup directory and the local backup
-// files it contains, newest first. A single unreadable file does not fail the
-// whole listing.
-func (s *Service) ListLocalBackups() (string, []LocalBackupInfo, error) {
-	localDir, err := backupsettings.GetString(context.Background(), s.DB, KeyLocalDir, "")
-	if err != nil {
-		return "", nil, err
+// ListDestinationBackups returns the archives held at one destination, newest
+// first, by delegating to the destination's target. It is the generalized,
+// destination-aware replacement for directory-only listing.
+func (s *Service) ListDestinationBackups(ctx context.Context, id uint) ([]BackupObject, error) {
+	var destination model.BackupDestination
+	if err := s.DB.First(&destination, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrBackupDestinationNotFound
+		}
+		return nil, err
 	}
-	dir, err := resolveBackupDir(localDir)
+
+	target, err := newBackupTarget(destination, s.DB)
 	if err != nil {
+		return nil, err
+	}
+
+	objects, err := target.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].ModifiedAt.After(objects[j].ModifiedAt)
+	})
+	return objects, nil
+}
+
+// ListLocalBackups returns the resolved directory and archives of the first
+// local destination, newest first, preserving the shape of the original
+// single-destination listing endpoint. When no local destination is
+// configured it reports the default directory with an empty list.
+func (s *Service) ListLocalBackups() (string, []LocalBackupInfo, error) {
+	var destination model.BackupDestination
+	err := s.DB.Where("type = ?", "local").
+		Order("sort_order ASC").Order("id ASC").
+		First(&destination).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dir, resolveErr := resolveBackupDir("")
+			if resolveErr != nil {
+				return "", nil, resolveErr
+			}
+			return dir, []LocalBackupInfo{}, nil
+		}
 		return "", nil, err
 	}
 
-	items := make([]LocalBackupInfo, 0)
-	entries, err := os.ReadDir(dir)
+	plain, err := decryptDestinationConfig(destination.Config)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return dir, items, nil
-		}
+		return "", nil, err
+	}
+	config, err := parseDestinationConfigMap(plain)
+	if err != nil {
+		return "", nil, err
+	}
+	target, err := newLocalTarget(config)
+	if err != nil {
+		return "", nil, err
+	}
+	dir := target.dir
+
+	objects, err := target.List(context.Background())
+	if err != nil {
 		return dir, nil, err
 	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if !backupFileNamePattern.MatchString(entry.Name()) {
-			continue
-		}
-		info, infoErr := entry.Info()
-		if infoErr != nil {
-			continue
-		}
-		fullPath := filepath.Join(dir, entry.Name())
-		items = append(items, LocalBackupInfo{
-			Name:       entry.Name(),
-			Size:       info.Size(),
-			ModifiedAt: info.ModTime().Format(time.RFC3339),
-			Encrypted:  backupArchiveIsEncrypted(fullPath),
-		})
-	}
-
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].ModifiedAt > items[j].ModifiedAt
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].ModifiedAt.After(objects[j].ModifiedAt)
 	})
 
+	items := make([]LocalBackupInfo, 0, len(objects))
+	for _, object := range objects {
+		items = append(items, LocalBackupInfo{
+			Name:       object.Name,
+			Size:       object.Size,
+			ModifiedAt: object.ModifiedAt.Format(time.RFC3339),
+			Encrypted:  object.Encrypted,
+		})
+	}
 	return dir, items, nil
 }
 
@@ -503,10 +1008,10 @@ func backupArchiveIsEncrypted(archivePath string) bool {
 	return false
 }
 
-// RunScheduledBackup runs a lease-guarded scheduled backup. It is safe to call
-// on a short timer: it only performs work when the schedule is enabled and a
-// backup is due for the current day, and it records the run status regardless
-// of outcome.
+// RunScheduledBackup runs a lease-guarded scheduled backup. Incomplete runs
+// are resumed before a new run is created; only a fully successful run advances
+// last_run_at. Partial runs remain due, but their persisted destination stages
+// make retries target only the unfinished delivery/retention work.
 func (s *Service) RunScheduledBackup(ownerID string) error {
 	return serviceutil.WithBackgroundTaskLease(s.DB, ownerID, backupTaskKey, backupLeaseTTL, func() error {
 		cfg, err := s.loadRuntimeConfig()
@@ -526,22 +1031,49 @@ func (s *Service) RunScheduledBackup(ownerID string) error {
 		}
 		lastRunAt := parseBackupLastRunAt(lastRunRaw)
 
-		if !backupDue(now, cfg.TimeOfDay, lastRunAt, loc) {
+		resumable, err := s.findResumableScheduledRun()
+		if err != nil {
+			return err
+		}
+		if resumable != nil {
+			// An incomplete run owns the schedule until it finishes or exceeds the
+			// resume window, so a second run is never started alongside it. Space
+			// the retries instead: a failing run must not consume a build and
+			// delivery cycle on every scheduler tick.
+			if !scheduledRunResumeDue(resumable.run, pkg.Now()) {
+				return nil
+			}
+		} else if !backupDue(now, cfg.TimeOfDay, lastRunAt, loc) {
 			return nil
 		}
 
-		if _, backupErr := s.CreateLocalBackup(); backupErr != nil {
-			// Record the failure status/error but do NOT stamp the last-run
-			// timestamp: backupDue gates on the last successful run, so a
-			// transient failure must not suppress retries for the rest of the
-			// day.
+		result, backupErr := s.runBackup(context.Background(), backupRunSourceScheduled, resumable)
+		if result.RunID == 0 {
+			if backupErr == nil {
+				return nil
+			}
 			if statusErr := s.recordBackupRunFailure(backupErr.Error()); statusErr != nil {
-				return statusErr
+				return errors.Join(backupErr, statusErr)
 			}
 			return backupErr
 		}
 
-		return s.recordBackupRunSuccess(now)
+		if statusErr := s.recordBackupRunResult(result, now); statusErr != nil {
+			_ = s.markGlobalBookkeepingFailure(result.RunID, statusErr)
+			if backupErr != nil {
+				return errors.Join(backupErr, statusErr)
+			}
+			return statusErr
+		}
+		if bookkeepingErr := s.markGlobalBookkeepingSuccess(result.RunID); bookkeepingErr != nil {
+			return bookkeepingErr
+		}
+		if result.Status == StatusOK {
+			if cleanupErr := s.cleanupBackupRunArchive(result.RunID); cleanupErr != nil {
+				return cleanupErr
+			}
+		}
+		return backupErr
 	})
 }
 
@@ -590,19 +1122,25 @@ func backupDue(now time.Time, timeOfDay string, lastRunAt time.Time, loc *time.L
 	return lastRunLocal.Before(today)
 }
 
-// recordBackupRunSuccess persists the runtime status keys for a successful
-// scheduled run, stamping the last-run timestamp that backupDue uses to gate
-// the once-per-day schedule. These keys are runtime-written status fields and
-// are intentionally not part of UpdateSettingsInput.
-func (s *Service) recordBackupRunSuccess(runAt time.Time) error {
+// recordBackupRunResult persists the aggregate runtime status. A partial or
+// failed run deliberately leaves last_run_at unchanged, so the scheduler can
+// resume it on a later tick without treating it as a completed day.
+func (s *Service) recordBackupRunResult(result BackupRunResult, runAt time.Time) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := backupsettings.SaveString(tx, KeyLastRunAt, runAt.Format(time.RFC3339)); err != nil {
+		status := result.Status
+		if status == "" {
+			status = StatusFailed
+		}
+		if err := backupsettings.SaveString(tx, KeyLastStatus, status); err != nil {
 			return err
 		}
-		if err := backupsettings.SaveString(tx, KeyLastStatus, StatusOK); err != nil {
+		if err := backupsettings.SaveString(tx, KeyLastError, result.Error); err != nil {
 			return err
 		}
-		return backupsettings.SaveString(tx, KeyLastError, "")
+		if status == StatusOK {
+			return backupsettings.SaveString(tx, KeyLastRunAt, runAt.Format(time.RFC3339))
+		}
+		return nil
 	})
 }
 
@@ -611,12 +1149,7 @@ func (s *Service) recordBackupRunSuccess(runAt time.Time) error {
 // successful run, leaving the timestamp untouched allows retries to proceed on
 // subsequent ticks the same day once the failure condition clears.
 func (s *Service) recordBackupRunFailure(runErr string) error {
-	return s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := backupsettings.SaveString(tx, KeyLastStatus, StatusFailed); err != nil {
-			return err
-		}
-		return backupsettings.SaveString(tx, KeyLastError, runErr)
-	})
+	return s.recordBackupRunResult(BackupRunResult{Status: StatusFailed, Error: runErr}, pkg.NowInSystemTimezone())
 }
 
 // ApplySettings validates and persists the user-editable backup settings within
@@ -632,26 +1165,6 @@ func ApplySettings(tx *gorm.DB, input UpdateSettingsInput) error {
 		}
 	}
 
-	if input.RetentionCount != nil {
-		count := *input.RetentionCount
-		if count < minBackupRetention || count > maxBackupRetention {
-			return ErrInvalidBackupRetentionCount
-		}
-		if err := backupsettings.SaveString(tx, KeyRetentionCount, strconv.FormatInt(count, 10)); err != nil {
-			return err
-		}
-	}
-
-	if input.LocalDir != nil {
-		normalized, err := normalizeBackupLocalDir(*input.LocalDir)
-		if err != nil {
-			return err
-		}
-		if err := backupsettings.SaveString(tx, KeyLocalDir, normalized); err != nil {
-			return err
-		}
-	}
-
 	if input.IncludeAssets != nil {
 		if err := backupsettings.SaveBool(tx, KeyIncludeAssets, *input.IncludeAssets); err != nil {
 			return err
@@ -659,6 +1172,15 @@ func ApplySettings(tx *gorm.DB, input UpdateSettingsInput) error {
 	}
 
 	if input.ScheduleEnabled != nil {
+		if *input.ScheduleEnabled {
+			var enabledDestination model.BackupDestination
+			if err := tx.Where("enabled = ?", true).First(&enabledDestination).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrNoEnabledBackupDestination
+				}
+				return err
+			}
+		}
 		if err := backupsettings.SaveBool(tx, KeyScheduleEnabled, *input.ScheduleEnabled); err != nil {
 			return err
 		}

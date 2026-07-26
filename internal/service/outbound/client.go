@@ -27,6 +27,11 @@ const (
 	PurposeIconProxy         Purpose = "icon_proxy"
 	PurposeAdminTest         Purpose = "admin_test"
 	PurposeExchangeRate      Purpose = "exchange_rate"
+	// PurposeBackupDestination covers admin-configured backup transports (S3,
+	// WebDAV). The endpoint is chosen by an administrator, so it is trusted as
+	// administrator policy and relies on the configured proxy/network ACL
+	// boundary rather than the user-facing SSRF filter, mirroring OIDC.
+	PurposeBackupDestination Purpose = "backup_destination"
 )
 
 func NewOutboundHTTPClient(db *gorm.DB, timeout time.Duration) *http.Client {

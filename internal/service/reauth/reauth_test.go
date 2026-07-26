@@ -174,6 +174,57 @@ func TestReauthConsume(t *testing.T) {
 	})
 }
 
+func TestReauthTicketBinding(t *testing.T) {
+	svc, user, password := newReauthTestService(t)
+	binding := &TicketBinding{DestinationID: 7, DestinationRevision: 3}
+	if IsValidReauthOperation("backup_destination") {
+		t.Fatal("legacy backup_destination operation is still accepted")
+	}
+
+	ticket, err := svc.VerifyPasswordWithBinding(
+		user.ID,
+		ReauthOperationBackupDestinationUpdate,
+		password,
+		"",
+		binding,
+	)
+	if err != nil {
+		t.Fatalf("VerifyPasswordWithBinding() error = %v, want nil", err)
+	}
+
+	if err := svc.ConsumeWithBinding(user.ID, ReauthOperationBackupDestinationDelete, binding, ticket); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("cross-operation ConsumeWithBinding() error = %v, want ErrReauthRequired", err)
+	}
+	if err := svc.ConsumeWithBinding(user.ID, ReauthOperationBackupDestinationUpdate, binding, ticket); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("post-operation-mismatch ConsumeWithBinding() error = %v, want spent ticket", err)
+	}
+
+	ticket, err = svc.VerifyPasswordWithBinding(
+		user.ID,
+		ReauthOperationBackupDestinationUpdate,
+		password,
+		"",
+		binding,
+	)
+	if err != nil {
+		t.Fatalf("second VerifyPasswordWithBinding() error = %v, want nil", err)
+	}
+	wrongBinding := &TicketBinding{DestinationID: binding.DestinationID + 1, DestinationRevision: binding.DestinationRevision}
+	if err := svc.ConsumeWithBinding(user.ID, ReauthOperationBackupDestinationUpdate, wrongBinding, ticket); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("cross-destination ConsumeWithBinding() error = %v, want ErrReauthRequired", err)
+	}
+	if err := svc.ConsumeWithBinding(user.ID, ReauthOperationBackupDestinationUpdate, binding, ticket); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("post-destination-mismatch ConsumeWithBinding() error = %v, want spent ticket", err)
+	}
+
+	if _, err := svc.VerifyPasswordWithBinding(user.ID, ReauthOperationBackupDestinationUpdate, password, "", nil); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("unbound update ticket error = %v, want ErrReauthRequired", err)
+	}
+	if _, err := svc.VerifyPasswordWithBinding(user.ID, ReauthOperationBackupDestinationCreate, password, "", binding); !errors.Is(err, ErrReauthRequired) {
+		t.Fatalf("bound create ticket error = %v, want ErrReauthRequired", err)
+	}
+}
+
 func TestReauthTicketExpiry(t *testing.T) {
 	svc, user, password := newReauthTestService(t)
 

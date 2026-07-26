@@ -89,8 +89,6 @@ type SystemSettings struct {
 	BackupIncludeAssets                  bool   `json:"backup_include_assets"`
 	BackupEncryptEnabled                 bool   `json:"backup_encrypt_enabled"`
 	BackupEncryptionPasswordSet          bool   `json:"backup_encryption_password_configured"`
-	BackupLocalDir                       string `json:"backup_local_dir"`
-	BackupRetentionCount                 int64  `json:"backup_retention_count"`
 	BackupLastRunAt                      string `json:"backup_last_run_at"`
 	BackupLastStatus                     string `json:"backup_last_status"`
 	BackupLastError                      string `json:"backup_last_error"`
@@ -154,8 +152,6 @@ type UpdateSettingsInput struct {
 	BackupIncludeAssets                  *bool   `json:"backup_include_assets"`
 	BackupEncryptEnabled                 *bool   `json:"backup_encrypt_enabled"`
 	BackupEncryptionPassword             *string `json:"backup_encryption_password"`
-	BackupLocalDir                       *string `json:"backup_local_dir"`
-	BackupRetentionCount                 *int64  `json:"backup_retention_count"`
 }
 
 type SSRFTestInput struct {

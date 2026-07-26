@@ -3,26 +3,30 @@ package reauth
 // Operation identifiers scope a ticket to a single sensitive action so a ticket
 // minted for one operation cannot authorize another.
 const (
-	ReauthOperationBackup               = "backup"
-	ReauthOperationBackupSchedule       = "backup_schedule"
-	ReauthOperationRestore              = "restore"
-	ReauthOperationChangeEmail          = "change_email"
-	ReauthOperationAddPasskey           = "add_passkey"
-	ReauthOperationDeletePasskey        = "delete_passkey"
-	ReauthOperationEnableTOTP           = "enable_totp"
-	ReauthOperationDisableTOTP          = "disable_totp"
-	ReauthOperationConnectOIDC          = "connect_oidc"
-	ReauthOperationCreateAPIKey         = "create_api_key"
-	ReauthOperationDeleteAPIKey         = "delete_api_key"
-	ReauthOperationCreateAdminUser      = "create_admin_user"
-	ReauthOperationChangeUserRole       = "change_user_role"
-	ReauthOperationAdminDisableTOTP     = "admin_disable_user_totp"
-	ReauthOperationAdminDisablePasskeys = "admin_disable_user_passkeys"
-	ReauthOperationDeleteUser           = "delete_user"
-	ReauthOperationExportRedacted       = "export_redacted"
-	ReauthOperationExportSecrets        = "export_secrets"
-	ReauthOperationImportSubdux         = "import_subdux"
-	ReauthOperationImportWallos         = "import_wallos"
+	ReauthOperationBackup                  = "backup"
+	ReauthOperationBackupRun               = "backup_run"
+	ReauthOperationBackupSchedule          = "backup_schedule"
+	ReauthOperationBackupDestinationCreate = "backup_destination_create"
+	ReauthOperationBackupDestinationUpdate = "backup_destination_update"
+	ReauthOperationBackupDestinationDelete = "backup_destination_delete"
+	ReauthOperationRestore                 = "restore"
+	ReauthOperationChangeEmail             = "change_email"
+	ReauthOperationAddPasskey              = "add_passkey"
+	ReauthOperationDeletePasskey           = "delete_passkey"
+	ReauthOperationEnableTOTP              = "enable_totp"
+	ReauthOperationDisableTOTP             = "disable_totp"
+	ReauthOperationConnectOIDC             = "connect_oidc"
+	ReauthOperationCreateAPIKey            = "create_api_key"
+	ReauthOperationDeleteAPIKey            = "delete_api_key"
+	ReauthOperationCreateAdminUser         = "create_admin_user"
+	ReauthOperationChangeUserRole          = "change_user_role"
+	ReauthOperationAdminDisableTOTP        = "admin_disable_user_totp"
+	ReauthOperationAdminDisablePasskeys    = "admin_disable_user_passkeys"
+	ReauthOperationDeleteUser              = "delete_user"
+	ReauthOperationExportRedacted          = "export_redacted"
+	ReauthOperationExportSecrets           = "export_secrets"
+	ReauthOperationImportSubdux            = "import_subdux"
+	ReauthOperationImportWallos            = "import_wallos"
 )
 
 // IsValidReauthOperation reports whether operation is a known reauth operation.
@@ -30,7 +34,11 @@ const (
 func IsValidReauthOperation(operation string) bool {
 	switch operation {
 	case ReauthOperationBackup,
+		ReauthOperationBackupRun,
 		ReauthOperationBackupSchedule,
+		ReauthOperationBackupDestinationCreate,
+		ReauthOperationBackupDestinationUpdate,
+		ReauthOperationBackupDestinationDelete,
 		ReauthOperationRestore,
 		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,
@@ -61,8 +69,6 @@ type AdminSettingsUpdateInput struct {
 	BackupIncludeAssets      *bool
 	BackupEncryptEnabled     *bool
 	BackupEncryptionPassword *string
-	BackupLocalDir           *string
-	BackupRetentionCount     *int64
 }
 
 // OperationForCreateUserRole returns the step-up operation needed by the
@@ -83,9 +89,7 @@ func OperationForAdminSettingsUpdate(input AdminSettingsUpdateInput) (string, bo
 		input.BackupTimeOfDay != nil ||
 		input.BackupIncludeAssets != nil ||
 		input.BackupEncryptEnabled != nil ||
-		input.BackupEncryptionPassword != nil ||
-		input.BackupLocalDir != nil ||
-		input.BackupRetentionCount != nil {
+		input.BackupEncryptionPassword != nil {
 		return ReauthOperationBackupSchedule, true
 	}
 	return "", false
