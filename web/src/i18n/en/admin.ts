@@ -426,7 +426,7 @@ const admin = {
       webdavUsername: "Username",
       webdavPassword: "Password",
       webdavPasswordConfigured: "Password configured — leave blank to keep",
-      webdavPasswordClear: "Clear saved password",
+      webdavPasswordClear: "Clear",
       scheduleTimeOfDay: "Time of day",
       scheduleTimeOfDayDescription:
         "Back up to this destination daily at this time, as 24-hour time (HH:MM) in the server's timezone.",

@@ -424,7 +424,7 @@ const admin = {
       webdavUsername: "ユーザー名",
       webdavPassword: "パスワード",
       webdavPasswordConfigured: "パスワードは設定済みです — 空欄のままにすると保持されます",
-      webdavPasswordClear: "保存済みパスワードをクリア",
+      webdavPasswordClear: "クリア",
       scheduleTimeOfDay: "実行時刻",
       scheduleTimeOfDayDescription:
         "この保存先へ毎日この時刻にバックアップします。サーバーのタイムゾーンでの 24 時間表記（HH:MM）です。",

@@ -387,7 +387,7 @@ const admin = {
       webdavUsername: "用户名",
       webdavPassword: "密码",
       webdavPasswordConfigured: "密码已配置——留空则保留",
-      webdavPasswordClear: "清除已保存的密码",
+      webdavPasswordClear: "清除",
       scheduleTimeOfDay: "执行时间",
       scheduleTimeOfDayDescription: "每天在此时间自动备份到该目标，使用服务器时区的 24 小时制（HH:MM）。",
       scheduleIncludeAssets: "包含 assets",
