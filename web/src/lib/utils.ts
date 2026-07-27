@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+import { currencyExponent, isWellFormedCurrencyCode } from "@/lib/money"
+
 const DAY_IN_MS = 24 * 60 * 60 * 1000
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/
 
@@ -59,10 +61,26 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number, currency: string = "USD", locale: string = "en-US"): string {
+  const code = currency.trim()
+  const exponent = currencyExponent(code)
+
+  // Intl.NumberFormat throws a RangeError for a malformed currency code (not
+  // exactly three ASCII letters). Fall back to a plain number with the raw
+  // code appended so imported data with a bad currency still renders instead
+  // of crashing the caller.
+  if (!isWellFormedCurrencyCode(code)) {
+    const formatted = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: exponent,
+      maximumFractionDigits: exponent,
+    }).format(amount)
+    return code ? `${formatted} ${code}` : formatted
+  }
+
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency,
-    minimumFractionDigits: 2,
+    currency: code,
+    minimumFractionDigits: exponent,
+    maximumFractionDigits: exponent,
   }).format(amount)
 }
 
@@ -77,10 +95,19 @@ export function formatCurrencyWithSymbol(
     return formatCurrency(amount, currency, locale)
   }
 
+  const code = currency.trim()
+  if (!isWellFormedCurrencyCode(code)) {
+    // No currency token to substitute the symbol into, so fall back the same
+    // way formatCurrency does rather than letting Intl throw.
+    return formatCurrency(amount, code, locale)
+  }
+
+  const exponent = currencyExponent(code)
   const parts = new Intl.NumberFormat(locale, {
     style: "currency",
-    currency,
-    minimumFractionDigits: 2,
+    currency: code,
+    minimumFractionDigits: exponent,
+    maximumFractionDigits: exponent,
   }).formatToParts(amount)
 
   return parts

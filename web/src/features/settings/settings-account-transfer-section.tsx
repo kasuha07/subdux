@@ -16,6 +16,7 @@ import type {
   ImportPreview,
   SubduxImportPreview,
 } from "@/features/settings/settings-account-import-types"
+import { formatCurrency } from "@/lib/utils"
 
 interface SettingsAccountTransferSectionProps {
   exportLoading: boolean
@@ -484,7 +485,7 @@ function SubscriptionPreviewList({
   showCategory?: boolean
   subscriptions: ImportPreview["subscriptions"]
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   return (
     <div>
@@ -496,7 +497,7 @@ function SubscriptionPreviewList({
               <div className="flex items-center gap-2">
                 <span className="truncate font-medium">{subscription.name}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {subscription.amount} {subscription.currency}
+                  {formatCurrency(subscription.amount, subscription.currency, i18n.language)}
                 </span>
               </div>
               {showCategory && subscription.category && (

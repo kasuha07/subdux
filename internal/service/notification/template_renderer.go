@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/kasuha07/subdux/internal/pkg/money"
 )
 
 const (
@@ -49,10 +51,13 @@ func (tr *TemplateRenderer) RenderTemplate(tmplStr string, data TemplateData) (s
 		return "", err
 	}
 
+	// Amount renders with exactly the minor-unit decimals its currency uses, so
+	// a reminder shows "9.99" and "1235" (JPY) rather than the shortest float64
+	// representation.
 	values := map[string]string{
 		"SubscriptionName": data.SubscriptionName,
 		"BillingDate":      data.BillingDate,
-		"Amount":           strconv.FormatFloat(data.Amount, 'f', -1, 64),
+		"Amount":           money.Format(data.Amount, data.Currency),
 		"Currency":         data.Currency,
 		"DaysUntil":        strconv.Itoa(data.DaysUntil),
 		"EventType":        data.EventType,

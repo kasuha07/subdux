@@ -9,6 +9,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/money"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -498,31 +499,54 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 	items := make([]SubscriptionAction, 0, len(events))
 	seen := map[uint]struct{}{}
 	type priceChange struct {
-		event model.SubscriptionEvent
-		delta float64
+		event    model.SubscriptionEvent
+		currency string
+		previous float64
+		current  float64
+		delta    float64
 	}
 	// Keep only the most recent non-zero price change per subscription (events
 	// arrive newest-first), mirroring the original first-seen-wins semantics: a
-	// most-recent decrease suppresses the subscription entirely.
+	// most-recent decrease suppresses the subscription entirely. Each stored
+	// monthly amount is denominated in its own snapshot's currency and nothing
+	// is converted here, so only same-currency events are comparable; those are
+	// compared on that currency's minor-unit grid, where drift below one minor
+	// unit is not a price change.
 	candidates := make([]priceChange, 0, len(events))
 	ids := make([]uint, 0, len(events))
 	for _, event := range events {
 		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil || event.NewMonthlyAmount == nil {
 			continue
 		}
-		delta := *event.NewMonthlyAmount - *event.PreviousMonthlyAmount
-		if delta == 0 {
-			continue
-		}
 		subscriptionID := *event.SubscriptionID
 		if _, ok := seen[subscriptionID]; ok {
 			continue
 		}
-		seen[subscriptionID] = struct{}{}
-		if delta < 0 {
+		currency, sameCurrency := priceChangeEventCurrency(event)
+		if !sameCurrency {
+			// The two amounts sit on different currencies' grids, so their
+			// difference is not a price change at all without conversion.
+			// Consume the subscription like any other most-recent change so an
+			// older increase denominated in the abandoned currency cannot
+			// surface behind it.
+			seen[subscriptionID] = struct{}{}
 			continue
 		}
-		candidates = append(candidates, priceChange{event: event, delta: delta})
+		direction := money.Cmp(*event.NewMonthlyAmount, *event.PreviousMonthlyAmount, currency)
+		if direction == 0 {
+			continue
+		}
+		seen[subscriptionID] = struct{}{}
+		if direction < 0 {
+			continue
+		}
+		candidates = append(candidates, priceChange{
+			event:    event,
+			currency: currency,
+			previous: money.Round(*event.PreviousMonthlyAmount, currency),
+			current:  money.Round(*event.NewMonthlyAmount, currency),
+			delta:    money.Diff(*event.NewMonthlyAmount, *event.PreviousMonthlyAmount, currency),
+		})
 		ids = append(ids, subscriptionID)
 	}
 
@@ -542,8 +566,8 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 		}
 
 		eventDate := event.CreatedAt.UTC().Format(time.RFC3339)
-		previous := *event.PreviousMonthlyAmount
-		current := *event.NewMonthlyAmount
+		previous := candidate.previous
+		current := candidate.current
 		deltaCopy := candidate.delta
 		percentage := percentageDelta(previous, current)
 		items = append(items, SubscriptionAction{
@@ -569,6 +593,25 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 		})
 	}
 	return items, nil
+}
+
+// priceChangeEventCurrency returns the single currency both of the event's
+// monthly amounts are denominated in, reporting false when the event switched
+// currency and the two amounts therefore live on different grids. Each snapshot
+// records its own currency, and the action center never converts, so a currency
+// switch is not a comparable price change here; the converted cross-currency
+// view belongs to the analytics report. The "new" side wins when only one side
+// is recorded because it describes the amount the user now pays.
+func priceChangeEventCurrency(event model.SubscriptionEvent) (string, bool) {
+	previous := strings.ToUpper(strings.TrimSpace(event.PreviousCurrency))
+	current := strings.ToUpper(strings.TrimSpace(event.NewCurrency))
+	if previous != "" && current != "" && previous != current {
+		return "", false
+	}
+	if current != "" {
+		return current, true
+	}
+	return previous, true
 }
 
 func subscriptionActionKey(subscriptionID uint, actionType, qualifier string) string {

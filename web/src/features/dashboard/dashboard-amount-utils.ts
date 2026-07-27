@@ -1,3 +1,4 @@
+import { roundAmount } from "@/lib/money"
 import type { Subscription } from "@/types"
 
 export function getAmountInTargetCurrency(
@@ -18,7 +19,7 @@ export function getAmountInTargetCurrency(
     return amount
   }
 
-  return amount * rate
+  return roundAmount(amount * rate, normalizedTarget)
 }
 
 export function getMonthlyAmountFactor(subscription: Subscription): number | null {
@@ -70,5 +71,7 @@ export function getComparableSubscriptionAmount(
   )
   const monthlyFactor = getMonthlyAmountFactor(subscription)
 
-  return monthlyFactor ? amountInTargetCurrency * monthlyFactor : amountInTargetCurrency
+  return monthlyFactor
+    ? roundAmount(amountInTargetCurrency * monthlyFactor, preferredCurrency)
+    : amountInTargetCurrency
 }

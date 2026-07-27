@@ -3,6 +3,7 @@ const backendMessages = {
   "account_is_disabled": "アカウントが無効になっています",
   "admin_access_required": "管理者アクセスが必要です",
   "amount_must_not_be_negative": "金額は負であってはなりません",
+  "amount_too_large": "金額が大きすぎます",
   "api_key_cannot_access_this_endpoint": "API キーはこのエンドポイントにアクセスできません",
   "api_key_deleted": "APIキーが削除されました",
   "api_key_does_not_have_required_scope": "API キーには必要なスコープがありません",

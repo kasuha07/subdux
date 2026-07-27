@@ -204,7 +204,12 @@ func extractCurrencyAndAmount(price string, preferredCurrency string) (float64, 
 	if err != nil {
 		return 0, currency
 	}
-	return amount, currency
+	// normalizeImportedAmount folds in every other way a parsed price can be
+	// unusable — non-finite, negative, or above money.MaxAmount — so this
+	// path applies the same ceiling the Subdux importer and the API use
+	// instead of letting a hand-edited price file write an unquantizable
+	// amount to the DB.
+	return normalizeImportedAmount(amount), currency
 }
 
 // resolveAmbiguous picks the best currency code from candidates.
@@ -339,7 +344,9 @@ func (s *Service) ImportFromWallos(userID uint, data []WallosSubscription, confi
 
 			// Deduplicate by name + amount + currency + billing_type (without next_billing_date,
 			// because the app may advance billing dates after import, causing re-imports).
-			dedupKey := fmt.Sprintf("%s|%v|%s|%s", name, amount, currency, billingType)
+			// The amount uses the same exact float formatting as the Subdux
+			// importer so both importers agree on what "same amount" means.
+			dedupKey := fmt.Sprintf("%s|%s|%s|%s", name, importAmountKey(amount), currency, billingType)
 
 			// Check within the current import batch first
 			isDuplicate := seenSubscriptions[dedupKey]

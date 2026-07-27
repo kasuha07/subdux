@@ -10,6 +10,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/money"
 	"gorm.io/gorm"
 )
 
@@ -168,10 +169,13 @@ func (s *Service) buildSubscriptionEventSnapshot(userID uint, sub model.Subscrip
 		}
 	}
 
+	// Amount is the value the user entered and is stored verbatim; the derived
+	// monthly amount is quantized so the event history records grid-aligned
+	// money rather than accumulated factor drift.
 	return subscriptionEventSnapshot{
 		Amount:            sub.Amount,
 		Currency:          strings.ToUpper(strings.TrimSpace(sub.Currency)),
-		MonthlyAmount:     sub.Amount * subscriptionMonthlyFactor(sub),
+		MonthlyAmount:     money.Round(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency),
 		NextBillingDate:   copyTimePointer(sub.NextBillingDate),
 		Status:            normalizeStatus(sub.Status),
 		RenewalMode:       normalizeRenewalMode(sub.RenewalMode),

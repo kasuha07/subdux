@@ -5,6 +5,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/money"
 )
 
 func (s *Service) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
@@ -92,20 +93,23 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 	for _, sub := range subs {
 		amount := sub.Amount
 		if converter != nil && sub.Currency != targetCurrency {
-			amount = converter.Convert(amount, sub.Currency, targetCurrency)
+			// Quantize the converted amount to the target minor unit before it
+			// feeds any derived term, so exchange-rate noise cannot accumulate.
+			amount = money.Round(converter.Convert(amount, sub.Currency, targetCurrency), targetCurrency)
 		}
 
 		factor := subscriptionMonthlyFactor(sub)
 		if factor > 0 && subscriptionContributesToOngoingSpend(sub) {
-			totalMonthly += amount * factor
+			monthly := money.Round(amount*factor, targetCurrency)
+			totalMonthly += monthly
 			if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
-				committedMonthly += amount * factor
+				committedMonthly += monthly
 			}
 		}
 
 		occurrences := len(subscriptionChargeDatesInRange(sub, today, startOfNextMonth))
 		if occurrences > 0 {
-			dueThisMonth += amount * float64(occurrences)
+			dueThisMonth += money.Round(amount*float64(occurrences), targetCurrency)
 		}
 	}
 
@@ -122,12 +126,15 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 		upcomingRenewalCount++
 	}
 
+	totalMonthly = money.Round(totalMonthly, targetCurrency)
+	committedMonthly = money.Round(committedMonthly, targetCurrency)
+
 	return &DashboardSummary{
 		TotalMonthly:         totalMonthly,
-		TotalYearly:          totalMonthly * 12,
+		TotalYearly:          money.Round(totalMonthly*12, targetCurrency),
 		CommittedMonthly:     committedMonthly,
-		CommittedYearly:      committedMonthly * 12,
-		DueThisMonth:         dueThisMonth,
+		CommittedYearly:      money.Round(committedMonthly*12, targetCurrency),
+		DueThisMonth:         money.Round(dueThisMonth, targetCurrency),
 		ActiveCount:          int64(len(subs)),
 		UpcomingRenewalCount: upcomingRenewalCount,
 		Currency:             targetCurrency,

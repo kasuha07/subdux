@@ -691,6 +691,12 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 			}
 
 			incoming.Name = name
+			// An exported amount is untrusted JSON: NaN/±Inf would poison every
+			// aggregate and a negative amount violates the subscriptions table's
+			// amount >= 0 check constraint. Clamp to 0 the same way the SQLite
+			// integrity-hardening migration does for existing rows, before the
+			// value reaches the dedup key, the preview, or the insert.
+			incoming.Amount = normalizeImportedAmount(incoming.Amount)
 			incoming.Currency = strings.ToUpper(strings.TrimSpace(incoming.Currency))
 			incoming.BillingType = strings.ToLower(strings.TrimSpace(incoming.BillingType))
 			incoming.RecurrenceType = strings.ToLower(strings.TrimSpace(incoming.RecurrenceType))
@@ -719,7 +725,9 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 
 			dedupKey := strings.Join([]string{
 				strings.ToLower(incoming.Name),
-				fmt.Sprintf("%f", incoming.Amount),
+				// Exact float formatting, matching the Wallos importer: %f
+				// truncated at 6 decimals and collapsed distinct amounts.
+				importAmountKey(incoming.Amount),
 				strings.ToUpper(incoming.Currency),
 				strings.ToLower(incoming.BillingType),
 				recurrenceSignature(incoming),

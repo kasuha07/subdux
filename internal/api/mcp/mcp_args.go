@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/pkg/money"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 )
 
@@ -283,12 +284,22 @@ func readFloatArg(args map[string]interface{}, key string) (float64, bool) {
 	}
 	switch typed := value.(type) {
 	case float64:
+		// A non-finite float64 is not a usable number argument. JSON cannot
+		// carry one, but the arg map is also built in-process.
+		if !money.IsFinite(typed) {
+			return 0, false
+		}
 		return typed, true
 	case int:
 		return float64(typed), true
 	case string:
+		// strconv.ParseFloat accepts "NaN", "Inf", and "-Infinity". Those parse
+		// without error but are not amounts, so reject them as invalid.
 		parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
-		return parsed, err == nil
+		if err != nil || !money.IsFinite(parsed) {
+			return 0, false
+		}
+		return parsed, true
 	default:
 		return 0, false
 	}

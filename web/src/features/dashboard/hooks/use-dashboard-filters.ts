@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react"
 import type { TFunction } from "i18next"
 
+import { roundAmount } from "@/lib/money"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type {
   Category,
@@ -184,8 +185,8 @@ export function useDashboardFilters({
       }
       if (sortField === "amount") {
         return (
-          getComparableSubscriptionAmount(a, preferredCurrency, exchangeRates) -
-          getComparableSubscriptionAmount(b, preferredCurrency, exchangeRates)
+          roundAmount(getComparableSubscriptionAmount(a, preferredCurrency, exchangeRates), preferredCurrency) -
+          roundAmount(getComparableSubscriptionAmount(b, preferredCurrency, exchangeRates), preferredCurrency)
         )
       }
       return toTimestamp(a.next_billing_date) - toTimestamp(b.next_billing_date)

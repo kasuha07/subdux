@@ -3,6 +3,7 @@ const backendMessages = {
   "account_is_disabled": "account is disabled",
   "admin_access_required": "admin access required",
   "amount_must_not_be_negative": "Amount must not be negative",
+  "amount_too_large": "Amount is too large",
   "api_key_cannot_access_this_endpoint": "api key cannot access this endpoint",
   "api_key_deleted": "api key deleted",
   "api_key_does_not_have_required_scope": "api key does not have required scope",

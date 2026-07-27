@@ -37,6 +37,31 @@ describe("formatCurrency", () => {
     expect(formatCurrency(1234.5, "EUR", "de-DE")).toMatch(/1\.234,50/)
     expect(formatCurrency(1234.5, "EUR", "de-DE")).toContain("€")
   })
+
+  it("keeps three decimal places for a three-decimal currency", () => {
+    expect(formatCurrency(1.235, "KWD")).toMatch(/1\.235/)
+  })
+
+  it("renders no decimal places for a zero-decimal currency", () => {
+    expect(formatCurrency(1200, "JPY")).toMatch(/1,200(?!\.)/)
+    expect(formatCurrency(1200, "JPY")).not.toContain(".")
+  })
+
+  it("keeps two decimal places for a two-decimal currency", () => {
+    expect(formatCurrency(9.9, "USD")).toMatch(/9\.90/)
+  })
+
+  it("falls back to a plain number for an empty currency code", () => {
+    expect(formatCurrency(12, "")).toBe("12.00")
+  })
+
+  it("falls back to a plain number with the code appended for a symbol currency code", () => {
+    expect(formatCurrency(12, "€")).toBe("12.00 €")
+  })
+
+  it("does not throw for a two-letter currency code", () => {
+    expect(() => formatCurrency(12, "AB")).not.toThrow()
+  })
 })
 
 describe("formatCurrencyWithSymbol", () => {
@@ -54,6 +79,10 @@ describe("formatCurrencyWithSymbol", () => {
 
   it("trims the provided symbol before substitution", () => {
     expect(formatCurrencyWithSymbol(9.99, "USD", "  ¥ ")).toBe("¥9.99")
+  })
+
+  it("does not throw for a malformed currency code even with a symbol given", () => {
+    expect(() => formatCurrencyWithSymbol(12, "€", "€")).not.toThrow()
   })
 })
 

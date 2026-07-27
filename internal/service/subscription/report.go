@@ -7,6 +7,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/money"
 )
 
 const (
@@ -189,7 +190,7 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 		factor := subscriptionMonthlyFactor(sub)
 		monthlyAmount := 0.0
 		if subscriptionContributesToOngoingSpend(sub) {
-			monthlyAmount = amount * factor
+			monthlyAmount = money.Round(amount*factor, targetCurrency)
 		}
 
 		renewalMode := normalizeRenewalMode(sub.RenewalMode)
@@ -206,11 +207,11 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 		report.KPIs.TotalMonthly += monthlyAmount
 
 		thisMonthRenewalDates := subscriptionChargeDatesInRange(sub, today, startOfNextMonth)
-		report.KPIs.DueThisMonth += amount * float64(len(thisMonthRenewalDates))
+		report.KPIs.DueThisMonth += money.Round(amount*float64(len(thisMonthRenewalDates)), targetCurrency)
 
 		renewalDates := subscriptionChargeDatesInRange(sub, today, next30DaysExclusive)
 		report.KPIs.UpcomingRenewalCount += int64(len(renewalDates))
-		report.KPIs.DueNext30Days += amount * float64(len(renewalDates))
+		report.KPIs.DueNext30Days += money.Round(amount*float64(len(renewalDates)), targetCurrency)
 		for _, renewalDate := range renewalDates {
 			report.UpcomingRenewals = append(report.UpcomingRenewals, ReportUpcomingRenewal{
 				ID:            sub.ID,
@@ -234,7 +235,7 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 			occurrences := subscriptionChargeDatesInRange(sub, periodStart, periodEnd)
 			if len(occurrences) > 0 {
 				report.MonthlyForecast[i].OccurrenceCount += len(occurrences)
-				report.MonthlyForecast[i].AmountDue += amount * float64(len(occurrences))
+				report.MonthlyForecast[i].AmountDue += money.Round(amount*float64(len(occurrences)), targetCurrency)
 			}
 		}
 
@@ -260,18 +261,28 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 				RenewalMode:      renewalMode,
 				NextBillingDate:  nextBillingDate,
 				MonthlyAmount:    monthlyAmount,
-				YearlyAmount:     monthlyAmount * 12,
+				YearlyAmount:     money.Round(monthlyAmount*12, targetCurrency),
 				OriginalAmount:   sub.Amount,
 				OriginalCurrency: strings.ToUpper(sub.Currency),
 			})
 		}
 	}
 
-	report.KPIs.TotalYearly = report.KPIs.TotalMonthly * 12
-	report.KPIs.CommittedYearly = report.KPIs.CommittedMonthly * 12
-	report.CategoryBreakdown = buildReportBreakdown(categoryBreakdowns, report.KPIs.TotalMonthly)
-	report.PaymentMethodBreakdown = buildReportBreakdown(paymentMethodBreakdowns, report.KPIs.TotalMonthly)
-	report.RenewalModeBreakdown = buildReportBreakdown(renewalModeBreakdowns, report.KPIs.TotalMonthly)
+	// Quantize every accumulated KPI before it leaves the service: the running
+	// sums are already made of minor-unit terms, but float addition can still
+	// land a hair off the grid.
+	report.KPIs.TotalMonthly = money.Round(report.KPIs.TotalMonthly, targetCurrency)
+	report.KPIs.CommittedMonthly = money.Round(report.KPIs.CommittedMonthly, targetCurrency)
+	report.KPIs.DueThisMonth = money.Round(report.KPIs.DueThisMonth, targetCurrency)
+	report.KPIs.DueNext30Days = money.Round(report.KPIs.DueNext30Days, targetCurrency)
+	report.KPIs.TotalYearly = money.Round(report.KPIs.TotalMonthly*12, targetCurrency)
+	report.KPIs.CommittedYearly = money.Round(report.KPIs.CommittedMonthly*12, targetCurrency)
+	for i := range report.MonthlyForecast {
+		report.MonthlyForecast[i].AmountDue = money.Round(report.MonthlyForecast[i].AmountDue, targetCurrency)
+	}
+	report.CategoryBreakdown = buildReportBreakdown(categoryBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
+	report.PaymentMethodBreakdown = buildReportBreakdown(paymentMethodBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
+	report.RenewalModeBreakdown = buildReportBreakdown(renewalModeBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
 
 	sort.Slice(report.TopSubscriptions, func(i, j int) bool {
 		if report.TopSubscriptions[i].MonthlyAmount == report.TopSubscriptions[j].MonthlyAmount {
@@ -342,10 +353,12 @@ func (s *Service) reportPriceIncreases(userID uint, targetCurrency string, conve
 		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil || event.NewMonthlyAmount == nil {
 			continue
 		}
-		previousAmount := convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter)
-		newAmount := convertHistoricalAmount(*event.NewMonthlyAmount, event.NewCurrency, targetCurrency, converter)
-		delta := newAmount - previousAmount
-		if delta <= 0 {
+		// Compare on the minor-unit grid: stored event amounts and converted
+		// amounts both carry float drift, and a sub-cent difference is not a
+		// price increase.
+		previousAmount := money.Round(convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter), targetCurrency)
+		newAmount := money.Round(convertHistoricalAmount(*event.NewMonthlyAmount, event.NewCurrency, targetCurrency, converter), targetCurrency)
+		if money.Cmp(newAmount, previousAmount, targetCurrency) <= 0 {
 			continue
 		}
 		items = append(items, ReportPriceIncrease{
@@ -353,7 +366,7 @@ func (s *Service) reportPriceIncreases(userID uint, targetCurrency string, conve
 			Name:                  event.SubscriptionName,
 			PreviousMonthlyAmount: previousAmount,
 			NewMonthlyAmount:      newAmount,
-			DeltaMonthlyAmount:    delta,
+			DeltaMonthlyAmount:    money.Diff(newAmount, previousAmount, targetCurrency),
 			DeltaPercentage:       percentageDelta(previousAmount, newAmount),
 			Currency:              targetCurrency,
 			ChangedAt:             event.CreatedAt.Format("2006-01-02"),
@@ -421,7 +434,10 @@ func (s *Service) reportAnnualGrowth(userID uint, targetCurrency string, convert
 		if !subscriptionContributesToOngoingSpend(sub) {
 			continue
 		}
-		currentMonthly := convertHistoricalAmount(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency, targetCurrency, converter)
+		currentMonthly := money.Round(
+			convertHistoricalAmount(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency, targetCurrency, converter),
+			targetCurrency,
+		)
 		if currentMonthly <= 0 {
 			continue
 		}
@@ -431,8 +447,8 @@ func (s *Service) reportAnnualGrowth(userID uint, targetCurrency string, convert
 			continue
 		}
 
-		delta := currentMonthly - baselineMonthly
-		if delta <= 0 {
+		// Growth is only real once it shows up on the minor-unit grid.
+		if money.Cmp(currentMonthly, baselineMonthly, targetCurrency) <= 0 {
 			continue
 		}
 		items = append(items, ReportAnnualGrowthItem{
@@ -440,7 +456,7 @@ func (s *Service) reportAnnualGrowth(userID uint, targetCurrency string, convert
 			Name:                  sub.Name,
 			BaselineMonthlyAmount: baselineMonthly,
 			CurrentMonthlyAmount:  currentMonthly,
-			DeltaMonthlyAmount:    delta,
+			DeltaMonthlyAmount:    money.Diff(currentMonthly, baselineMonthly, targetCurrency),
 			DeltaPercentage:       percentageDelta(baselineMonthly, currentMonthly),
 			Currency:              targetCurrency,
 		})
@@ -489,20 +505,28 @@ func (s *Service) annualGrowthBaselineMonthlyAmounts(
 		if _, ok := baselines[*event.SubscriptionID]; ok {
 			continue
 		}
-		baselines[*event.SubscriptionID] = convertHistoricalAmount(
+		baselines[*event.SubscriptionID] = money.Round(convertHistoricalAmount(
 			*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter,
-		)
+		), targetCurrency)
 	}
 	return baselines, nil
 }
 
+// convertSubscriptionAmount converts a subscription's amount into
+// targetCurrency. A converted amount is quantized to the target currency's
+// minor unit immediately, so downstream aggregation never accumulates the
+// sub-cent noise an exchange rate multiplication leaves behind.
 func convertSubscriptionAmount(sub model.Subscription, targetCurrency string, converter CurrencyConverter) float64 {
 	if converter == nil || strings.EqualFold(sub.Currency, targetCurrency) {
 		return sub.Amount
 	}
-	return converter.Convert(sub.Amount, sub.Currency, targetCurrency)
+	return money.Round(converter.Convert(sub.Amount, sub.Currency, targetCurrency), targetCurrency)
 }
 
+// convertHistoricalAmount converts an amount recorded on a subscription event
+// into targetCurrency, quantizing the converted result to the target minor
+// unit. Stored event amounts predating this policy may still carry drift; the
+// money.Cmp-based gates on the read path absorb that.
 func convertHistoricalAmount(amount float64, currency, targetCurrency string, converter CurrencyConverter) float64 {
 	currency = strings.ToUpper(strings.TrimSpace(currency))
 	targetCurrency = strings.ToUpper(strings.TrimSpace(targetCurrency))
@@ -512,9 +536,12 @@ func convertHistoricalAmount(amount float64, currency, targetCurrency string, co
 	if currency == "" || converter == nil || strings.EqualFold(currency, targetCurrency) {
 		return amount
 	}
-	return converter.Convert(amount, currency, targetCurrency)
+	return money.Round(converter.Convert(amount, currency, targetCurrency), targetCurrency)
 }
 
+// percentageDelta expects operands already quantized to their currency's minor
+// unit so the percentage reflects the same numbers the caller reports. The
+// percentage itself stays unrounded; the frontend formats it.
 func percentageDelta(previousAmount, newAmount float64) float64 {
 	if previousAmount <= 0 {
 		return 0
@@ -592,19 +619,23 @@ func addReportBreakdown(items map[string]*reportBreakdownAccumulator, key, label
 	item.monthlyAmount += monthlyAmount
 }
 
-func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMonthly float64) []ReportBreakdownItem {
+// buildReportBreakdown quantizes each accumulated bucket to the target minor
+// unit before emitting it. Percentages are derived from those rounded amounts
+// but stay unrounded themselves — the frontend formats them.
+func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMonthly float64, targetCurrency string) []ReportBreakdownItem {
 	result := make([]ReportBreakdownItem, 0, len(items))
 	for _, item := range items {
+		monthlyAmount := money.Round(item.monthlyAmount, targetCurrency)
 		percentage := 0.0
 		if totalMonthly > 0 {
-			percentage = item.monthlyAmount / totalMonthly * 100
+			percentage = monthlyAmount / totalMonthly * 100
 		}
 		result = append(result, ReportBreakdownItem{
 			Key:           item.key,
 			Label:         item.label,
 			Count:         item.count,
-			MonthlyAmount: item.monthlyAmount,
-			YearlyAmount:  item.monthlyAmount * 12,
+			MonthlyAmount: monthlyAmount,
+			YearlyAmount:  money.Round(monthlyAmount*12, targetCurrency),
 			Percentage:    percentage,
 		})
 	}

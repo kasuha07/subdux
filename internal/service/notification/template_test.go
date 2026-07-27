@@ -162,7 +162,8 @@ func TestPreviewTemplateCanUseEndingSubscriptionData(t *testing.T) {
 		t.Fatalf("PreviewTemplate() error = %v", err)
 	}
 
-	const want = "Ending Plan|2026-03-15|99|ending_soon|cancel_at_period_end|active"
+	// USD amounts render with their two minor-unit decimals.
+	const want = "Ending Plan|2026-03-15|99.00|ending_soon|cancel_at_period_end|active"
 	if preview != want {
 		t.Fatalf("PreviewTemplate() preview = %q, want %q", preview, want)
 	}

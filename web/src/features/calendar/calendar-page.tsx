@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { api } from "@/lib/api"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
+import { currencyExponent } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
@@ -523,7 +524,8 @@ export default function CalendarPage() {
                         {sub.amount.toLocaleString(i18n.language, {
                           style: "currency",
                           currency: sub.currency,
-                          minimumFractionDigits: 2,
+                          minimumFractionDigits: currencyExponent(sub.currency),
+                          maximumFractionDigits: currencyExponent(sub.currency),
                         })}
                       </span>
                     </div>

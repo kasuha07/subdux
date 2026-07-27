@@ -3,6 +3,7 @@ const backendMessages = {
   "account_is_disabled": "帐户已被禁用",
   "admin_access_required": "需要管理员访问权限",
   "amount_must_not_be_negative": "金额不得为负数",
+  "amount_too_large": "金额过大",
   "api_key_cannot_access_this_endpoint": "api 密钥无法访问此端点",
   "api_key_deleted": "API 密钥已删除",
   "api_key_does_not_have_required_scope": "api 密钥没有所需的范围",

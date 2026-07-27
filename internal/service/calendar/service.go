@@ -11,6 +11,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/pkg/money"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"gorm.io/gorm"
@@ -153,7 +154,9 @@ func (s *Service) GenerateICalFeed(userID uint) (string, error) {
 		}
 
 		dateStr := sub.NextBillingDate.UTC().Format("20060102")
-		summary := fmt.Sprintf("%s - %.2f %s", sub.Name, sub.Amount, sub.Currency)
+		// Format with the currency's own minor unit rather than a hardcoded two
+		// decimals: JPY reads "1235", KWD reads "1.200".
+		summary := fmt.Sprintf("%s - %s %s", sub.Name, money.Format(sub.Amount, sub.Currency), sub.Currency)
 
 		sb.WriteString("BEGIN:VEVENT" + crlf)
 		sb.WriteString(icalFold(fmt.Sprintf("UID:subdux-sub-%d@subdux", sub.ID)) + crlf)

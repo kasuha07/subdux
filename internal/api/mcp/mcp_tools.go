@@ -97,8 +97,8 @@ func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpP
 	if input.Name == "" {
 		return nil, invalidMCPParams(errors.New("name is required"))
 	}
-	if input.Amount < 0 {
-		return nil, invalidMCPParams(errors.New("amount must not be negative"))
+	if !validateSubscriptionAmount(input.Amount) {
+		return nil, invalidMCPParams(subscriptionAmountError(input.Amount))
 	}
 	if !validateSubscriptionIcon(input.Icon) {
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
@@ -132,8 +132,8 @@ func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpP
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
-	if input.Amount != nil && *input.Amount < 0 {
-		return nil, invalidMCPParams(errors.New("amount must not be negative"))
+	if input.Amount != nil && !validateSubscriptionAmount(*input.Amount) {
+		return nil, invalidMCPParams(subscriptionAmountError(*input.Amount))
 	}
 	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
