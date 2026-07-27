@@ -21,8 +21,9 @@ func importAmountKey(amount float64) string {
 // constraint requires. The upper bound is the same one the API enforces via
 // contract.MaxSubscriptionAmount (now money.MaxAmount) — imported files are
 // hand-editable and bypass that API check, so this is where the ceiling gets
-// applied for both importers; without it, an amount above ~9e13 would defeat
-// money.Round's ability to quantize it at all.
+// applied for both importers; without it, an amount above the configured
+// bound would defeat money.Round's ability to quantize four-decimal values
+// exactly.
 func normalizeImportedAmount(amount float64) float64 {
 	if !money.IsFinite(amount) || amount < 0 || amount > money.MaxAmount {
 		return 0

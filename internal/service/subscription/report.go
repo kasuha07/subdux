@@ -353,6 +353,14 @@ func (s *Service) reportPriceIncreases(userID uint, targetCurrency string, conve
 		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil || event.NewMonthlyAmount == nil {
 			continue
 		}
+		// Event amounts are denominated in their respective snapshot
+		// currencies. A currency switch is not comparable without an explicit
+		// policy for the two snapshots; keep report semantics aligned with the
+		// action center and treat a currency switch as a non-price-change event,
+		// even when a converter happens to be available.
+		if _, sameCurrency := priceChangeEventCurrency(event); !sameCurrency {
+			continue
+		}
 		// Compare on the minor-unit grid: stored event amounts and converted
 		// amounts both carry float drift, and a sub-cent difference is not a
 		// price increase.

@@ -17,6 +17,7 @@ var currencyExponents = map[string]int{
 	"KMF": 0, "KRW": 0, "PYG": 0, "RWF": 0, "UGX": 0, "VND": 0,
 	"VUV": 0, "XAF": 0, "XOF": 0, "XPF": 0,
 	"BHD": 3, "IQD": 3, "JOD": 3, "KWD": 3, "LYD": 3, "OMR": 3, "TND": 3,
+	"CLF": 4, "UYW": 4,
 }
 
 // Exponent returns the number of minor-unit decimal places for an ISO 4217
@@ -33,16 +34,16 @@ func IsFinite(v float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0)
 }
 
-// MaxAmount is the largest amount these helpers can quantize correctly. Past
-// it Round stops behaving: scaling by the minor unit overflows to +Inf near
-// math.MaxFloat64 (collapsing the amount to 0), and beyond roughly 9e13 the
-// scaled value exceeds float64's exact-integer range (1<<53) so rounding
-// silently degrades to identity. 1e12 keeps every currency's minor-unit grid
-// exact — even KWD's three-decimal scale (amount*1000) stays well under
-// 1<<53 — and still sits far above any real subscription price. Callers that
-// accept amounts from outside the app (API requests, imported files) must
-// reject values above MaxAmount before they ever reach Round.
-const MaxAmount = 1_000_000_000_000
+// MaxAmount is a conservative ceiling that keeps every supported currency's
+// minor-unit grid exactly quantizable. Past it Round stops behaving: scaling
+// by the minor unit overflows to +Inf near math.MaxFloat64 (collapsing the
+// amount to 0), and beyond roughly 9e11 at the four-decimal scale the scaled
+// value exceeds float64's exact-integer range (1<<53) so rounding silently
+// degrades to identity. 9e11 keeps even four-decimal currency amounts scaled
+// by 10000 below 1<<53 while remaining far above any real subscription price.
+// Callers that accept amounts from outside the app (API requests, imported
+// files) must reject values above MaxAmount before they ever reach Round.
+const MaxAmount = 900_000_000_000
 
 // Round quantizes amount to the currency's minor unit, rounding half away
 // from zero. Non-finite input collapses to 0 so it can never poison an

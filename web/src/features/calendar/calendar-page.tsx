@@ -20,8 +20,7 @@ import { Separator } from "@/components/ui/separator"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { api } from "@/lib/api"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
-import { currencyExponent } from "@/lib/money"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
@@ -521,12 +520,7 @@ export default function CalendarPage() {
                         <p className="text-sm font-medium truncate">{sub.name}</p>
                       </div>
                       <span className="text-sm font-semibold shrink-0">
-                        {sub.amount.toLocaleString(i18n.language, {
-                          style: "currency",
-                          currency: sub.currency,
-                          minimumFractionDigits: currencyExponent(sub.currency),
-                          maximumFractionDigits: currencyExponent(sub.currency),
-                        })}
+                        {formatCurrency(sub.amount, sub.currency, i18n.language)}
                       </span>
                     </div>
                   ))}

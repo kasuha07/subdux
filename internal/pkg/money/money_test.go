@@ -17,6 +17,8 @@ func TestExponent(t *testing.T) {
 		{" krw ", 0},
 		{"KWD", 3},
 		{"bhd", 3},
+		{"CLF", 4},
+		{" uyw ", 4},
 		{"", 2},
 		{"XXX", 2},
 	}
@@ -41,6 +43,8 @@ func TestRound(t *testing.T) {
 		{"zero decimal currency", 1234.5, "JPY", 1235},
 		{"zero decimal currency down", 1234.4, "JPY", 1234},
 		{"three decimal currency", 1.2345, "KWD", 1.235},
+		{"four decimal currency", 1.23445, "CLF", 1.2345},
+		{"four decimal currency negative", -1.23445, "UYW", -1.2345},
 		{"already exact", 9.99, "USD", 9.99},
 		{"scaled overflow collapses", 1e307, "USD", 0},
 		{"negative scaled overflow collapses", -1e307, "USD", 0},
@@ -82,6 +86,12 @@ func TestCmpAndEqual(t *testing.T) {
 	if !Equal(1.2351, 1.2349, "KWD") {
 		t.Error("KWD amounts on the same grid point should compare equal")
 	}
+	if Cmp(1.2346, 1.2345, "CLF") != 1 {
+		t.Error("CLF should resolve differences at the fourth decimal")
+	}
+	if !Equal(1.23451, 1.23449, "UYW") {
+		t.Error("UYW amounts on the same grid point should compare equal")
+	}
 }
 
 func TestDiff(t *testing.T) {
@@ -96,17 +106,17 @@ func TestDiff(t *testing.T) {
 	}
 }
 
-// TestMaxAmountStaysExactAtThreeDecimalScale pins the rationale in MaxAmount's
-// doc comment: even KWD's three-decimal minor unit (amount*1000) must keep
-// MaxAmount within float64's exact-integer range (1<<53), and Round must
-// still be a no-op on it rather than silently degrading.
-func TestMaxAmountStaysExactAtThreeDecimalScale(t *testing.T) {
-	scaled := MaxAmount * 1000
+// TestMaxAmountStaysExactAtFourDecimalScale pins the rationale in MaxAmount's
+// doc comment: even CLF/UYW's four-decimal minor unit (amount*10000) must keep
+// MaxAmount within float64's exact-integer range (1<<53), and Round must still
+// be a no-op on it rather than silently degrading.
+func TestMaxAmountStaysExactAtFourDecimalScale(t *testing.T) {
+	scaled := MaxAmount * 10000
 	if scaled >= (1 << 53) {
-		t.Fatalf("MaxAmount * 1000 = %v, want < 1<<53 (%v) to stay exact", scaled, float64(int64(1)<<53))
+		t.Fatalf("MaxAmount * 10000 = %v, want < 1<<53 (%v) to stay exact", scaled, float64(int64(1)<<53))
 	}
-	if got := Round(MaxAmount, "KWD"); got != MaxAmount {
-		t.Errorf("Round(MaxAmount, %q) = %v, want %v", "KWD", got, MaxAmount)
+	if got := Round(MaxAmount, "CLF"); got != MaxAmount {
+		t.Errorf("Round(MaxAmount, %q) = %v, want %v", "CLF", got, MaxAmount)
 	}
 }
 
@@ -120,6 +130,8 @@ func TestFormat(t *testing.T) {
 		{0.1 + 0.2, "USD", "0.30"},
 		{1234.5, "JPY", "1235"},
 		{1.2, "KWD", "1.200"},
+		{1.2, "CLF", "1.2000"},
+		{1.23445, "UYW", "1.2345"},
 		{5, "EUR", "5.00"},
 	}
 	for _, tc := range cases {

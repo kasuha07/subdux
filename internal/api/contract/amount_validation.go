@@ -2,9 +2,9 @@ package contract
 
 import "github.com/kasuha07/subdux/internal/pkg/money"
 
-// MaxSubscriptionAmount is the largest storable subscription amount. It is
-// money.MaxAmount, the largest value the money helpers can quantize
-// correctly — see that constant's doc comment for the full rationale.
+// MaxSubscriptionAmount is the conservative upper bound for a storable
+// subscription amount. It is money.MaxAmount, which keeps all supported
+// currency grids exactly quantizable; see that constant's doc comment.
 const MaxSubscriptionAmount = money.MaxAmount
 
 // ValidateSubscriptionAmount reports whether an incoming subscription amount is

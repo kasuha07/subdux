@@ -62,7 +62,7 @@ func TestCreateSubscriptionRejectsOutOfRangeAmount(t *testing.T) {
 		want   string
 	}{
 		{name: "negative", amount: "-1", want: "amount_must_not_be_negative"},
-		{name: "above the maximum", amount: "1000000000000.01", want: "amount_too_large"},
+		{name: "above the maximum", amount: "900000000000.01", want: "amount_too_large"},
 		{name: "far above the maximum", amount: "1.8e306", want: "amount_too_large"},
 	}
 
@@ -84,7 +84,7 @@ func TestCreateSubscriptionRejectsOutOfRangeAmount(t *testing.T) {
 func TestCreateSubscriptionAcceptsMaximumAmount(t *testing.T) {
 	handler, userID := newAmountValidationHandler(t)
 	rec := postSubscriptionJSON(t, handler, userID,
-		`{"name":"Video Pro","amount":1000000000000,"currency":"USD","status":"active","renewal_mode":"auto_renew","billing_type":"recurring","recurrence_type":"interval","interval_count":1,"interval_unit":"month","next_billing_date":"2026-04-15"}`)
+		`{"name":"Video Pro","amount":900000000000,"currency":"USD","status":"active","renewal_mode":"auto_renew","billing_type":"recurring","recurrence_type":"interval","interval_count":1,"interval_unit":"month","next_billing_date":"2026-04-15"}`)
 
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d (body %s)", rec.Code, http.StatusCreated, rec.Body.String())
@@ -98,7 +98,7 @@ func TestUpdateSubscriptionRejectsOutOfRangeAmount(t *testing.T) {
 		want   string
 	}{
 		{name: "negative", amount: "-1", want: "amount_must_not_be_negative"},
-		{name: "above the maximum", amount: "1000000000000.01", want: "amount_too_large"},
+		{name: "above the maximum", amount: "900000000000.01", want: "amount_too_large"},
 	}
 
 	for _, tt := range tests {

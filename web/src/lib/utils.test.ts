@@ -42,6 +42,10 @@ describe("formatCurrency", () => {
     expect(formatCurrency(1.235, "KWD")).toMatch(/1\.235/)
   })
 
+  it("keeps four decimal places for a four-decimal currency", () => {
+    expect(formatCurrency(1.2, "CLF")).toMatch(/1\.2000/)
+  })
+
   it("renders no decimal places for a zero-decimal currency", () => {
     expect(formatCurrency(1200, "JPY")).toMatch(/1,200(?!\.)/)
     expect(formatCurrency(1200, "JPY")).not.toContain(".")

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kasuha07/subdux/internal/pkg/money"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 )
 
@@ -124,7 +125,7 @@ func TestSubscriptionAmountErrorNamesTheActualReason(t *testing.T) {
 		want   string
 	}{
 		{name: "negative", amount: -1, want: "amount must not be negative"},
-		{name: "above the maximum", amount: 1_000_000_000_000.01, want: "amount is too large"},
+		{name: "above the maximum", amount: money.MaxAmount + 0.01, want: "amount is too large"},
 		{name: "overflowing rounding", amount: 1.8e306, want: "amount is too large"},
 	}
 
@@ -148,7 +149,7 @@ func TestMCPCreateSubscriptionRejectsAmountAboveMaximum(t *testing.T) {
 		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
 	}
 
-	for _, value := range []interface{}{1_000_000_000_000.01, 1.8e306} {
+	for _, value := range []interface{}{money.MaxAmount + 0.01, 1.8e306} {
 		_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
 			"idempotency_key":   "create-too-large",
 			"name":              "Huge Plan",
@@ -178,7 +179,7 @@ func TestMCPCreateSubscriptionAcceptsMaximumAmount(t *testing.T) {
 	result, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
 		"idempotency_key":   "create-at-maximum",
 		"name":              "Maximum Plan",
-		"amount":            1_000_000_000_000.0,
+		"amount":            money.MaxAmount,
 		"next_billing_date": "2026-06-15",
 	})
 	if rpcErr != nil {
@@ -216,7 +217,7 @@ func TestMCPUpdateSubscriptionRejectsAmountAboveMaximum(t *testing.T) {
 	_, rpcErr = handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
 		"idempotency_key": "update-too-large",
 		"id":              1,
-		"amount":          1_000_000_000_000.01,
+		"amount":          money.MaxAmount + 0.01,
 	})
 	if rpcErr == nil {
 		t.Fatal("callUpdateSubscription() rpcErr = nil, want rejection above the maximum amount")

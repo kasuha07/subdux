@@ -312,6 +312,41 @@ func TestGetAnalyticsReportIncludesHistoryInsights(t *testing.T) {
 	}
 }
 
+func TestReportPriceIncreasesSkipsCrossCurrencyEventWithoutConverter(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+
+	subscriptionID := uint(1)
+	previous := 7.0
+	next := 1000.0
+	if err := db.Create(&model.SubscriptionEvent{
+		UserID:                user.ID,
+		SubscriptionID:        &subscriptionID,
+		SubscriptionName:      "Cross-currency plan",
+		Type:                  subscriptionEventUpdated,
+		ChangedFields:         encodeSubscriptionEventFields([]string{"monthly_amount", "currency"}),
+		PreviousMonthlyAmount: &previous,
+		NewMonthlyAmount:      &next,
+		PreviousCurrency:      "USD",
+		NewCurrency:           "JPY",
+		CreatedAt:             pkg.NowUTC(),
+	}).Error; err != nil {
+		t.Fatalf("create cross-currency event failed: %v", err)
+	}
+
+	items, err := service.reportPriceIncreases(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("reportPriceIncreases() error = %v", err)
+	}
+	if got := len(items); got != 0 {
+		t.Fatalf("price_increases length = %d, want 0 for USD 7 -> JPY 1000 without converter: %+v", got, items)
+	}
+}
+
 func TestGetAnalyticsReportAnnualGrowthIgnoresCreationAndOldEvents(t *testing.T) {
 	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-20"))
 	t.Cleanup(restoreClock)

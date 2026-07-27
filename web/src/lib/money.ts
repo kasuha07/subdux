@@ -15,6 +15,9 @@ const THREE_DECIMAL_CURRENCIES = new Set([
   "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND",
 ])
 
+// Currencies whose minor unit is 4 decimal places.
+const FOUR_DECIMAL_CURRENCIES = new Set(["CLF", "UYW"])
+
 // A well-formed ISO 4217 code is exactly three ASCII letters. This is the
 // precondition for Intl.NumberFormat's `currency` option: anything else
 // (empty, symbols, wrong length, stray whitespace) makes it throw a
@@ -39,6 +42,10 @@ export function currencyExponent(currency: string): number {
 
   if (THREE_DECIMAL_CURRENCIES.has(normalized)) {
     return 3
+  }
+
+  if (FOUR_DECIMAL_CURRENCIES.has(normalized)) {
+    return 4
   }
 
   return 2

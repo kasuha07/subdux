@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
+	"github.com/kasuha07/subdux/internal/pkg/money"
 	"github.com/kasuha07/subdux/internal/service/servicetest"
 )
 
@@ -87,8 +88,8 @@ func TestNormalizeImportedAmount(t *testing.T) {
 		{name: "nan collapses to zero", amount: math.NaN(), want: 0},
 		{name: "positive infinity collapses to zero", amount: math.Inf(1), want: 0},
 		{name: "negative infinity collapses to zero", amount: math.Inf(-1), want: 0},
-		{name: "exactly the maximum is kept", amount: 1000000000000, want: 1000000000000},
-		{name: "just above the maximum collapses to zero", amount: 1000000000000.01, want: 0},
+		{name: "exactly the maximum is kept", amount: money.MaxAmount, want: money.MaxAmount},
+		{name: "just above the maximum collapses to zero", amount: money.MaxAmount + 0.01, want: 0},
 		{name: "far above the maximum collapses to zero", amount: 1e13, want: 0},
 		{name: "wildly above the maximum collapses to zero", amount: 5e305, want: 0},
 	}

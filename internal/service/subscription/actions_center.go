@@ -598,10 +598,10 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 // priceChangeEventCurrency returns the single currency both of the event's
 // monthly amounts are denominated in, reporting false when the event switched
 // currency and the two amounts therefore live on different grids. Each snapshot
-// records its own currency, and the action center never converts, so a currency
-// switch is not a comparable price change here; the converted cross-currency
-// view belongs to the analytics report. The "new" side wins when only one side
-// is recorded because it describes the amount the user now pays.
+// records its own currency, and a currency switch is not a comparable price
+// change for either the action center or the analytics price-increase report.
+// The "new" side wins when only one side is recorded because it describes the
+// amount the user now pays.
 func priceChangeEventCurrency(event model.SubscriptionEvent) (string, bool) {
 	previous := strings.ToUpper(strings.TrimSpace(event.PreviousCurrency))
 	current := strings.ToUpper(strings.TrimSpace(event.NewCurrency))

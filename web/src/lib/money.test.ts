@@ -48,10 +48,16 @@ describe("currencyExponent", () => {
     expect(currencyExponent("BHD")).toBe(3)
   })
 
+  it("returns 4 for four-decimal currencies", () => {
+    expect(currencyExponent("CLF")).toBe(4)
+    expect(currencyExponent("UYW")).toBe(4)
+  })
+
   it("is case-insensitive and trims whitespace", () => {
     expect(currencyExponent("jpy")).toBe(0)
     expect(currencyExponent(" krw ")).toBe(0)
     expect(currencyExponent("bhd")).toBe(3)
+    expect(currencyExponent(" clf ")).toBe(4)
   })
 
   it("falls back to 2 for empty or unknown codes", () => {
@@ -84,6 +90,11 @@ describe("roundAmount", () => {
 
   it("rounds to three decimal places for a three-decimal currency", () => {
     expect(roundAmount(1.2345, "KWD")).toBe(1.235)
+  })
+
+  it("rounds to four decimal places for a four-decimal currency", () => {
+    expect(roundAmount(1.23445, "CLF")).toBe(1.2345)
+    expect(roundAmount(-1.23445, "UYW")).toBe(-1.2345)
   })
 
   it("returns 0 for non-finite input", () => {
