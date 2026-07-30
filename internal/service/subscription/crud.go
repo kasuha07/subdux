@@ -39,6 +39,10 @@ func (s *Service) GetByID(userID, id uint) (*model.Subscription, error) {
 }
 
 func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Subscription, error) {
+	if err := validateSubscriptionAmount(input.Amount); err != nil {
+		return nil, err
+	}
+
 	currency := strings.TrimSpace(input.Currency)
 	if currency == "" {
 		currency = "USD"
@@ -70,6 +74,9 @@ func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Sub
 
 	normalizedDraft, nextBillingDate, err := normalizeBillingDraft(draft)
 	if err != nil {
+		return nil, err
+	}
+	if err := ValidateBillingAmount(input.Amount, currency, normalizedDraft); err != nil {
 		return nil, err
 	}
 	lifecycle, err := normalizeLifecycleDraft(lifecycleDraft{
@@ -154,12 +161,13 @@ func (s *Service) Update(userID, id uint, input UpdateSubscriptionInput) (*model
 		return nil, err
 	}
 	before := *sub
+	amountChanged := input.Amount != nil && *input.Amount != sub.Amount
 
 	updates := make(map[string]interface{})
 	if input.Name != nil {
 		updates["name"] = *input.Name
 	}
-	if input.Amount != nil {
+	if amountChanged {
 		updates["amount"] = *input.Amount
 	}
 	if input.Currency != nil {
@@ -228,17 +236,18 @@ func (s *Service) Update(userID, id uint, input UpdateSubscriptionInput) (*model
 		input.YearlyMonth != nil ||
 		input.YearlyDay != nil
 
+	normalizedSchedule := billingDraft{
+		BillingType:     sub.BillingType,
+		RecurrenceType:  sub.RecurrenceType,
+		IntervalCount:   copyIntPointer(sub.IntervalCount),
+		IntervalUnit:    sub.IntervalUnit,
+		NextBillingDate: copyTimePointer(sub.NextBillingDate),
+		MonthlyDay:      copyIntPointer(sub.MonthlyDay),
+		YearlyMonth:     copyIntPointer(sub.YearlyMonth),
+		YearlyDay:       copyIntPointer(sub.YearlyDay),
+	}
 	if hasScheduleUpdate {
-		draft := billingDraft{
-			BillingType:     sub.BillingType,
-			RecurrenceType:  sub.RecurrenceType,
-			IntervalCount:   copyIntPointer(sub.IntervalCount),
-			IntervalUnit:    sub.IntervalUnit,
-			NextBillingDate: copyTimePointer(sub.NextBillingDate),
-			MonthlyDay:      copyIntPointer(sub.MonthlyDay),
-			YearlyMonth:     copyIntPointer(sub.YearlyMonth),
-			YearlyDay:       copyIntPointer(sub.YearlyDay),
-		}
+		draft := normalizedSchedule
 
 		if input.BillingType != nil {
 			draft.BillingType = *input.BillingType
@@ -272,6 +281,7 @@ func (s *Service) Update(userID, id uint, input UpdateSubscriptionInput) (*model
 		if err != nil {
 			return nil, err
 		}
+		normalizedSchedule = normalizedDraft
 
 		updates["billing_type"] = normalizedDraft.BillingType
 		updates["recurrence_type"] = normalizedDraft.RecurrenceType
@@ -281,6 +291,30 @@ func (s *Service) Update(userID, id uint, input UpdateSubscriptionInput) (*model
 		updates["yearly_month"] = copyIntPointer(normalizedDraft.YearlyMonth)
 		updates["yearly_day"] = copyIntPointer(normalizedDraft.YearlyDay)
 		updates["next_billing_date"] = copyTimePointer(nextBillingDate)
+	}
+
+	amount := sub.Amount
+	if input.Amount != nil {
+		amount = *input.Amount
+	}
+	currency := sub.Currency
+	if input.Currency != nil {
+		currency = strings.TrimSpace(*input.Currency)
+	}
+	currencyChanged := input.Currency != nil && !strings.EqualFold(currency, strings.TrimSpace(sub.Currency))
+	derivedScheduleChanged := billingDraftMonthlyFactor(normalizedSchedule) != subscriptionMonthlyFactor(*sub)
+	if amountChanged {
+		if err := ValidateBillingAmount(amount, currency, normalizedSchedule); err != nil {
+			return nil, err
+		}
+	} else if currencyChanged || derivedScheduleChanged {
+		// Amounts accepted by older versions are grandfathered until the amount
+		// itself is changed. A currency or schedule change still validates the
+		// newly derived monetary result without retroactively applying MaxAmount
+		// to the unchanged stored value.
+		if err := validateBillingDerivedAmount(amount, currency, normalizedSchedule); err != nil {
+			return nil, err
+		}
 	}
 
 	if input.Status != nil || input.RenewalMode != nil || input.EndsAt != nil || hasScheduleUpdate {

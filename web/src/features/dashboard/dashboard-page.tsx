@@ -3,6 +3,7 @@ import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import { BarChart3, CalendarDays, ListChecks, Plus, Settings, Shield } from "lucide-react"
 
+import { LoadErrorBoundary } from "@/components/load-error-boundary"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -33,12 +34,14 @@ import {
   getDisplaySubscriptionCycleProgress,
 } from "@/lib/display-preferences"
 import { getExchangeRatesToTarget } from "@/lib/exchange-rate-cache"
+import { buildLoadErrorCopy } from "@/lib/load-error"
 import { toast } from "@/lib/toast"
 import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionSquareCard from "@/features/subscriptions/subscription-square-card"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
+import { DashboardLoadError } from "./dashboard-load-error"
 import DashboardSummaryCards from "./dashboard-summary-cards"
 
 const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
@@ -305,6 +308,7 @@ export default function DashboardPage() {
 
   const {
     categories,
+    error,
     fetchData,
     loading,
     paymentMethods,
@@ -557,6 +561,15 @@ export default function DashboardPage() {
         {loading ? (
           <DashboardSkeleton />
         ) : (
+          <LoadErrorBoundary
+            error={error}
+            fallback={
+              <DashboardLoadError
+                copy={buildLoadErrorCopy(error, t, "dashboard")}
+                onRetry={() => void fetchData()}
+              />
+            }
+          >
           <>
             {summary && (
               <DashboardSummaryCards
@@ -723,6 +736,7 @@ export default function DashboardPage() {
               )}
             </div>
           </>
+          </LoadErrorBoundary>
         )}
       </main>
 

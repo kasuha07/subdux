@@ -503,6 +503,11 @@ function SubscriptionPreviewList({
               {showCategory && subscription.category && (
                 <span className="text-xs text-muted-foreground">{subscription.category}</span>
               )}
+              {subscription.skip_reason === "invalid_amount" && (
+                <span className="text-xs text-destructive">
+                  {t("settings.account.importPreviewInvalidAmount")}
+                </span>
+              )}
             </div>
             <Badge
               variant={subscription.skipped ? "outline" : "default"}

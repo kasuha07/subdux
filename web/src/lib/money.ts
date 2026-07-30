@@ -1,22 +1,9 @@
-// Mirrors the quantization policy from internal/pkg/money on the Go side: the
+import { CURRENCY_EXPONENTS } from "@/lib/currency-metadata.generated"
+
+// Mirrors the quantization policy from internal/service/money on the Go side: the
 // ISO 4217 minor unit of the amount's currency, rounding half away from zero.
 // Client-side conversions/normalizations round the same way so displayed
 // amounts line up with server-computed totals.
-
-// Currencies whose minor unit is 0 decimal places.
-const ZERO_DECIMAL_CURRENCIES = new Set([
-  "BIF", "CLP", "DJF", "GNF", "ISK", "JPY",
-  "KMF", "KRW", "PYG", "RWF", "UGX", "VND",
-  "VUV", "XAF", "XOF", "XPF",
-])
-
-// Currencies whose minor unit is 3 decimal places.
-const THREE_DECIMAL_CURRENCIES = new Set([
-  "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND",
-])
-
-// Currencies whose minor unit is 4 decimal places.
-const FOUR_DECIMAL_CURRENCIES = new Set(["CLF", "UYW"])
 
 // A well-formed ISO 4217 code is exactly three ASCII letters. This is the
 // precondition for Intl.NumberFormat's `currency` option: anything else
@@ -35,20 +22,7 @@ export function isWellFormedCurrencyCode(currency: string): boolean {
 // ISO 4217 currency code. Unknown or empty codes fall back to 2.
 export function currencyExponent(currency: string): number {
   const normalized = currency.trim().toUpperCase()
-
-  if (ZERO_DECIMAL_CURRENCIES.has(normalized)) {
-    return 0
-  }
-
-  if (THREE_DECIMAL_CURRENCIES.has(normalized)) {
-    return 3
-  }
-
-  if (FOUR_DECIMAL_CURRENCIES.has(normalized)) {
-    return 4
-  }
-
-  return 2
+  return CURRENCY_EXPONENTS[normalized] ?? 2
 }
 
 // roundAmount quantizes amount to the currency's minor unit, rounding half

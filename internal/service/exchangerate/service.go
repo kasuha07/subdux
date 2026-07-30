@@ -13,6 +13,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
+	"github.com/kasuha07/subdux/internal/service/money"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
@@ -121,18 +122,30 @@ func (s *Service) UpdateUserPreference(userID uint, input UpdatePreferenceInput)
 	return s.GetUserPreference(userID)
 }
 
-func (s *Service) Convert(amount float64, from, to string) float64 {
+func (s *Service) Convert(amount float64, from, to string) (float64, bool) {
+	if !money.IsFinite(amount) || amount < 0 {
+		return 0, false
+	}
+
 	from = normalizeCurrencyCode(from)
 	to = normalizeCurrencyCode(to)
+	if _, ok := money.RoundAggregateChecked(amount, from); !ok {
+		return 0, false
+	}
 	if from == to {
-		return amount
+		// Preserve the existing same-currency identity contract. The checked
+		// call above validates range without changing the caller's stored value.
+		return amount, true
 	}
 
 	rate, ok := s.GetRate(from, to)
 	if !ok {
-		return amount
+		return 0, false
 	}
-	return amount * rate
+	// Convert the original persisted value, then quantize the result on the
+	// target currency's grid. Pre-rounding in the source currency would change
+	// historical conversion semantics for values with extra decimal precision.
+	return money.RoundAggregateChecked(amount*rate, to)
 }
 
 func (s *Service) GetRate(base, target string) (float64, bool) {

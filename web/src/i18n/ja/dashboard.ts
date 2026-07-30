@@ -21,6 +21,13 @@ const dashboard = {
     "description": "最初のサブスクリプションを追加して追跡を始めましょう",
     "addButton": "サブスクリプションを追加"
   },
+  "error": {
+    "title": "ダッシュボードを表示できません",
+    "description": "ダッシュボードを読み込めませんでした。再試行してください。",
+    "exchangeRateTitle": "為替レートを一時的に取得できません",
+    "exchangeRateDescription": "現在の為替レートを取得できないため、不正確な合計を避けるためデータを表示していません。しばらくしてから再試行してください。",
+    "retry": "再試行"
+  },
   "filters": {
     "searchPlaceholder": "名前・カテゴリ・メモで検索...",
     "filterButton": "フィルター",

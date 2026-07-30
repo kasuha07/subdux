@@ -2,7 +2,10 @@ const reports = {
   "title": "报表分析",
   "error": {
     "title": "报表暂不可用",
-    "description": "请刷新页面或稍后重试。"
+    "description": "无法加载报表，请重试。",
+    "exchangeRateTitle": "汇率暂不可用",
+    "exchangeRateDescription": "当前汇率获取失败，暂时无法安全计算报表。请稍后重试。",
+    "retry": "重试"
   },
   "empty": {
     "title": "暂无报表数据",

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/money"
 )
 
 func TestSubscriptionChargeDatesInRange(t *testing.T) {
@@ -157,6 +158,80 @@ func TestGetDashboardSummarySplitsCommittedSpend(t *testing.T) {
 	}
 	if got, want := summary.CommittedYearly, 120.0; got != want {
 		t.Fatalf("committed_yearly = %v, want %v", got, want)
+	}
+}
+
+func TestGetDashboardSummaryAllowsLargeAggregateAndAnnualizedValues(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+	intervalCount := 1
+
+	for _, name := range []string{"Large plan A", "Large plan B"} {
+		if _, err := service.Create(user.ID, CreateSubscriptionInput{
+			Name:            name,
+			Amount:          money.MaxAmount,
+			Currency:        "USD",
+			Status:          subscriptionStatusActive,
+			RenewalMode:     renewalModeAutoRenew,
+			BillingType:     billingTypeRecurring,
+			RecurrenceType:  recurrenceTypeInterval,
+			IntervalCount:   &intervalCount,
+			IntervalUnit:    intervalUnitMonth,
+			NextBillingDate: "2026-03-20",
+		}); err != nil {
+			t.Fatalf("Create(%q) error = %v", name, err)
+		}
+	}
+
+	summary, err := service.GetDashboardSummary(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary() error = %v", err)
+	}
+	if got, want := summary.TotalMonthly, 1_000_000_000_000.0; got != want {
+		t.Fatalf("total_monthly = %v, want %v", got, want)
+	}
+	if got, want := summary.TotalYearly, 12_000_000_000_000.0; got != want {
+		t.Fatalf("total_yearly = %v, want %v", got, want)
+	}
+	if got, want := summary.CommittedYearly, 12_000_000_000_000.0; got != want {
+		t.Fatalf("committed_yearly = %v, want %v", got, want)
+	}
+}
+
+func TestGetDashboardSummaryAllowsLargeOccurrenceAggregate(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+	daily := 1
+
+	if _, err := service.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Large daily plan",
+		Amount:          16_300_000_000,
+		Currency:        "USD",
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &daily,
+		IntervalUnit:    intervalUnitDay,
+		NextBillingDate: "2026-03-01",
+	}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	summary, err := service.GetDashboardSummary(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary() error = %v", err)
+	}
+	if got, want := summary.DueThisMonth, 505_300_000_000.0; got != want {
+		t.Fatalf("due_this_month = %v, want %v", got, want)
 	}
 }
 

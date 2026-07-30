@@ -7,7 +7,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/pkg/money"
+	"github.com/kasuha07/subdux/internal/service/money"
 )
 
 const (
@@ -186,32 +186,70 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 	}
 
 	for _, sub := range subs {
-		amount := convertSubscriptionAmount(sub, targetCurrency, converter)
 		factor := subscriptionMonthlyFactor(sub)
+		contributesOngoingSpend := factor > 0 && subscriptionContributesToOngoingSpend(sub)
+		forecastEnd := startOfThisMonth.AddDate(0, len(report.MonthlyForecast), 0)
+		hasForecastCharge := len(subscriptionChargeDatesInRange(sub, today, forecastEnd)) > 0
+		amount := 0.0
+		if contributesOngoingSpend || hasForecastCharge {
+			var err error
+			amount, err = convertSubscriptionAmount(sub, targetCurrency, converter)
+			if err != nil {
+				return nil, err
+			}
+		}
 		monthlyAmount := 0.0
-		if subscriptionContributesToOngoingSpend(sub) {
-			monthlyAmount = money.Round(amount*factor, targetCurrency)
+		if contributesOngoingSpend {
+			var err error
+			monthlyAmount, err = roundDerivedAmount(amount*factor, targetCurrency)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		renewalMode := normalizeRenewalMode(sub.RenewalMode)
 		switch renewalMode {
 		case renewalModeAutoRenew:
 			report.KPIs.AutoRenewCount++
-			report.KPIs.CommittedMonthly += monthlyAmount
+			report.KPIs.CommittedMonthly, err = addAggregateAmounts(report.KPIs.CommittedMonthly, monthlyAmount, targetCurrency)
+			if err != nil {
+				return nil, err
+			}
 		case renewalModeManualRenew:
 			report.KPIs.ManualRenewCount++
 		case renewalModeCancelAtPeriodEnd:
 			report.KPIs.CancelingCount++
 		}
 
-		report.KPIs.TotalMonthly += monthlyAmount
+		report.KPIs.TotalMonthly, err = addAggregateAmounts(report.KPIs.TotalMonthly, monthlyAmount, targetCurrency)
+		if err != nil {
+			return nil, err
+		}
 
 		thisMonthRenewalDates := subscriptionChargeDatesInRange(sub, today, startOfNextMonth)
-		report.KPIs.DueThisMonth += money.Round(amount*float64(len(thisMonthRenewalDates)), targetCurrency)
+		if len(thisMonthRenewalDates) > 0 {
+			due, dueErr := multiplyAggregateAmount(amount, int64(len(thisMonthRenewalDates)), targetCurrency)
+			if dueErr != nil {
+				return nil, dueErr
+			}
+			report.KPIs.DueThisMonth, dueErr = addAggregateAmounts(report.KPIs.DueThisMonth, due, targetCurrency)
+			if dueErr != nil {
+				return nil, dueErr
+			}
+		}
 
 		renewalDates := subscriptionChargeDatesInRange(sub, today, next30DaysExclusive)
 		report.KPIs.UpcomingRenewalCount += int64(len(renewalDates))
-		report.KPIs.DueNext30Days += money.Round(amount*float64(len(renewalDates)), targetCurrency)
+		if len(renewalDates) > 0 {
+			due, dueErr := multiplyAggregateAmount(amount, int64(len(renewalDates)), targetCurrency)
+			if dueErr != nil {
+				return nil, dueErr
+			}
+			report.KPIs.DueNext30Days, dueErr = addAggregateAmounts(report.KPIs.DueNext30Days, due, targetCurrency)
+			if dueErr != nil {
+				return nil, dueErr
+			}
+		}
 		for _, renewalDate := range renewalDates {
 			report.UpcomingRenewals = append(report.UpcomingRenewals, ReportUpcomingRenewal{
 				ID:            sub.ID,
@@ -234,19 +272,32 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 			periodEnd := startOfThisMonth.AddDate(0, i+1, 0)
 			occurrences := subscriptionChargeDatesInRange(sub, periodStart, periodEnd)
 			if len(occurrences) > 0 {
+				due, dueErr := multiplyAggregateAmount(amount, int64(len(occurrences)), targetCurrency)
+				if dueErr != nil {
+					return nil, dueErr
+				}
 				report.MonthlyForecast[i].OccurrenceCount += len(occurrences)
-				report.MonthlyForecast[i].AmountDue += money.Round(amount*float64(len(occurrences)), targetCurrency)
+				report.MonthlyForecast[i].AmountDue, dueErr = addAggregateAmounts(report.MonthlyForecast[i].AmountDue, due, targetCurrency)
+				if dueErr != nil {
+					return nil, dueErr
+				}
 			}
 		}
 
 		if monthlyAmount > 0 {
 			categoryKey, categoryLabel := reportCategoryKeyAndLabel(sub, categoryLabels)
-			addReportBreakdown(categoryBreakdowns, categoryKey, categoryLabel, monthlyAmount)
+			if err := addReportBreakdown(categoryBreakdowns, categoryKey, categoryLabel, monthlyAmount, targetCurrency); err != nil {
+				return nil, err
+			}
 
 			paymentKey, paymentLabel := reportPaymentMethodKeyAndLabel(sub, paymentMethodLabels)
-			addReportBreakdown(paymentMethodBreakdowns, paymentKey, paymentLabel, monthlyAmount)
+			if err := addReportBreakdown(paymentMethodBreakdowns, paymentKey, paymentLabel, monthlyAmount, targetCurrency); err != nil {
+				return nil, err
+			}
 
-			addReportBreakdown(renewalModeBreakdowns, renewalMode, renewalMode, monthlyAmount)
+			if err := addReportBreakdown(renewalModeBreakdowns, renewalMode, renewalMode, monthlyAmount, targetCurrency); err != nil {
+				return nil, err
+			}
 
 			nextBillingDate := ""
 			if sub.NextBillingDate != nil {
@@ -261,28 +312,62 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 				RenewalMode:      renewalMode,
 				NextBillingDate:  nextBillingDate,
 				MonthlyAmount:    monthlyAmount,
-				YearlyAmount:     money.Round(monthlyAmount*12, targetCurrency),
+				YearlyAmount:     0,
 				OriginalAmount:   sub.Amount,
 				OriginalCurrency: strings.ToUpper(sub.Currency),
 			})
+			report.TopSubscriptions[len(report.TopSubscriptions)-1].YearlyAmount, err = multiplyAggregateAmount(monthlyAmount, 12, targetCurrency)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	// Quantize every accumulated KPI before it leaves the service: the running
-	// sums are already made of minor-unit terms, but float addition can still
-	// land a hair off the grid.
-	report.KPIs.TotalMonthly = money.Round(report.KPIs.TotalMonthly, targetCurrency)
-	report.KPIs.CommittedMonthly = money.Round(report.KPIs.CommittedMonthly, targetCurrency)
-	report.KPIs.DueThisMonth = money.Round(report.KPIs.DueThisMonth, targetCurrency)
-	report.KPIs.DueNext30Days = money.Round(report.KPIs.DueNext30Days, targetCurrency)
-	report.KPIs.TotalYearly = money.Round(report.KPIs.TotalMonthly*12, targetCurrency)
-	report.KPIs.CommittedYearly = money.Round(report.KPIs.CommittedMonthly*12, targetCurrency)
-	for i := range report.MonthlyForecast {
-		report.MonthlyForecast[i].AmountDue = money.Round(report.MonthlyForecast[i].AmountDue, targetCurrency)
+	// Quantize every accumulated KPI through the aggregate-safe path before it
+	// leaves the service. Aggregate values intentionally have a wider safe
+	// range than one stored subscription amount.
+	report.KPIs.TotalMonthly, err = roundAggregateAmount(report.KPIs.TotalMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
 	}
-	report.CategoryBreakdown = buildReportBreakdown(categoryBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
-	report.PaymentMethodBreakdown = buildReportBreakdown(paymentMethodBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
-	report.RenewalModeBreakdown = buildReportBreakdown(renewalModeBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
+	report.KPIs.CommittedMonthly, err = roundAggregateAmount(report.KPIs.CommittedMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	report.KPIs.DueThisMonth, err = roundAggregateAmount(report.KPIs.DueThisMonth, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	report.KPIs.DueNext30Days, err = roundAggregateAmount(report.KPIs.DueNext30Days, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	report.KPIs.TotalYearly, err = multiplyAggregateAmount(report.KPIs.TotalMonthly, 12, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	report.KPIs.CommittedYearly, err = multiplyAggregateAmount(report.KPIs.CommittedMonthly, 12, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	for i := range report.MonthlyForecast {
+		report.MonthlyForecast[i].AmountDue, err = roundAggregateAmount(report.MonthlyForecast[i].AmountDue, targetCurrency)
+		if err != nil {
+			return nil, err
+		}
+	}
+	report.CategoryBreakdown, err = buildReportBreakdown(categoryBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	report.PaymentMethodBreakdown, err = buildReportBreakdown(paymentMethodBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	report.RenewalModeBreakdown, err = buildReportBreakdown(renewalModeBreakdowns, report.KPIs.TotalMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
 
 	sort.Slice(report.TopSubscriptions, func(i, j int) bool {
 		if report.TopSubscriptions[i].MonthlyAmount == report.TopSubscriptions[j].MonthlyAmount {
@@ -344,13 +429,18 @@ func (s *Service) reportPriceIncreases(userID uint, targetCurrency string, conve
 	if err := s.DB.Where(
 		"user_id = ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL",
 		userID,
-	).Order("created_at DESC").Limit(100).Find(&events).Error; err != nil {
+	).Order("created_at DESC, id DESC").Limit(100).Find(&events).Error; err != nil {
 		return nil, err
 	}
 
 	items := make([]ReportPriceIncrease, 0, len(events))
+	seen := make(map[uint]struct{}, len(events))
 	for _, event := range events {
 		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil || event.NewMonthlyAmount == nil {
+			continue
+		}
+		subscriptionID := *event.SubscriptionID
+		if _, ok := seen[subscriptionID]; ok {
 			continue
 		}
 		// Event amounts are denominated in their respective snapshot
@@ -359,18 +449,33 @@ func (s *Service) reportPriceIncreases(userID uint, targetCurrency string, conve
 		// action center and treat a currency switch as a non-price-change event,
 		// even when a converter happens to be available.
 		if _, sameCurrency := priceChangeEventCurrency(event); !sameCurrency {
+			// Consume the subscription just like the action center does: once the
+			// newest event switches currencies, an older increase in the abandoned
+			// currency must not surface behind it.
+			seen[subscriptionID] = struct{}{}
 			continue
 		}
 		// Compare on the minor-unit grid: stored event amounts and converted
 		// amounts both carry float drift, and a sub-cent difference is not a
 		// price increase.
-		previousAmount := money.Round(convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter), targetCurrency)
-		newAmount := money.Round(convertHistoricalAmount(*event.NewMonthlyAmount, event.NewCurrency, targetCurrency, converter), targetCurrency)
-		if money.Cmp(newAmount, previousAmount, targetCurrency) <= 0 {
+		previousAmount, err := convertHistoricalAmount(*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter)
+		if err != nil {
+			return nil, err
+		}
+		newAmount, err := convertHistoricalAmount(*event.NewMonthlyAmount, event.NewCurrency, targetCurrency, converter)
+		if err != nil {
+			return nil, err
+		}
+		direction := money.Cmp(newAmount, previousAmount, targetCurrency)
+		seen[subscriptionID] = struct{}{}
+		if direction == 0 {
+			continue
+		}
+		if direction < 0 {
 			continue
 		}
 		items = append(items, ReportPriceIncrease{
-			SubscriptionID:        *event.SubscriptionID,
+			SubscriptionID:        subscriptionID,
 			Name:                  event.SubscriptionName,
 			PreviousMonthlyAmount: previousAmount,
 			NewMonthlyAmount:      newAmount,
@@ -400,12 +505,18 @@ func (s *Service) reportRecentSubscriptionChanges(userID uint, targetCurrency st
 	for _, event := range events {
 		previousAmount := copyFloatPointer(event.PreviousAmount)
 		if previousAmount != nil {
-			converted := convertHistoricalAmount(*previousAmount, event.PreviousCurrency, targetCurrency, converter)
+			converted, err := convertHistoricalAmount(*previousAmount, event.PreviousCurrency, targetCurrency, converter)
+			if err != nil {
+				return nil, err
+			}
 			previousAmount = &converted
 		}
 		newAmount := copyFloatPointer(event.NewAmount)
 		if newAmount != nil {
-			converted := convertHistoricalAmount(*newAmount, event.NewCurrency, targetCurrency, converter)
+			converted, err := convertHistoricalAmount(*newAmount, event.NewCurrency, targetCurrency, converter)
+			if err != nil {
+				return nil, err
+			}
 			newAmount = &converted
 		}
 		items = append(items, ReportSubscriptionEvent{
@@ -432,20 +543,37 @@ func (s *Service) reportAnnualGrowth(userID uint, targetCurrency string, convert
 	}
 	subs = presentActiveSubscriptions(subs, now)
 
-	baselines, err := s.annualGrowthBaselineMonthlyAmounts(userID, targetCurrency, converter, now)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]ReportAnnualGrowthItem, 0, len(subs))
+	eligibleSubs := make([]model.Subscription, 0, len(subs))
+	eligibleSubscriptionIDs := make(map[uint]struct{}, len(subs))
 	for _, sub := range subs {
 		if !subscriptionContributesToOngoingSpend(sub) {
 			continue
 		}
-		currentMonthly := money.Round(
-			convertHistoricalAmount(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency, targetCurrency, converter),
-			targetCurrency,
-		)
+		eligibleSubs = append(eligibleSubs, sub)
+		eligibleSubscriptionIDs[sub.ID] = struct{}{}
+	}
+
+	baselines, err := s.annualGrowthBaselineMonthlyAmounts(
+		userID,
+		eligibleSubscriptionIDs,
+		targetCurrency,
+		converter,
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]ReportAnnualGrowthItem, 0, len(eligibleSubs))
+	for _, sub := range eligibleSubs {
+		rawCurrentMonthly := sub.Amount * subscriptionMonthlyFactor(sub)
+		if err := validateDerivedAmount(rawCurrentMonthly); err != nil {
+			return nil, err
+		}
+		currentMonthly, err := convertHistoricalAmount(rawCurrentMonthly, sub.Currency, targetCurrency, converter)
+		if err != nil {
+			return nil, err
+		}
 		if currentMonthly <= 0 {
 			continue
 		}
@@ -483,17 +611,23 @@ func (s *Service) reportAnnualGrowth(userID uint, targetCurrency string, convert
 }
 
 // annualGrowthBaselineMonthlyAmounts returns, per subscription, the monthly
-// amount recorded by that subscription's earliest price-bearing event within
-// the trailing year, converted to targetCurrency. It replaces a per-row lookup
-// with a single ordered scan: events arrive oldest-first, so the first event
-// seen for each subscription is its baseline. The query is covered by
+// amount recorded by that subscription's earliest comparable price-bearing
+// event in its current currency epoch within the trailing year, converted to
+// targetCurrency. It replaces a per-row lookup with a single ordered scan:
+// events arrive oldest-first, and a currency switch clears any baseline from
+// the abandoned epoch. The query is covered by
 // idx_subscription_events_user_sub_created.
 func (s *Service) annualGrowthBaselineMonthlyAmounts(
 	userID uint,
+	eligibleSubscriptionIDs map[uint]struct{},
 	targetCurrency string,
 	converter CurrencyConverter,
 	now time.Time,
 ) (map[uint]float64, error) {
+	if len(eligibleSubscriptionIDs) == 0 {
+		return map[uint]float64{}, nil
+	}
+
 	oneYearAgo := normalizeDateUTC(now).AddDate(-1, 0, 0)
 	var events []model.SubscriptionEvent
 	if err := s.DB.Where(
@@ -505,17 +639,44 @@ func (s *Service) annualGrowthBaselineMonthlyAmounts(
 		return nil, err
 	}
 
-	baselines := make(map[uint]float64)
+	type baselineCandidate struct {
+		amount   float64
+		currency string
+	}
+	candidates := make(map[uint]baselineCandidate)
 	for _, event := range events {
 		if event.SubscriptionID == nil || event.PreviousMonthlyAmount == nil {
 			continue
 		}
-		if _, ok := baselines[*event.SubscriptionID]; ok {
+		subscriptionID := *event.SubscriptionID
+		if _, eligible := eligibleSubscriptionIDs[subscriptionID]; !eligible {
 			continue
 		}
-		baselines[*event.SubscriptionID] = money.Round(convertHistoricalAmount(
-			*event.PreviousMonthlyAmount, event.PreviousCurrency, targetCurrency, converter,
-		), targetCurrency)
+		if _, sameCurrency := priceChangeEventCurrency(event); !sameCurrency {
+			// A currency switch starts a new comparison epoch. Discard any
+			// baseline from the abandoned currency and keep scanning for the first
+			// comparable event after the switch.
+			delete(candidates, subscriptionID)
+			continue
+		}
+		if _, ok := candidates[subscriptionID]; ok {
+			continue
+		}
+		candidates[subscriptionID] = baselineCandidate{
+			amount:   *event.PreviousMonthlyAmount,
+			currency: event.PreviousCurrency,
+		}
+	}
+
+	baselines := make(map[uint]float64, len(candidates))
+	for subscriptionID, candidate := range candidates {
+		baseline, err := convertHistoricalAmount(
+			candidate.amount, candidate.currency, targetCurrency, converter,
+		)
+		if err != nil {
+			return nil, err
+		}
+		baselines[subscriptionID] = baseline
 	}
 	return baselines, nil
 }
@@ -524,27 +685,44 @@ func (s *Service) annualGrowthBaselineMonthlyAmounts(
 // targetCurrency. A converted amount is quantized to the target currency's
 // minor unit immediately, so downstream aggregation never accumulates the
 // sub-cent noise an exchange rate multiplication leaves behind.
-func convertSubscriptionAmount(sub model.Subscription, targetCurrency string, converter CurrencyConverter) float64 {
-	if converter == nil || strings.EqualFold(sub.Currency, targetCurrency) {
-		return sub.Amount
+func convertSubscriptionAmount(sub model.Subscription, targetCurrency string, converter CurrencyConverter) (float64, error) {
+	if strings.EqualFold(sub.Currency, targetCurrency) {
+		return roundDerivedAmount(sub.Amount, targetCurrency)
 	}
-	return money.Round(converter.Convert(sub.Amount, sub.Currency, targetCurrency), targetCurrency)
+	if converter == nil {
+		return 0, ErrExchangeRateUnavailable
+	}
+	converted, ok := converter.Convert(sub.Amount, sub.Currency, targetCurrency)
+	if !ok {
+		return 0, ErrExchangeRateUnavailable
+	}
+	return roundDerivedAmount(converted, targetCurrency)
 }
 
 // convertHistoricalAmount converts an amount recorded on a subscription event
 // into targetCurrency, quantizing the converted result to the target minor
 // unit. Stored event amounts predating this policy may still carry drift; the
 // money.Cmp-based gates on the read path absorb that.
-func convertHistoricalAmount(amount float64, currency, targetCurrency string, converter CurrencyConverter) float64 {
+func convertHistoricalAmount(amount float64, currency, targetCurrency string, converter CurrencyConverter) (float64, error) {
 	currency = strings.ToUpper(strings.TrimSpace(currency))
 	targetCurrency = strings.ToUpper(strings.TrimSpace(targetCurrency))
 	if targetCurrency == "" {
 		targetCurrency = "USD"
 	}
-	if currency == "" || converter == nil || strings.EqualFold(currency, targetCurrency) {
-		return amount
+	if currency == "" {
+		return 0, ErrExchangeRateUnavailable
 	}
-	return money.Round(converter.Convert(amount, currency, targetCurrency), targetCurrency)
+	if strings.EqualFold(currency, targetCurrency) {
+		return roundDerivedAmount(amount, targetCurrency)
+	}
+	if converter == nil {
+		return 0, ErrExchangeRateUnavailable
+	}
+	converted, ok := converter.Convert(amount, currency, targetCurrency)
+	if !ok {
+		return 0, ErrExchangeRateUnavailable
+	}
+	return roundDerivedAmount(converted, targetCurrency)
 }
 
 // percentageDelta expects operands already quantized to their currency's minor
@@ -614,7 +792,12 @@ func reportSubscriptionPaymentMethod(sub model.Subscription, labels map[uint]str
 	return label
 }
 
-func addReportBreakdown(items map[string]*reportBreakdownAccumulator, key, label string, monthlyAmount float64) {
+func addReportBreakdown(
+	items map[string]*reportBreakdownAccumulator,
+	key, label string,
+	monthlyAmount float64,
+	targetCurrency string,
+) error {
 	item, ok := items[key]
 	if !ok {
 		item = &reportBreakdownAccumulator{
@@ -623,17 +806,25 @@ func addReportBreakdown(items map[string]*reportBreakdownAccumulator, key, label
 		}
 		items[key] = item
 	}
+	total, err := addAggregateAmounts(item.monthlyAmount, monthlyAmount, targetCurrency)
+	if err != nil {
+		return err
+	}
 	item.count++
-	item.monthlyAmount += monthlyAmount
+	item.monthlyAmount = total
+	return nil
 }
 
 // buildReportBreakdown quantizes each accumulated bucket to the target minor
 // unit before emitting it. Percentages are derived from those rounded amounts
 // but stay unrounded themselves — the frontend formats them.
-func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMonthly float64, targetCurrency string) []ReportBreakdownItem {
+func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMonthly float64, targetCurrency string) ([]ReportBreakdownItem, error) {
 	result := make([]ReportBreakdownItem, 0, len(items))
 	for _, item := range items {
-		monthlyAmount := money.Round(item.monthlyAmount, targetCurrency)
+		monthlyAmount, err := roundAggregateAmount(item.monthlyAmount, targetCurrency)
+		if err != nil {
+			return nil, err
+		}
 		percentage := 0.0
 		if totalMonthly > 0 {
 			percentage = monthlyAmount / totalMonthly * 100
@@ -643,9 +834,13 @@ func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMon
 			Label:         item.label,
 			Count:         item.count,
 			MonthlyAmount: monthlyAmount,
-			YearlyAmount:  money.Round(monthlyAmount*12, targetCurrency),
+			YearlyAmount:  0,
 			Percentage:    percentage,
 		})
+		result[len(result)-1].YearlyAmount, err = multiplyAggregateAmount(monthlyAmount, 12, targetCurrency)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sort.Slice(result, func(i, j int) bool {
@@ -654,5 +849,5 @@ func buildReportBreakdown(items map[string]*reportBreakdownAccumulator, totalMon
 		}
 		return result[i].MonthlyAmount > result[j].MonthlyAmount
 	})
-	return result
+	return result, nil
 }

@@ -21,6 +21,13 @@ const dashboard = {
     "description": "Start tracking by adding your first subscription",
     "addButton": "Add subscription"
   },
+  "error": {
+    "title": "Dashboard unavailable",
+    "description": "The dashboard could not be loaded. Try again.",
+    "exchangeRateTitle": "Exchange rates temporarily unavailable",
+    "exchangeRateDescription": "Current exchange rates could not be retrieved, so totals cannot be shown safely. Try again shortly.",
+    "retry": "Try again"
+  },
   "filters": {
     "searchPlaceholder": "Search by name, category, or notes...",
     "filterButton": "Filter",

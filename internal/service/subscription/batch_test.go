@@ -80,6 +80,18 @@ func TestActionCenterReadPathsHaveConstantQueryCount(t *testing.T) {
 	seedPriceIncreaseFixtures(t, service, db, small.ID, 2)
 	seedPriceIncreaseFixtures(t, service, db, large.ID, 8)
 
+	eligibleByUser := make(map[uint]map[uint]struct{}, 2)
+	for _, userID := range []uint{small.ID, large.ID} {
+		var subs []model.Subscription
+		if err := db.Where("user_id = ?", userID).Find(&subs).Error; err != nil {
+			t.Fatalf("load subscriptions for user %d failed: %v", userID, err)
+		}
+		eligibleByUser[userID] = make(map[uint]struct{}, len(subs))
+		for _, sub := range subs {
+			eligibleByUser[userID][sub.ID] = struct{}{}
+		}
+	}
+
 	today := normalizeDateUTC(pkg.NowInSystemTimezone())
 
 	var counter int
@@ -113,7 +125,13 @@ func TestActionCenterReadPathsHaveConstantQueryCount(t *testing.T) {
 			name: "annualGrowthBaselineMonthlyAmounts",
 			run: func(userID uint) func() error {
 				return func() error {
-					_, err := service.annualGrowthBaselineMonthlyAmounts(userID, "USD", nil, pkg.NowInSystemTimezone())
+					_, err := service.annualGrowthBaselineMonthlyAmounts(
+						userID,
+						eligibleByUser[userID],
+						"USD",
+						nil,
+						pkg.NowInSystemTimezone(),
+					)
 					return err
 				}
 			},

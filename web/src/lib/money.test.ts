@@ -41,6 +41,7 @@ describe("currencyExponent", () => {
   it("returns 0 for zero-decimal currencies", () => {
     expect(currencyExponent("JPY")).toBe(0)
     expect(currencyExponent("KRW")).toBe(0)
+    expect(currencyExponent("UYI")).toBe(0)
   })
 
   it("returns 3 for three-decimal currencies", () => {
@@ -82,6 +83,7 @@ describe("roundAmount", () => {
   it("rounds to a whole number for a zero-decimal currency", () => {
     expect(roundAmount(1234.5, "JPY")).toBe(1235)
     expect(roundAmount(1234.4, "JPY")).toBe(1234)
+    expect(roundAmount(1234.5, "UYI")).toBe(1235)
   })
 
   it("rounds an exact negative half away from zero for a zero-decimal currency", () => {

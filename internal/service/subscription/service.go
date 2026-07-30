@@ -57,7 +57,7 @@ const (
 )
 
 type CurrencyConverter interface {
-	Convert(amount float64, from, to string) float64
+	Convert(amount float64, from, to string) (float64, bool)
 }
 
 type Service struct {

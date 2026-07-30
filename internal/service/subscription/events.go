@@ -10,7 +10,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/pkg/money"
+	"github.com/kasuha07/subdux/internal/service/money"
 	"gorm.io/gorm"
 )
 
@@ -169,13 +169,26 @@ func (s *Service) buildSubscriptionEventSnapshot(userID uint, sub model.Subscrip
 		}
 	}
 
-	// Amount is the value the user entered and is stored verbatim; the derived
-	// monthly amount is quantized so the event history records grid-aligned
-	// money rather than accumulated factor drift.
+	rawMonthlyAmount := sub.Amount * subscriptionMonthlyFactor(sub)
+	monthlyAmount, err := roundDerivedAmount(rawMonthlyAmount, sub.Currency)
+	if err != nil {
+		// New and materially changed billing inputs are validated before event
+		// creation. A finite out-of-range value can therefore only be legacy
+		// data being edited or deleted. Preserve that derived value verbatim in
+		// the snapshot instead of blocking the operation or silently clipping it.
+		if !money.IsFinite(rawMonthlyAmount) {
+			return subscriptionEventSnapshot{}, err
+		}
+		monthlyAmount = rawMonthlyAmount
+	}
+
+	// Amount is the value the user entered and is stored verbatim. New values
+	// record a grid-aligned monthly amount; an unrepresentable legacy derived
+	// value remains verbatim so lifecycle operations never rewrite old money.
 	return subscriptionEventSnapshot{
 		Amount:            sub.Amount,
 		Currency:          strings.ToUpper(strings.TrimSpace(sub.Currency)),
-		MonthlyAmount:     money.Round(sub.Amount*subscriptionMonthlyFactor(sub), sub.Currency),
+		MonthlyAmount:     monthlyAmount,
 		NextBillingDate:   copyTimePointer(sub.NextBillingDate),
 		Status:            normalizeStatus(sub.Status),
 		RenewalMode:       normalizeRenewalMode(sub.RenewalMode),

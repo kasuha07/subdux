@@ -2,7 +2,10 @@ const reports = {
   "title": "レポート分析",
   "error": {
     "title": "レポートを表示できません",
-    "description": "ページを更新するか、しばらくしてから再試行してください。"
+    "description": "レポートを読み込めませんでした。再試行してください。",
+    "exchangeRateTitle": "為替レートを一時的に取得できません",
+    "exchangeRateDescription": "現在の為替レートを取得できないため、レポートを安全に計算できません。しばらくしてから再試行してください。",
+    "retry": "再試行"
   },
   "empty": {
     "title": "レポートデータがありません",

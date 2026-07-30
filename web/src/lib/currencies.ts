@@ -1,13 +1,10 @@
+import { PRESET_CURRENCY_CODES } from "@/lib/currency-metadata.generated"
+
 export interface PresetCurrency {
   code: string
   symbol: string
   alias: string
 }
-
-const PRESET_CURRENCY_CODES = [
-  "USD", "EUR", "GBP", "JPY", "CNY", "CAD", "AUD", "CHF", "HKD", "SGD", "KRW",
-  "INR", "BRL", "MXN", "TWD", "THB", "TRY", "NZD", "SEK", "NOK", "DKK", "PLN",
-] as const
 
 function getIntlCurrencyAlias(code: string, locale: string): string {
   if (typeof Intl.DisplayNames === "function") {

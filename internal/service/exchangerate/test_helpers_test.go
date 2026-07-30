@@ -41,7 +41,8 @@ func TestWithContextSharesStatefulCache(t *testing.T) {
 	clone.cache.rates[rateCacheKey("EUR")] = 0.9
 	clone.cache.mu.Unlock()
 
-	if got := parent.Convert(100, "USD", "EUR"); got != 90 {
-		t.Fatalf("parent.Convert via shared cache = %v, want 90", got)
+	got, ok := parent.Convert(100, "USD", "EUR")
+	if !ok || got != 90 {
+		t.Fatalf("parent.Convert via shared cache = %v, %v; want 90, true", got, ok)
 	}
 }

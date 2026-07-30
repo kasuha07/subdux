@@ -27,8 +27,12 @@ func TestServiceDerivesConversionsFromUSDBaseRates(t *testing.T) {
 
 	svc := NewService(db)
 
-	if got := svc.Convert(10, "EUR", "CNY"); got != 90 {
-		t.Fatalf("Convert(EUR->CNY) = %v, want 90", got)
+	got, ok := svc.Convert(10, "EUR", "CNY")
+	if !ok || got != 90 {
+		t.Fatalf("Convert(EUR->CNY) = %v, %v; want 90, true", got, ok)
+	}
+	if _, ok := svc.Convert(10, "EUR", "JPY"); ok {
+		t.Fatal("Convert(EUR->JPY) ok = true without a JPY rate")
 	}
 
 	rate, ok := svc.GetRate("CNY", "EUR")

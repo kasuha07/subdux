@@ -12,8 +12,8 @@ import (
 // minor-unit grid, which is how sub-cent drift enters converted amounts.
 type noisyConverter struct{}
 
-func (noisyConverter) Convert(amount float64, _, _ string) float64 {
-	return amount * 1.0000000000001
+func (noisyConverter) Convert(amount float64, _, _ string) (float64, bool) {
+	return amount * 1.0000000000001, true
 }
 
 // seedDriftedPriceEvent writes a price-bearing event whose two monthly amounts

@@ -57,3 +57,15 @@ func TestSubscriptionAmountTooLarge(t *testing.T) {
 		})
 	}
 }
+
+func TestSubscriptionAmountNonFinite(t *testing.T) {
+	if !SubscriptionAmountNonFinite(math.NaN()) {
+		t.Fatal("NaN should be classified as non-finite")
+	}
+	if !SubscriptionAmountNonFinite(math.Inf(1)) {
+		t.Fatal("+Inf should be classified as non-finite")
+	}
+	if SubscriptionAmountNonFinite(MaxSubscriptionAmount) {
+		t.Fatal("MaxSubscriptionAmount should be finite")
+	}
+}

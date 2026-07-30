@@ -691,17 +691,21 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 			}
 
 			incoming.Name = name
-			// An exported amount is untrusted JSON: NaN/±Inf would poison every
-			// aggregate and a negative amount violates the subscriptions table's
-			// amount >= 0 check constraint. Clamp to 0 the same way the SQLite
-			// integrity-hardening migration does for existing rows, before the
-			// value reaches the dedup key, the preview, or the insert.
-			incoming.Amount = normalizeImportedAmount(incoming.Amount)
 			incoming.Currency = strings.ToUpper(strings.TrimSpace(incoming.Currency))
 			incoming.BillingType = strings.ToLower(strings.TrimSpace(incoming.BillingType))
 			incoming.RecurrenceType = strings.ToLower(strings.TrimSpace(incoming.RecurrenceType))
 			incoming.IntervalUnit = strings.ToLower(strings.TrimSpace(incoming.IntervalUnit))
 			incoming.Category = strings.TrimSpace(incoming.Category)
+			normalizedAmount, amountErr := normalizeImportedAmount(incoming.Amount)
+			if amountErr != nil {
+				recordInvalidImportedAmount(&preview.Subscriptions, result, confirm, PreviewSubscriptionChange{
+					Name:        incoming.Name,
+					Currency:    incoming.Currency,
+					BillingType: incoming.BillingType,
+				}, amountErr)
+				continue
+			}
+			incoming.Amount = normalizedAmount
 			normalizedDraft, nextBillingDate, billingErr := subscriptionservice.NormalizeBillingDraft(subscriptionservice.BillingDraft{
 				BillingType:     incoming.BillingType,
 				RecurrenceType:  incoming.RecurrenceType,
@@ -721,12 +725,26 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 				incoming.YearlyMonth = cloneImportedInt(normalizedDraft.YearlyMonth)
 				incoming.YearlyDay = cloneImportedInt(normalizedDraft.YearlyDay)
 				incoming.NextBillingDate = normalizeImportedDate(nextBillingDate)
+				amountErr = subscriptionservice.ValidateBillingAmount(
+					incoming.Amount,
+					incoming.Currency,
+					normalizedDraft,
+				)
+				if amountErr != nil {
+					recordInvalidImportedAmount(&preview.Subscriptions, result, confirm, PreviewSubscriptionChange{
+						Name:        incoming.Name,
+						Amount:      incoming.Amount,
+						Currency:    incoming.Currency,
+						BillingType: incoming.BillingType,
+						Category:    incoming.Category,
+					}, amountErr)
+					continue
+				}
 			}
 
 			dedupKey := strings.Join([]string{
 				strings.ToLower(incoming.Name),
-				// Exact float formatting, matching the Wallos importer: %f
-				// truncated at 6 decimals and collapsed distinct amounts.
+				// Exact float formatting, shared with the Wallos importer.
 				importAmountKey(incoming.Amount),
 				strings.ToUpper(incoming.Currency),
 				strings.ToLower(incoming.BillingType),

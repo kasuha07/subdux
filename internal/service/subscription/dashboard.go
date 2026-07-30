@@ -1,11 +1,11 @@
 package subscription
 
 import (
+	"strings"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/pkg/money"
 )
 
 func (s *Service) GetDashboardSummary(userID uint, targetCurrency string, converter CurrencyConverter) (*DashboardSummary, error) {
@@ -16,7 +16,11 @@ func (s *Service) GetDashboardSummary(userID uint, targetCurrency string, conver
 		return nil, err
 	}
 
-	return computeDashboardSummary(presentActiveSubscriptions(subs, now), targetCurrency, converter, now), nil
+	summary, err := computeDashboardSummary(presentActiveSubscriptions(subs, now), targetCurrency, converter, now)
+	if err != nil {
+		return nil, err
+	}
+	return summary, nil
 }
 
 // SubscriptionsWithSummary returns a user's full subscription list (ordered as
@@ -52,7 +56,11 @@ func (s *Service) SubscriptionsWithSummary(
 		}
 	}
 
-	return subs, computeDashboardSummary(activeSubs, targetCurrency, converter, now), nil
+	summary, err := computeDashboardSummary(activeSubs, targetCurrency, converter, now)
+	if err != nil {
+		return nil, nil, err
+	}
+	return subs, summary, nil
 }
 
 // presentActiveSubscriptions advances each subscription's lifecycle in memory
@@ -78,10 +86,11 @@ func PresentActiveSubscriptions(subs []model.Subscription, now time.Time) []mode
 // computeDashboardSummary aggregates spend metrics from a set of active
 // subscriptions. It performs no I/O so it can be reused by any caller that has
 // already loaded the active subscriptions.
-func computeDashboardSummary(subs []model.Subscription, targetCurrency string, converter CurrencyConverter, now time.Time) *DashboardSummary {
-	if targetCurrency == "" {
+func computeDashboardSummary(subs []model.Subscription, targetCurrency string, converter CurrencyConverter, now time.Time) (*DashboardSummary, error) {
+	if strings.TrimSpace(targetCurrency) == "" {
 		targetCurrency = "USD"
 	}
+	targetCurrency = strings.ToUpper(strings.TrimSpace(targetCurrency))
 
 	today := normalizeDateUTC(now)
 	startOfThisMonth := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -91,25 +100,44 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 	var committedMonthly float64
 	var dueThisMonth float64
 	for _, sub := range subs {
-		amount := sub.Amount
-		if converter != nil && sub.Currency != targetCurrency {
-			// Quantize the converted amount to the target minor unit before it
-			// feeds any derived term, so exchange-rate noise cannot accumulate.
-			amount = money.Round(converter.Convert(amount, sub.Currency, targetCurrency), targetCurrency)
-		}
-
 		factor := subscriptionMonthlyFactor(sub)
-		if factor > 0 && subscriptionContributesToOngoingSpend(sub) {
-			monthly := money.Round(amount*factor, targetCurrency)
-			totalMonthly += monthly
-			if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
-				committedMonthly += monthly
+		contributesOngoingSpend := factor > 0 && subscriptionContributesToOngoingSpend(sub)
+		occurrences := len(subscriptionChargeDatesInRange(sub, today, startOfNextMonth))
+		amount := 0.0
+		if contributesOngoingSpend || occurrences > 0 {
+			var err error
+			amount, err = convertSubscriptionAmount(sub, targetCurrency, converter)
+			if err != nil {
+				return nil, err
 			}
 		}
 
-		occurrences := len(subscriptionChargeDatesInRange(sub, today, startOfNextMonth))
+		if contributesOngoingSpend {
+			monthly, err := roundDerivedAmount(amount*factor, targetCurrency)
+			if err != nil {
+				return nil, err
+			}
+			totalMonthly, err = addAggregateAmounts(totalMonthly, monthly, targetCurrency)
+			if err != nil {
+				return nil, err
+			}
+			if normalizeRenewalMode(sub.RenewalMode) == renewalModeAutoRenew {
+				committedMonthly, err = addAggregateAmounts(committedMonthly, monthly, targetCurrency)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		if occurrences > 0 {
-			dueThisMonth += money.Round(amount*float64(occurrences), targetCurrency)
+			due, err := multiplyAggregateAmount(amount, int64(occurrences), targetCurrency)
+			if err != nil {
+				return nil, err
+			}
+			dueThisMonth, err = addAggregateAmounts(dueThisMonth, due, targetCurrency)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -126,19 +154,37 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 		upcomingRenewalCount++
 	}
 
-	totalMonthly = money.Round(totalMonthly, targetCurrency)
-	committedMonthly = money.Round(committedMonthly, targetCurrency)
+	totalYearly, err := multiplyAggregateAmount(totalMonthly, 12, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	committedYearly, err := multiplyAggregateAmount(committedMonthly, 12, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	totalMonthly, err = roundAggregateAmount(totalMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	committedMonthly, err = roundAggregateAmount(committedMonthly, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+	dueThisMonth, err = roundAggregateAmount(dueThisMonth, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
 
 	return &DashboardSummary{
 		TotalMonthly:         totalMonthly,
-		TotalYearly:          money.Round(totalMonthly*12, targetCurrency),
+		TotalYearly:          totalYearly,
 		CommittedMonthly:     committedMonthly,
-		CommittedYearly:      money.Round(committedMonthly*12, targetCurrency),
-		DueThisMonth:         money.Round(dueThisMonth, targetCurrency),
+		CommittedYearly:      committedYearly,
+		DueThisMonth:         dueThisMonth,
 		ActiveCount:          int64(len(subs)),
 		UpcomingRenewalCount: upcomingRenewalCount,
 		Currency:             targetCurrency,
-	}
+	}, nil
 }
 
 func subscriptionContributesToOngoingSpend(sub model.Subscription) bool {

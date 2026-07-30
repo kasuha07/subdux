@@ -2,7 +2,10 @@ const reports = {
   "title": "Reports",
   "error": {
     "title": "Report unavailable",
-    "description": "Refresh the page or try again later."
+    "description": "The report could not be loaded. Try again.",
+    "exchangeRateTitle": "Exchange rates temporarily unavailable",
+    "exchangeRateDescription": "Current exchange rates could not be retrieved, so this report cannot be calculated safely. Try again shortly.",
+    "retry": "Try again"
   },
   "empty": {
     "title": "No report data",

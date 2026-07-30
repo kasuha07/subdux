@@ -205,6 +205,7 @@ const settings = {
     "importPreviewNew": "新增",
     "importPreviewExists": "已存在",
     "importPreviewSkipped": "跳过",
+    "importPreviewInvalidAmount": "金额无效",
     "importPreviewMatchedAs": "匹配为 {{name}}",
     "importPreviewConfirm": "确认导入",
     "importPreviewCancel": "取消",

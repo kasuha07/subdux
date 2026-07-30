@@ -9,7 +9,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/pkg/money"
+	"github.com/kasuha07/subdux/internal/service/money"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

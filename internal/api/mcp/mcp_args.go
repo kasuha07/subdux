@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kasuha07/subdux/internal/pkg/money"
+	"github.com/kasuha07/subdux/internal/service/money"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 )
 

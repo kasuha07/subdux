@@ -21,6 +21,13 @@ const dashboard = {
     "description": "添加您的第一个订阅开始追踪",
     "addButton": "添加订阅"
   },
+  "error": {
+    "title": "仪表盘暂不可用",
+    "description": "无法加载仪表盘，请重试。",
+    "exchangeRateTitle": "汇率暂不可用",
+    "exchangeRateDescription": "当前汇率获取失败，为避免显示不准确的总额，数据暂不展示。请稍后重试。",
+    "retry": "重试"
+  },
   "filters": {
     "searchPlaceholder": "按名称、分类或备注搜索...",
     "filterButton": "筛选",

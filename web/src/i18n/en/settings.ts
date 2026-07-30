@@ -205,6 +205,7 @@ const settings = {
     "importPreviewNew": "New",
     "importPreviewExists": "Exists",
     "importPreviewSkipped": "Skipped",
+    "importPreviewInvalidAmount": "Invalid amount",
     "importPreviewMatchedAs": "Matched as {{name}}",
     "importPreviewConfirm": "Confirm Import",
     "importPreviewCancel": "Cancel",

@@ -21,6 +21,12 @@ var (
 
 	ErrInvalidSubscriptionURL = serviceerr.New(serviceerr.KindInvalid, "subscription_url_must_be_a_valid_http_or_https_url", "subscription url must be a valid http or https URL")
 
+	// Amount and conversion validation.
+	ErrAmountMustBeFinite      = serviceerr.New(serviceerr.KindInvalid, "amount_must_be_finite", "amount must be finite")
+	ErrAmountMustNotBeNegative = serviceerr.New(serviceerr.KindInvalid, "amount_must_not_be_negative", "amount must not be negative")
+	ErrAmountTooLarge          = serviceerr.New(serviceerr.KindInvalid, "amount_too_large", "amount is too large")
+	ErrExchangeRateUnavailable = serviceerr.New(serviceerr.KindUnavailable, "exchange_rate_unavailable", "exchange rate is unavailable")
+
 	// Billing / recurrence validation.
 	ErrNextBillingDateRequiredRecurring = serviceerr.New(serviceerr.KindInvalid, "next_billing_date_is_required_for_recurring_subscriptions", "next_billing_date is required for recurring subscriptions")
 	ErrIntervalCountTooLow              = serviceerr.New(serviceerr.KindInvalid, "interval_count_must_be_at_least_1_for_interval_recurrence", "interval_count must be at least 1 for interval recurrence")

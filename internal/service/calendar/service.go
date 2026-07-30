@@ -11,7 +11,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
-	"github.com/kasuha07/subdux/internal/pkg/money"
+	"github.com/kasuha07/subdux/internal/service/money"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/kasuha07/subdux/internal/service/userstatus"
 	"gorm.io/gorm"

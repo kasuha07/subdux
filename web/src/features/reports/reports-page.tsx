@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
@@ -13,8 +13,9 @@ import {
   TrendingUp,
 } from "lucide-react"
 
+import { LoadErrorBoundary } from "@/components/load-error-boundary"
 import { Button } from "@/components/ui/button"
-import { api } from "@/lib/api"
+import { buildLoadErrorCopy } from "@/lib/load-error"
 import { reportRenewalModeLabel } from "@/lib/subscription-event-formatters"
 import { formatCurrencyWithSymbol } from "@/lib/utils"
 import type {
@@ -35,25 +36,33 @@ import {
   TopSubscriptionsPanel,
   UpcomingRenewalsPanel,
 } from "./reports-panels"
+import { requestReportsData } from "./reports-data"
+import { ReportsLoadError } from "./reports-load-error"
 
 export default function ReportsPage() {
   const { t, i18n } = useTranslation()
   const [report, setReport] = useState<AnalyticsReport | null>(null)
   const [currencies, setCurrencies] = useState<UserCurrency[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<unknown>(null)
+
+  const fetchReport = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [reportData, currencyData] = await requestReportsData()
+      setReport(reportData)
+      setCurrencies(currencyData || [])
+    } catch (error) {
+      setError(error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    Promise.all([
-      api.get<AnalyticsReport>("/reports/analytics"),
-      api.get<UserCurrency[]>("/currencies"),
-    ])
-      .then(([reportData, currencyData]) => {
-        setReport(reportData)
-        setCurrencies(currencyData || [])
-      })
-      .catch(() => void 0)
-      .finally(() => setLoading(false))
-  }, [])
+    void fetchReport()
+  }, [fetchReport])
 
   const currencySymbolMap = useMemo(() => {
     return new Map(currencies.map((currency) => [currency.code.toUpperCase(), currency.symbol]))
@@ -102,7 +111,17 @@ export default function ReportsPage() {
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         {loading ? (
           <ReportsSkeleton />
-        ) : !report ? (
+        ) : (
+          <LoadErrorBoundary
+            error={error}
+            fallback={
+              <ReportsLoadError
+                copy={buildLoadErrorCopy(error, t, "reports")}
+                onRetry={() => void fetchReport()}
+              />
+            }
+          >
+            {!report ? (
           <EmptyState title={t("reports.error.title")} description={t("reports.error.description")} />
         ) : (
           <>
@@ -224,6 +243,8 @@ export default function ReportsPage() {
               <RecentChangesPanel items={recentChanges} language={i18n.language} formatAmount={formatAmount} />
             </section>
           </>
+        )}
+          </LoadErrorBoundary>
         )}
       </main>
     </div>

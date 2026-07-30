@@ -13,6 +13,7 @@ import type {
 
 interface UseDashboardDataResult {
   categories: Category[]
+  error: unknown
   fetchData: () => Promise<void>
   loading: boolean
   paymentMethods: PaymentMethod[]
@@ -22,18 +23,27 @@ interface UseDashboardDataResult {
   userCurrencies: UserCurrency[]
 }
 
+export function requestDashboardBootstrap(
+  get: typeof api.get = api.get
+): Promise<DashboardBootstrap> {
+  return get<DashboardBootstrap>("/dashboard/bootstrap")
+}
+
 export function useDashboardData(): UseDashboardDataResult {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<unknown>(null)
   const [preferredCurrency, setPreferredCurrency] = useState(getDefaultCurrency())
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
 
   const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const data = await api.get<DashboardBootstrap>("/dashboard/bootstrap")
+      const data = await requestDashboardBootstrap()
       setSubscriptions(data.subscriptions || [])
       setSummary(data.summary)
       setUserCurrencies(data.currencies || [])
@@ -43,8 +53,8 @@ export function useDashboardData(): UseDashboardDataResult {
         setPreferredCurrency(data.preferred_currency)
         setDefaultCurrency(data.preferred_currency)
       }
-    } catch {
-      void 0
+    } catch (error) {
+      setError(error)
     } finally {
       setLoading(false)
     }
@@ -56,6 +66,7 @@ export function useDashboardData(): UseDashboardDataResult {
 
   return {
     categories,
+    error,
     fetchData,
     loading,
     paymentMethods,

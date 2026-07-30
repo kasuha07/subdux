@@ -37,6 +37,7 @@ describe("getPresetCurrencies", () => {
     expect(currencies.length).toBeGreaterThan(0)
     expect(currencies.every((c) => c.code && c.symbol && c.alias)).toBe(true)
     expect(currencies.map((c) => c.code)).toContain("USD")
+    expect(currencies.map((c) => c.code)).toContain("UYI")
   })
 
   it("returns a stable cached reference for the same locale", () => {

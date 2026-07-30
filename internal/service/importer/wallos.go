@@ -141,18 +141,9 @@ var wallosToSystemKey = map[string]string{
 	"WeChat": "wechatpay",
 }
 
-var knownCurrencies = []string{
-	"USD", "EUR", "GBP", "JPY", "CNY", "AUD", "CAD", "CHF", "HKD", "SGD",
-	"SEK", "NOK", "DKK", "NZD", "MXN", "BRL", "INR", "RUB", "ZAR", "KRW",
-	"TRY", "PLN", "THB", "IDR", "MYR", "PHP", "CZK", "HUF", "RON", "BGN",
-	"HRK", "ISK", "ILS", "AED", "SAR", "QAR", "KWD", "BHD", "OMR", "JOD",
-	"EGP", "NGN", "KES", "GHS", "MAD", "TND", "DZD", "LYD", "PKR", "BDT",
-	"LKR", "NPR", "MMK", "VND", "TWD", "CLP", "COP", "PEN", "ARS", "UYU",
-}
-
 var currencyRe = regexp.MustCompile(`[A-Z]{3}`)
 
-func extractCurrencyAndAmount(price string, preferredCurrency string) (float64, string) {
+func extractCurrencyAndAmount(price string, preferredCurrency string) (float64, string, error) {
 	currency := preferredCurrency
 	if currency == "" {
 		currency = "USD"
@@ -202,14 +193,10 @@ func extractCurrencyAndAmount(price string, preferredCurrency string) (float64, 
 	cleaned = strings.ReplaceAll(cleaned, ",", "")
 	amount, err := strconv.ParseFloat(cleaned, 64)
 	if err != nil {
-		return 0, currency
+		return 0, currency, invalidImportedAmountError(price)
 	}
-	// normalizeImportedAmount folds in every other way a parsed price can be
-	// unusable — non-finite, negative, or above money.MaxAmount — so this
-	// path applies the same ceiling the Subdux importer and the API use
-	// instead of letting a hand-edited price file write an unquantizable
-	// amount to the DB.
-	return normalizeImportedAmount(amount), currency
+	normalized, err := normalizeImportedAmount(amount)
+	return normalized, currency, err
 }
 
 // resolveAmbiguous picks the best currency code from candidates.
@@ -337,10 +324,40 @@ func (s *Service) ImportFromWallos(userID uint, data []WallosSubscription, confi
 				continue
 			}
 
-			amount, currency := extractCurrencyAndAmount(item.Price, preferredCurrency)
 			billingType, recurrenceType, intervalUnit, intervalCount := mapPaymentCycle(item.PaymentCycle)
+			amount, currency, amountErr := extractCurrencyAndAmount(item.Price, preferredCurrency)
 			nextBilling := parseDate(item.NextPayment)
 			enabled := parseEnabled(item.Active)
+			if amountErr != nil {
+				recordInvalidImportedAmount(&preview.Subscriptions, result, confirm, PreviewSubscriptionChange{
+					Name:        name,
+					Currency:    currency,
+					BillingType: billingType,
+				}, amountErr)
+				continue
+			}
+			if billingType == subscriptionservice.BillingTypeRecurring {
+				amountErr = subscriptionservice.ValidateBillingAmount(
+					amount,
+					currency,
+					subscriptionservice.BillingDraft{
+						BillingType:     billingType,
+						RecurrenceType:  recurrenceType,
+						IntervalCount:   &intervalCount,
+						IntervalUnit:    intervalUnit,
+						NextBillingDate: nextBilling,
+					},
+				)
+				if amountErr != nil {
+					recordInvalidImportedAmount(&preview.Subscriptions, result, confirm, PreviewSubscriptionChange{
+						Name:        name,
+						Amount:      amount,
+						Currency:    currency,
+						BillingType: billingType,
+					}, amountErr)
+					continue
+				}
+			}
 
 			// Deduplicate by name + amount + currency + billing_type (without next_billing_date,
 			// because the app may advance billing dates after import, causing re-imports).

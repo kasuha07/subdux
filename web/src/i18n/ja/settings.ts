@@ -205,6 +205,7 @@ const settings = {
     "importPreviewNew": "新規",
     "importPreviewExists": "既存",
     "importPreviewSkipped": "スキップ",
+    "importPreviewInvalidAmount": "無効な金額",
     "importPreviewMatchedAs": "{{name}} として一致",
     "importPreviewConfirm": "インポート実行",
     "importPreviewCancel": "キャンセル",

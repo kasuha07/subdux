@@ -3,9 +3,11 @@ package subscription
 import (
 	"math"
 	"testing"
+	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/money"
 )
 
 func TestGetAnalyticsReportAggregatesSubscriptionSpend(t *testing.T) {
@@ -103,6 +105,52 @@ func TestGetAnalyticsReportAggregatesSubscriptionSpend(t *testing.T) {
 	}
 	if got, want := report.UpcomingRenewals[0].Icon, "custom:netflix"; got != want {
 		t.Fatalf("upcoming renewal icon = %q, want %q", got, want)
+	}
+}
+
+func TestGetAnalyticsReportAllowsLargeAggregateAndAnnualizedValues(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+	monthly := 1
+
+	for _, name := range []string{"Large plan A", "Large plan B"} {
+		if _, err := service.Create(user.ID, CreateSubscriptionInput{
+			Name:            name,
+			Amount:          money.MaxAmount,
+			Currency:        "USD",
+			Status:          subscriptionStatusActive,
+			RenewalMode:     renewalModeAutoRenew,
+			BillingType:     billingTypeRecurring,
+			RecurrenceType:  recurrenceTypeInterval,
+			IntervalCount:   &monthly,
+			IntervalUnit:    intervalUnitMonth,
+			NextBillingDate: "2026-03-20",
+		}); err != nil {
+			t.Fatalf("Create(%q) error = %v", name, err)
+		}
+	}
+
+	report, err := service.GetAnalyticsReport(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("GetAnalyticsReport() error = %v", err)
+	}
+	if got, want := report.KPIs.TotalMonthly, 1_000_000_000_000.0; got != want {
+		t.Fatalf("total_monthly = %v, want %v", got, want)
+	}
+	if got, want := report.KPIs.TotalYearly, 12_000_000_000_000.0; got != want {
+		t.Fatalf("total_yearly = %v, want %v", got, want)
+	}
+	if got, want := report.CategoryBreakdown[0].MonthlyAmount, 1_000_000_000_000.0; got != want {
+		t.Fatalf("category monthly_amount = %v, want %v", got, want)
+	}
+	for _, item := range report.TopSubscriptions {
+		if got, want := item.YearlyAmount, 6_000_000_000_000.0; got != want {
+			t.Fatalf("%s yearly_amount = %v, want %v", item.Name, got, want)
+		}
 	}
 }
 
@@ -344,6 +392,137 @@ func TestReportPriceIncreasesSkipsCrossCurrencyEventWithoutConverter(t *testing.
 	}
 	if got := len(items); got != 0 {
 		t.Fatalf("price_increases length = %d, want 0 for USD 7 -> JPY 1000 without converter: %+v", got, items)
+	}
+}
+
+func TestAnnualGrowthBaselineDoesNotCrossCurrencyEpoch(t *testing.T) {
+	now := mustDate(t, "2026-03-01")
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+
+	subscriptionID := uint(1)
+	oldPrevious, oldCurrent := 8.0, 10.0
+	switchPrevious, switchCurrent := 10.0, 1000.0
+	newPrevious, newCurrent := 1000.0, 1200.0
+	events := []model.SubscriptionEvent{
+		{
+			UserID:                user.ID,
+			SubscriptionID:        &subscriptionID,
+			SubscriptionName:      "Cross-currency growth",
+			Type:                  subscriptionEventUpdated,
+			PreviousMonthlyAmount: &oldPrevious,
+			NewMonthlyAmount:      &oldCurrent,
+			PreviousCurrency:      "USD",
+			NewCurrency:           "USD",
+			CreatedAt:             time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			UserID:                user.ID,
+			SubscriptionID:        &subscriptionID,
+			SubscriptionName:      "Cross-currency growth",
+			Type:                  subscriptionEventUpdated,
+			PreviousMonthlyAmount: &switchPrevious,
+			NewMonthlyAmount:      &switchCurrent,
+			PreviousCurrency:      "USD",
+			NewCurrency:           "JPY",
+			CreatedAt:             time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	if err := db.Create(&events).Error; err != nil {
+		t.Fatalf("create currency epoch events failed: %v", err)
+	}
+
+	eligibleSubscriptionIDs := map[uint]struct{}{subscriptionID: {}}
+	baselines, err := service.annualGrowthBaselineMonthlyAmounts(
+		user.ID,
+		eligibleSubscriptionIDs,
+		"USD",
+		nil,
+		now,
+	)
+	if err != nil {
+		t.Fatalf("annualGrowthBaselineMonthlyAmounts() error = %v", err)
+	}
+	if _, ok := baselines[subscriptionID]; ok {
+		t.Fatalf("baseline = %v, want none after currency switch without a comparable current-epoch event", baselines[subscriptionID])
+	}
+
+	if err := db.Create(&model.SubscriptionEvent{
+		UserID:                user.ID,
+		SubscriptionID:        &subscriptionID,
+		SubscriptionName:      "Cross-currency growth",
+		Type:                  subscriptionEventUpdated,
+		PreviousMonthlyAmount: &newPrevious,
+		NewMonthlyAmount:      &newCurrent,
+		PreviousCurrency:      "JPY",
+		NewCurrency:           "JPY",
+		CreatedAt:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+	}).Error; err != nil {
+		t.Fatalf("create current currency epoch event failed: %v", err)
+	}
+
+	baselines, err = service.annualGrowthBaselineMonthlyAmounts(
+		user.ID,
+		eligibleSubscriptionIDs,
+		"JPY",
+		nil,
+		now,
+	)
+	if err != nil {
+		t.Fatalf("annualGrowthBaselineMonthlyAmounts() error = %v", err)
+	}
+	if got, want := baselines[subscriptionID], newPrevious; got != want {
+		t.Fatalf("current currency epoch baseline = %v, want %v", got, want)
+	}
+}
+
+func TestReportPriceIncreasesSuppressesOlderIncreaseAfterLatestReduction(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+
+	subscriptionID := uint(1)
+	oldPrevious, oldCurrent := 10.0, 20.0
+	latestPrevious, latestCurrent := 20.0, 12.0
+	eventTime := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+	events := []model.SubscriptionEvent{
+		{
+			UserID:                user.ID,
+			SubscriptionID:        &subscriptionID,
+			SubscriptionName:      "Video Pro",
+			Type:                  subscriptionEventUpdated,
+			PreviousMonthlyAmount: &oldPrevious,
+			NewMonthlyAmount:      &oldCurrent,
+			PreviousCurrency:      "USD",
+			NewCurrency:           "USD",
+			CreatedAt:             eventTime,
+		},
+		{
+			UserID:                user.ID,
+			SubscriptionID:        &subscriptionID,
+			SubscriptionName:      "Video Pro",
+			Type:                  subscriptionEventUpdated,
+			PreviousMonthlyAmount: &latestPrevious,
+			NewMonthlyAmount:      &latestCurrent,
+			PreviousCurrency:      "USD",
+			NewCurrency:           "USD",
+			CreatedAt:             eventTime,
+		},
+	}
+	if err := db.Create(&events).Error; err != nil {
+		t.Fatalf("create price events failed: %v", err)
+	}
+
+	items, err := service.reportPriceIncreases(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatalf("reportPriceIncreases() error = %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("price increases = %+v, want latest reduction to suppress older increase", items)
 	}
 }
 

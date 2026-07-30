@@ -50,6 +50,20 @@ func mcpToolExecutionError(message string) *mcpToolResult {
 	}
 }
 
+func mcpCodedToolExecutionError(code, message string) *mcpToolResult {
+	return &mcpToolResult{
+		Content: []mcpTextContent{{
+			Type: "text",
+			Text: message,
+		}},
+		StructuredContent: map[string]interface{}{
+			"error":      message,
+			"error_code": code,
+		},
+		IsError: true,
+	}
+}
+
 func (r *mcpToolResult) sdkResult() *mcpsdk.CallToolResult {
 	if r == nil {
 		result := &mcpsdk.CallToolResult{}

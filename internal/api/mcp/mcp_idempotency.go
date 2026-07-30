@@ -176,7 +176,9 @@ func mapMCPWriteError(err error) (*mcpToolResult, *mcpError) {
 	switch {
 	case errors.Is(err, errIdempotencyMismatch):
 		return nil, invalidMCPParams(err)
-	case errors.As(err, &typed) || errors.Is(err, gorm.ErrRecordNotFound):
+	case errors.As(err, &typed):
+		return mcpCodedToolExecutionError(typed.Code, typed.Error()), nil
+	case errors.Is(err, gorm.ErrRecordNotFound):
 		return mcpToolExecutionError(err.Error()), nil
 	default:
 		return nil, internalMCPError(err)

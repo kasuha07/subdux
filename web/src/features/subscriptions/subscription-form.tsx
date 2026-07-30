@@ -23,6 +23,7 @@ import {
 import {
   useSubscriptionFormState,
 } from "@/features/subscriptions/hooks/use-subscription-form-state"
+import { currencyExponent } from "@/lib/money"
 import type {
   Category,
   CreateSubscriptionInput,
@@ -84,6 +85,7 @@ export default function SubscriptionForm({
   const nextDateLabel = values.renewalMode === "cancel_at_period_end"
     ? t("subscription.form.periodEndDateLabel")
     : t("subscription.form.nextBillingDateLabel")
+  const amountStep = 10 ** -currencyExponent(values.currency)
 
   const iconPickerNode = useMemo(
     () => (
@@ -161,7 +163,7 @@ export default function SubscriptionForm({
                   <Input
                     id="amount"
                     type="number"
-                    step="0.01"
+                    step={amountStep}
                     min="0"
                     placeholder={t("subscription.form.amountPlaceholder")}
                     value={values.amount}

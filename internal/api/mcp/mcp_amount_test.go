@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kasuha07/subdux/internal/pkg/money"
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	"github.com/kasuha07/subdux/internal/service/money"
 )
 
 func TestReadFloatArgRejectsNonFiniteValues(t *testing.T) {

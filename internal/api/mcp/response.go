@@ -55,6 +55,9 @@ func validateSubscriptionAmount(amount float64) bool {
 // subscriptionAmountError explains why validateSubscriptionAmount rejected an
 // amount, so an over-the-limit value is not reported as a negative one.
 func subscriptionAmountError(amount float64) error {
+	if contract.SubscriptionAmountNonFinite(amount) {
+		return errors.New("amount must be finite")
+	}
 	if contract.SubscriptionAmountTooLarge(amount) {
 		return errors.New("amount is too large")
 	}

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	"github.com/kasuha07/subdux/internal/service/money"
 	"github.com/kasuha07/subdux/internal/version"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -342,7 +343,12 @@ func nullableIntegerRangeSchema(description string, minimum, maximum int) map[st
 }
 
 func numberSchema(description string) map[string]interface{} {
-	return map[string]interface{}{"type": "number", "description": description, "minimum": 0}
+	return map[string]interface{}{
+		"type":        "number",
+		"description": description,
+		"minimum":     0,
+		"maximum":     money.MaxAmount,
+	}
 }
 
 func nullableBoolSchema(description string) map[string]interface{} {

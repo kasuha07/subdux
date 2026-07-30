@@ -11,7 +11,7 @@ LDFLAGS  = -s -w \
 BINARY   = subdux
 GO_FILES = $(shell find . -path './web' -prune -o -name '*.go' -print)
 
-.PHONY: build dev frontend-deps frontend frontend-lint fmt fmt-check vet test check docker clean
+.PHONY: build dev frontend-deps frontend frontend-lint currency-metadata currency-metadata-check fmt fmt-check vet test check docker clean
 
 build: frontend
 	go build -ldflags="$(LDFLAGS)" -o $(BINARY) ./cmd/server
@@ -33,6 +33,12 @@ frontend: frontend-deps
 frontend-lint: frontend-deps
 	cd web && bun run lint
 
+currency-metadata:
+	go generate ./internal/service/money
+
+currency-metadata-check:
+	go run ./internal/service/money/cmd/generate -check
+
 fmt:
 	gofmt -w $(GO_FILES)
 
@@ -50,7 +56,7 @@ vet: frontend
 test: frontend
 	go test ./...
 
-check: fmt-check frontend-lint frontend
+check: currency-metadata-check fmt-check frontend-lint frontend
 	go vet ./...
 	go test ./...
 
