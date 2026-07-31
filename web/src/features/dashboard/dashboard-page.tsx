@@ -3,7 +3,7 @@ import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import { BarChart3, CalendarDays, ListChecks, Plus, Settings, Shield } from "lucide-react"
 
-import { LoadErrorBoundary } from "@/components/load-error-boundary"
+import { LoadErrorState } from "@/components/load-error-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -561,7 +561,7 @@ export default function DashboardPage() {
         {loading ? (
           <DashboardSkeleton />
         ) : (
-          <LoadErrorBoundary
+          <LoadErrorState
             error={error}
             fallback={
               <DashboardLoadError
@@ -736,7 +736,7 @@ export default function DashboardPage() {
               )}
             </div>
           </>
-          </LoadErrorBoundary>
+          </LoadErrorState>
         )}
       </main>
 

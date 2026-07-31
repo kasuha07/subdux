@@ -105,8 +105,8 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if input.Name == "" {
 		return httpx.WriteError(c, http.StatusBadRequest, "name_is_required")
 	}
-	if !validateSubscriptionAmount(input.Amount) {
-		return httpx.WriteError(c, http.StatusBadRequest, subscriptionAmountErrorCode(input.Amount))
+	if validation := contract.ValidateSubscriptionAmount(input.Amount); validation != contract.AmountValid {
+		return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
 	}
 	if !validateSubscriptionIcon(input.Icon) {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
@@ -131,8 +131,10 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
-	if input.Amount != nil && !validateSubscriptionAmount(*input.Amount) {
-		return httpx.WriteError(c, http.StatusBadRequest, subscriptionAmountErrorCode(*input.Amount))
+	if input.Amount != nil {
+		if validation := contract.ValidateSubscriptionAmount(*input.Amount); validation != contract.AmountValid {
+			return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
+		}
 	}
 	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")

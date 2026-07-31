@@ -68,12 +68,23 @@ describe("currencyExponent", () => {
 })
 
 describe("roundAmount", () => {
-  it("rounds a half up for a positive amount whose float form sits just below the midpoint", () => {
+  it("rounds an intended decimal midpoint away from zero", () => {
     expect(roundAmount(1.005, "USD")).toBe(1.01)
+    expect(roundAmount(-1.005, "USD")).toBe(-1.01)
   })
 
-  it("rounds a half away from zero for a negative amount", () => {
-    expect(roundAmount(-1.005, "USD")).toBe(-1.01)
+  it("does not move values below the midpoint across it", () => {
+    expect(roundAmount(1.0049999999999997, "USD")).toBe(1)
+    expect(roundAmount(1.004999999999, "USD")).toBe(1)
+    expect(roundAmount(-1.0049999999999997, "USD")).toBe(-1)
+    expect(roundAmount(-1.004999999999, "USD")).toBe(-1)
+  })
+
+  it("rounds values above the midpoint away from zero", () => {
+    expect(roundAmount(1.0050000000000001, "USD")).toBe(1.01)
+    expect(roundAmount(1.005000000001, "USD")).toBe(1.01)
+    expect(roundAmount(-1.0050000000000001, "USD")).toBe(-1.01)
+    expect(roundAmount(-1.005000000001, "USD")).toBe(-1.01)
   })
 
   it("absorbs float accumulation noise", () => {
@@ -97,6 +108,13 @@ describe("roundAmount", () => {
   it("rounds to four decimal places for a four-decimal currency", () => {
     expect(roundAmount(1.23445, "CLF")).toBe(1.2345)
     expect(roundAmount(-1.23445, "UYW")).toBe(-1.2345)
+  })
+
+  it("handles decimal representations with scientific exponents", () => {
+    expect(roundAmount(5e-7, "CLF")).toBe(0)
+    expect(roundAmount(-5e-7, "CLF")).toBe(0)
+    expect(roundAmount(1e21, "USD")).toBe(1e21)
+    expect(roundAmount(-1e21, "USD")).toBe(-1e21)
   })
 
   it("returns 0 for non-finite input", () => {

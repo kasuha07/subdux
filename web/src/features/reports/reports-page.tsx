@@ -13,7 +13,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 
-import { LoadErrorBoundary } from "@/components/load-error-boundary"
+import { LoadErrorState } from "@/components/load-error-state"
 import { Button } from "@/components/ui/button"
 import { buildLoadErrorCopy } from "@/lib/load-error"
 import { reportRenewalModeLabel } from "@/lib/subscription-event-formatters"
@@ -112,7 +112,7 @@ export default function ReportsPage() {
         {loading ? (
           <ReportsSkeleton />
         ) : (
-          <LoadErrorBoundary
+          <LoadErrorState
             error={error}
             fallback={
               <ReportsLoadError
@@ -244,7 +244,7 @@ export default function ReportsPage() {
             </section>
           </>
         )}
-          </LoadErrorBoundary>
+          </LoadErrorState>
         )}
       </main>
     </div>

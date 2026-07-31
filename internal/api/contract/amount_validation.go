@@ -2,31 +2,53 @@ package contract
 
 import "github.com/kasuha07/subdux/internal/service/money"
 
+// AmountValidation is the canonical subscription amount classification shared
+// by API transports and the service layer.
+type AmountValidation = money.AmountValidation
+
+const (
+	AmountValid        = money.AmountValid
+	AmountNonFinite    = money.AmountNonFinite
+	AmountNegative     = money.AmountNegative
+	AmountAboveMaximum = money.AmountAboveMaximum
+)
+
 // MaxSubscriptionAmount is the conservative upper bound for a storable
 // subscription amount. It is money.MaxAmount, which keeps all supported
 // currency grids exactly quantizable; see that constant's doc comment.
 const MaxSubscriptionAmount = money.MaxAmount
 
-// ValidateSubscriptionAmount reports whether an incoming subscription amount is
-// storable: a finite, non-negative number no larger than MaxSubscriptionAmount.
-// NaN and ±Inf compare false against every bound, so a plain `amount < 0` check
-// would let them through and poison every aggregate derived from the
-// subscription.
-func ValidateSubscriptionAmount(amount float64) bool {
-	return money.IsFinite(amount) && amount >= 0 && amount <= MaxSubscriptionAmount
+// ValidateSubscriptionAmount classifies an incoming subscription amount.
+func ValidateSubscriptionAmount(amount float64) AmountValidation {
+	return money.ValidateAmount(amount)
 }
 
-// SubscriptionAmountTooLarge reports whether an amount is rejected specifically
-// for exceeding MaxSubscriptionAmount, so each transport can surface that
-// reason instead of the negative-amount one. Only meaningful for amounts
-// ValidateSubscriptionAmount already rejected.
-func SubscriptionAmountTooLarge(amount float64) bool {
-	return amount > MaxSubscriptionAmount
+// SubscriptionAmountErrorCode maps a rejected amount to the stable API code
+// shared by REST and MCP. Valid amounts have no error code.
+func SubscriptionAmountErrorCode(validation AmountValidation) string {
+	switch validation {
+	case AmountNonFinite:
+		return "amount_must_be_finite"
+	case AmountNegative:
+		return "amount_must_not_be_negative"
+	case AmountAboveMaximum:
+		return "amount_too_large"
+	default:
+		return ""
+	}
 }
 
-// SubscriptionAmountNonFinite reports the NaN/±Inf class separately so API
-// clients receive a truthful validation code instead of a misleading negative
-// amount error.
-func SubscriptionAmountNonFinite(amount float64) bool {
-	return !money.IsFinite(amount)
+// SubscriptionAmountErrorMessage maps a rejected amount to the human-readable
+// message used by MCP JSON-RPC errors. Valid amounts have no error message.
+func SubscriptionAmountErrorMessage(validation AmountValidation) string {
+	switch validation {
+	case AmountNonFinite:
+		return "amount must be finite"
+	case AmountNegative:
+		return "amount must not be negative"
+	case AmountAboveMaximum:
+		return "amount is too large"
+	default:
+		return ""
+	}
 }

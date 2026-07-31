@@ -29,20 +29,36 @@ export function currencyExponent(currency: string): number {
 // away from zero. Non-finite input collapses to 0 so it can never poison an
 // aggregate.
 //
-// JS Math.round rounds -0.5 toward +0 (half up, not half away from zero), so
-// negative amounts are negated before rounding and negated back after.
+// The number's shortest decimal representation preserves decimal midpoints such
+// as 1.005 without applying an epsilon that can move nearby values across them.
 export function roundAmount(amount: number, currency: string): number {
   if (!Number.isFinite(amount)) {
     return 0
   }
 
-  const scale = 10 ** currencyExponent(currency)
+  const exponent = currencyExponent(currency)
+  const scale = 10 ** exponent
+  const [mantissa, scientificExponent = "0"] = Math.abs(amount)
+    .toString()
+    .toLowerCase()
+    .split("e")
+  const [integerDigits, fractionDigits = ""] = mantissa.split(".")
+  const coefficient = BigInt(integerDigits + fractionDigits)
+  const decimalShift = Number(scientificExponent) - fractionDigits.length + exponent
 
-  // The nudge keeps decimal halves whose float64 form sits just below the
-  // midpoint (1.005 is stored as 1.00499...) rounding up as a human expects.
-  if (amount < 0) {
-    return -Math.round(-amount * scale + 1e-9) / scale
+  if (decimalShift >= 0) {
+    return amount === 0 ? 0 : amount
   }
 
-  return Math.round(amount * scale + 1e-9) / scale
+  const divisor = 10n ** BigInt(-decimalShift)
+  const quotient = coefficient / divisor
+  const remainder = coefficient % divisor
+  const minorUnits = quotient + (remainder * 2n >= divisor ? 1n : 0n)
+
+  if (minorUnits === 0n) {
+    return 0
+  }
+
+  const rounded = Number(minorUnits) / scale
+  return amount < 0 ? -rounded : rounded
 }

@@ -5,10 +5,15 @@
 package money
 
 import (
+	"errors"
 	"math"
 	"strconv"
 	"strings"
 )
+
+// ErrUnsafeFormat reports that an amount cannot be represented safely at the
+// currency's minor-unit precision.
+var ErrUnsafeFormat = errors.New("amount cannot be formatted safely")
 
 // Exponent returns the number of minor-unit decimal places for an ISO 4217
 // currency code. Unknown or empty codes fall back to 2.
@@ -73,22 +78,18 @@ func IsWithinMaxMagnitude(amount float64) bool {
 }
 
 // Round quantizes amount to the currency's minor unit, rounding half away
-// from zero. Non-finite input collapses to 0 so it cannot poison an aggregate;
-// service input boundaries must call ValidateAmount first.
+// from zero. Unsafe input collapses to 0 for compatibility; boundaries that
+// must distinguish corruption from a real zero use a checked helper.
 func Round(amount float64, currency string) float64 {
 	if !IsFinite(amount) {
 		return 0
 	}
-	scale := pow10(Exponent(currency))
-	// The nudge keeps decimal halves whose float64 form sits just below the
-	// midpoint (1.005 is stored as 1.00499...) rounding up as a human expects.
-	rounded := math.Round(amount*scale+math.Copysign(1e-9, amount)) / scale
-	// amount*scale can overflow to ±Inf near math.MaxFloat64; keep the
-	// non-finite-in, zero-out contract on the output side too.
-	if !IsFinite(rounded) {
+	exponent := Exponent(currency)
+	minorUnits, ok := minorUnitsFromShortestDecimal(amount, exponent)
+	if !ok {
 		return 0
 	}
-	return rounded
+	return float64(minorUnits) / pow10(exponent)
 }
 
 // RoundChecked quantizes a value only when its magnitude is within the
@@ -110,17 +111,17 @@ func RoundChecked(amount float64, currency string) (float64, bool) {
 // while the concrete currency-scaled minor-unit result remains exactly
 // representable and round-trips to the same integer.
 func RoundAggregateChecked(amount float64, currency string) (float64, bool) {
-	minorUnits, scale, ok := aggregateMinorUnits(amount, currency)
+	minorUnits, exponent, ok := aggregateMinorUnits(amount, currency)
 	if !ok {
 		return 0, false
 	}
-	return amountFromAggregateMinorUnits(minorUnits, scale)
+	return amountFromAggregateMinorUnits(minorUnits, exponent)
 }
 
 // AddAggregateChecked adds two aggregate values as integer minor units. This
 // prevents repeated float64 additions from accumulating sub-minor-unit noise.
 func AddAggregateChecked(a, b float64, currency string) (float64, bool) {
-	aMinor, scale, ok := aggregateMinorUnits(a, currency)
+	aMinor, exponent, ok := aggregateMinorUnits(a, currency)
 	if !ok {
 		return 0, false
 	}
@@ -134,13 +135,13 @@ func AddAggregateChecked(a, b float64, currency string) (float64, bool) {
 	if bMinor < 0 && aMinor < -maxAggregateMinorUnits-bMinor {
 		return 0, false
 	}
-	return amountFromAggregateMinorUnits(aMinor+bMinor, scale)
+	return amountFromAggregateMinorUnits(aMinor+bMinor, exponent)
 }
 
 // MultiplyAggregateChecked multiplies an aggregate by an integer factor using
 // checked minor-unit arithmetic.
 func MultiplyAggregateChecked(amount float64, factor int64, currency string) (float64, bool) {
-	minorUnits, scale, ok := aggregateMinorUnits(amount, currency)
+	minorUnits, exponent, ok := aggregateMinorUnits(amount, currency)
 	if !ok {
 		return 0, false
 	}
@@ -153,7 +154,7 @@ func MultiplyAggregateChecked(amount float64, factor int64, currency string) (fl
 	if minorUnits > maxAggregateMinorUnits/factor || minorUnits < -maxAggregateMinorUnits/factor {
 		return 0, false
 	}
-	return amountFromAggregateMinorUnits(minorUnits*factor, scale)
+	return amountFromAggregateMinorUnits(minorUnits*factor, exponent)
 }
 
 // Cmp compares two amounts at minor-unit resolution: -1 when a < b, 0 when
@@ -190,31 +191,42 @@ func Format(amount float64, currency string) string {
 	return strconv.FormatFloat(Round(amount, currency), 'f', Exponent(currency), 64)
 }
 
+// FormatChecked renders amount at the currency's minor-unit precision only
+// when the scaled integer and recovered float64 representation are safe.
+func FormatChecked(amount float64, currency string) (string, error) {
+	rounded, ok := RoundAggregateChecked(amount, currency)
+	if !ok {
+		return "", ErrUnsafeFormat
+	}
+	return strconv.FormatFloat(rounded, 'f', Exponent(currency), 64), nil
+}
+
 func pow10(exp int) float64 {
 	return math.Pow10(exp)
 }
 
-func aggregateMinorUnits(amount float64, currency string) (int64, float64, bool) {
+func aggregateMinorUnits(amount float64, currency string) (int64, int, bool) {
 	if !IsFinite(amount) {
 		return 0, 0, false
 	}
-	scale := pow10(Exponent(currency))
+	exponent := Exponent(currency)
+	scale := pow10(exponent)
 	scaled := amount * scale
 	if !IsFinite(scaled) {
 		return 0, 0, false
 	}
-	rounded := math.Round(scaled + math.Copysign(1e-9, amount))
-	if math.Abs(rounded) > float64(maxAggregateMinorUnits) {
+	minorUnits, ok := minorUnitsFromShortestDecimal(amount, exponent)
+	if !ok {
 		return 0, 0, false
 	}
-	minorUnits := int64(rounded)
-	if _, ok := amountFromAggregateMinorUnits(minorUnits, scale); !ok {
+	if _, ok := amountFromAggregateMinorUnits(minorUnits, exponent); !ok {
 		return 0, 0, false
 	}
-	return minorUnits, scale, true
+	return minorUnits, exponent, true
 }
 
-func amountFromAggregateMinorUnits(minorUnits int64, scale float64) (float64, bool) {
+func amountFromAggregateMinorUnits(minorUnits int64, exponent int) (float64, bool) {
+	scale := pow10(exponent)
 	amount := float64(minorUnits) / scale
 	if !IsFinite(amount) {
 		return 0, false
@@ -224,9 +236,51 @@ func amountFromAggregateMinorUnits(minorUnits int64, scale float64) (float64, bo
 	// value stays distinguishable. Derived values can be larger: validate the
 	// concrete result instead, accepting it only when it recovers the exact
 	// checked minor-unit integer.
-	recovered := math.Round(amount*scale + math.Copysign(1e-9, amount))
-	if recovered != float64(minorUnits) {
+	recovered, ok := minorUnitsFromShortestDecimal(amount, exponent)
+	if !ok || recovered != minorUnits {
 		return 0, false
 	}
 	return amount, true
+}
+
+// minorUnitsFromShortestDecimal interprets the float64's shortest round-trip
+// decimal representation, then rounds that decimal half away from zero. This
+// preserves the decimal intent of values such as 1.005 while distinguishing
+// the adjacent representable floats on either side of that midpoint.
+func minorUnitsFromShortestDecimal(amount float64, exponent int) (int64, bool) {
+	if !IsFinite(amount) {
+		return 0, false
+	}
+	decimal := strconv.FormatFloat(math.Abs(amount), 'f', -1, 64)
+	whole, fraction := decimal, ""
+	if dot := strings.IndexByte(decimal, '.'); dot >= 0 {
+		whole, fraction = decimal[:dot], decimal[dot+1:]
+	}
+
+	minorDigits := whole
+	if len(fraction) >= exponent {
+		minorDigits += fraction[:exponent]
+	} else {
+		minorDigits += fraction + strings.Repeat("0", exponent-len(fraction))
+	}
+	minorDigits = strings.TrimLeft(minorDigits, "0")
+	if minorDigits == "" {
+		minorDigits = "0"
+	}
+
+	magnitude, err := strconv.ParseUint(minorDigits, 10, 64)
+	if err != nil || magnitude > uint64(maxAggregateMinorUnits) {
+		return 0, false
+	}
+	if len(fraction) > exponent && fraction[exponent] >= '5' {
+		if magnitude == uint64(maxAggregateMinorUnits) {
+			return 0, false
+		}
+		magnitude++
+	}
+	minorUnits := int64(magnitude)
+	if amount < 0 {
+		minorUnits = -minorUnits
+	}
+	return minorUnits, true
 }

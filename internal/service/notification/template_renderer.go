@@ -50,6 +50,10 @@ func (tr *TemplateRenderer) RenderTemplate(tmplStr string, data TemplateData) (s
 	if err != nil {
 		return "", err
 	}
+	formattedAmount, err := money.FormatChecked(data.Amount, data.Currency)
+	if err != nil {
+		return "", fmt.Errorf("format notification amount: %w", err)
+	}
 
 	// Amount renders with exactly the minor-unit decimals its currency uses, so
 	// a reminder shows "9.99" and "1235" (JPY) rather than the shortest float64
@@ -57,7 +61,7 @@ func (tr *TemplateRenderer) RenderTemplate(tmplStr string, data TemplateData) (s
 	values := map[string]string{
 		"SubscriptionName": data.SubscriptionName,
 		"BillingDate":      data.BillingDate,
-		"Amount":           money.Format(data.Amount, data.Currency),
+		"Amount":           formattedAmount,
 		"Currency":         data.Currency,
 		"DaysUntil":        strconv.Itoa(data.DaysUntil),
 		"EventType":        data.EventType,

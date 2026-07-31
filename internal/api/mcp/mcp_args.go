@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/api/contract"
 	"github.com/kasuha07/subdux/internal/service/money"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 )
@@ -187,6 +188,30 @@ func validateSubscriptionWriteArgTypes(args map[string]interface{}) error {
 		}
 	}
 	return nil
+}
+
+func subscriptionAmountValidation(args map[string]interface{}) (contract.AmountValidation, bool) {
+	value, exists := args["amount"]
+	if !exists || value == nil {
+		return contract.AmountValid, false
+	}
+
+	var amount float64
+	switch typed := value.(type) {
+	case float64:
+		amount = typed
+	case int:
+		amount = float64(typed)
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		if err != nil {
+			return contract.AmountValid, false
+		}
+		amount = parsed
+	default:
+		return contract.AmountValid, false
+	}
+	return contract.ValidateSubscriptionAmount(amount), true
 }
 
 type mcpArgSpec struct {

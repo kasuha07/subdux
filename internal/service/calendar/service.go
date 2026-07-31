@@ -156,7 +156,11 @@ func (s *Service) GenerateICalFeed(userID uint) (string, error) {
 		dateStr := sub.NextBillingDate.UTC().Format("20060102")
 		// Format with the currency's own minor unit rather than a hardcoded two
 		// decimals: JPY reads "1235", KWD reads "1.200".
-		summary := fmt.Sprintf("%s - %s %s", sub.Name, money.Format(sub.Amount, sub.Currency), sub.Currency)
+		formattedAmount, err := money.FormatChecked(sub.Amount, sub.Currency)
+		if err != nil {
+			return "", fmt.Errorf("format subscription %d amount: %w", sub.ID, err)
+		}
+		summary := fmt.Sprintf("%s - %s %s", sub.Name, formattedAmount, sub.Currency)
 
 		sb.WriteString("BEGIN:VEVENT" + crlf)
 		sb.WriteString(icalFold(fmt.Sprintf("UID:subdux-sub-%d@subdux", sub.ID)) + crlf)

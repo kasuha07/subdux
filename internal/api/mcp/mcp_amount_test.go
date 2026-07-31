@@ -118,21 +118,65 @@ func TestMCPUpdateSubscriptionRejectsNonFiniteAmount(t *testing.T) {
 	}
 }
 
-func TestSubscriptionAmountErrorNamesTheActualReason(t *testing.T) {
+func TestMCPCreateSubscriptionReturnsTypedAmountErrors(t *testing.T) {
+	testMCPAmountErrors(t, "create", func(t *testing.T, handler *MCPHandler, principal *mcpPrincipal, value float64) *mcpError {
+		t.Helper()
+		_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+			"idempotency_key":   "create-typed-amount-error",
+			"name":              "Broken Plan",
+			"amount":            value,
+			"next_billing_date": "2026-06-15",
+		})
+		return rpcErr
+	})
+}
+
+func TestMCPUpdateSubscriptionReturnsTypedAmountErrors(t *testing.T) {
+	testMCPAmountErrors(t, "update", func(t *testing.T, handler *MCPHandler, principal *mcpPrincipal, value float64) *mcpError {
+		t.Helper()
+		_, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
+			"idempotency_key": "update-typed-amount-error",
+			"id":              1,
+			"amount":          value,
+		})
+		return rpcErr
+	})
+}
+
+func testMCPAmountErrors(t *testing.T, operation string, call func(*testing.T, *MCPHandler, *mcpPrincipal, float64) *mcpError) {
+	t.Helper()
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	handler := newMCPTestHandler(db)
+	principal := mcpWriteTestPrincipal(user.ID)
+
 	tests := []struct {
-		name   string
-		amount float64
-		want   string
+		name     string
+		amount   float64
+		wantCode string
 	}{
-		{name: "negative", amount: -1, want: "amount must not be negative"},
-		{name: "above the maximum", amount: money.MaxAmount + 0.01, want: "amount is too large"},
-		{name: "overflowing rounding", amount: 1.8e306, want: "amount is too large"},
+		{name: "nan", amount: math.NaN(), wantCode: "amount_must_be_finite"},
+		{name: "negative infinity", amount: math.Inf(-1), wantCode: "amount_must_be_finite"},
+		{name: "negative", amount: -1, wantCode: "amount_must_not_be_negative"},
+		{name: "above maximum", amount: money.MaxAmount + 0.01, wantCode: "amount_too_large"},
+		{name: "positive infinity", amount: math.Inf(1), wantCode: "amount_too_large"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := subscriptionAmountError(tt.amount).Error(); got != tt.want {
-				t.Fatalf("subscriptionAmountError(%v) = %q, want %q", tt.amount, got, tt.want)
+		t.Run(operation+"/"+tt.name, func(t *testing.T) {
+			rpcErr := call(t, handler, principal, tt.amount)
+			if rpcErr == nil {
+				t.Fatal("rpcErr = nil, want invalid params")
+			}
+			if rpcErr.Code != -32602 {
+				t.Fatalf("rpcErr.Code = %d, want -32602", rpcErr.Code)
+			}
+			data, ok := rpcErr.Data.(map[string]interface{})
+			if !ok {
+				t.Fatalf("rpcErr.Data type = %T, want map", rpcErr.Data)
+			}
+			if got := data["error_code"]; got != tt.wantCode {
+				t.Fatalf("error_code = %#v, want %q", got, tt.wantCode)
 			}
 		})
 	}

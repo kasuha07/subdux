@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react"
 
-import { LoadErrorPresentation } from "@/components/load-error-boundary"
+import { LoadErrorPresentation } from "@/components/load-error-state"
 import type { LoadErrorCopy } from "@/lib/load-error"
 
 export function DashboardLoadError({

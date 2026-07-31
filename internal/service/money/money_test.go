@@ -1,6 +1,7 @@
 package money
 
 import (
+	"errors"
 	"math"
 	"testing"
 )
@@ -55,13 +56,22 @@ func TestValidateAmount(t *testing.T) {
 }
 
 func TestRound(t *testing.T) {
+	midpoint := 1.005
 	cases := []struct {
 		name     string
 		amount   float64
 		currency string
 		want     float64
 	}{
-		{"half up at midpoint below float form", 1.005, "USD", 1.01},
+		{"below midpoint", math.Nextafter(midpoint, math.Inf(-1)), "USD", 1.00},
+		{"midpoint below after scaling", midpoint, "USD", 1.01},
+		{"above midpoint", math.Nextafter(midpoint, math.Inf(1)), "USD", 1.01},
+		{"not a midpoint", 1.004999999999, "USD", 1.00},
+		{"negative below midpoint magnitude", math.Nextafter(-midpoint, math.Inf(1)), "USD", -1.00},
+		{"negative midpoint", -midpoint, "USD", -1.01},
+		{"negative above midpoint magnitude", math.Nextafter(-midpoint, math.Inf(-1)), "USD", -1.01},
+		{"scaled multiplication collision below midpoint", math.Nextafter(0.025, math.Inf(-1)), "USD", 0.02},
+		{"scaled multiplication collision midpoint", 0.025, "USD", 0.03},
 		{"classic banker trap", 2.675, "USD", 2.68},
 		{"half away from zero negative", -1.005, "USD", -1.01},
 		{"accumulated noise", 0.1 + 0.2, "USD", 0.3},
@@ -71,16 +81,36 @@ func TestRound(t *testing.T) {
 		{"four decimal currency", 1.23445, "CLF", 1.2345},
 		{"four decimal currency negative", -1.23445, "UYW", -1.2345},
 		{"already exact", 9.99, "USD", 9.99},
-		{"scaled overflow collapses", 1e307, "USD", 0},
-		{"negative scaled overflow collapses", -1e307, "USD", 0},
-		{"nan collapses", math.NaN(), "USD", 0},
-		{"inf collapses", math.Inf(1), "USD", 0},
-		{"neg inf collapses", math.Inf(-1), "USD", 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := Round(tc.amount, tc.currency); got != tc.want {
 				t.Errorf("Round(%v, %q) = %v, want %v", tc.amount, tc.currency, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRoundAggregateCheckedUsesStrictMidpointRounding(t *testing.T) {
+	midpoint := 1.005
+	tests := []struct {
+		name   string
+		amount float64
+		want   float64
+	}{
+		{name: "below midpoint", amount: math.Nextafter(midpoint, math.Inf(-1)), want: 1.00},
+		{name: "midpoint", amount: midpoint, want: 1.01},
+		{name: "above midpoint", amount: math.Nextafter(midpoint, math.Inf(1)), want: 1.01},
+		{name: "more than one ulp below midpoint", amount: 1.004999999999, want: 1.00},
+		{name: "negative below midpoint magnitude", amount: math.Nextafter(-midpoint, math.Inf(1)), want: -1.00},
+		{name: "negative midpoint", amount: -midpoint, want: -1.01},
+		{name: "negative above midpoint magnitude", amount: math.Nextafter(-midpoint, math.Inf(-1)), want: -1.01},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := RoundAggregateChecked(tt.amount, "USD")
+			if !ok || got != tt.want {
+				t.Fatalf("RoundAggregateChecked(%0.15f) = %v, %v; want %v, true", tt.amount, got, ok, tt.want)
 			}
 		})
 	}
@@ -212,5 +242,26 @@ func TestFormat(t *testing.T) {
 		if got := Format(tc.amount, tc.currency); got != tc.want {
 			t.Errorf("Format(%v, %q) = %q, want %q", tc.amount, tc.currency, got, tc.want)
 		}
+	}
+}
+
+func TestFormatCheckedRejectsUnsafeAmounts(t *testing.T) {
+	tests := []struct {
+		name   string
+		amount float64
+	}{
+		{name: "nan", amount: math.NaN()},
+		{name: "positive infinity", amount: math.Inf(1)},
+		{name: "negative infinity", amount: math.Inf(-1)},
+		{name: "scaled overflow", amount: 1e307},
+		{name: "minor unit representability overflow", amount: 901_000_000_000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FormatChecked(tt.amount, "CLF")
+			if !errors.Is(err, ErrUnsafeFormat) || got != "" {
+				t.Fatalf("FormatChecked(%v) = %q, %v; want empty ErrUnsafeFormat", tt.amount, got, err)
+			}
+		})
 	}
 }

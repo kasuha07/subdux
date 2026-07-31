@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"errors"
 	"time"
 
 	"github.com/kasuha07/subdux/internal/api/contract"
@@ -46,20 +45,4 @@ func validateSubscriptionIcon(icon string) bool {
 
 func validateIcon(icon string) bool {
 	return contract.ValidateIcon(icon)
-}
-
-func validateSubscriptionAmount(amount float64) bool {
-	return contract.ValidateSubscriptionAmount(amount)
-}
-
-// subscriptionAmountError explains why validateSubscriptionAmount rejected an
-// amount, so an over-the-limit value is not reported as a negative one.
-func subscriptionAmountError(amount float64) error {
-	if contract.SubscriptionAmountNonFinite(amount) {
-		return errors.New("amount must be finite")
-	}
-	if contract.SubscriptionAmountTooLarge(amount) {
-		return errors.New("amount is too large")
-	}
-	return errors.New("amount must not be negative")
 }

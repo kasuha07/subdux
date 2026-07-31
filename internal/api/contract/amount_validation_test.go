@@ -9,21 +9,21 @@ func TestValidateSubscriptionAmount(t *testing.T) {
 	tests := []struct {
 		name   string
 		amount float64
-		want   bool
+		want   AmountValidation
 	}{
-		{name: "zero is storable", amount: 0, want: true},
-		{name: "positive is storable", amount: 9.99, want: true},
-		{name: "negative is rejected", amount: -0.01, want: false},
-		{name: "nan is rejected", amount: math.NaN(), want: false},
-		{name: "positive infinity is rejected", amount: math.Inf(1), want: false},
-		{name: "negative infinity is rejected", amount: math.Inf(-1), want: false},
-		{name: "the maximum is storable", amount: MaxSubscriptionAmount, want: true},
-		{name: "just above the maximum is rejected", amount: MaxSubscriptionAmount + 0.01, want: false},
+		{name: "zero is storable", amount: 0, want: AmountValid},
+		{name: "positive is storable", amount: 9.99, want: AmountValid},
+		{name: "negative is rejected", amount: -0.01, want: AmountNegative},
+		{name: "nan is rejected", amount: math.NaN(), want: AmountNonFinite},
+		{name: "positive infinity is too large", amount: math.Inf(1), want: AmountAboveMaximum},
+		{name: "negative infinity is non-finite", amount: math.Inf(-1), want: AmountNonFinite},
+		{name: "the maximum is storable", amount: MaxSubscriptionAmount, want: AmountValid},
+		{name: "just above the maximum is rejected", amount: MaxSubscriptionAmount + 0.01, want: AmountAboveMaximum},
 		// Past float64's exact-integer range, scaling to minor units degrades to
 		// identity; near math.MaxFloat64 it overflows to +Inf and the amount
 		// silently collapses to 0.
-		{name: "beyond exact minor-unit precision is rejected", amount: 9e13, want: false},
-		{name: "amount that overflows rounding is rejected", amount: 1.8e306, want: false},
+		{name: "beyond exact minor-unit precision is rejected", amount: 9e13, want: AmountAboveMaximum},
+		{name: "amount that overflows rounding is rejected", amount: 1.8e306, want: AmountAboveMaximum},
 	}
 
 	for _, tt := range tests {
@@ -35,37 +35,27 @@ func TestValidateSubscriptionAmount(t *testing.T) {
 	}
 }
 
-func TestSubscriptionAmountTooLarge(t *testing.T) {
+func TestSubscriptionAmountErrorContract(t *testing.T) {
 	tests := []struct {
-		name   string
-		amount float64
-		want   bool
+		name        string
+		validation  AmountValidation
+		wantCode    string
+		wantMessage string
 	}{
-		{name: "the maximum is not too large", amount: MaxSubscriptionAmount, want: false},
-		{name: "just above the maximum is too large", amount: MaxSubscriptionAmount + 0.01, want: true},
-		{name: "positive infinity is too large", amount: math.Inf(1), want: true},
-		// Rejected for other reasons; they must not claim to be over the bound.
-		{name: "negative is not too large", amount: -0.01, want: false},
-		{name: "nan is not too large", amount: math.NaN(), want: false},
+		{name: "valid", validation: AmountValid},
+		{name: "non-finite", validation: AmountNonFinite, wantCode: "amount_must_be_finite", wantMessage: "amount must be finite"},
+		{name: "negative", validation: AmountNegative, wantCode: "amount_must_not_be_negative", wantMessage: "amount must not be negative"},
+		{name: "too large", validation: AmountAboveMaximum, wantCode: "amount_too_large", wantMessage: "amount is too large"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := SubscriptionAmountTooLarge(tt.amount); got != tt.want {
-				t.Fatalf("SubscriptionAmountTooLarge(%v) = %v, want %v", tt.amount, got, tt.want)
+			if got := SubscriptionAmountErrorCode(tt.validation); got != tt.wantCode {
+				t.Fatalf("SubscriptionAmountErrorCode(%v) = %q, want %q", tt.validation, got, tt.wantCode)
+			}
+			if got := SubscriptionAmountErrorMessage(tt.validation); got != tt.wantMessage {
+				t.Fatalf("SubscriptionAmountErrorMessage(%v) = %q, want %q", tt.validation, got, tt.wantMessage)
 			}
 		})
-	}
-}
-
-func TestSubscriptionAmountNonFinite(t *testing.T) {
-	if !SubscriptionAmountNonFinite(math.NaN()) {
-		t.Fatal("NaN should be classified as non-finite")
-	}
-	if !SubscriptionAmountNonFinite(math.Inf(1)) {
-		t.Fatal("+Inf should be classified as non-finite")
-	}
-	if SubscriptionAmountNonFinite(MaxSubscriptionAmount) {
-		t.Fatal("MaxSubscriptionAmount should be finite")
 	}
 }

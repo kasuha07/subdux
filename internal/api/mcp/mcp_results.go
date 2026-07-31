@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 
+	"github.com/kasuha07/subdux/internal/api/contract"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -19,6 +20,16 @@ type mcpTextContent struct {
 
 func invalidMCPParams(err error) *mcpError {
 	return &mcpError{Code: -32602, Message: err.Error()}
+}
+
+func invalidMCPAmount(validation contract.AmountValidation) *mcpError {
+	return &mcpError{
+		Code:    -32602,
+		Message: contract.SubscriptionAmountErrorMessage(validation),
+		Data: map[string]interface{}{
+			"error_code": contract.SubscriptionAmountErrorCode(validation),
+		},
+	}
 }
 
 func internalMCPError(err error) *mcpError {

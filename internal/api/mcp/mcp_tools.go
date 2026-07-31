@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kasuha07/subdux/internal/api/contract"
 	"github.com/kasuha07/subdux/internal/model"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
@@ -89,6 +90,9 @@ func (h *MCPHandler) callGetSubscription(ctx context.Context, userID uint, args 
 
 func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
 	userID := principal.UserID
+	if validation, ok := subscriptionAmountValidation(args); ok && validation != contract.AmountValid {
+		return nil, invalidMCPAmount(validation)
+	}
 	if err := validateSubscriptionWriteArgTypes(args); err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -96,9 +100,6 @@ func (h *MCPHandler) callCreateSubscription(ctx context.Context, principal *mcpP
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Name == "" {
 		return nil, invalidMCPParams(errors.New("name is required"))
-	}
-	if !validateSubscriptionAmount(input.Amount) {
-		return nil, invalidMCPParams(subscriptionAmountError(input.Amount))
 	}
 	if !validateSubscriptionIcon(input.Icon) {
 		return nil, invalidMCPParams(errors.New("invalid icon value"))
@@ -128,12 +129,12 @@ func (h *MCPHandler) callUpdateSubscription(ctx context.Context, principal *mcpP
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
+	if validation, ok := subscriptionAmountValidation(args); ok && validation != contract.AmountValid {
+		return nil, invalidMCPAmount(validation)
+	}
 	input, err := updateSubscriptionInputFromMCPArgs(args)
 	if err != nil {
 		return nil, invalidMCPParams(err)
-	}
-	if input.Amount != nil && !validateSubscriptionAmount(*input.Amount) {
-		return nil, invalidMCPParams(subscriptionAmountError(*input.Amount))
 	}
 	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
 		return nil, invalidMCPParams(errors.New("invalid icon value"))

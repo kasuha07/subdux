@@ -105,6 +105,13 @@ func TestMCPToolsCallRejectsSubscriptionAmountAboveMaximum(t *testing.T) {
 	if got := rpcError["message"]; got != "amount is too large" {
 		t.Fatalf("tools/call error message = %v, want amount is too large", got)
 	}
+	data, ok := rpcError["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("tools/call error data = %#v, want object", rpcError["data"])
+	}
+	if got := data["error_code"]; got != "amount_too_large" {
+		t.Fatalf("tools/call error_code = %#v, want amount_too_large", got)
+	}
 
 	var count int64
 	if err := db.Model(&model.Subscription{}).Where("user_id = ?", user.ID).Count(&count).Error; err != nil {

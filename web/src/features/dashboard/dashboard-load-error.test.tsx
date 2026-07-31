@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 
-import { LoadErrorBoundary } from "@/components/load-error-boundary"
+import { LoadErrorState } from "@/components/load-error-state"
 import { BackendAPIError } from "@/lib/api"
 import { buildLoadErrorCopy } from "@/lib/load-error"
 
@@ -24,12 +24,12 @@ describe("DashboardLoadError", () => {
     const copy = buildLoadErrorCopy(error, (key) => key, "dashboard")
     const retry = () => void requestDashboardBootstrap(get)
     const element = (
-      <LoadErrorBoundary
+      <LoadErrorState
         error={error}
         fallback={<DashboardLoadError copy={copy} onRetry={retry} />}
       >
         <span>dashboard.empty.title</span>
-      </LoadErrorBoundary>
+      </LoadErrorState>
     )
     const markup = renderToStaticMarkup(element)
 

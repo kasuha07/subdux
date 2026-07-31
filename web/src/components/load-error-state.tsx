@@ -38,7 +38,7 @@ export function LoadErrorPresentation({
   )
 }
 
-export function LoadErrorBoundary({
+export function LoadErrorState({
   children,
   error,
   fallback,

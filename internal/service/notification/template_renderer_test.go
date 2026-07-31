@@ -1,6 +1,12 @@
 package notification
 
-import "testing"
+import (
+	"errors"
+	"math"
+	"testing"
+
+	"github.com/kasuha07/subdux/internal/service/money"
+)
 
 func TestTemplateRendererFormatsAmountWithCurrencyMinorUnit(t *testing.T) {
 	renderer := NewTemplateRenderer(NewTemplateValidator())
@@ -31,5 +37,15 @@ func TestTemplateRendererFormatsAmountWithCurrencyMinorUnit(t *testing.T) {
 				t.Fatalf("RenderTemplate() = %q, want %q", out, tt.want)
 			}
 		})
+	}
+}
+
+func TestTemplateRendererRejectsUnsafeAmount(t *testing.T) {
+	renderer := NewTemplateRenderer(NewTemplateValidator())
+	for _, amount := range []float64{math.NaN(), math.Inf(1), math.Inf(-1), math.MaxFloat64} {
+		out, err := renderer.RenderTemplate("{{.Amount}}", TemplateData{Amount: amount, Currency: "USD"})
+		if !errors.Is(err, money.ErrUnsafeFormat) || out != "" {
+			t.Fatalf("RenderTemplate(amount=%v) = %q, %v; want empty ErrUnsafeFormat", amount, out, err)
+		}
 	}
 }
