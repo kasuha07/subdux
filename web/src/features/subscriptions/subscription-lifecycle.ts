@@ -35,6 +35,13 @@ export function getSubscriptionEndsAt(subscription: Subscription): string | null
   return isSubscriptionEnded(subscription) ? subscription.next_billing_date : null
 }
 
+export function getSubscriptionDueDate(subscription: Subscription): string | null {
+  if (getSubscriptionRenewalMode(subscription) === "cancel_at_period_end") {
+    return getSubscriptionEndsAt(subscription) ?? subscription.next_billing_date
+  }
+  return subscription.next_billing_date
+}
+
 export function hasFutureRecurringSchedule(subscription: Subscription): boolean {
   return (
     subscription.billing_type === "recurring" &&

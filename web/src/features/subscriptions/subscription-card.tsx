@@ -10,7 +10,7 @@ import { safeHref } from "@/lib/safe-href"
 import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
 import {
-  getSubscriptionEndsAt,
+  getSubscriptionDueDate,
   getSubscriptionRenewalMode,
   getSubscriptionStatus,
   isSubscriptionEnded,
@@ -179,11 +179,12 @@ export default function SubscriptionCard({
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
   const status = getSubscriptionStatus(subscription)
   const renewalMode = getSubscriptionRenewalMode(subscription)
-  const endsAt = getSubscriptionEndsAt(subscription)
   const ended = isSubscriptionEnded(subscription)
   const subscriptionHref = safeHref(subscription.url)
-  const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
-  const isUpcoming = days !== null && days >= 0 && days < 7
+  const dueDate = getSubscriptionDueDate(subscription)
+  const days = dueDate ? daysUntil(dueDate) : null
+  const hasValidDueDays = days !== null && Number.isFinite(days)
+  const isUpcoming = hasValidDueDays && days >= 0 && days < 7
   const categoryLabel = categoryName?.trim() || subscription.category
   const rawNotes = subscription.notes.trim()
   const notesPreview = rawNotes ? truncateWithEllipsis(rawNotes) : ""
@@ -211,12 +212,7 @@ export default function SubscriptionCard({
     if (ended) {
       return t("subscription.card.status.ended")
     }
-    if (subscription.billing_type === "recurring" && renewalMode === "cancel_at_period_end" && endsAt) {
-      return t("subscription.card.endsOn", {
-        date: formatDate(endsAt, i18n.language),
-      })
-    }
-    if (!subscription.next_billing_date) {
+    if (!dueDate) {
       return t("subscription.card.noNextBilling")
     }
     if (days === 0) {
@@ -225,10 +221,23 @@ export default function SubscriptionCard({
     if (isUpcoming) {
       return t("subscription.card.dueIn", { count: days ?? 0 })
     }
-    if ((days ?? 0) < 0) {
+    if (hasValidDueDays && days < 0) {
       return t("subscription.card.overdue")
     }
-    return formatDate(subscription.next_billing_date, i18n.language)
+    return formatDate(dueDate, i18n.language)
+  }
+
+  function renderDueTitle(fallback: string): string {
+    if (ended || !dueDate || days === null || !Number.isFinite(days)) {
+      return fallback
+    }
+    if (days >= 0 && days < 7) {
+      return formatDate(dueDate, i18n.language)
+    }
+    if (days >= 7) {
+      return t("subscription.card.dueIn", { count: days })
+    }
+    return formatDate(dueDate, i18n.language)
   }
 
   function renderReminderText(): string {
@@ -242,7 +251,8 @@ export default function SubscriptionCard({
 
   const reminderDisabledText = subscription.notify_enabled === false ? renderReminderText() : null
   const dueText = renderDueText()
-  const isOverdue = (days ?? 0) < 0
+  const dueTitle = renderDueTitle(dueText)
+  const isOverdue = hasValidDueDays && days < 0
   const dueBadgeClass = ended
     ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
     : isUpcoming
@@ -252,7 +262,7 @@ export default function SubscriptionCard({
       : "bg-zinc-500/10 text-zinc-600 border-zinc-200"
   const secondaryBadgeText = dueText
   const secondaryBadgeClass = dueBadgeClass
-  const secondaryBadgeTitle = secondaryBadgeText
+  const secondaryBadgeTitle = dueTitle
 
   return (
     <Card

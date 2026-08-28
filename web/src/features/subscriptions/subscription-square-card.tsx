@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import {
-  getSubscriptionEndsAt,
+  getSubscriptionDueDate,
   getSubscriptionRenewalMode,
   getSubscriptionStatus,
   isSubscriptionEnded,
@@ -104,13 +104,14 @@ export default function SubscriptionSquareCard({
   const symbolToDisplay = displayCurrencySymbol ?? currencySymbol
   const status = getSubscriptionStatus(subscription)
   const renewalMode = getSubscriptionRenewalMode(subscription)
-  const endsAt = getSubscriptionEndsAt(subscription)
   const ended = isSubscriptionEnded(subscription)
   const subscriptionHref = safeHref(subscription.url)
   const categoryLabel = categoryName?.trim() || subscription.category
-  const days = subscription.next_billing_date ? daysUntil(subscription.next_billing_date) : null
-  const isUpcoming = days !== null && days >= 0 && days < 7
-  const isOverdue = (days ?? 0) < 0
+  const dueDate = getSubscriptionDueDate(subscription)
+  const days = dueDate ? daysUntil(dueDate) : null
+  const hasValidDueDays = days !== null && Number.isFinite(days)
+  const isUpcoming = hasValidDueDays && days >= 0 && days < 7
+  const isOverdue = hasValidDueDays && days < 0
 
   function renderBillingLabel(): string {
     if (showMonthlyAmount && subscription.billing_type === "recurring") {
@@ -135,24 +136,37 @@ export default function SubscriptionSquareCard({
     if (ended) {
       return t("subscription.card.status.ended")
     }
-    if (subscription.billing_type === "recurring" && renewalMode === "cancel_at_period_end" && endsAt) {
-      return t("subscription.card.endsOn", {
-        date: formatDate(endsAt, i18n.language),
-      })
-    }
-    if (!subscription.next_billing_date) {
+    if (!dueDate) {
       return t("subscription.card.noNextBilling")
     }
     if (days === 0) {
       return t("subscription.card.dueToday")
     }
-    if ((days ?? 0) < 0) {
+    if (isUpcoming) {
+      return t("subscription.card.dueIn", { count: days ?? 0 })
+    }
+    if (hasValidDueDays && days < 0) {
       return t("subscription.card.overdue")
     }
-    return formatDate(subscription.next_billing_date, i18n.language)
+    return formatDate(dueDate, i18n.language)
+  }
+
+  function renderDueTitle(fallback: string): string {
+    if (ended || !dueDate || days === null || !Number.isFinite(days)) {
+      return fallback
+    }
+    if (days >= 0 && days < 7) {
+      return formatDate(dueDate, i18n.language)
+    }
+    if (days >= 7) {
+      return t("subscription.card.dueIn", { count: days })
+    }
+    return formatDate(dueDate, i18n.language)
   }
 
   const details = [categoryLabel, paymentMethodName].filter(Boolean).join(" · ")
+  const dueText = renderDueText()
+  const dueTitle = renderDueTitle(dueText)
   const dueBadgeClass = ended
     ? "bg-zinc-500/10 text-zinc-600 border-zinc-200"
     : isUpcoming
@@ -211,8 +225,8 @@ export default function SubscriptionSquareCard({
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
-          <Badge variant="outline" className={`max-w-[10rem] truncate ${dueBadgeClass}`}>
-            {renderDueText()}
+          <Badge variant="outline" className={`max-w-[10rem] truncate ${dueBadgeClass}`} title={dueTitle}>
+            {dueText}
           </Badge>
 
           <Button
