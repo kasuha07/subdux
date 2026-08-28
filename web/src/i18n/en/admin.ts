@@ -238,7 +238,7 @@ const admin = {
   },
   audit: {
     title: "Audit Events",
-    description: "Recent MCP write events across all users",
+    description: "The 30 most recent MCP write events per user",
     refresh: "Refresh",
     empty: "No audit events yet",
     user: "User",

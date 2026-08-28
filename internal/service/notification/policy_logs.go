@@ -126,12 +126,15 @@ func (s *Service) reschedulePendingQuietHoursOutbox(userID uint, policy model.No
 }
 
 func (s *Service) ListLogs(userID uint, limit int) ([]model.NotificationLog, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+	if limit <= 0 {
+		limit = notificationLogRetentionLimit
+	}
+	if limit > notificationLogRetentionLimit {
+		limit = notificationLogRetentionLimit
 	}
 	var logs []model.NotificationLog
 	err := s.DB.Where("user_id = ?", userID).
-		Order("sent_at DESC").
+		Order("sent_at DESC, id DESC").
 		Limit(limit).
 		Find(&logs).Error
 	return logs, err

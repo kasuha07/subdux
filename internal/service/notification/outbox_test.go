@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -13,6 +14,14 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	"gorm.io/gorm"
 )
+
+type notificationRetentionClock struct {
+	now time.Time
+}
+
+func (c *notificationRetentionClock) Now() time.Time {
+	return c.now
+}
 
 func newNotificationOutboxTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -1882,6 +1891,113 @@ func TestDispatchNotificationOutboxRetriesThenFails(t *testing.T) {
 	}
 	if logEntry.Status != notificationLogStatusFailed {
 		t.Fatalf("log status = %q, want failed", logEntry.Status)
+	}
+}
+
+func TestNotificationLogsRetainLatestThirtyPerUser(t *testing.T) {
+	db := newNotificationOutboxTestDB(t)
+	user := createNotificationOutboxUser(t, db)
+	other := model.User{
+		Username: "other-notification-user",
+		Email:    "other-notification@example.com",
+		Password: "hashed-password",
+		Role:     "user",
+		Status:   "active",
+	}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("create other user failed: %v", err)
+	}
+
+	base := time.Date(2026, 3, 15, 8, 0, 0, 0, time.UTC)
+	clock := &notificationRetentionClock{now: base}
+	restoreClock := pkg.SetClockForTest(clock)
+	t.Cleanup(restoreClock)
+
+	svc := NewService(db, nil, nil)
+	userSub := createNotificationOutboxSubscription(t, db, user.ID, base)
+	otherSub := createNotificationOutboxSubscription(t, db, other.ID, base)
+	userOutboxIDs := make([]uint, 0, notificationLogRetentionLimit+1)
+	for i := 0; i <= notificationLogRetentionLimit; i++ {
+		clock.now = base.Add(time.Duration(i) * time.Minute)
+		job := model.NotificationOutbox{
+			DedupeKey:      fmt.Sprintf("retention-user-%d", i),
+			UserID:         user.ID,
+			SubscriptionID: userSub.ID,
+			ChannelType:    "webhook",
+			TriggerType:    notificationTriggerDueDay,
+			NotifyDate:     base,
+			ScheduledFor:   clock.now,
+			Status:         notificationOutboxStatusProcessing,
+			MaxAttempts:    1,
+			NextAttemptAt:  clock.now,
+			LockedBy:       svc.notificationOwnerID(),
+			Message:        "retention test",
+		}
+		if err := db.Create(&job).Error; err != nil {
+			t.Fatalf("create user outbox job %d failed: %v", i, err)
+		}
+		if err := svc.markNotificationOutboxSent(job); err != nil {
+			t.Fatalf("mark user outbox job %d sent: %v", i, err)
+		}
+		userOutboxIDs = append(userOutboxIDs, job.ID)
+	}
+
+	clock.now = base.Add(time.Duration(notificationLogRetentionLimit+1) * time.Minute)
+	otherJob := model.NotificationOutbox{
+		DedupeKey:      "retention-other-user",
+		UserID:         other.ID,
+		SubscriptionID: otherSub.ID,
+		ChannelType:    "webhook",
+		TriggerType:    notificationTriggerDueDay,
+		NotifyDate:     base,
+		ScheduledFor:   clock.now,
+		Status:         notificationOutboxStatusProcessing,
+		MaxAttempts:    1,
+		NextAttemptAt:  clock.now,
+		LockedBy:       svc.notificationOwnerID(),
+		Message:        "retention test",
+	}
+	if err := db.Create(&otherJob).Error; err != nil {
+		t.Fatalf("create other outbox job failed: %v", err)
+	}
+	if err := svc.markNotificationOutboxSent(otherJob); err != nil {
+		t.Fatalf("mark other outbox job sent: %v", err)
+	}
+
+	var userCount, otherCount int64
+	if err := db.Model(&model.NotificationLog{}).Where("user_id = ?", user.ID).Count(&userCount).Error; err != nil {
+		t.Fatalf("count user logs: %v", err)
+	}
+	if err := db.Model(&model.NotificationLog{}).Where("user_id = ?", other.ID).Count(&otherCount).Error; err != nil {
+		t.Fatalf("count other logs: %v", err)
+	}
+	if userCount != notificationLogRetentionLimit || otherCount != 1 {
+		t.Fatalf("log counts = %d/%d, want %d/1", userCount, otherCount, notificationLogRetentionLimit)
+	}
+
+	logs, err := svc.ListLogs(user.ID, notificationLogRetentionLimit+10)
+	if err != nil {
+		t.Fatalf("ListLogs() error = %v", err)
+	}
+	if len(logs) != notificationLogRetentionLimit {
+		t.Fatalf("ListLogs() count = %d, want %d", len(logs), notificationLogRetentionLimit)
+	}
+	for i, logEntry := range logs {
+		if logEntry.OutboxID == nil {
+			t.Fatalf("log %d has nil outbox id", i)
+		}
+		wantOutboxID := userOutboxIDs[len(userOutboxIDs)-1-i]
+		if *logEntry.OutboxID != wantOutboxID {
+			t.Fatalf("log %d outbox id = %d, want newest-first %d", i, *logEntry.OutboxID, wantOutboxID)
+		}
+	}
+
+	otherLogs, err := svc.ListLogs(other.ID, notificationLogRetentionLimit+10)
+	if err != nil {
+		t.Fatalf("ListLogs(other) error = %v", err)
+	}
+	if len(otherLogs) != 1 || otherLogs[0].OutboxID == nil || *otherLogs[0].OutboxID != otherJob.ID {
+		t.Fatalf("other user logs = %#v, want only the other user's delivery", otherLogs)
 	}
 }
 

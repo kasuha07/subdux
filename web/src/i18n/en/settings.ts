@@ -373,7 +373,7 @@ const settings = {
   },
   "audit": {
     "title": "Audit",
-    "description": "Recent MCP write events for your account",
+    "description": "The 30 most recent MCP write events for your account are kept",
     "refresh": "Refresh",
     "empty": "No audit events yet",
     "action": "Action",
@@ -598,7 +598,7 @@ const settings = {
     },
     "logs": {
       "title": "Recent Notifications",
-      "description": "History of sent notifications",
+      "description": "Only the 30 most recent notification records are kept",
       "empty": "No notifications sent yet.",
       "subscription": "Subscription",
       "channel": "Channel",

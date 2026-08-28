@@ -373,7 +373,7 @@ const settings = {
   },
   "audit": {
     "title": "監査",
-    "description": "あなたのアカウントの最近のMCP書き込みイベント",
+    "description": "アカウントの最新 30 件の MCP 書き込みイベントのみ保持します",
     "refresh": "更新",
     "empty": "監査イベントはありません",
     "action": "操作",
@@ -598,7 +598,7 @@ const settings = {
     },
     "logs": {
       "title": "最近の通知",
-      "description": "送信済み通知の履歴",
+      "description": "最新 30 件の通知履歴のみ保持します",
       "empty": "送信済みの通知はまだありません。",
       "subscription": "サブスクリプション",
       "channel": "チャネル",

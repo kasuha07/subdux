@@ -217,7 +217,7 @@ const admin = {
   },
   audit: {
     title: "审计事件",
-    description: "所有用户最近的 MCP 写入事件",
+    description: "按用户保留最近 30 条 MCP 写入事件",
     refresh: "刷新",
     empty: "暂无审计事件",
     user: "用户",

@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	notificationLogRetentionLimit      = 30
 	notificationOutboxStatusPending    = "pending"
 	notificationOutboxStatusProcessing = "processing"
 	notificationOutboxStatusSent       = "sent"
@@ -520,7 +521,7 @@ func (s *Service) markNotificationOutboxSent(job model.NotificationOutbox) error
 		}
 
 		outboxID := job.ID
-		return tx.Create(&model.NotificationLog{
+		if err := tx.Create(&model.NotificationLog{
 			OutboxID:       &outboxID,
 			UserID:         job.UserID,
 			SubscriptionID: job.SubscriptionID,
@@ -529,7 +530,10 @@ func (s *Service) markNotificationOutboxSent(job model.NotificationOutbox) error
 			NotifyDate:     job.NotifyDate,
 			Status:         notificationLogStatusSent,
 			SentAt:         now,
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		return pruneNotificationLogs(tx, job.UserID)
 	})
 }
 
@@ -566,7 +570,7 @@ func (s *Service) markNotificationOutboxFailed(job model.NotificationOutbox, sen
 		}
 
 		outboxID := job.ID
-		return tx.Create(&model.NotificationLog{
+		if err := tx.Create(&model.NotificationLog{
 			OutboxID:       &outboxID,
 			UserID:         job.UserID,
 			SubscriptionID: job.SubscriptionID,
@@ -576,8 +580,36 @@ func (s *Service) markNotificationOutboxFailed(job model.NotificationOutbox, sen
 			Status:         notificationLogStatusFailed,
 			Error:          sanitizedErr,
 			SentAt:         now,
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		return pruneNotificationLogs(tx, job.UserID)
 	})
+}
+
+// pruneNotificationLogs retains only the most recent delivery results for a
+// user. It must be called with the transaction that wrote the new log so a
+// failed prune cannot leave an unbounded history behind.
+func pruneNotificationLogs(tx *gorm.DB, userID uint) error {
+	var retained []model.NotificationLog
+	if err := tx.Where("user_id = ?", userID).
+		Order("sent_at DESC, id DESC").
+		Limit(notificationLogRetentionLimit).
+		Find(&retained).Error; err != nil {
+		return err
+	}
+	if len(retained) < notificationLogRetentionLimit {
+		return nil
+	}
+
+	cutoff := retained[len(retained)-1]
+	return tx.Where(
+		"user_id = ? AND (sent_at < ? OR (sent_at = ? AND id < ?))",
+		userID,
+		cutoff.SentAt,
+		cutoff.SentAt,
+		cutoff.ID,
+	).Delete(&model.NotificationLog{}).Error
 }
 
 func (s *Service) updateNotificationOutboxTerminal(job model.NotificationOutbox, status, reason string) error {

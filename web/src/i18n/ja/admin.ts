@@ -235,7 +235,7 @@ const admin = {
   },
   audit: {
     title: "監査イベント",
-    description: "全ユーザーの最近のMCP書き込みイベント",
+    description: "ユーザーごとに最新 30 件の MCP 書き込みイベントを保持します",
     refresh: "更新",
     empty: "監査イベントはありません",
     user: "ユーザー",

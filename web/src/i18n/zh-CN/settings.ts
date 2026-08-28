@@ -373,7 +373,7 @@ const settings = {
   },
   "audit": {
     "title": "审计",
-    "description": "你账户最近的 MCP 写入事件",
+    "description": "仅保留你账户最近 30 条 MCP 写入事件",
     "refresh": "刷新",
     "empty": "暂无审计事件",
     "action": "操作",
@@ -598,7 +598,7 @@ const settings = {
     },
     "logs": {
       "title": "最近通知",
-      "description": "已发送通知的历史记录",
+      "description": "仅保留最近 30 条通知记录",
       "empty": "暂无已发送的通知。",
       "subscription": "订阅",
       "channel": "渠道",

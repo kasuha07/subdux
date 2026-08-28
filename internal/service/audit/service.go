@@ -27,6 +27,9 @@ const (
 
 	maxJSONBytes  = 8 << 10
 	maxErrorBytes = 2 << 10
+
+	auditEventRetentionLimit = 30
+	maxAuditEventListLimit   = 100
 )
 
 type Service struct {
@@ -120,19 +123,50 @@ func (s *Service) Create(input CreateEventInput) (*model.AuditEvent, error) {
 		event.Status = StatusSuccess
 	}
 
-	if err := s.DB.Create(event).Error; err != nil {
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(event).Error; err != nil {
+			return err
+		}
+		return pruneAuditEvents(tx, event.UserID)
+	}); err != nil {
 		return nil, err
 	}
 	return event, nil
 }
 
+// pruneAuditEvents retains only the most recent MCP audit events for a user.
+// Create may receive an existing transaction from an MCP write, so this nested
+// transaction is a savepoint there and keeps mutation, audit, idempotency, and
+// retention changes atomic.
+func pruneAuditEvents(tx *gorm.DB, userID uint) error {
+	var retained []model.AuditEvent
+	if err := tx.Where("user_id = ?", userID).
+		Order("occurred_at DESC, event_id DESC").
+		Limit(auditEventRetentionLimit).
+		Find(&retained).Error; err != nil {
+		return err
+	}
+	if len(retained) < auditEventRetentionLimit {
+		return nil
+	}
+
+	cutoff := retained[len(retained)-1]
+	return tx.Where(
+		"user_id = ? AND (occurred_at < ? OR (occurred_at = ? AND event_id < ?))",
+		userID,
+		cutoff.OccurredAt,
+		cutoff.OccurredAt,
+		cutoff.EventID,
+	).Delete(&model.AuditEvent{}).Error
+}
+
 func (s *Service) List(filter EventFilter) ([]model.AuditEvent, error) {
 	limit := filter.Limit
 	if limit <= 0 {
-		limit = 50
+		limit = auditEventRetentionLimit
 	}
-	if limit > 100 {
-		limit = 100
+	if limit > maxAuditEventListLimit {
+		limit = maxAuditEventListLimit
 	}
 
 	query := s.DB.Model(&model.AuditEvent{})
@@ -150,7 +184,7 @@ func (s *Service) List(filter EventFilter) ([]model.AuditEvent, error) {
 	}
 
 	var events []model.AuditEvent
-	if err := query.Order("occurred_at DESC").Limit(limit).Find(&events).Error; err != nil {
+	if err := query.Order("occurred_at DESC, event_id DESC").Limit(limit).Find(&events).Error; err != nil {
 		return nil, err
 	}
 	return events, nil
