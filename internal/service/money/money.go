@@ -160,7 +160,9 @@ func MultiplyAggregateChecked(amount float64, factor int64, currency string) (fl
 // Cmp compares two amounts at minor-unit resolution: -1 when a < b, 0 when
 // they land on the same minor-unit grid point, 1 when a > b. Sub-minor-unit
 // float noise (converted or accumulated values) therefore never registers as
-// a difference.
+// a difference. Unsafe values retain the compatibility behavior of Round and
+// compare as zero; callers handling legacy or otherwise untrusted values must
+// use CmpChecked instead.
 func Cmp(a, b float64, currency string) int {
 	ra, rb := Round(a, currency), Round(b, currency)
 	switch {
@@ -172,6 +174,28 @@ func Cmp(a, b float64, currency string) int {
 	return 0
 }
 
+// CmpChecked compares two amounts on the currency's minor-unit grid. It
+// returns false when either operand cannot be represented safely as a checked
+// aggregate value. A failed comparison is distinct from equality: callers
+// must skip the comparison rather than treating an unsafe value as zero.
+func CmpChecked(a, b float64, currency string) (int, bool) {
+	aMinor, _, ok := aggregateMinorUnits(a, currency)
+	if !ok {
+		return 0, false
+	}
+	bMinor, _, ok := aggregateMinorUnits(b, currency)
+	if !ok {
+		return 0, false
+	}
+	switch {
+	case aMinor < bMinor:
+		return -1, true
+	case aMinor > bMinor:
+		return 1, true
+	}
+	return 0, true
+}
+
 // Equal reports whether a and b are the same monetary value at minor-unit
 // resolution.
 func Equal(a, b float64, currency string) bool {
@@ -180,9 +204,31 @@ func Equal(a, b float64, currency string) bool {
 
 // Diff returns the minor-unit difference a - b with both operands and the
 // result quantized, so callers get an exact grid value rather than raw float
-// subtraction noise.
+// subtraction noise. Unsafe values retain the compatibility behavior of Round;
+// callers handling legacy or otherwise untrusted values must use DiffChecked
+// instead.
 func Diff(a, b float64, currency string) float64 {
 	return Round(Round(a, currency)-Round(b, currency), currency)
+}
+
+// DiffChecked returns the minor-unit difference a - b. It returns false when
+// either operand or the difference cannot be represented safely as a checked
+// aggregate value. The calculation is performed with integer minor units so
+// a failed conversion can never be silently turned into a zero delta.
+func DiffChecked(a, b float64, currency string) (float64, bool) {
+	aMinor, exponent, ok := aggregateMinorUnits(a, currency)
+	if !ok {
+		return 0, false
+	}
+	bMinor, _, ok := aggregateMinorUnits(b, currency)
+	if !ok {
+		return 0, false
+	}
+	difference := aMinor - bMinor
+	if difference < -maxAggregateMinorUnits || difference > maxAggregateMinorUnits {
+		return 0, false
+	}
+	return amountFromAggregateMinorUnits(difference, exponent)
 }
 
 // Format renders amount rounded and zero-padded to the currency's minor unit,

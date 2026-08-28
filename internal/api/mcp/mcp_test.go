@@ -183,6 +183,19 @@ func performMCPRequest(t *testing.T, handler *MCPHandler, apiKey string, body ma
 	return rec, decoded
 }
 
+func performMCPToolCall(t *testing.T, handler *MCPHandler, apiKey, toolName string, arguments map[string]interface{}) (*httptest.ResponseRecorder, map[string]interface{}) {
+	t.Helper()
+	return performMCPRequest(t, handler, apiKey, map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      toolName,
+			"arguments": arguments,
+		},
+	})
+}
+
 func TestMCPRequiresAPIKey(t *testing.T) {
 	db := newMCPTestDB(t)
 	handler := newMCPTestHandler(db)

@@ -224,6 +224,24 @@ func TestDiff(t *testing.T) {
 	}
 }
 
+func TestCheckedComparisonRejectsUnsafeAmounts(t *testing.T) {
+	const legacyMonthlyAmount = 27_393_187_500_000.0
+
+	if got, ok := CmpChecked(3_000, legacyMonthlyAmount, "CLF"); ok || got != 0 {
+		t.Fatalf("CmpChecked() = %d, %v; want 0, false for unsafe legacy amount", got, ok)
+	}
+	if got, ok := DiffChecked(3_000, legacyMonthlyAmount, "CLF"); ok || got != 0 {
+		t.Fatalf("DiffChecked() = %v, %v; want 0, false for unsafe legacy amount", got, ok)
+	}
+
+	if got, ok := CmpChecked(10.11, 10.10, "USD"); !ok || got != 1 {
+		t.Fatalf("CmpChecked() = %d, %v; want 1, true for a valid cent increase", got, ok)
+	}
+	if got, ok := DiffChecked(10.11, 10.10, "USD"); !ok || got != 0.01 {
+		t.Fatalf("DiffChecked() = %v, %v; want 0.01, true", got, ok)
+	}
+}
+
 func TestFormat(t *testing.T) {
 	cases := []struct {
 		amount   float64

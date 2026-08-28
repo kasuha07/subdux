@@ -316,13 +316,7 @@ func (h *MCPHandler) callDashboardSummary(ctx context.Context, userID uint, args
 
 	summary, err := h.subscriptions.WithContext(ctx).GetDashboardSummary(userID, currency, erService)
 	if err != nil {
-		if errors.Is(err, subscriptionservice.ErrExchangeRateUnavailable) {
-			return mcpCodedToolExecutionError(
-				subscriptionservice.ErrExchangeRateUnavailable.Code,
-				subscriptionservice.ErrExchangeRateUnavailable.Error(),
-			), nil
-		}
-		return nil, internalMCPError(err)
+		return mapMCPServiceError(err)
 	}
 	return mcpStructuredResult(summary), nil
 }

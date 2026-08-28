@@ -1,13 +1,15 @@
 package mcp
 
 import (
-	"context"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
-	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
+	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/service/money"
+	"gorm.io/gorm"
 )
 
 func TestReadFloatArgRejectsNonFiniteValues(t *testing.T) {
@@ -61,212 +63,282 @@ func TestValidateSubscriptionWriteArgTypesRejectsNonFiniteAmount(t *testing.T) {
 func TestMCPCreateSubscriptionRejectsNonFiniteAmount(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{
-		UserID:  user.ID,
-		KeyID:   7,
-		KeyKind: apikeyservice.APIKeyKindMCPClient,
-		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
+
+	for _, tt := range []struct {
+		value    string
+		wantCode string
+	}{
+		{value: "NaN", wantCode: "amount_must_be_finite"},
+		{value: "Infinity", wantCode: "amount_too_large"},
+		{value: "-Infinity", wantCode: "amount_must_be_finite"},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
+				"idempotency_key":   "create-nonfinite-" + tt.value,
+				"name":              "Broken Plan",
+				"amount":            tt.value,
+				"next_billing_date": "2026-06-15",
+			})
+			assertMCPInvalidAmountRPCError(t, rec, response, tt.wantCode)
+		})
 	}
 
-	for _, value := range []interface{}{"NaN", "Infinity", math.NaN(), math.Inf(1)} {
-		_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
-			"idempotency_key":   "create-nonfinite",
-			"name":              "Broken Plan",
-			"amount":            value,
-			"next_billing_date": "2026-06-15",
-		})
-		if rpcErr == nil {
-			t.Fatalf("callCreateSubscription(amount=%v) rpcErr = nil, want rejection", value)
-		}
-	}
+	assertMCPSubscriptionCount(t, db, user.ID, 0)
 }
 
 func TestMCPUpdateSubscriptionRejectsNonFiniteAmount(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{
-		UserID:  user.ID,
-		KeyID:   7,
-		KeyKind: apikeyservice.APIKeyKindMCPClient,
-		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
-	}
 
-	created, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
-		"idempotency_key":   "create-for-update",
+	rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
+		"idempotency_key":   "create-for-update-nonfinite",
 		"name":              "Claude Pro",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
 	})
-	if rpcErr != nil {
-		t.Fatalf("callCreateSubscription() rpcErr = %v", rpcErr)
-	}
-	if created == nil || created.IsError {
-		t.Fatalf("create result = %#v, want success", created)
+	assertMCPToolSuccess(t, rec, response)
+
+	for _, tt := range []struct {
+		value    string
+		wantCode string
+	}{
+		{value: "NaN", wantCode: "amount_must_be_finite"},
+		{value: "Infinity", wantCode: "amount_too_large"},
+		{value: "-Infinity", wantCode: "amount_must_be_finite"},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			rec, response := performMCPToolCall(t, handler, apiKey, "update_subscription", map[string]interface{}{
+				"idempotency_key": "update-nonfinite-" + tt.value,
+				"id":              1,
+				"amount":          tt.value,
+			})
+			assertMCPInvalidAmountRPCError(t, rec, response, tt.wantCode)
+		})
 	}
 
-	for _, value := range []interface{}{"NaN", math.Inf(-1)} {
-		_, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
-			"idempotency_key": "update-nonfinite",
-			"id":              1,
-			"amount":          value,
-		})
-		if rpcErr == nil {
-			t.Fatalf("callUpdateSubscription(amount=%v) rpcErr = nil, want rejection", value)
-		}
+	var stored model.Subscription
+	if err := db.First(&stored, 1).Error; err != nil {
+		t.Fatalf("load subscription: %v", err)
+	}
+	if stored.Amount != 20 {
+		t.Fatalf("stored amount = %v, want 20 after rejected updates", stored.Amount)
 	}
 }
 
 func TestMCPCreateSubscriptionReturnsTypedAmountErrors(t *testing.T) {
-	testMCPAmountErrors(t, "create", func(t *testing.T, handler *MCPHandler, principal *mcpPrincipal, value float64) *mcpError {
-		t.Helper()
-		_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
-			"idempotency_key":   "create-typed-amount-error",
-			"name":              "Broken Plan",
-			"amount":            value,
-			"next_billing_date": "2026-06-15",
-		})
-		return rpcErr
-	})
-}
-
-func TestMCPUpdateSubscriptionReturnsTypedAmountErrors(t *testing.T) {
-	testMCPAmountErrors(t, "update", func(t *testing.T, handler *MCPHandler, principal *mcpPrincipal, value float64) *mcpError {
-		t.Helper()
-		_, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
-			"idempotency_key": "update-typed-amount-error",
-			"id":              1,
-			"amount":          value,
-		})
-		return rpcErr
-	})
-}
-
-func testMCPAmountErrors(t *testing.T, operation string, call func(*testing.T, *MCPHandler, *mcpPrincipal, float64) *mcpError) {
-	t.Helper()
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := mcpWriteTestPrincipal(user.ID)
 
 	tests := []struct {
 		name     string
 		amount   float64
 		wantCode string
 	}{
-		{name: "nan", amount: math.NaN(), wantCode: "amount_must_be_finite"},
-		{name: "negative infinity", amount: math.Inf(-1), wantCode: "amount_must_be_finite"},
 		{name: "negative", amount: -1, wantCode: "amount_must_not_be_negative"},
 		{name: "above maximum", amount: money.MaxAmount + 0.01, wantCode: "amount_too_large"},
-		{name: "positive infinity", amount: math.Inf(1), wantCode: "amount_too_large"},
 	}
 
 	for _, tt := range tests {
-		t.Run(operation+"/"+tt.name, func(t *testing.T) {
-			rpcErr := call(t, handler, principal, tt.amount)
-			if rpcErr == nil {
-				t.Fatal("rpcErr = nil, want invalid params")
-			}
-			if rpcErr.Code != -32602 {
-				t.Fatalf("rpcErr.Code = %d, want -32602", rpcErr.Code)
-			}
-			data, ok := rpcErr.Data.(map[string]interface{})
-			if !ok {
-				t.Fatalf("rpcErr.Data type = %T, want map", rpcErr.Data)
-			}
-			if got := data["error_code"]; got != tt.wantCode {
-				t.Fatalf("error_code = %#v, want %q", got, tt.wantCode)
-			}
+		t.Run(tt.name, func(t *testing.T) {
+			rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
+				"idempotency_key":   "create-typed-amount-error-" + tt.name,
+				"name":              "Broken Plan",
+				"amount":            tt.amount,
+				"next_billing_date": "2026-06-15",
+			})
+			assertMCPInvalidAmountRPCError(t, rec, response, tt.wantCode)
 		})
 	}
+
+	assertMCPSubscriptionCount(t, db, user.ID, 0)
+	assertMCPIdempotencyCount(t, db, user.ID, 0)
+}
+
+func TestMCPUpdateSubscriptionReturnsTypedAmountErrors(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+
+	rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
+		"idempotency_key":   "create-for-typed-update",
+		"name":              "Claude Pro",
+		"amount":            20,
+		"next_billing_date": "2026-06-15",
+	})
+	assertMCPToolSuccess(t, rec, response)
+
+	tests := []struct {
+		name     string
+		amount   float64
+		wantCode string
+	}{
+		{name: "negative", amount: -1, wantCode: "amount_must_not_be_negative"},
+		{name: "above maximum", amount: money.MaxAmount + 0.01, wantCode: "amount_too_large"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, response := performMCPToolCall(t, handler, apiKey, "update_subscription", map[string]interface{}{
+				"idempotency_key": "update-typed-amount-error-" + tt.name,
+				"id":              1,
+				"amount":          tt.amount,
+			})
+			assertMCPInvalidAmountRPCError(t, rec, response, tt.wantCode)
+		})
+	}
+
+	var stored model.Subscription
+	if err := db.First(&stored, 1).Error; err != nil {
+		t.Fatalf("load subscription: %v", err)
+	}
+	if stored.Amount != 20 {
+		t.Fatalf("stored amount = %v, want 20 after rejected updates", stored.Amount)
+	}
+	assertMCPIdempotencyCount(t, db, user.ID, 1)
 }
 
 func TestMCPCreateSubscriptionRejectsAmountAboveMaximum(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{
-		UserID:  user.ID,
-		KeyID:   7,
-		KeyKind: apikeyservice.APIKeyKindMCPClient,
-		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
-	}
 
-	for _, value := range []interface{}{money.MaxAmount + 0.01, 1.8e306} {
-		_, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+	for _, value := range []float64{money.MaxAmount + 0.01, 1.8e306} {
+		rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
 			"idempotency_key":   "create-too-large",
 			"name":              "Huge Plan",
 			"amount":            value,
 			"next_billing_date": "2026-06-15",
 		})
-		if rpcErr == nil {
-			t.Fatalf("callCreateSubscription(amount=%v) rpcErr = nil, want rejection", value)
-		}
-		if !strings.Contains(rpcErr.Message, "amount is too large") {
-			t.Fatalf("callCreateSubscription(amount=%v) message = %q, want the too-large reason", value, rpcErr.Message)
-		}
+		assertMCPInvalidAmountRPCError(t, rec, response, "amount_too_large")
 	}
+
+	assertMCPSubscriptionCount(t, db, user.ID, 0)
 }
 
 func TestMCPCreateSubscriptionAcceptsMaximumAmount(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{
-		UserID:  user.ID,
-		KeyID:   7,
-		KeyKind: apikeyservice.APIKeyKindMCPClient,
-		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
-	}
 
-	result, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+	rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
 		"idempotency_key":   "create-at-maximum",
 		"name":              "Maximum Plan",
 		"amount":            money.MaxAmount,
 		"next_billing_date": "2026-06-15",
 	})
-	if rpcErr != nil {
-		t.Fatalf("callCreateSubscription() rpcErr = %v, want the bound itself accepted", rpcErr)
-	}
-	if result == nil || result.IsError {
-		t.Fatalf("create result = %#v, want success", result)
-	}
+	assertMCPToolSuccess(t, rec, response)
+	assertMCPSubscriptionCount(t, db, user.ID, 1)
 }
 
 func TestMCPUpdateSubscriptionRejectsAmountAboveMaximum(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := &mcpPrincipal{
-		UserID:  user.ID,
-		KeyID:   7,
-		KeyKind: apikeyservice.APIKeyKindMCPClient,
-		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
-	}
 
-	created, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+	rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
 		"idempotency_key":   "create-for-too-large-update",
 		"name":              "Claude Pro",
 		"amount":            20,
 		"next_billing_date": "2026-06-15",
 	})
-	if rpcErr != nil {
-		t.Fatalf("callCreateSubscription() rpcErr = %v", rpcErr)
-	}
-	if created == nil || created.IsError {
-		t.Fatalf("create result = %#v, want success", created)
-	}
+	assertMCPToolSuccess(t, rec, response)
 
-	_, rpcErr = handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
+	rec, response = performMCPToolCall(t, handler, apiKey, "update_subscription", map[string]interface{}{
 		"idempotency_key": "update-too-large",
 		"id":              1,
 		"amount":          money.MaxAmount + 0.01,
 	})
-	if rpcErr == nil {
-		t.Fatal("callUpdateSubscription() rpcErr = nil, want rejection above the maximum amount")
+	assertMCPInvalidAmountRPCError(t, rec, response, "amount_too_large")
+	assertMCPIdempotencyCount(t, db, user.ID, 1)
+}
+
+func assertMCPRPCError(t *testing.T, rec *httptest.ResponseRecorder, response map[string]interface{}, wantMessage string) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("MCP status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	if !strings.Contains(rpcErr.Message, "amount is too large") {
-		t.Fatalf("callUpdateSubscription() message = %q, want the too-large reason", rpcErr.Message)
+	rpcError, ok := response["error"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("response = %#v, want JSON-RPC error", response)
+	}
+	if got := int(rpcError["code"].(float64)); got != -32602 {
+		t.Fatalf("JSON-RPC error code = %d, want -32602", got)
+	}
+	if got := rpcError["message"]; got != wantMessage {
+		t.Fatalf("JSON-RPC error message = %v, want %q", got, wantMessage)
+	}
+}
+
+func assertMCPInvalidAmountRPCError(t *testing.T, rec *httptest.ResponseRecorder, response map[string]interface{}, wantCode string) {
+	t.Helper()
+	assertMCPRPCError(t, rec, response, amountErrorMessage(wantCode))
+	rpcError := response["error"].(map[string]interface{})
+	data, ok := rpcError["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("JSON-RPC error data = %#v, want object", rpcError["data"])
+	}
+	if got := data["error_code"]; got != wantCode {
+		t.Fatalf("JSON-RPC error_code = %#v, want %q", got, wantCode)
+	}
+}
+
+func amountErrorMessage(code string) string {
+	switch code {
+	case "amount_must_be_finite":
+		return "amount must be finite"
+	case "amount_must_not_be_negative":
+		return "amount must not be negative"
+	case "amount_too_large":
+		return "amount is too large"
+	default:
+		return code
+	}
+}
+
+func assertMCPToolSuccess(t *testing.T, rec *httptest.ResponseRecorder, response map[string]interface{}) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("MCP status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if rpcError, ok := response["error"]; ok {
+		t.Fatalf("JSON-RPC error = %#v, want successful tool result", rpcError)
+	}
+	result, ok := response["result"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("result = %#v, want object", response["result"])
+	}
+	if result["isError"] == true {
+		t.Fatalf("result = %#v, want successful tool result", result)
+	}
+}
+
+func assertMCPSubscriptionCount(t *testing.T, db *gorm.DB, userID uint, want int64) {
+	t.Helper()
+	var count int64
+	if err := db.Model(&model.Subscription{}).Where("user_id = ?", userID).Count(&count).Error; err != nil {
+		t.Fatalf("count subscriptions: %v", err)
+	}
+	if count != want {
+		t.Fatalf("subscription count = %d, want %d", count, want)
+	}
+}
+
+func assertMCPIdempotencyCount(t *testing.T, db *gorm.DB, userID uint, want int64) {
+	t.Helper()
+	var count int64
+	if err := db.Model(&model.MCPIdempotencyKey{}).Where("user_id = ?", userID).Count(&count).Error; err != nil {
+		t.Fatalf("count idempotency records: %v", err)
+	}
+	if count != want {
+		t.Fatalf("idempotency record count = %d, want %d", count, want)
 	}
 }

@@ -206,3 +206,58 @@ func TestLegacyMinorUnitUnsafeDerivedAmountCanStillBeUpdatedAndDeleted(t *testin
 		t.Fatalf("deletion event previous_monthly_amount = %v, want verbatim %v", deletedEvent.PreviousMonthlyAmount, rawMonthlyAmount)
 	}
 }
+
+func TestActionCenterSkipsPriceIncreaseForUnsafeLegacyMonthlyAmount(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+
+	db := newTestDB(t)
+	user := createTestUser(t, db)
+	service := NewService(db)
+	daily := 1
+	nextBillingDate := mustDate(t, "2026-03-15")
+	const legacyAmount = 900_000_000_000.0
+	const rawMonthlyAmount = 27_393_187_500_000.0
+
+	legacy := model.Subscription{
+		UserID:          user.ID,
+		Name:            "Legacy unsafe price change",
+		Amount:          legacyAmount,
+		Currency:        "CLF",
+		Enabled:         true,
+		Status:          subscriptionStatusActive,
+		RenewalMode:     renewalModeAutoRenew,
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &daily,
+		IntervalUnit:    intervalUnitDay,
+		NextBillingDate: &nextBillingDate,
+	}
+	if err := db.Create(&legacy).Error; err != nil {
+		t.Fatalf("seed legacy subscription failed: %v", err)
+	}
+
+	loweredAmount := 100.0
+	if _, err := service.Update(user.ID, legacy.ID, UpdateSubscriptionInput{Amount: &loweredAmount}); err != nil {
+		t.Fatalf("lower amount update failed: %v", err)
+	}
+
+	var event model.SubscriptionEvent
+	if err := db.Where("user_id = ? AND subscription_id = ? AND type = ?", user.ID, legacy.ID, subscriptionEventUpdated).
+		First(&event).Error; err != nil {
+		t.Fatalf("load price-change event failed: %v", err)
+	}
+	if event.PreviousMonthlyAmount == nil || *event.PreviousMonthlyAmount != rawMonthlyAmount {
+		t.Fatalf("previous_monthly_amount = %v, want unsafe legacy value %v", event.PreviousMonthlyAmount, rawMonthlyAmount)
+	}
+
+	center, err := service.GetActionCenter(user.ID)
+	if err != nil {
+		t.Fatalf("GetActionCenter() error = %v", err)
+	}
+	for _, item := range center.Items {
+		if item.Type == actionTypePriceIncrease {
+			t.Fatalf("price increase action = %+v, want unsafe legacy comparison skipped", item)
+		}
+	}
+}

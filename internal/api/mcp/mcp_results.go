@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/kasuha07/subdux/internal/api/contract"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -30,6 +32,18 @@ func invalidMCPAmount(validation contract.AmountValidation) *mcpError {
 			"error_code": contract.SubscriptionAmountErrorCode(validation),
 		},
 	}
+}
+
+// mapMCPServiceError translates a typed service error into a tool execution
+// error while preserving its stable public error_code. Non-typed failures stay
+// RPC-level internal errors. All MCP tools that call services directly and the
+// idempotent write runner use this one mapping so their contracts do not drift.
+func mapMCPServiceError(err error) (*mcpToolResult, *mcpError) {
+	var typed *serviceerr.Error
+	if errors.As(err, &typed) && typed != nil {
+		return mcpCodedToolExecutionError(typed.Code, typed.Error()), nil
+	}
+	return nil, internalMCPError(err)
 }
 
 func internalMCPError(err error) *mcpError {

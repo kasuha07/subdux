@@ -14,7 +14,6 @@ import (
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	auditservice "github.com/kasuha07/subdux/internal/service/audit"
 	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
-	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
 
@@ -172,16 +171,13 @@ func (h *MCPHandler) runIdempotentWrite(
 // shape the MCP layer expects: recoverable business errors surface as tool
 // execution errors (isError) while everything else is an RPC-level error.
 func mapMCPWriteError(err error) (*mcpToolResult, *mcpError) {
-	var typed *serviceerr.Error
 	switch {
 	case errors.Is(err, errIdempotencyMismatch):
 		return nil, invalidMCPParams(err)
-	case errors.As(err, &typed):
-		return mcpCodedToolExecutionError(typed.Code, typed.Error()), nil
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		return mcpToolExecutionError(err.Error()), nil
 	default:
-		return nil, internalMCPError(err)
+		return mapMCPServiceError(err)
 	}
 }
 

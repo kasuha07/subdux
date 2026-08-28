@@ -532,7 +532,14 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 			seen[subscriptionID] = struct{}{}
 			continue
 		}
-		direction := money.Cmp(*event.NewMonthlyAmount, *event.PreviousMonthlyAmount, currency)
+		direction, ok := money.CmpChecked(*event.NewMonthlyAmount, *event.PreviousMonthlyAmount, currency)
+		if !ok {
+			// A legacy event may preserve a monthly amount that cannot be represented
+			// safely on the currency's minor-unit grid. It is unknown, not zero; do
+			// not surface an increase (or an older stale increase) from it.
+			seen[subscriptionID] = struct{}{}
+			continue
+		}
 		if direction == 0 {
 			continue
 		}
@@ -540,12 +547,20 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 		if direction < 0 {
 			continue
 		}
+		previous, previousOK := money.RoundAggregateChecked(*event.PreviousMonthlyAmount, currency)
+		current, currentOK := money.RoundAggregateChecked(*event.NewMonthlyAmount, currency)
+		delta, deltaOK := money.DiffChecked(*event.NewMonthlyAmount, *event.PreviousMonthlyAmount, currency)
+		if !previousOK || !currentOK || !deltaOK {
+			// Keep every derived field checked as well. In particular, never let an
+			// unsafe historical amount become zero in the action payload.
+			continue
+		}
 		candidates = append(candidates, priceChange{
 			event:    event,
 			currency: currency,
-			previous: money.Round(*event.PreviousMonthlyAmount, currency),
-			current:  money.Round(*event.NewMonthlyAmount, currency),
-			delta:    money.Diff(*event.NewMonthlyAmount, *event.PreviousMonthlyAmount, currency),
+			previous: previous,
+			current:  current,
+			delta:    delta,
 		})
 		ids = append(ids, subscriptionID)
 	}

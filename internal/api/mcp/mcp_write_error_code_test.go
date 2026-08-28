@@ -1,11 +1,11 @@
 package mcp
 
 import (
-	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
-	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"gorm.io/gorm"
 )
 
@@ -14,10 +14,10 @@ const derivedAmountOverflowInput = 50_000_000_000
 func TestMCPCreateSubscriptionReturnsTypedServiceErrorCode(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := mcpWriteTestPrincipal(user.ID)
 
-	result, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+	rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
 		"idempotency_key":   "create-derived-too-large",
 		"name":              "Large daily CLF plan",
 		"amount":            derivedAmountOverflowInput,
@@ -25,25 +25,18 @@ func TestMCPCreateSubscriptionReturnsTypedServiceErrorCode(t *testing.T) {
 		"interval_unit":     "day",
 		"next_billing_date": "2026-08-15",
 	})
-	assertMCPToolErrorCode(t, result, rpcErr, "amount_too_large")
-
-	var subscriptionCount int64
-	if err := db.Model(&model.Subscription{}).Where("user_id = ?", user.ID).Count(&subscriptionCount).Error; err != nil {
-		t.Fatalf("count subscriptions: %v", err)
-	}
-	if subscriptionCount != 0 {
-		t.Fatalf("subscription count = %d, want 0 after rolled-back create", subscriptionCount)
-	}
+	assertMCPToolErrorCode(t, rec, response, "amount_too_large")
+	assertMCPSubscriptionCount(t, db, user.ID, 0)
 	assertNoMCPIdempotencyRecord(t, db, user.ID, "create-derived-too-large")
 }
 
 func TestMCPUpdateSubscriptionReturnsTypedServiceErrorCode(t *testing.T) {
 	db := newMCPTestDB(t)
 	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
 	handler := newMCPTestHandler(db)
-	principal := mcpWriteTestPrincipal(user.ID)
 
-	created, rpcErr := handler.callCreateSubscription(context.Background(), principal, map[string]interface{}{
+	rec, response := performMCPToolCall(t, handler, apiKey, "create_subscription", map[string]interface{}{
 		"idempotency_key":   "create-for-derived-update",
 		"name":              "Large monthly CLF plan",
 		"amount":            derivedAmountOverflowInput,
@@ -51,26 +44,17 @@ func TestMCPUpdateSubscriptionReturnsTypedServiceErrorCode(t *testing.T) {
 		"interval_unit":     "month",
 		"next_billing_date": "2026-08-15",
 	})
-	if rpcErr != nil {
-		t.Fatalf("create setup rpcErr = %v", rpcErr)
-	}
-	if created == nil || created.IsError {
-		t.Fatalf("create setup result = %#v, want success", created)
-	}
+	assertMCPToolSuccess(t, rec, response)
 
-	var subscription model.Subscription
-	if err := db.Where("user_id = ?", user.ID).First(&subscription).Error; err != nil {
-		t.Fatalf("load created subscription: %v", err)
-	}
-	result, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
+	rec, response = performMCPToolCall(t, handler, apiKey, "update_subscription", map[string]interface{}{
 		"idempotency_key": "update-derived-too-large",
-		"id":              float64(subscription.ID),
+		"id":              1,
 		"interval_unit":   "day",
 	})
-	assertMCPToolErrorCode(t, result, rpcErr, "amount_too_large")
+	assertMCPToolErrorCode(t, rec, response, "amount_too_large")
 
 	var stored model.Subscription
-	if err := db.First(&stored, subscription.ID).Error; err != nil {
+	if err := db.First(&stored, 1).Error; err != nil {
 		t.Fatalf("load subscription: %v", err)
 	}
 	if stored.IntervalUnit != "month" {
@@ -79,26 +63,24 @@ func TestMCPUpdateSubscriptionReturnsTypedServiceErrorCode(t *testing.T) {
 	assertNoMCPIdempotencyRecord(t, db, user.ID, "update-derived-too-large")
 }
 
-func mcpWriteTestPrincipal(userID uint) *mcpPrincipal {
-	return &mcpPrincipal{
-		UserID:  userID,
-		KeyID:   7,
-		KeyKind: apikeyservice.APIKeyKindMCPClient,
-		Scopes:  []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite},
-	}
-}
-
-func assertMCPToolErrorCode(t *testing.T, result *mcpToolResult, rpcErr *mcpError, wantCode string) {
+func assertMCPToolErrorCode(t *testing.T, rec *httptest.ResponseRecorder, response map[string]interface{}, wantCode string) {
 	t.Helper()
-	if rpcErr != nil {
-		t.Fatalf("rpcErr = %v, want tool execution error", rpcErr)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("MCP status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	if result == nil || !result.IsError {
-		t.Fatalf("result = %#v, want isError tool result", result)
+	if rpcError, ok := response["error"]; ok {
+		t.Fatalf("JSON-RPC error = %#v, want tool execution error", rpcError)
 	}
-	structured, ok := result.StructuredContent.(map[string]interface{})
+	result, ok := response["result"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("structured content type = %T, want map", result.StructuredContent)
+		t.Fatalf("result = %#v, want object", response["result"])
+	}
+	if result["isError"] != true {
+		t.Fatalf("isError = %v, want true; result = %#v", result["isError"], result)
+	}
+	structured, ok := result["structuredContent"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("structuredContent = %#v, want object", result["structuredContent"])
 	}
 	if got := structured["error_code"]; got != wantCode {
 		t.Fatalf("structured error_code = %#v, want %q", got, wantCode)
