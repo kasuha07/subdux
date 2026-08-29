@@ -162,6 +162,25 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// Batch applies one bulk operation (delete, update, or mark-renewed) to the
+// caller's subscriptions. Per-item outcomes are aggregated in the response
+// body; request-level validation failures still surface as a 4xx envelope.
+func (h *SubscriptionHandler) Batch(c echo.Context) error {
+	userID := apimw.From(c).UserID
+
+	var input subscriptionservice.BatchSubscriptionInput
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
+		return nil
+	}
+
+	result, err := h.Service.WithContext(c.Request().Context()).Batch(userID, input)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 	userID := apimw.From(c).UserID
 	id, ok := httpx.ParseUintParam(c, "id", "invalid_id")

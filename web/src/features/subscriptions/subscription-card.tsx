@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { safeHref } from "@/lib/safe-href"
@@ -86,6 +87,8 @@ interface SubscriptionCardProps {
   onPreloadDetail?: (sub: Subscription) => void
   onEdit: (sub: Subscription) => void
   onDelete: (id: number) => void
+  selected?: boolean
+  onToggleSelect?: (id: number) => void
 }
 
 const statusStyles: Record<string, string> = {
@@ -171,6 +174,8 @@ export default function SubscriptionCard({
   onPreloadDetail,
   onEdit,
   onDelete,
+  selected = false,
+  onToggleSelect,
 }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
   const hoverCapablePointer = useHoverCapablePointer()
@@ -269,6 +274,14 @@ export default function SubscriptionCard({
       className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
+        {onToggleSelect && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect(subscription.id)}
+            aria-label={t("subscription.batch.select", { name: subscription.name })}
+            className="mt-1.5"
+          />
+        )}
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
         >

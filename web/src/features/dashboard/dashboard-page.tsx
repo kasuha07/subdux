@@ -40,6 +40,7 @@ import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionSquareCard from "@/features/subscriptions/subscription-square-card"
+import SubscriptionBatchBar from "@/features/subscriptions/subscription-batch-bar"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import { DashboardLoadError } from "./dashboard-load-error"
 import DashboardSummaryCards from "./dashboard-summary-cards"
@@ -292,6 +293,7 @@ export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [selectedIDs, setSelectedIDs] = useState<number[]>([])
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
     getDisplayAllAmountsInPrimaryCurrency()
   )
@@ -400,6 +402,18 @@ export default function DashboardPage() {
     }
   }, [])
 
+  // Derived selection: bulk actions only ever address subscriptions that still
+  // exist. Stale ids (e.g. a subscription deleted elsewhere) are filtered out
+  // for display and never sent to the batch endpoint.
+  const existingSubscriptionIDs = useMemo(
+    () => new Set(subscriptions.map((sub) => sub.id)),
+    [subscriptions]
+  )
+  const liveSelectedIDs = useMemo(
+    () => selectedIDs.filter((id) => existingSubscriptionIDs.has(id)),
+    [selectedIDs, existingSubscriptionIDs]
+  )
+
   useEffect(() => {
     const targetCurrency = preferredCurrency.toUpperCase()
     const sourceCurrencies = Array.from(
@@ -457,11 +471,30 @@ export default function DashboardPage() {
     try {
       await api.delete(`/subscriptions/${id}`, { errorHandling: "toast" })
       invalidateSubscriptionDetail(id)
+      setSelectedIDs((previous) => previous.filter((value) => value !== id))
       toast.success(t("dashboard.deleteSuccess"))
       await fetchData()
     } catch {
       void 0
     }
+  }
+
+  function handleToggleSelect(id: number) {
+    setSelectedIDs((previous) =>
+      previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id]
+    )
+  }
+
+  function clearSelection() {
+    setSelectedIDs([])
+  }
+
+  function handleBatchApplied() {
+    for (const id of liveSelectedIDs) {
+      invalidateSubscriptionDetail(id)
+    }
+    clearSelection()
+    void fetchData()
   }
 
   async function handleFormSubmit(data: CreateSubscriptionInput) {
@@ -614,6 +647,21 @@ export default function DashboardPage() {
               viewToggleDisabled={subscriptions.length === 0}
             />
 
+            {liveSelectedIDs.length > 0 && (
+              <SubscriptionBatchBar
+                categories={categories}
+                paymentMethods={paymentMethods}
+                paymentMethodLabelMap={paymentMethodLabelMap}
+                selectedCount={liveSelectedIDs.length}
+                selectedIDs={liveSelectedIDs}
+                getSubscriptionName={(id) =>
+                  subscriptions.find((sub) => sub.id === id)?.name ?? ""
+                }
+                onClearSelection={clearSelection}
+                onBatchApplied={handleBatchApplied}
+              />
+            )}
+
             <div
               className={
                 subscriptionView === "list"
@@ -707,6 +755,8 @@ export default function DashboardPage() {
                         onPreloadDetail={handlePreloadDetail}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        selected={liveSelectedIDs.includes(sub.id)}
+                        onToggleSelect={handleToggleSelect}
                       />
                     )
                   }
@@ -730,6 +780,8 @@ export default function DashboardPage() {
                       }
                       onOpenDetail={handleOpenDetail}
                       onPreloadDetail={handlePreloadDetail}
+                      selected={liveSelectedIDs.includes(sub.id)}
+                      onToggleSelect={handleToggleSelect}
                     />
                   )
                 })

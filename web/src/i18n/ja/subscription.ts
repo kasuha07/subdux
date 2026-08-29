@@ -107,6 +107,40 @@ const subscription = {
       "open": "カレンダーを開く"
     }
   },
+  "batch": {
+    "select": "{{name}} を選択",
+    "selected": "{{count}} 件選択中",
+    "actions": "一括操作",
+    "actionsLabel": "選択したサブスクリプションに適用",
+    "markRenewed": "更新済みにする",
+    "activate": "有効にする",
+    "end": "終了にする",
+    "setCategory": "カテゴリを設定…",
+    "setPaymentMethod": "支払い方法を設定…",
+    "delete": "削除…",
+    "clear": "選択をクリア",
+    "deleteTitle": "サブスクリプションを削除",
+    "deleteDescription": "選択した {{count}} 件のサブスクリプションを削除しますか？この操作は元に戻せません。",
+    "deleteConfirm": "{{count}} 件を削除",
+    "categoryTitle": "カテゴリを設定",
+    "categoryDescription": "選択した {{count}} 件のサブスクリプションのカテゴリを設定します。",
+    "categoryLabel": "カテゴリ",
+    "categoryPlaceholder": "カテゴリを選択",
+    "noCategory": "カテゴリなし",
+    "paymentMethodTitle": "支払い方法を設定",
+    "paymentMethodDescription": "選択した {{count}} 件のサブスクリプションの支払い方法を設定します。",
+    "paymentMethodLabel": "支払い方法",
+    "paymentMethodPlaceholder": "支払い方法を選択",
+    "noPaymentMethod": "支払い方法なし",
+    "confirm": "適用",
+    "success": {
+      "delete": "{{count}} 件のサブスクリプションを削除しました",
+      "update": "{{count}} 件のサブスクリプションを更新しました",
+      "mark_renewed": "{{count}} 件のサブスクリプションを更新済みにしました"
+    },
+    "failed": "{{count}} 件の操作に失敗しました",
+    "partial": "成功 {{succeeded}} 件、失敗 {{failed}} 件"
+  },
   "form": {
     "editTitle": "サブスクリプションを編集",
     "addTitle": "サブスクリプションを追加",

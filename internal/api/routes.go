@@ -79,6 +79,7 @@ func (h *SubscriptionHandler) RegisterRoutes(g RouteGroups) {
 	g.Protected.PUT("/subscriptions/:id", h.Update)
 	g.Protected.DELETE("/subscriptions/:id", h.Delete)
 	g.Protected.POST("/subscriptions/:id/mark-renewed", h.MarkRenewed)
+	g.Protected.POST("/subscriptions/batch", h.Batch)
 	g.Protected.POST("/subscriptions/reconcile", h.Reconcile)
 	g.Protected.POST("/subscriptions/:id/icon", h.UploadIcon)
 	g.Protected.GET("/dashboard/summary", h.Dashboard)

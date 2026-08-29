@@ -147,3 +147,27 @@ export interface UpdateSubscriptionInput {
   url?: string
   notes?: string
 }
+
+export type SubscriptionBatchAction = "delete" | "update" | "mark_renewed"
+
+export interface SubscriptionBatchInput {
+  action: SubscriptionBatchAction
+  ids: number[]
+  status?: SubscriptionStatus
+  renewal_mode?: SubscriptionRenewalMode
+  category_id?: number | null
+  payment_method_id?: number | null
+}
+
+export interface SubscriptionBatchFailure {
+  id: number
+  code: string
+  message: string
+}
+
+export interface SubscriptionBatchResult {
+  total: number
+  succeeded: number
+  failed: number
+  failures: SubscriptionBatchFailure[]
+}

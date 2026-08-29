@@ -107,6 +107,40 @@ const subscription = {
       "open": "打开日历"
     }
   },
+  "batch": {
+    "select": "选择 {{name}}",
+    "selected": "已选择 {{count}} 项",
+    "actions": "批量操作",
+    "actionsLabel": "应用到所选订阅",
+    "markRenewed": "标记为已续费",
+    "activate": "激活",
+    "end": "标记为已结束",
+    "setCategory": "设置分类…",
+    "setPaymentMethod": "设置支付方式…",
+    "delete": "删除…",
+    "clear": "清除选择",
+    "deleteTitle": "删除订阅",
+    "deleteDescription": "确定删除所选 {{count}} 个订阅？此操作无法撤销。",
+    "deleteConfirm": "删除 {{count}} 项",
+    "categoryTitle": "设置分类",
+    "categoryDescription": "为所选 {{count}} 个订阅设置分类。",
+    "categoryLabel": "分类",
+    "categoryPlaceholder": "选择分类",
+    "noCategory": "无分类",
+    "paymentMethodTitle": "设置支付方式",
+    "paymentMethodDescription": "为所选 {{count}} 个订阅设置支付方式。",
+    "paymentMethodLabel": "支付方式",
+    "paymentMethodPlaceholder": "选择支付方式",
+    "noPaymentMethod": "无支付方式",
+    "confirm": "应用",
+    "success": {
+      "delete": "已删除 {{count}} 个订阅",
+      "update": "已更新 {{count}} 个订阅",
+      "mark_renewed": "已将 {{count}} 个订阅标记为已续费"
+    },
+    "failed": "{{count}} 项操作失败",
+    "partial": "成功 {{succeeded}} 项，失败 {{failed}} 项"
+  },
   "form": {
     "editTitle": "编辑订阅",
     "addTitle": "添加订阅",

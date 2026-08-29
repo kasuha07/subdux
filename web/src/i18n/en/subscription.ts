@@ -107,6 +107,40 @@ const subscription = {
       "open": "Open calendar"
     }
   },
+  "batch": {
+    "select": "Select {{name}}",
+    "selected": "{{count}} selected",
+    "actions": "Bulk actions",
+    "actionsLabel": "Apply to selection",
+    "markRenewed": "Mark renewed",
+    "activate": "Activate",
+    "end": "End",
+    "setCategory": "Set category…",
+    "setPaymentMethod": "Set payment method…",
+    "delete": "Delete…",
+    "clear": "Clear",
+    "deleteTitle": "Delete subscriptions",
+    "deleteDescription": "Delete {{count}} selected subscription(s)? This cannot be undone.",
+    "deleteConfirm": "Delete {{count}}",
+    "categoryTitle": "Set category",
+    "categoryDescription": "Set the category of {{count}} selected subscription(s).",
+    "categoryLabel": "Category",
+    "categoryPlaceholder": "Select a category",
+    "noCategory": "No category",
+    "paymentMethodTitle": "Set payment method",
+    "paymentMethodDescription": "Set the payment method of {{count}} selected subscription(s).",
+    "paymentMethodLabel": "Payment method",
+    "paymentMethodPlaceholder": "Select a payment method",
+    "noPaymentMethod": "No payment method",
+    "confirm": "Apply",
+    "success": {
+      "delete": "Deleted {{count}} subscription(s)",
+      "update": "Updated {{count}} subscription(s)",
+      "mark_renewed": "Marked {{count}} subscription(s) as renewed"
+    },
+    "failed": "{{count}} operation(s) failed",
+    "partial": "{{succeeded}} succeeded, {{failed}} failed"
+  },
   "form": {
     "editTitle": "Edit subscription",
     "addTitle": "Add subscription",

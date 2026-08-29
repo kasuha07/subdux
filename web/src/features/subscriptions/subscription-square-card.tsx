@@ -5,6 +5,7 @@ import { ExternalLink, PanelRightOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import {
   getSubscriptionDueDate,
@@ -71,6 +72,8 @@ interface SubscriptionSquareCardProps {
   paymentMethodName?: string
   onOpenDetail: (sub: Subscription) => void
   onPreloadDetail?: (sub: Subscription) => void
+  selected?: boolean
+  onToggleSelect?: (id: number) => void
 }
 
 const statusStyles: Record<string, string> = {
@@ -97,6 +100,8 @@ export default function SubscriptionSquareCard({
   paymentMethodName,
   onOpenDetail,
   onPreloadDetail,
+  selected = false,
+  onToggleSelect,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
   const amountToDisplay = displayAmount ?? subscription.amount
@@ -182,6 +187,14 @@ export default function SubscriptionSquareCard({
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
+            {onToggleSelect && (
+              <Checkbox
+                checked={selected}
+                onCheckedChange={() => onToggleSelect(subscription.id)}
+                aria-label={t("subscription.batch.select", { name: subscription.name })}
+                className="shrink-0"
+              />
+            )}
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
               {renderIcon(subscription.icon, subscription.name)}
             </div>
