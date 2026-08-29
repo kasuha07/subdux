@@ -26,6 +26,23 @@ func NewSubscriptionHandler(s *subscriptionservice.Service, er *exchangerate.Ser
 
 type subscriptionResponse = contract.SubscriptionResponse
 
+// markFieldsPresent records which optional fields appeared in the raw JSON
+// body, so the request can distinguish an explicit null (clear the value)
+// from an omitted field. Each flag target is set to true when its field name
+// is present in the payload.
+func markFieldsPresent(data []byte, fields map[string]*bool) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for field, flag := range fields {
+		if _, ok := raw[field]; ok {
+			*flag = true
+		}
+	}
+	return nil
+}
+
 // updateSubscriptionRequest is the HTTP request shape for a single-subscription
 // update. It mirrors the service input but owns the transport-shape detail of
 // distinguishing an explicit null (clear the value) from an omitted field,
@@ -45,23 +62,12 @@ func (r *updateSubscriptionRequest) UnmarshalJSON(data []byte) error {
 	}
 	*r = updateSubscriptionRequest(decoded)
 
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["category_id"]; ok {
-		r.CategoryIDSet = true
-	}
-	if _, ok := raw["payment_method_id"]; ok {
-		r.PaymentMethodIDSet = true
-	}
-	if _, ok := raw["notify_enabled"]; ok {
-		r.NotifyEnabledSet = true
-	}
-	if _, ok := raw["notify_days_before"]; ok {
-		r.NotifyDaysBeforeSet = true
-	}
-	return nil
+	return markFieldsPresent(data, map[string]*bool{
+		"category_id":        &r.CategoryIDSet,
+		"payment_method_id":  &r.PaymentMethodIDSet,
+		"notify_enabled":     &r.NotifyEnabledSet,
+		"notify_days_before": &r.NotifyDaysBeforeSet,
+	})
 }
 
 // batchSubscriptionRequest is the HTTP request shape for a bulk subscription
@@ -79,17 +85,10 @@ func (r *batchSubscriptionRequest) UnmarshalJSON(data []byte) error {
 	}
 	*r = batchSubscriptionRequest(decoded)
 
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["category_id"]; ok {
-		r.CategoryIDSet = true
-	}
-	if _, ok := raw["payment_method_id"]; ok {
-		r.PaymentMethodIDSet = true
-	}
-	return nil
+	return markFieldsPresent(data, map[string]*bool{
+		"category_id":       &r.CategoryIDSet,
+		"payment_method_id": &r.PaymentMethodIDSet,
+	})
 }
 
 type subscriptionDetailResponse struct {
