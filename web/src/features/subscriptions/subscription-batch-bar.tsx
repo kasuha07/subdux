@@ -192,8 +192,7 @@ export default function SubscriptionBatchBar({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={submitting || categories.length === 0}
-              onSelect={(event) => {
-                event.preventDefault()
+              onSelect={() => {
                 setCategoryValue("")
                 setDialog("category")
               }}
@@ -203,8 +202,7 @@ export default function SubscriptionBatchBar({
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={submitting || paymentMethods.length === 0}
-              onSelect={(event) => {
-                event.preventDefault()
+              onSelect={() => {
                 setPaymentMethodValue("")
                 setDialog("payment_method")
               }}
@@ -216,8 +214,7 @@ export default function SubscriptionBatchBar({
             <DropdownMenuItem
               disabled={submitting}
               variant="destructive"
-              onSelect={(event) => {
-                event.preventDefault()
+              onSelect={() => {
                 setDialog("delete")
               }}
             >
