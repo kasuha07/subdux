@@ -130,6 +130,87 @@ func TestBatchUpdateRejectsInvalidAction(t *testing.T) {
 	}
 }
 
+func TestBatchUpdateCategoryNullClearsCategory(t *testing.T) {
+	handler, userID := newBatchHandler(t)
+	sub := seedBatchHandlerSubscription(t, handler, userID, "Sub")
+
+	cat := model.Category{UserID: userID, Name: "Music"}
+	if err := handler.Service.DB.Create(&cat).Error; err != nil {
+		t.Fatalf("create category failed: %v", err)
+	}
+	if _, err := handler.Service.Update(userID, sub.ID, subscriptionservice.UpdateSubscriptionInput{
+		CategoryID:    &cat.ID,
+		CategoryIDSet: true,
+	}); err != nil {
+		t.Fatalf("set category failed: %v", err)
+	}
+
+	rec := postBatchJSON(t, handler, userID,
+		`{"action":"update","ids":[`+itoa(sub.ID)+`],"category_id":null}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+	var result subscriptionservice.BatchSubscriptionResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("unmarshal result failed: %v", err)
+	}
+	if result.Succeeded != 1 {
+		t.Fatalf("result = %+v, want 1 succeeded", result)
+	}
+
+	var reloaded model.Subscription
+	if err := handler.Service.DB.First(&reloaded, sub.ID).Error; err != nil {
+		t.Fatalf("reload failed: %v", err)
+	}
+	if reloaded.CategoryID != nil {
+		t.Fatalf("category_id = %v, want nil after explicit null", *reloaded.CategoryID)
+	}
+}
+
+func TestBatchUpdateOmittedCategoryPreservesCategory(t *testing.T) {
+	handler, userID := newBatchHandler(t)
+	sub := seedBatchHandlerSubscription(t, handler, userID, "Sub")
+
+	cat := model.Category{UserID: userID, Name: "Music"}
+	if err := handler.Service.DB.Create(&cat).Error; err != nil {
+		t.Fatalf("create category failed: %v", err)
+	}
+	if _, err := handler.Service.Update(userID, sub.ID, subscriptionservice.UpdateSubscriptionInput{
+		CategoryID:    &cat.ID,
+		CategoryIDSet: true,
+	}); err != nil {
+		t.Fatalf("set category failed: %v", err)
+	}
+
+	// "update" without category_id must leave the category untouched.
+	status := "ended"
+	rec := postBatchJSON(t, handler, userID,
+		`{"action":"update","ids":[`+itoa(sub.ID)+`],"status":"ended"}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+	var result subscriptionservice.BatchSubscriptionResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("unmarshal result failed: %v", err)
+	}
+	if result.Succeeded != 1 {
+		t.Fatalf("result = %+v, want 1 succeeded", result)
+	}
+
+	var reloaded model.Subscription
+	if err := handler.Service.DB.First(&reloaded, sub.ID).Error; err != nil {
+		t.Fatalf("reload failed: %v", err)
+	}
+	if reloaded.CategoryID == nil || *reloaded.CategoryID != cat.ID {
+		t.Fatalf("category_id = %v, want %d preserved", reloaded.CategoryID, cat.ID)
+	}
+	if reloaded.Status != status {
+		t.Fatalf("status = %q, want %q", reloaded.Status, status)
+	}
+}
+
 func TestBatchMarkRenewedReportsPartialFailures(t *testing.T) {
 	handler, userID := newBatchHandler(t)
 	autoSub := seedBatchHandlerSubscription(t, handler, userID, "Auto")

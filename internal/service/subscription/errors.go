@@ -51,6 +51,9 @@ var (
 	ErrRecurrenceSettingsInvalid   = serviceerr.New(serviceerr.KindInvalid, "subscription_recurrence_settings_are_invalid", "subscription recurrence settings are invalid")
 	ErrNextBillingDateCalcFailed   = serviceerr.New(serviceerr.KindInvalid, "failed_to_calculate_next_billing_date", "failed to calculate next billing date")
 
+	// Batch operations.
+	ErrBatchInternal = serviceerr.New(serviceerr.KindInternal, "batch_internal_error", "internal error while processing a subscription in the batch")
+
 	// Action-center / snooze validation.
 	ErrInvalidActionKey       = serviceerr.New(serviceerr.KindInvalid, "invalid_action_key", "invalid action key")
 	ErrSnoozeDateRequired     = serviceerr.New(serviceerr.KindInvalid, "snooze_date_is_required", "snooze date is required")

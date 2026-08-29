@@ -1,10 +1,11 @@
 package subscription
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
+	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"gorm.io/gorm"
 )
@@ -38,27 +39,6 @@ type BatchSubscriptionInput struct {
 
 	CategoryIDSet      bool `json:"-"`
 	PaymentMethodIDSet bool `json:"-"`
-}
-
-func (input *BatchSubscriptionInput) UnmarshalJSON(data []byte) error {
-	type alias BatchSubscriptionInput
-	var decoded alias
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	*input = BatchSubscriptionInput(decoded)
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["category_id"]; ok {
-		input.CategoryIDSet = true
-	}
-	if _, ok := raw["payment_method_id"]; ok {
-		input.PaymentMethodIDSet = true
-	}
-	return nil
 }
 
 // BatchSubscriptionFailure reports why one addressed subscription could not be
@@ -95,7 +75,14 @@ func batchFailureFor(id uint, err error) BatchSubscriptionFailure {
 		failure.Message = typed.Msg
 		return failure
 	}
-	failure.Message = err.Error()
+	// Untyped errors (SQLite driver details and the like) must never leak into
+	// the response body. Surface a stable code plus a generic message, and log
+	// the cause so operators can still diagnose the failure.
+	logging.Error("batch subscription failed with an untyped error",
+		slog.Uint64("subscription_id", uint64(id)),
+		slog.Any("error", err))
+	failure.Code = ErrBatchInternal.Code
+	failure.Message = ErrBatchInternal.Msg
 	return failure
 }
 

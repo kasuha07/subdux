@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/kasuha07/subdux/internal/model"
@@ -424,4 +425,25 @@ func TestBatchValidationErrors(t *testing.T) {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func TestBatchFailureForUntypedErrorIsSanitized(t *testing.T) {
+	f := batchFailureFor(42, errors.New("sqlite: disk I/O error (code 778): database disk image is malformed"))
+	if f.Code != ErrBatchInternal.Code {
+		t.Fatalf("failure code = %q, want %q", f.Code, ErrBatchInternal.Code)
+	}
+	if f.Message == "" {
+		t.Fatal("failure message must not be empty")
+	}
+	if strings.Contains(f.Message, "sqlite") || strings.Contains(f.Message, "disk I/O") {
+		t.Fatalf("failure message leaks internal error detail: %q", f.Message)
+	}
+}
+
+func TestBatchFailureForKeepsTypedErrorCode(t *testing.T) {
+	typed := serviceerr.New(serviceerr.KindInvalid, "category_not_found", "category not found")
+	f := batchFailureFor(7, typed)
+	if f.Code != "category_not_found" || f.Message != "category not found" {
+		t.Fatalf("failure = %+v, want category_not_found surfaced verbatim", f)
+	}
 }

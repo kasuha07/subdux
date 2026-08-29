@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -24,6 +25,72 @@ func NewSubscriptionHandler(s *subscriptionservice.Service, er *exchangerate.Ser
 }
 
 type subscriptionResponse = contract.SubscriptionResponse
+
+// updateSubscriptionRequest is the HTTP request shape for a single-subscription
+// update. It mirrors the service input but owns the transport-shape detail of
+// distinguishing an explicit null (clear the value) from an omitted field,
+// filling the service layer's *Set markers accordingly.
+//
+// The embedded service input keeps the DTO a pure shape wrapper: the handler
+// forwards request.UpdateSubscriptionInput straight to the service.
+type updateSubscriptionRequest struct {
+	subscriptionservice.UpdateSubscriptionInput
+}
+
+func (r *updateSubscriptionRequest) UnmarshalJSON(data []byte) error {
+	type plain updateSubscriptionRequest
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*r = updateSubscriptionRequest(decoded)
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["category_id"]; ok {
+		r.CategoryIDSet = true
+	}
+	if _, ok := raw["payment_method_id"]; ok {
+		r.PaymentMethodIDSet = true
+	}
+	if _, ok := raw["notify_enabled"]; ok {
+		r.NotifyEnabledSet = true
+	}
+	if _, ok := raw["notify_days_before"]; ok {
+		r.NotifyDaysBeforeSet = true
+	}
+	return nil
+}
+
+// batchSubscriptionRequest is the HTTP request shape for a bulk subscription
+// operation, carrying the same null-vs-omitted distinction for the optional
+// update fields as updateSubscriptionRequest.
+type batchSubscriptionRequest struct {
+	subscriptionservice.BatchSubscriptionInput
+}
+
+func (r *batchSubscriptionRequest) UnmarshalJSON(data []byte) error {
+	type plain batchSubscriptionRequest
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*r = batchSubscriptionRequest(decoded)
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["category_id"]; ok {
+		r.CategoryIDSet = true
+	}
+	if _, ok := raw["payment_method_id"]; ok {
+		r.PaymentMethodIDSet = true
+	}
+	return nil
+}
 
 type subscriptionDetailResponse struct {
 	Subscription     subscriptionResponse                                     `json:"subscription"`
@@ -127,20 +194,20 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 		return nil
 	}
 
-	var input subscriptionservice.UpdateSubscriptionInput
-	if !httpx.BindJSON(c, &input, "invalid_request_body") {
+	var request updateSubscriptionRequest
+	if !httpx.BindJSON(c, &request, "invalid_request_body") {
 		return nil
 	}
-	if input.Amount != nil {
-		if validation := contract.ValidateSubscriptionAmount(*input.Amount); validation != contract.AmountValid {
+	if request.Amount != nil {
+		if validation := contract.ValidateSubscriptionAmount(*request.Amount); validation != contract.AmountValid {
 			return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
 		}
 	}
-	if input.Icon != nil && !validateSubscriptionIcon(*input.Icon) {
+	if request.Icon != nil && !validateSubscriptionIcon(*request.Icon) {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
 	}
 
-	sub, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
+	sub, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), request.UpdateSubscriptionInput)
 	if err != nil {
 		return err
 	}
@@ -168,12 +235,12 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 func (h *SubscriptionHandler) Batch(c echo.Context) error {
 	userID := apimw.From(c).UserID
 
-	var input subscriptionservice.BatchSubscriptionInput
-	if !httpx.BindJSON(c, &input, "invalid_request_body") {
+	var request batchSubscriptionRequest
+	if !httpx.BindJSON(c, &request, "invalid_request_body") {
 		return nil
 	}
 
-	result, err := h.Service.WithContext(c.Request().Context()).Batch(userID, input)
+	result, err := h.Service.WithContext(c.Request().Context()).Batch(userID, request.BatchSubscriptionInput)
 	if err != nil {
 		return err
 	}

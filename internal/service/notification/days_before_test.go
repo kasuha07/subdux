@@ -1,7 +1,6 @@
 package notification
 
 import (
-	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -175,9 +174,9 @@ func TestUpdateSubscriptionAllowsClearingNotifyOverridesWithNull(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	var updateInput subscriptionservice.UpdateSubscriptionInput
-	if err := json.Unmarshal([]byte(`{"notify_enabled":null,"notify_days_before":null}`), &updateInput); err != nil {
-		t.Fatalf("json.Unmarshal() error = %v", err)
+	updateInput := subscriptionservice.UpdateSubscriptionInput{
+		NotifyEnabledSet:    true,
+		NotifyDaysBeforeSet: true,
 	}
 
 	updated, err := service.Update(user.ID, sub.ID, updateInput)

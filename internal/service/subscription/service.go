@@ -2,7 +2,6 @@ package subscription
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -129,35 +128,6 @@ type UpdateSubscriptionInput struct {
 	PaymentMethodIDSet  bool `json:"-"`
 	NotifyEnabledSet    bool `json:"-"`
 	NotifyDaysBeforeSet bool `json:"-"`
-}
-
-func (input *UpdateSubscriptionInput) UnmarshalJSON(data []byte) error {
-	type alias UpdateSubscriptionInput
-	var decoded alias
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	*input = UpdateSubscriptionInput(decoded)
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-
-	if _, ok := raw["notify_enabled"]; ok {
-		input.NotifyEnabledSet = true
-	}
-	if _, ok := raw["notify_days_before"]; ok {
-		input.NotifyDaysBeforeSet = true
-	}
-	if _, ok := raw["category_id"]; ok {
-		input.CategoryIDSet = true
-	}
-	if _, ok := raw["payment_method_id"]; ok {
-		input.PaymentMethodIDSet = true
-	}
-
-	return nil
 }
 
 type DashboardSummary struct {
