@@ -159,11 +159,12 @@ func (s *Service) validateBatchInput(userID uint, input BatchSubscriptionInput) 
 // behave identically) and committed independently: an item that cannot be
 // processed is reported in the result rather than aborting the rest.
 func (s *Service) Batch(userID uint, input BatchSubscriptionInput) (*BatchSubscriptionResult, error) {
+	input.IDs = deduplicateIDs(input.IDs)
 	if err := s.validateBatchInput(userID, input); err != nil {
 		return nil, err
 	}
 
-	ids := deduplicateIDs(input.IDs)
+	ids := input.IDs
 	result := &BatchSubscriptionResult{
 		Total:    len(ids),
 		Failures: make([]BatchSubscriptionFailure, 0),

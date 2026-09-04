@@ -353,6 +353,26 @@ func TestBatchDeduplicatesIDs(t *testing.T) {
 	}
 }
 
+func TestBatchAllowsDuplicateIDsBeyondUniqueLimit(t *testing.T) {
+	service, user, _ := newBatchTestService(t)
+	sub := createBatchTestSubscription(t, service, user.ID, "Sub")
+	ids := make([]uint, MaxBatchSubscriptionIDs+1)
+	for i := range ids {
+		ids[i] = sub.ID
+	}
+
+	result, err := service.Batch(user.ID, BatchSubscriptionInput{
+		Action: BatchActionDelete,
+		IDs:    ids,
+	})
+	if err != nil {
+		t.Fatalf("Batch() error = %v", err)
+	}
+	if result.Total != 1 || result.Succeeded != 1 || result.Failed != 0 {
+		t.Fatalf("Batch() result = %+v, want one deduplicated success", result)
+	}
+}
+
 func TestBatchValidationErrors(t *testing.T) {
 	service, user, db := newBatchTestService(t)
 	other := model.User{Username: "other", Email: "other@example.com", Password: "x", Role: "user", Status: "active"}
@@ -362,6 +382,10 @@ func TestBatchValidationErrors(t *testing.T) {
 	foreignCategory := model.Category{UserID: other.ID, Name: "Foreign"}
 	if err := db.Create(&foreignCategory).Error; err != nil {
 		t.Fatalf("create foreign category failed: %v", err)
+	}
+	tooManyIDs := make([]uint, MaxBatchSubscriptionIDs+1)
+	for i := range tooManyIDs {
+		tooManyIDs[i] = uint(i + 1)
 	}
 
 	tests := []struct {
@@ -376,7 +400,7 @@ func TestBatchValidationErrors(t *testing.T) {
 		},
 		{
 			name:  "too many ids",
-			input: BatchSubscriptionInput{Action: BatchActionDelete, IDs: make([]uint, MaxBatchSubscriptionIDs+1)},
+			input: BatchSubscriptionInput{Action: BatchActionDelete, IDs: tooManyIDs},
 			want:  "batch_too_many_ids",
 		},
 		{
