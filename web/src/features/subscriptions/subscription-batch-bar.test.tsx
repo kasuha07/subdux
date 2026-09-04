@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 
 import SubscriptionBatchBar from "./subscription-batch-bar"
+import { createActivateBatchInput } from "./subscription-batch-inputs"
 
 vi.mock("@/lib/api", () => ({
   api: { post: vi.fn() },
@@ -16,6 +17,14 @@ vi.mock("react-i18next", () => ({
 }))
 
 describe("SubscriptionBatchBar", () => {
+  it("activates subscriptions without changing their renewal policy", () => {
+    expect(createActivateBatchInput([1, 3])).toEqual({
+      action: "update",
+      ids: [1, 3],
+      status: "active",
+    })
+  })
+
   it("renders the selection count and action entry points", () => {
     const markup = renderToStaticMarkup(
       <SubscriptionBatchBar

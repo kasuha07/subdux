@@ -37,6 +37,8 @@ import type {
   SubscriptionBatchResult,
 } from "@/types"
 
+import { createActivateBatchInput } from "./subscription-batch-inputs"
+
 const CLEAR_VALUE = "__none__"
 
 interface SubscriptionBatchBarProps {
@@ -168,12 +170,7 @@ export default function SubscriptionBatchBar({
               disabled={submitting}
               onSelect={(event) => {
                 event.preventDefault()
-                void runBatch({
-                  action: "update",
-                  ids: selectedIDs,
-                  status: "active",
-                  renewal_mode: "auto_renew",
-                })
+                void runBatch(createActivateBatchInput(selectedIDs))
               }}
             >
               <Play className="size-4" />
