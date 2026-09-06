@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Plus, Trash2, Link2 } from "lucide-react"
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Plus, Trash2, Link2, LoaderCircle } from "lucide-react"
+import "./calendar-page.css"
 import { toast } from "@/lib/toast"
 
 import { Button } from "@/components/ui/button"
@@ -152,6 +153,7 @@ export default function CalendarPage() {
   const [tokens, setTokens] = useState<CalendarToken[]>([])
   const [loadingSubs, setLoadingSubs] = useState(true)
   const [loadingTokens, setLoadingTokens] = useState(true)
+  const [monthDirection, setMonthDirection] = useState<"previous" | "next">("next")
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [newTokenName, setNewTokenName] = useState("")
   const [creatingToken, setCreatingToken] = useState(false)
@@ -216,12 +218,14 @@ export default function CalendarPage() {
   const cells = useMemo(() => buildCalendarGrid(viewYear, viewMonth), [viewYear, viewMonth])
 
   function prevMonth() {
+    setMonthDirection("previous")
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
     else setViewMonth(m => m - 1)
     setSelectedDay(null)
   }
 
   function nextMonth() {
+    setMonthDirection("next")
     if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
     else setViewMonth(m => m + 1)
     setSelectedDay(null)
@@ -236,6 +240,7 @@ export default function CalendarPage() {
     viewYear === today.getFullYear() && viewMonth === today.getMonth()
 
   function goToToday() {
+    setMonthDirection(viewYear * 12 + viewMonth > today.getFullYear() * 12 + today.getMonth() ? "previous" : "next")
     setViewYear(today.getFullYear())
     setViewMonth(today.getMonth())
     setSelectedDay(today.getDate())
@@ -378,7 +383,7 @@ export default function CalendarPage() {
 
       <main className="page-stage-enter mx-auto max-w-4xl px-4 py-6 space-y-6">
         {/* Calendar */}
-        <Card>
+        <Card aria-busy={loadingSubs}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <Tooltip content={t("calendar.prevMonth")}>
@@ -387,7 +392,8 @@ export default function CalendarPage() {
                 </Button>
               </Tooltip>
               <div className="flex items-center gap-2">
-                <span className="font-semibold capitalize">{monthLabel}</span>
+                <span key={`${viewYear}-${viewMonth}`} className="page-content-enter font-semibold capitalize">{monthLabel}</span>
+                {loadingSubs && <LoaderCircle aria-hidden="true" className="size-4 animate-spin text-muted-foreground" />}
                 {!isCurrentMonth && (
                   <Button
                     variant="outline"
@@ -417,7 +423,7 @@ export default function CalendarPage() {
             </div>
             {/* Day cells */}
             {loadingSubs ? (
-              <div className="grid grid-cols-7" role="status" aria-label={t("common.loading")}>
+              <div className="page-loading-enter grid grid-cols-7" role="status" aria-label={t("common.loading")}>
                 {Array.from({ length: 42 }).map((_, i) => (
                   <div
                     key={i}
@@ -433,7 +439,7 @@ export default function CalendarPage() {
                 ))}
               </div>
             ) : (
-              <div key={`${viewYear}-${viewMonth}`} className="page-content-enter grid grid-cols-7">
+              <div key={`${viewYear}-${viewMonth}`} className="calendar-month-enter grid grid-cols-7" data-direction={monthDirection}>
                 {cells.map((day, idx) => {
                   const isToday =
                     day !== null &&
@@ -445,27 +451,34 @@ export default function CalendarPage() {
                   const subsForDay = day !== null ? (billingMap.get(day) ?? []) : []
 
                   return (
-                    <div
+                    <button
+                      type="button"
+                      disabled={day === null}
+                      aria-pressed={day === null ? undefined : isSelected}
+                      aria-current={isToday ? "date" : undefined}
+                      aria-label={day === null ? undefined : new Date(viewYear, viewMonth, day).toLocaleDateString(i18n.language, { dateStyle: "full" })}
                       key={idx}
                       onClick={() => {
                         if (day === null) return
                         setSelectedDay(isSelected ? null : day)
                       }}
                       className={cn(
-                        "min-h-[60px] sm:min-h-[80px] border-b border-r p-1 flex flex-col",
+                        "calendar-day min-w-0 min-h-[60px] sm:min-h-[80px] border-b border-r p-1 flex flex-col text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
                         (idx + 1) % 7 === 0 && "border-r-0",
                         day === null && "bg-muted/30",
-                        day !== null && "cursor-pointer hover:bg-muted/50 transition-colors",
-                        isSelected && "bg-muted",
+                        day !== null && "cursor-pointer",
+                        day !== null && !isSelected && "hover:bg-muted/50",
+                        isSelected && "bg-primary/15 hover:bg-primary/15 inset-ring-2 inset-ring-primary",
                       )}
                     >
                       {day !== null && (
                         <>
                           <span
                             className={cn(
-                              "text-sm w-7 h-7 flex items-center justify-center rounded-full self-end",
-                              isToday && "ring-2 ring-primary font-semibold text-primary",
-                              !isToday && "text-foreground",
+                              "text-sm w-7 h-7 flex items-center justify-center rounded-full self-end transition-colors duration-150",
+                              isSelected && "bg-primary text-primary-foreground font-bold",
+                              isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background font-semibold",
+                              !isSelected && (isToday ? "text-primary" : "text-foreground"),
                             )}
                           >
                             {day}
@@ -489,7 +502,7 @@ export default function CalendarPage() {
                           )}
                         </>
                       )}
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -499,7 +512,7 @@ export default function CalendarPage() {
 
         {/* Selected day subscriptions */}
         {selectedDay !== null && (
-          <Card>
+          <Card key={`${viewYear}-${viewMonth}-${selectedDay}`} className="calendar-detail-enter">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">
                 {new Date(viewYear, viewMonth, selectedDay).toLocaleDateString(i18n.language, {
@@ -519,7 +532,7 @@ export default function CalendarPage() {
                       key={sub.id}
                       role="button"
                       tabIndex={0}
-                      className="flex items-center gap-3 rounded-md border p-2 cursor-pointer hover:bg-muted/50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                      className="subscription-card-motion flex items-center gap-3 rounded-md border p-2 cursor-pointer hover:bg-muted/50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => openSubscriptionDetail(sub)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -627,6 +640,7 @@ export default function CalendarPage() {
                       />
                     </div>
                     <Button size="sm" type="submit" disabled={creatingToken || !newTokenName.trim()}>
+                      {creatingToken && <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />}
                       {creatingToken ? t("calendar.token.creating") : t("calendar.token.create")}
                     </Button>
                   </form>
@@ -637,8 +651,22 @@ export default function CalendarPage() {
 
           <Separator />
 
+          {loadingTokens && (
+            <div className="page-loading-enter space-y-2" role="status" aria-label={t("common.loading")} aria-busy="true">
+              {[0, 1].map((index) => (
+                <div key={index} className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="size-7 rounded-md" />
+                </div>
+              ))}
+            </div>
+          )}
+
           {!loadingTokens && tokens.length === 0 && (
-            <div className="py-8 text-center">
+            <div className="page-content-enter py-8 text-center">
               <Link2 className="mx-auto size-8 text-muted-foreground/50" />
               <p className="mt-2 text-sm font-medium text-muted-foreground">
                 {t("calendar.token.empty.title")}
@@ -654,7 +682,7 @@ export default function CalendarPage() {
               {tokens.map((token) => (
                 <div
                   key={token.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-2.5"
+                  className="page-content-enter flex items-center justify-between rounded-md border px-3 py-2.5"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{token.name}</p>
