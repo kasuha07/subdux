@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { useTranslation } from "react-i18next"
 import {
   CheckSquare,
+  ChevronDown,
   X,
   ArrowDown,
   ArrowUp,
@@ -72,6 +73,42 @@ interface DashboardFiltersToolbarProps {
   sortField: SortField
 }
 
+function useIsCompactScreen(): boolean {
+  const isMobile = useIsMobileDevice()
+  const isSmallScreen = useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined" || !window.matchMedia) return () => {}
+      try {
+        const mql = window.matchMedia("(max-width: 767px)")
+        if (mql.addEventListener) {
+          mql.addEventListener("change", onStoreChange)
+          return () => mql.removeEventListener("change", onStoreChange)
+        } else if ("addListener" in mql) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const legacy = mql as any
+          legacy.addListener(onStoreChange)
+          return () => legacy.removeListener(onStoreChange)
+        }
+      } catch {
+        // Ignore evaluation errors
+      }
+      return () => {}
+    },
+    () => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return false
+      }
+      try {
+        return window.matchMedia("(max-width: 767px)").matches
+      } catch {
+        return false
+      }
+    },
+    () => false
+  )
+  return isMobile || isSmallScreen
+}
+
 export default function DashboardFiltersToolbar({
   batchMode,
   onToggleBatchMode,
@@ -106,6 +143,7 @@ export default function DashboardFiltersToolbar({
 }: DashboardFiltersToolbarProps) {
   const { t } = useTranslation()
   const isMobile = useIsMobileDevice()
+  const isCompact = useIsCompactScreen()
 
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -130,6 +168,28 @@ export default function DashboardFiltersToolbar({
     window.addEventListener("keydown", handleGlobalKeyDown)
     return () => window.removeEventListener("keydown", handleGlobalKeyDown)
   }, [])
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set())
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(section)) {
+        next.delete(section)
+      } else {
+        next.add(section)
+      }
+      return next
+    })
+  }
+
+  const statusActiveCount =
+    selectedStatuses.size === 1 && selectedStatuses.has("active")
+      ? 0
+      : selectedStatuses.size
+  const renewalModeActiveCount = selectedRenewalModes.size
+  const categoryActiveCount = selectedCategories.size + (includeNoCategory ? 1 : 0)
+  const paymentMethodActiveCount = selectedPaymentMethodIDs.size + (includeNoPaymentMethod ? 1 : 0)
 
   const activeFilterCount =
     (selectedStatuses.size === 1 && selectedStatuses.has("active") ? 0 : 1) +
@@ -199,7 +259,16 @@ export default function DashboardFiltersToolbar({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <DropdownMenu modal={false} open={filterMenuOpen} onOpenChange={setFilterMenuOpen}>
+        <DropdownMenu
+          modal={false}
+          open={filterMenuOpen}
+          onOpenChange={(open) => {
+            setFilterMenuOpen(open)
+            if (!open) {
+              setExpandedSections(new Set())
+            }
+          }}
+        >
           <Tooltip content={filterMenuOpen ? null : filterTooltipText} contentClassName="md:hidden">
             <DropdownMenuTrigger asChild>
               <Button
@@ -221,108 +290,339 @@ export default function DashboardFiltersToolbar({
               </Button>
             </DropdownMenuTrigger>
           </Tooltip>
-          <DropdownMenuContent align="start">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {statusOptions.map((status) => (
-                  <DropdownMenuCheckboxItem
-                    key={status}
-                    checked={selectedStatuses.has(status)}
-                    onSelect={(event) => event.preventDefault()}
-                    onCheckedChange={(checked) => {
-                      onToggleStatus(status, checked === true)
-                    }}
-                  >
-                    {t(`subscription.card.status.${status}`)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>{t("dashboard.filters.renewalMode")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {renewalModeOptions.map((mode) => (
-                  <DropdownMenuCheckboxItem
-                    key={mode}
-                    checked={selectedRenewalModes.has(mode)}
-                    onSelect={(event) => event.preventDefault()}
-                    onCheckedChange={(checked) => {
-                      onToggleRenewalMode(mode, checked === true)
-                    }}
-                  >
-                    {t(`subscription.card.renewalMode.${mode}`)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>{t("dashboard.filters.category")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuCheckboxItem
-                  checked={includeNoCategory}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={(checked) => {
-                    onToggleNoCategory(checked === true)
+          <DropdownMenuContent
+            align="end"
+            className="max-w-[calc(100vw-2rem)]"
+          >
+            {isCompact ? (
+              <div className="space-y-0.5">
+                {/* Status Section */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    toggleSection("status")
                   }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm font-medium outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
                 >
-                  {t("dashboard.filters.noCategory")}
-                </DropdownMenuCheckboxItem>
-                {categoryOptions.length > 0 ? (
-                  categoryOptions.map((category) => (
-                    <DropdownMenuCheckboxItem
-                      key={category}
-                      checked={selectedCategories.has(category)}
-                      onSelect={(event) => event.preventDefault()}
-                      onCheckedChange={(checked) => {
-                        onToggleCategory(category, checked === true)
-                      }}
-                    >
-                      {category}
-                    </DropdownMenuCheckboxItem>
-                  ))
-                ) : (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    {t("dashboard.filters.noCategories")}
+                  <span className="flex items-center gap-1.5">
+                    {t("dashboard.filters.status")}
+                    {statusActiveCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {statusActiveCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-200",
+                      expandedSections.has("status") && "rotate-180 text-foreground"
+                    )}
+                  />
+                </button>
+                {expandedSections.has("status") && (
+                  <div className="mt-0.5 mb-1 space-y-0.5 border-l border-border/80 ml-2.5 pl-1.5">
+                    {statusOptions.map((status) => (
+                      <DropdownMenuCheckboxItem
+                        key={status}
+                        checked={selectedStatuses.has(status)}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) => {
+                          onToggleStatus(status, checked === true)
+                        }}
+                      >
+                        <span className="truncate">{t(`subscription.card.status.${status}`)}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
                   </div>
                 )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
 
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>{t("dashboard.filters.paymentMethod")}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuCheckboxItem
-                  checked={includeNoPaymentMethod}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={(checked) => {
-                    onToggleNoPaymentMethod(checked === true)
+                {/* Renewal Mode Section */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    toggleSection("renewalMode")
                   }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm font-medium outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
                 >
-                  {t("dashboard.filters.noPaymentMethod")}
-                </DropdownMenuCheckboxItem>
-                {paymentMethods.length > 0 ? (
-                  paymentMethods.map((method) => (
-                    <DropdownMenuCheckboxItem
-                      key={method.id}
-                      checked={selectedPaymentMethodIDs.has(method.id)}
-                      onSelect={(event) => event.preventDefault()}
-                      onCheckedChange={(checked) => {
-                        onTogglePaymentMethod(method.id, checked === true)
-                      }}
-                    >
-                      {paymentMethodLabelMap.get(method.id) ?? method.name}
-                    </DropdownMenuCheckboxItem>
-                  ))
-                ) : (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    {t("dashboard.filters.noPaymentMethods")}
+                  <span className="flex items-center gap-1.5">
+                    {t("dashboard.filters.renewalMode")}
+                    {renewalModeActiveCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {renewalModeActiveCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-200",
+                      expandedSections.has("renewalMode") && "rotate-180 text-foreground"
+                    )}
+                  />
+                </button>
+                {expandedSections.has("renewalMode") && (
+                  <div className="mt-0.5 mb-1 space-y-0.5 border-l border-border/80 ml-2.5 pl-1.5">
+                    {renewalModeOptions.map((mode) => (
+                      <DropdownMenuCheckboxItem
+                        key={mode}
+                        checked={selectedRenewalModes.has(mode)}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) => {
+                          onToggleRenewalMode(mode, checked === true)
+                        }}
+                      >
+                        <span className="truncate">{t(`subscription.card.renewalMode.${mode}`)}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
                   </div>
                 )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+
+                {/* Category Section */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    toggleSection("category")
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm font-medium outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {t("dashboard.filters.category")}
+                    {categoryActiveCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {categoryActiveCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-200",
+                      expandedSections.has("category") && "rotate-180 text-foreground"
+                    )}
+                  />
+                </button>
+                {expandedSections.has("category") && (
+                  <div className="mt-0.5 mb-1 space-y-0.5 border-l border-border/80 ml-2.5 pl-1.5">
+                    <DropdownMenuCheckboxItem
+                      checked={includeNoCategory}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => {
+                        onToggleNoCategory(checked === true)
+                      }}
+                    >
+                      <span className="truncate">{t("dashboard.filters.noCategory")}</span>
+                    </DropdownMenuCheckboxItem>
+                    {categoryOptions.length > 0 ? (
+                      categoryOptions.map((category) => (
+                        <DropdownMenuCheckboxItem
+                          key={category}
+                          checked={selectedCategories.has(category)}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) => {
+                            onToggleCategory(category, checked === true)
+                          }}
+                        >
+                          <span className="truncate">{category}</span>
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground whitespace-nowrap">
+                        {t("dashboard.filters.noCategories")}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Payment Method Section */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    toggleSection("paymentMethod")
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm font-medium outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {t("dashboard.filters.paymentMethod")}
+                    {paymentMethodActiveCount > 0 && (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {paymentMethodActiveCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-200",
+                      expandedSections.has("paymentMethod") && "rotate-180 text-foreground"
+                    )}
+                  />
+                </button>
+                {expandedSections.has("paymentMethod") && (
+                  <div className="mt-0.5 mb-1 space-y-0.5 border-l border-border/80 ml-2.5 pl-1.5">
+                    <DropdownMenuCheckboxItem
+                      checked={includeNoPaymentMethod}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => {
+                        onToggleNoPaymentMethod(checked === true)
+                      }}
+                    >
+                      <span className="truncate">{t("dashboard.filters.noPaymentMethod")}</span>
+                    </DropdownMenuCheckboxItem>
+                    {paymentMethods.length > 0 ? (
+                      paymentMethods.map((method) => (
+                        <DropdownMenuCheckboxItem
+                          key={method.id}
+                          checked={selectedPaymentMethodIDs.has(method.id)}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) => {
+                            onTogglePaymentMethod(method.id, checked === true)
+                          }}
+                        >
+                          <span className="truncate">{paymentMethodLabelMap.get(method.id) ?? method.name}</span>
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground whitespace-nowrap">
+                        {t("dashboard.filters.noPaymentMethods")}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <span className="flex-1 text-left">{t("dashboard.filters.status")}</span>
+                    {statusActiveCount > 0 && (
+                      <span className="mr-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {statusActiveCount}
+                      </span>
+                    )}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {statusOptions.map((status) => (
+                      <DropdownMenuCheckboxItem
+                        key={status}
+                        checked={selectedStatuses.has(status)}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) => {
+                          onToggleStatus(status, checked === true)
+                        }}
+                      >
+                        <span className="truncate">{t(`subscription.card.status.${status}`)}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <span className="flex-1 text-left">{t("dashboard.filters.renewalMode")}</span>
+                    {renewalModeActiveCount > 0 && (
+                      <span className="mr-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {renewalModeActiveCount}
+                      </span>
+                    )}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {renewalModeOptions.map((mode) => (
+                      <DropdownMenuCheckboxItem
+                        key={mode}
+                        checked={selectedRenewalModes.has(mode)}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) => {
+                          onToggleRenewalMode(mode, checked === true)
+                        }}
+                      >
+                        <span className="truncate">{t(`subscription.card.renewalMode.${mode}`)}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <span className="flex-1 text-left">{t("dashboard.filters.category")}</span>
+                    {categoryActiveCount > 0 && (
+                      <span className="mr-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {categoryActiveCount}
+                      </span>
+                    )}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuCheckboxItem
+                      checked={includeNoCategory}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => {
+                        onToggleNoCategory(checked === true)
+                      }}
+                    >
+                      <span className="truncate">{t("dashboard.filters.noCategory")}</span>
+                    </DropdownMenuCheckboxItem>
+                    {categoryOptions.length > 0 ? (
+                      categoryOptions.map((category) => (
+                        <DropdownMenuCheckboxItem
+                          key={category}
+                          checked={selectedCategories.has(category)}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) => {
+                            onToggleCategory(category, checked === true)
+                          }}
+                        >
+                          <span className="truncate">{category}</span>
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground whitespace-nowrap">
+                        {t("dashboard.filters.noCategories")}
+                      </div>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <span className="flex-1 text-left">{t("dashboard.filters.paymentMethod")}</span>
+                    {paymentMethodActiveCount > 0 && (
+                      <span className="mr-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        {paymentMethodActiveCount}
+                      </span>
+                    )}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuCheckboxItem
+                      checked={includeNoPaymentMethod}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={(checked) => {
+                        onToggleNoPaymentMethod(checked === true)
+                      }}
+                    >
+                      <span className="truncate">{t("dashboard.filters.noPaymentMethod")}</span>
+                    </DropdownMenuCheckboxItem>
+                    {paymentMethods.length > 0 ? (
+                      paymentMethods.map((method) => (
+                        <DropdownMenuCheckboxItem
+                          key={method.id}
+                          checked={selectedPaymentMethodIDs.has(method.id)}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={(checked) => {
+                            onTogglePaymentMethod(method.id, checked === true)
+                          }}
+                        >
+                          <span className="truncate">{paymentMethodLabelMap.get(method.id) ?? method.name}</span>
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground whitespace-nowrap">
+                        {t("dashboard.filters.noPaymentMethods")}
+                      </div>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </>
+            )}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -357,7 +657,7 @@ export default function DashboardFiltersToolbar({
               </Button>
             </DropdownMenuTrigger>
           </Tooltip>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="end">
             {sortFieldOptions.map((field) => (
               <DropdownMenuItem
                 key={field}

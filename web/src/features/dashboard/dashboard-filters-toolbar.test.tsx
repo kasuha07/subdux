@@ -118,4 +118,34 @@ describe("DashboardFiltersToolbar responsive design", () => {
 
     vi.unstubAllGlobals()
   })
+
+  it("calculates active filter count across status, renewal mode, category, and payment methods", () => {
+    const props = {
+      ...defaultProps,
+      hasActiveFilters: true,
+      selectedStatuses: new Set<"active" | "paused">(["active", "paused"]),
+      selectedRenewalModes: new Set<"auto_renewal">(["auto_renewal"]),
+      includeNoCategory: true,
+      selectedCategories: new Set(["Streaming"]),
+      includeNoPaymentMethod: true,
+      selectedPaymentMethodIDs: new Set([1]),
+    }
+    const markup = renderToStaticMarkup(<DashboardFiltersToolbar {...props} />)
+
+    // Total active count: status (1) + renewal (1) + noCategory (1) + category (1) + noPayment (1) + payment (1) = 6
+    expect(markup).toContain(">6<")
+    expect(markup).toContain("dashboard.filters.filterButton (6)")
+  })
+
+  it("renders sort direction indicators for both ascending and descending orders", () => {
+    const ascMarkup = renderToStaticMarkup(
+      <DashboardFiltersToolbar {...defaultProps} sortDirection="asc" />
+    )
+    expect(ascMarkup).toContain("lucide-arrow-up")
+
+    const descMarkup = renderToStaticMarkup(
+      <DashboardFiltersToolbar {...defaultProps} sortDirection="desc" />
+    )
+    expect(descMarkup).toContain("lucide-arrow-down")
+  })
 })
