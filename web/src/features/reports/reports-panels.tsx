@@ -32,9 +32,9 @@ import type {
 
 export function ReportsSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="page-loading-enter space-y-6">
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+        {Array.from({ length: 8 }).map((_, index) => (
           <Card key={index}>
             <CardContent className="space-y-1.5 px-3 py-2 sm:space-y-2.5 sm:px-4 sm:py-3">
               <Skeleton className="size-7 rounded-lg sm:size-9 sm:rounded-xl" />
@@ -190,20 +190,22 @@ export function MonthlyForecastPanel({
                     />
                   )
                 })}
-                {areaPath ? (
-                  <path d={areaPath} fill="url(#forecast-area-fill)" />
-                ) : null}
-                {linePath ? (
-                  <path
-                    d={linePath}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="stroke-primary"
-                    strokeWidth="3"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ) : null}
+                <g className="reports-forecast-reveal">
+                  {areaPath ? (
+                    <path d={areaPath} fill="url(#forecast-area-fill)" />
+                  ) : null}
+                  {linePath ? (
+                    <path
+                      d={linePath}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="stroke-primary"
+                      strokeWidth="3"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : null}
+                </g>
                 {activePoint ? (
                   <line
                     x1={activePoint.x}
@@ -257,8 +259,9 @@ export function MonthlyForecastPanel({
                       onBlur={() => setActiveIndex(null)}
                     >
                       <span
+                        style={{ animationDelay: `${160 + (x / chartWidth) * 1000}ms` }}
                         className={[
-                          "absolute left-1/2 top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-card transition-all",
+                          "reports-forecast-point absolute left-1/2 top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-card transition-all",
                           isActive ? "size-3.5 shadow-sm" : "size-2.5",
                         ].join(" ")}
                       />
@@ -318,7 +321,7 @@ export function BreakdownPanel({
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-primary"
+                    className="cycle-progress-fill h-full rounded-full bg-primary"
                     style={{ width: `${Math.max(2, Math.min(100, item.percentage))}%` }}
                   />
                 </div>
@@ -523,7 +526,7 @@ export function AnnualGrowthPanel({
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-primary"
+                    className="cycle-progress-fill h-full rounded-full bg-primary"
                     style={{ width: `${Math.max(4, Math.min(100, (item.delta_monthly_amount / maxDelta) * 100))}%` }}
                   />
                 </div>

@@ -132,7 +132,7 @@ export default function ReportsPage() {
             {!report ? (
           <EmptyState title={t("reports.error.title")} description={t("reports.error.description")} />
         ) : (
-          <div className="page-content-enter space-y-6">
+          <div className="page-content-enter reports-content space-y-6">
             <section className="-mx-4 overflow-x-auto pb-1 sm:mx-0 sm:overflow-visible sm:pb-0">
               <div className="flex snap-x gap-2 pl-4 sm:grid sm:grid-cols-2 sm:gap-3 sm:px-0 lg:grid-cols-4">
                 <KpiCard
