@@ -108,6 +108,9 @@ const subscription = {
     }
   },
   "batch": {
+    "selectAll": "全选",
+    "invertSelection": "反选",
+    "exit": "退出批量操作",
     "select": "选择 {{name}}",
     "selected": "已选择 {{count}} 项",
     "actions": "批量操作",
@@ -118,7 +121,7 @@ const subscription = {
     "setCategory": "设置分类…",
     "setPaymentMethod": "设置支付方式…",
     "delete": "删除…",
-    "clear": "清除选择",
+    "clear": "清除",
     "deleteTitle": "删除订阅",
     "deleteDescription": "确定删除所选 {{count}} 个订阅？此操作无法撤销。",
     "deleteConfirm": "删除 {{count}} 项",

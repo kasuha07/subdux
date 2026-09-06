@@ -46,6 +46,9 @@ interface SubscriptionBatchBarProps {
   getSubscriptionName: (id: number) => string
   onBatchApplied: () => void
   onClearSelection: () => void
+  onSelectAll: () => void
+  onInvertSelection: () => void
+  visibleCount: number
   paymentMethodLabelMap: Map<number, string>
   paymentMethods: PaymentMethod[]
   selectedCount: number
@@ -71,6 +74,9 @@ export default function SubscriptionBatchBar({
   getSubscriptionName,
   onBatchApplied,
   onClearSelection,
+  onSelectAll,
+  onInvertSelection,
+  visibleCount,
   paymentMethodLabelMap,
   paymentMethods,
   selectedCount,
@@ -148,9 +154,16 @@ export default function SubscriptionBatchBar({
           {t("subscription.batch.selected", { count: selectedCount })}
         </span>
 
+        <Button variant="ghost" size="sm" onClick={onSelectAll} disabled={submitting || visibleCount === 0}>
+          {t("subscription.batch.selectAll")}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onInvertSelection} disabled={submitting || visibleCount === 0}>
+          {t("subscription.batch.invertSelection")}
+        </Button>
+
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm" className="shrink-0">
+            <Button variant="secondary" size="sm" className="shrink-0" disabled={submitting || selectedCount === 0}>
               {t("subscription.batch.actions")}
             </Button>
           </DropdownMenuTrigger>
@@ -226,6 +239,7 @@ export default function SubscriptionBatchBar({
           size="sm"
           className="ml-auto shrink-0"
           onClick={onClearSelection}
+          disabled={submitting || selectedCount === 0}
         >
           <X className="size-4" />
           {t("subscription.batch.clear")}

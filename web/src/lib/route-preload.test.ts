@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // Records every feature-page module that actually gets dynamically imported.
 const loaded: string[] = []
@@ -92,6 +92,15 @@ describe("preloadRoute", () => {
     expect(loaded).toEqual(["protected/dashboard"])
   })
 
+  it("handles failed speculative imports without an unhandled rejection", async () => {
+    vi.doMock("@/features/settings/settings-page", () => {
+      throw new Error("Chunk download failed")
+    })
+    mod.preloadRoute("protected", "settings")
+    await flush()
+    expect(loaded).toEqual([])
+  })
+
   it("ignores an unknown route name without throwing", async () => {
     expect(() => mod.preloadRoute("protected", "nonexistent")).not.toThrow()
     await flush()
@@ -152,5 +161,68 @@ describe("preloadNeighborRoutesForPath", () => {
     expect([...loaded].sort()).toEqual(
       ["protected/actions", "protected/calendar", "protected/reports"].sort()
     )
+  })
+})
+
+describe("scheduleNeighborRoutePreload", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it.each([
+    { saveData: true },
+    { effectiveType: "slow-2g" },
+    { effectiveType: "2g" },
+    { effectiveType: "3g" },
+  ])("skips speculative downloads on constrained connections: %j", async (connection) => {
+    const mod = await freshModule()
+    const requestIdleCallback = vi.fn()
+    vi.stubGlobal("navigator", { connection })
+    vi.stubGlobal("window", { requestIdleCallback })
+    mod.scheduleNeighborRoutePreload("/")()
+    expect(requestIdleCallback).not.toHaveBeenCalled()
+    expect(loaded).toEqual([])
+  })
+
+  it("waits for idle time and supports cancellation", async () => {
+    const mod = await freshModule()
+    const callbacks: Array<() => void> = []
+    const cancelIdleCallback = vi.fn()
+    vi.stubGlobal("navigator", {})
+    vi.stubGlobal("window", {
+      requestIdleCallback: (callback: () => void) => { callbacks.push(callback); return 42 },
+      cancelIdleCallback,
+    })
+    const cancel = mod.scheduleNeighborRoutePreload("/")
+    expect(loaded).toEqual([])
+    callbacks[0]()
+    await flush()
+    expect(loaded).toHaveLength(3)
+    cancel()
+    expect(cancelIdleCallback).toHaveBeenCalledWith(42)
+  })
+
+  it("cancels the fallback timer before navigation", async () => {
+    const mod = await freshModule()
+    vi.useFakeTimers()
+    vi.stubGlobal("navigator", {})
+    vi.stubGlobal("window", { setTimeout, clearTimeout })
+    const cancel = mod.scheduleNeighborRoutePreload("/")
+    cancel()
+    await vi.runAllTimersAsync()
+    expect(loaded).toEqual([])
+  })
+
+  it("preloads after the fallback delay", async () => {
+    const mod = await freshModule()
+    vi.useFakeTimers()
+    vi.stubGlobal("navigator", {})
+    vi.stubGlobal("window", { setTimeout, clearTimeout })
+    mod.scheduleNeighborRoutePreload("/")
+    await vi.advanceTimersByTimeAsync(1499)
+    expect(loaded).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(loaded).toHaveLength(3)
   })
 })

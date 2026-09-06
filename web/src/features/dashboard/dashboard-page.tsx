@@ -293,6 +293,7 @@ export default function DashboardPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [batchMode, setBatchMode] = useState(false)
   const [selectedIDs, setSelectedIDs] = useState<number[]>([])
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
     getDisplayAllAmountsInPrimaryCurrency()
@@ -485,6 +486,26 @@ export default function DashboardPage() {
     )
   }
 
+  function toggleBatchMode() {
+    setBatchMode((active) => !active)
+    setSelectedIDs([])
+  }
+
+  function selectAllVisible() {
+    setSelectedIDs((previous) => [...new Set([...previous, ...filteredSubscriptions.map((sub) => sub.id)])])
+  }
+
+  function invertVisibleSelection() {
+    setSelectedIDs((previous) => {
+      const next = new Set(previous)
+      for (const sub of filteredSubscriptions) {
+        if (next.has(sub.id)) next.delete(sub.id)
+        else next.add(sub.id)
+      }
+      return [...next]
+    })
+  }
+
   function clearSelection() {
     setSelectedIDs([])
   }
@@ -565,24 +586,24 @@ export default function DashboardPage() {
               </Link>
             </Button>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/calendar">
+              <Link to="/calendar" aria-label={t("calendar.title")} title={t("calendar.title")}>
                 <CalendarDays className="size-4" />
               </Link>
             </Button>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/reports">
+              <Link to="/reports" aria-label={t("reports.title")} title={t("reports.title")}>
                 <BarChart3 className="size-4" />
               </Link>
             </Button>
             {isAdmin() && (
               <Button variant="ghost" size="icon-sm" asChild>
-                <Link to="/admin">
+                <Link to="/admin" aria-label={t("admin.title")} title={t("admin.title")}>
                   <Shield className="size-4" />
                 </Link>
               </Button>
             )}
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/settings">
+              <Link to="/settings" aria-label={t("settings.title")} title={t("settings.title")}>
                 <Settings className="size-4" />
               </Link>
             </Button>
@@ -615,6 +636,8 @@ export default function DashboardPage() {
 
 
             <DashboardFiltersToolbar
+              batchMode={batchMode}
+              onToggleBatchMode={toggleBatchMode}
               searchTerm={searchTerm}
               onSearchTermChange={setSearchTerm}
               selectedStatuses={selectedStatuses}
@@ -647,7 +670,7 @@ export default function DashboardPage() {
               viewToggleDisabled={subscriptions.length === 0}
             />
 
-            {liveSelectedIDs.length > 0 && (
+            {batchMode && (
               <SubscriptionBatchBar
                 categories={categories}
                 paymentMethods={paymentMethods}
@@ -657,6 +680,9 @@ export default function DashboardPage() {
                 getSubscriptionName={(id) =>
                   subscriptions.find((sub) => sub.id === id)?.name ?? ""
                 }
+                onSelectAll={selectAllVisible}
+                onInvertSelection={invertVisibleSelection}
+                visibleCount={filteredSubscriptions.length}
                 onClearSelection={clearSelection}
                 onBatchApplied={handleBatchApplied}
               />
@@ -670,7 +696,7 @@ export default function DashboardPage() {
               }
             >
               {subscriptions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
                   <div className="mb-4 rounded-full bg-muted p-4">
                     <Plus className="size-6 text-muted-foreground" />
                   </div>
@@ -690,7 +716,7 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               ) : filteredSubscriptions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+                <div className="col-span-full flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
                   <h3 className="font-medium">{t("dashboard.filters.empty.title")}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {t("dashboard.filters.empty.description")}
@@ -756,7 +782,7 @@ export default function DashboardPage() {
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         selected={liveSelectedIDs.includes(sub.id)}
-                        onToggleSelect={handleToggleSelect}
+                        onToggleSelect={batchMode ? handleToggleSelect : undefined}
                       />
                     )
                   }
@@ -781,7 +807,7 @@ export default function DashboardPage() {
                       onOpenDetail={handleOpenDetail}
                       onPreloadDetail={handlePreloadDetail}
                       selected={liveSelectedIDs.includes(sub.id)}
-                      onToggleSelect={handleToggleSelect}
+                      onToggleSelect={batchMode ? handleToggleSelect : undefined}
                     />
                   )
                 })

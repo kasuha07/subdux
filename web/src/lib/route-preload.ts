@@ -31,7 +31,9 @@ export function preloadRoute(kind: RouteKind, route: string): void {
   }
 
   routePreloadCache.add(key)
-  void loader()
+  void loader().catch(() => {
+    routePreloadCache.delete(key)
+  })
 }
 
 export function preloadRouteForPath(pathname: string): void {
@@ -90,4 +92,23 @@ export function preloadNeighborRoutesForPath(pathname: string): void {
     default:
       break
   }
+}
+
+// Speculative downloads should not compete with the current route or consume
+// a metered connection. Return cleanup so navigation cancels pending work.
+export function scheduleNeighborRoutePreload(pathname: string): () => void {
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string }
+  }).connection
+  if (connection?.saveData || ["slow-2g", "2g", "3g"].includes(connection?.effectiveType ?? "")) {
+    return () => {}
+  }
+
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(() => preloadNeighborRoutesForPath(pathname))
+    return () => window.cancelIdleCallback(id)
+  }
+
+  const id = window.setTimeout(() => preloadNeighborRoutesForPath(pathname), 1500)
+  return () => window.clearTimeout(id)
 }

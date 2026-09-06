@@ -108,6 +108,9 @@ const subscription = {
     }
   },
   "batch": {
+    "selectAll": "Select all",
+    "invertSelection": "Invert selection",
+    "exit": "Exit bulk actions",
     "select": "Select {{name}}",
     "selected": "{{count}} selected",
     "actions": "Bulk actions",

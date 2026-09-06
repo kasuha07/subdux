@@ -108,6 +108,9 @@ const subscription = {
     }
   },
   "batch": {
+    "selectAll": "すべて選択",
+    "invertSelection": "選択を反転",
+    "exit": "一括操作を終了",
     "select": "{{name}} を選択",
     "selected": "{{count}} 件選択中",
     "actions": "一括操作",
@@ -118,7 +121,7 @@ const subscription = {
     "setCategory": "カテゴリを設定…",
     "setPaymentMethod": "支払い方法を設定…",
     "delete": "削除…",
-    "clear": "選択をクリア",
+    "clear": "クリア",
     "deleteTitle": "サブスクリプションを削除",
     "deleteDescription": "選択した {{count}} 件のサブスクリプションを削除しますか？この操作は元に戻せません。",
     "deleteConfirm": "{{count}} 件を削除",

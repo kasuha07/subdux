@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next"
 import {
+  CheckSquare,
+  X,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -34,6 +36,8 @@ import {
 } from "./dashboard-filter-constants"
 
 interface DashboardFiltersToolbarProps {
+  batchMode: boolean
+  onToggleBatchMode: () => void
   categoryOptions: string[]
   getSortFieldLabel: (field: SortField) => string
   hasActiveFilters: boolean
@@ -65,6 +69,8 @@ interface DashboardFiltersToolbarProps {
 }
 
 export default function DashboardFiltersToolbar({
+  batchMode,
+  onToggleBatchMode,
   categoryOptions,
   getSortFieldLabel,
   hasActiveFilters,
@@ -279,6 +285,19 @@ export default function DashboardFiltersToolbar({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Button
+          variant={batchMode ? "secondary" : "outline"}
+          size="icon-sm"
+          className="shrink-0"
+          onClick={onToggleBatchMode}
+          disabled={!batchMode && totalCount === 0}
+          aria-pressed={batchMode}
+          aria-label={t(batchMode ? "subscription.batch.exit" : "subscription.batch.actions")}
+          title={t(batchMode ? "subscription.batch.exit" : "subscription.batch.actions")}
+        >
+          {batchMode ? <X className="size-4" /> : <CheckSquare className="size-4" />}
+        </Button>
 
         <Button
           variant="outline"

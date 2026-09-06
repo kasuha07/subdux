@@ -1,9 +1,10 @@
 import { Suspense, lazy, type ReactNode, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router"
 import { isAuthenticated, isAdmin, restoreSession } from "@/lib/api"
 import { AppToaster } from "@/components/app-toaster"
 import { useSiteTitle } from "@/hooks/useSiteSettings"
-import { preloadNeighborRoutesForPath, preloadRouteForPath } from "@/lib/route-preload"
+import { scheduleNeighborRoutePreload, preloadRouteForPath } from "@/lib/route-preload"
 
 const LoginPage = lazy(() => import("@/features/auth/login-page"))
 const RegisterPage = lazy(() => import("@/features/auth/register-page"))
@@ -51,9 +52,10 @@ function AdminRoute({ children, authReady }: { children: ReactNode, authReady: b
 }
 
 function RouteLoading() {
+  const { t } = useTranslation()
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 text-sm text-muted-foreground">
-      Loading...
+    <div role="status" className="flex min-h-screen items-center justify-center px-4 text-sm text-muted-foreground">
+      {t("common.loading")}
     </div>
   )
 }
@@ -62,13 +64,17 @@ function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
 }
 
-function RoutePreloader() {
+function RoutePreloader({ authReady }: { authReady: boolean }) {
   const location = useLocation()
 
   useEffect(() => {
-    preloadRouteForPath(location.pathname)
-    preloadNeighborRoutesForPath(location.pathname)
-  }, [location.pathname])
+    if (!authReady) return
+    const path = location.pathname
+    if ((path === "/" || ["/actions", "/reports", "/settings", "/calendar", "/admin"].includes(path)) && !isAuthenticated()) return
+    if (path === "/admin" && !isAdmin()) return
+    preloadRouteForPath(path)
+    return scheduleNeighborRoutePreload(path)
+  }, [location.pathname, authReady])
 
   return null
 }
@@ -100,7 +106,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppToaster />
-      <RoutePreloader />
+      <RoutePreloader authReady={authReady} />
       <Routes>
         <Route path="/login" element={<LazyRoute><PublicRoute authReady={authReady}><LoginPage /></PublicRoute></LazyRoute>} />
         <Route path="/register" element={<LazyRoute><PublicRoute authReady={authReady}><RegisterPage /></PublicRoute></LazyRoute>} />
