@@ -40,6 +40,7 @@ import {
   invalidateSubscriptionDetail,
   preloadSubscriptionDetail,
 } from "@/features/subscriptions/subscription-detail-cache"
+import SubscriptionScrollWrapper from "@/features/subscriptions/subscription-scroll-wrapper"
 import type {
   ActionCenter,
   Category,
@@ -87,32 +88,63 @@ interface ActionCommand {
   run: () => void | Promise<void>
 }
 
-function ActionsSkeleton() {
+export function ActionsSkeleton() {
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
+    <div className="page-loading-enter space-y-4 sm:space-y-6" role="status" aria-label="Loading actions">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index}>
-            <CardContent className="space-y-3 p-4">
-              <Skeleton className="size-8 rounded-lg" />
-              <Skeleton className="h-5 w-20" />
-              <Skeleton className="h-3 w-28" />
+          <Card
+            key={index}
+            className="subscription-card-enter py-0"
+            style={{ "--card-delay": `${index * 40}ms` } as React.CSSProperties}
+          >
+            <CardContent className="px-2 py-1.5 sm:p-4">
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
+                  <Skeleton className="h-3 w-12 sm:h-3.5 sm:w-16" />
+                  <Skeleton className="h-4 w-8 sm:h-6 sm:w-12" />
+                  <Skeleton className="h-2.5 w-16 sm:h-3 sm:w-24" />
+                </div>
+                <Skeleton className="hidden size-8 shrink-0 rounded-lg sm:block" />
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
-      {Array.from({ length: 4 }).map((_, index) => (
-        <Card key={index}>
-          <CardContent className="flex items-center gap-4 p-4">
-            <Skeleton className="size-11 rounded-lg" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-36" />
-              <Skeleton className="h-3 w-64 max-w-full" />
-            </div>
-            <Skeleton className="h-8 w-24 rounded-md" />
-          </CardContent>
-        </Card>
-      ))}
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card
+            key={index}
+            className="subscription-card-enter overflow-hidden py-0"
+            style={{ "--card-delay": `${(index + 3) * 40}ms` } as React.CSSProperties}
+          >
+            <CardContent className="p-0">
+              <div className="grid gap-0 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 p-4">
+                  <Skeleton className="size-11 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-20 rounded-md" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                    <div className="space-y-1.5 rounded-lg border bg-background/70 p-2.5">
+                      <Skeleton className="h-3.5 w-56 max-w-full" />
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-3 w-16" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 border-t p-3 sm:w-48 sm:flex-col sm:items-stretch sm:border-t-0 sm:border-l">
+                  <Skeleton className="h-8 w-24 rounded-md sm:w-full" />
+                  <Skeleton className="h-8 w-20 rounded-md sm:w-full" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
@@ -171,6 +203,8 @@ export default function ActionsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+
+  const [exitingKeys, setExitingKeys] = useState<Set<string>>(new Set())
 
   const currencySymbolMap = useMemo(
     () => new Map(userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)),
@@ -266,25 +300,54 @@ export default function ActionsPage() {
     toast.error(getAPIErrorMessage(error, "actions.error.actionFailed"))
   }
 
-  async function handleMarkRenewed(action: SubscriptionAction) {
+  async function performActionWithExit(
+    groupKey: string,
+    actionKey: string,
+    actionFn: () => Promise<void>,
+    subscriptionID?: number
+  ) {
+    setBusyKey(actionKey)
+    try {
+      await actionFn()
+      setExitingKeys((prev) => new Set(prev).add(groupKey))
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      const delay = prefersReducedMotion ? 0 : 260
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+      await refreshAfterAction(subscriptionID)
+    } catch (error) {
+      showActionError(error)
+    } finally {
+      setExitingKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(groupKey)
+        return next
+      })
+      setBusyKey(null)
+    }
+  }
+
+  async function handleMarkRenewed(action: SubscriptionAction, groupKey: string) {
     const sub = subscriptionForAction(action)
     if (!sub) {
       toast.error(t("actions.error.subscriptionMissing"))
       return
     }
-    setBusyKey(action.key)
-    try {
-      await api.post<Subscription>(`/subscriptions/${action.subscription_id}/mark-renewed`, {})
-      toast.success(t("actions.toast.markRenewed"))
-      await refreshAfterAction(action.subscription_id)
-    } catch (error) {
-      showActionError(error)
-    } finally {
-      setBusyKey(null)
-    }
+    await performActionWithExit(
+      groupKey,
+      action.key,
+      async () => {
+        await api.post<Subscription>(`/subscriptions/${action.subscription_id}/mark-renewed`, {})
+        toast.success(t("actions.toast.markRenewed"))
+      },
+      action.subscription_id
+    )
   }
 
-  async function handleCancelAtPeriodEnd(action: SubscriptionAction) {
+  async function handleCancelAtPeriodEnd(action: SubscriptionAction, groupKey: string) {
     const sub = subscriptionForAction(action)
     if (!sub) {
       toast.error(t("actions.error.subscriptionMissing"))
@@ -294,52 +357,48 @@ export default function ActionsPage() {
       toast.error(t("actions.error.missingNextBilling"))
       return
     }
-    setBusyKey(action.key)
-    try {
-      await api.put<Subscription>(`/subscriptions/${action.subscription_id}`, {
-        renewal_mode: "cancel_at_period_end",
-        ends_at: sub.next_billing_date,
-      })
-      toast.success(t("actions.toast.cancelAtPeriodEnd"))
-      await refreshAfterAction(action.subscription_id)
-    } catch (error) {
-      showActionError(error)
-    } finally {
-      setBusyKey(null)
-    }
+    await performActionWithExit(
+      groupKey,
+      action.key,
+      async () => {
+        await api.put<Subscription>(`/subscriptions/${action.subscription_id}`, {
+          renewal_mode: "cancel_at_period_end",
+          ends_at: sub.next_billing_date,
+        })
+        toast.success(t("actions.toast.cancelAtPeriodEnd"))
+      },
+      action.subscription_id
+    )
   }
 
-  async function handleKeepSubscription(action: SubscriptionAction) {
+  async function handleKeepSubscription(action: SubscriptionAction, groupKey: string) {
     const sub = subscriptionForAction(action)
     if (!sub) {
       toast.error(t("actions.error.subscriptionMissing"))
       return
     }
-    setBusyKey(action.key)
-    try {
-      await api.put<Subscription>(`/subscriptions/${action.subscription_id}`, {
-        renewal_mode: "auto_renew",
-      })
-      toast.success(t("actions.toast.keepSubscription"))
-      await refreshAfterAction(action.subscription_id)
-    } catch (error) {
-      showActionError(error)
-    } finally {
-      setBusyKey(null)
-    }
+    await performActionWithExit(
+      groupKey,
+      action.key,
+      async () => {
+        await api.put<Subscription>(`/subscriptions/${action.subscription_id}`, {
+          renewal_mode: "auto_renew",
+        })
+        toast.success(t("actions.toast.keepSubscription"))
+      },
+      action.subscription_id
+    )
   }
 
   async function handleSnooze(group: SubscriptionActionGroup) {
-    setBusyKey(group.key)
-    try {
-      await Promise.all(group.actions.map((action) => api.post("/actions/snooze", { key: action.key, days: 7 })))
-      toast.success(t("actions.toast.snoozed"))
-      await fetchData()
-    } catch (error) {
-      showActionError(error)
-    } finally {
-      setBusyKey(null)
-    }
+    await performActionWithExit(
+      group.key,
+      group.key,
+      async () => {
+        await Promise.all(group.actions.map((action) => api.post("/actions/snooze", { key: action.key, days: 7 })))
+        toast.success(t("actions.toast.snoozed"))
+      }
+    )
   }
 
   async function handleFormSubmit(data: CreateSubscriptionInput) {
@@ -434,18 +493,21 @@ export default function ActionsPage() {
                   actions: counts?.total ?? 0,
                   snoozed: counts?.snoozed ?? 0,
                 })}
+                style={{ "--card-delay": "0ms" } as React.CSSProperties}
               />
               <SummaryCard
                 icon={CreditCard}
                 label={t("actions.summary.upcoming")}
                 value={String(counts?.upcoming_charge ?? 0)}
                 detail={t("actions.summary.window", { urgent: center.urgent_days, days: center.window_days })}
+                style={{ "--card-delay": "35ms" } as React.CSSProperties}
               />
               <SummaryCard
                 icon={History}
                 label={t("actions.summary.repair")}
                 value={String(counts?.needs_repair ?? 0)}
                 detail={t("actions.summary.decision", { count: counts?.needs_decision ?? 0 })}
+                style={{ "--card-delay": "70ms" } as React.CSSProperties}
               />
             </section>
 
@@ -455,22 +517,39 @@ export default function ActionsPage() {
                 description={t("actions.empty.description")}
               />
             ) : (
-              <section className="space-y-3">
-                {actionGroups.map((group) => (
-                  <ActionGroupItem
-                    key={group.key}
-                    group={group}
-                    busy={busyKey === group.key || group.actions.some((action) => busyKey === action.key)}
-                    currencySymbol={currencySymbolMap.get(group.primary.currency.toUpperCase())}
-                    language={i18n.language}
-                    onMarkRenewed={handleMarkRenewed}
-                    onCancelAtPeriodEnd={handleCancelAtPeriodEnd}
-                    onKeepSubscription={handleKeepSubscription}
-                    onSnooze={handleSnooze}
-                    onEdit={openEdit}
-                    onOpenDetail={openDetail}
-                  />
-                ))}
+              <section className="flex flex-col gap-3">
+                {actionGroups.map((group, index) => {
+                  const cardStyle = {
+                    "--card-delay": `${Math.min((index + 2) * 35, 320)}ms`,
+                  } as React.CSSProperties
+                  const isExiting = exitingKeys.has(group.key)
+
+                  return (
+                    <SubscriptionScrollWrapper
+                      key={group.key}
+                      className={cn(
+                        "action-item-wrap",
+                        isExiting && "action-item-exiting"
+                      )}
+                    >
+                      <div className="action-item-inner">
+                        <ActionGroupItem
+                          group={group}
+                          style={cardStyle}
+                          busy={busyKey === group.key || group.actions.some((action) => busyKey === action.key)}
+                          currencySymbol={currencySymbolMap.get(group.primary.currency.toUpperCase())}
+                          language={i18n.language}
+                          onMarkRenewed={(action) => handleMarkRenewed(action, group.key)}
+                          onCancelAtPeriodEnd={(action) => handleCancelAtPeriodEnd(action, group.key)}
+                          onKeepSubscription={(action) => handleKeepSubscription(action, group.key)}
+                          onSnooze={handleSnooze}
+                          onEdit={openEdit}
+                          onOpenDetail={openDetail}
+                        />
+                      </div>
+                    </SubscriptionScrollWrapper>
+                  )
+                })}
               </section>
             )}
           </div>
@@ -546,14 +625,16 @@ function SummaryCard({
   icon: Icon,
   label,
   value,
+  style,
 }: {
   detail: string
   icon: LucideIcon
   label: string
   value: string
+  style?: React.CSSProperties
 }) {
   return (
-    <Card className="py-0">
+    <Card className="subscription-card-enter subscription-card-motion py-0 hover:shadow-xs" style={style}>
       <CardContent className="px-2 py-1.5 sm:p-4">
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
@@ -581,6 +662,7 @@ function ActionGroupItem({
   onMarkRenewed,
   onOpenDetail,
   onSnooze,
+  style,
 }: {
   group: SubscriptionActionGroup
   busy: boolean
@@ -592,6 +674,7 @@ function ActionGroupItem({
   onMarkRenewed: (action: SubscriptionAction) => void | Promise<void>
   onOpenDetail: (action: SubscriptionAction) => void
   onSnooze: (group: SubscriptionActionGroup) => void | Promise<void>
+  style?: React.CSSProperties
 }) {
   const { t } = useTranslation()
   const primary = group.primary
@@ -658,15 +741,20 @@ function ActionGroupItem({
   const overflowCommands = commands.slice(2)
 
   return (
-    <Card className="overflow-hidden py-0">
+    <Card
+      style={style}
+      className="group overflow-hidden py-0 subscription-card-motion subscription-card-enter hover:shadow-md has-[[data-state=open]]:translate-none has-[[data-state=open]]:scale-100"
+    >
       <CardContent className="p-0">
         <div className="grid gap-0 sm:grid-cols-[minmax(0,1fr)_auto]">
           <button
             type="button"
             className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 p-4 text-left transition-colors hover:bg-muted/40"
             onClick={() => onOpenDetail(primary)}
+            onFocus={() => void loadSubscriptionDetailDrawer()}
+            onPointerEnter={() => void loadSubscriptionDetailDrawer()}
           >
-            <div className="flex size-11 items-center justify-center overflow-hidden rounded-lg border bg-muted/30">
+            <div className="flex size-11 items-center justify-center overflow-hidden rounded-lg border bg-muted/30 transition-transform duration-200 ease-out group-hover:scale-105">
               {renderActionIcon(primary.subscription_icon, primary.subscription_name)}
             </div>
             <div className="min-w-0">
@@ -708,6 +796,9 @@ function ActionGroupItem({
                   variant={command.variant}
                   onClick={() => void command.run()}
                   disabled={busy}
+                  onFocus={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
+                  onPointerEnter={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
+                  className="transition-transform duration-150 active:scale-95"
                 >
                   <Icon className="size-4" />
                   {command.label}
@@ -716,7 +807,12 @@ function ActionGroupItem({
             })}
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" disabled={busy}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  className="transition-transform duration-150 active:scale-95"
+                >
                   <MoreHorizontal className="size-4" />
                   {t("actions.command.more")}
                 </Button>
@@ -726,7 +822,13 @@ function ActionGroupItem({
                   const Icon = command.icon
 
                   return (
-                    <DropdownMenuItem key={command.key} onClick={() => void command.run()} disabled={busy}>
+                    <DropdownMenuItem
+                      key={command.key}
+                      onClick={() => void command.run()}
+                      disabled={busy}
+                      onFocus={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
+                      onPointerEnter={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
+                    >
                       <Icon className="size-4" />
                       {command.label}
                     </DropdownMenuItem>
@@ -800,7 +902,7 @@ function findActionByType(actions: SubscriptionAction[], actionType: Subscriptio
 
 function EmptyState({ title, description }: { title: string, description: string }) {
   return (
-    <Card>
+    <Card className="subscription-card-enter py-0">
       <CardContent className="flex flex-col items-center justify-center px-4 py-14 text-center">
         <div className="mb-4 rounded-full bg-emerald-500/10 p-4 text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="size-6" />

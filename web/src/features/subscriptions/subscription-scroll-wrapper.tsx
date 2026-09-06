@@ -1,10 +1,8 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, type HTMLAttributes, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
-interface SubscriptionScrollWrapperProps {
+interface SubscriptionScrollWrapperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
-  className?: string
-  style?: React.CSSProperties
 }
 
 const supportsScrollTimeline =
@@ -66,6 +64,7 @@ export default function SubscriptionScrollWrapper({
   children,
   className,
   style,
+  ...props
 }: SubscriptionScrollWrapperProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -89,6 +88,7 @@ export default function SubscriptionScrollWrapper({
       data-scroll-state="in-view"
       className={cn("subscription-scroll-wrap", className)}
       style={style}
+      {...props}
     >
       {children}
     </div>
