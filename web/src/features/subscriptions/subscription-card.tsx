@@ -271,7 +271,7 @@ export default function SubscriptionCard({
 
   return (
     <Card
-      className={`group relative overflow-hidden py-3 transition-all hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
+      className={`group relative overflow-hidden py-3 subscription-card-motion hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         {onToggleSelect && (

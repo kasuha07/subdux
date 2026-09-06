@@ -203,6 +203,7 @@ export default function CalendarPage() {
   const [newlyCreatedUrl, setNewlyCreatedUrl] = useState<string | null>(null)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
@@ -342,6 +343,7 @@ export default function CalendarPage() {
     void loadSubscriptionDetailDrawer()
     preloadSubscriptionDetail(sub.id)
     setDetailSub(sub)
+    setDetailOpen(true)
   }
 
   async function handleFormSubmit(data: CreateSubscriptionInput) {
@@ -352,13 +354,11 @@ export default function CalendarPage() {
       })
       setSubscriptions(prev => prev.map(s => s.id === editingSub.id ? updated : s))
       toast.success(t("calendar.editSuccess"))
-      setEditingSub(null)
       setFormOpen(false)
       return updated
     }
     const created = await api.post<Subscription>("/subscriptions", data)
     setSubscriptions(prev => [...prev, created])
-    setEditingSub(null)
     setFormOpen(false)
     return created
   }
@@ -366,7 +366,6 @@ export default function CalendarPage() {
   async function handleMarkRenewed(sub: Subscription) {
     const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
     toast.success(t("dashboard.updateSuccess"))
-    setEditingSub(null)
     setFormOpen(false)
     const [subs] = await Promise.all([
       api.get<Subscription[]>("/subscriptions"),
@@ -662,10 +661,7 @@ export default function CalendarPage() {
       <SubscriptionForm
         key={editingSub?.id ?? "new"}
         open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open)
-          if (!open) setEditingSub(null)
-        }}
+        onOpenChange={setFormOpen}
         subscription={editingSub}
         onSubmit={handleFormSubmit}
         onMarkRenewed={handleMarkRenewed}
@@ -677,7 +673,7 @@ export default function CalendarPage() {
       {detailSub && (
         <Suspense fallback={null}>
           <SubscriptionDetailDrawer
-            open={!!detailSub}
+            open={detailOpen}
             subscription={detailSub}
             categoryName={getSubscriptionCategoryName(detailSub)}
             currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
@@ -686,11 +682,9 @@ export default function CalendarPage() {
                 ? paymentMethodLabelMap.get(detailSub.payment_method_id)
                 : undefined
             }
-            onOpenChange={(open) => {
-              if (!open) setDetailSub(null)
-            }}
+            onOpenChange={setDetailOpen}
             onEdit={(sub) => {
-              setDetailSub(null)
+              setDetailOpen(false)
               setEditingSub(sub)
               setFormOpen(true)
             }}

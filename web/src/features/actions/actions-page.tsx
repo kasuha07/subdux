@@ -168,7 +168,9 @@ export default function ActionsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const currencySymbolMap = useMemo(
     () => new Map(userCurrencies.map((item) => [item.code.toUpperCase(), item.symbol.trim()] as const)),
@@ -241,6 +243,7 @@ export default function ActionsPage() {
     if (!sub) return
     void loadSubscriptionForm()
     setEditingSub(sub)
+    setFormOpen(true)
   }
 
   function openDetail(action: SubscriptionAction) {
@@ -249,6 +252,7 @@ export default function ActionsPage() {
     void loadSubscriptionDetailDrawer()
     preloadSubscriptionDetail(sub.id)
     setDetailSub(sub)
+    setDetailOpen(true)
   }
 
   async function refreshAfterAction(subscriptionID?: number) {
@@ -349,7 +353,7 @@ export default function ActionsPage() {
     }
     const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, updatePayload)
     toast.success(t("dashboard.updateSuccess"))
-    setEditingSub(null)
+    setFormOpen(false)
     await refreshAfterAction(editingSub.id)
     return updated
   }
@@ -357,7 +361,7 @@ export default function ActionsPage() {
   async function handleFormMarkRenewed(sub: Subscription) {
     const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
     toast.success(t("actions.toast.markRenewed"))
-    setEditingSub(null)
+    setFormOpen(false)
     await refreshAfterAction(sub.id)
     return renewed
   }
@@ -456,10 +460,8 @@ export default function ActionsPage() {
         <Suspense fallback={null}>
           <SubscriptionForm
             key={editingSub.id}
-            open={!!editingSub}
-            onOpenChange={(open) => {
-              if (!open) setEditingSub(null)
-            }}
+            open={formOpen}
+            onOpenChange={setFormOpen}
             subscription={editingSub}
             onSubmit={handleFormSubmit}
             onMarkRenewed={handleFormMarkRenewed}
@@ -473,7 +475,7 @@ export default function ActionsPage() {
       {detailSub && (
         <Suspense fallback={null}>
           <SubscriptionDetailDrawer
-            open={!!detailSub}
+            open={detailOpen}
             subscription={detailSub}
             categoryName={getSubscriptionCategoryName(detailSub)}
             currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
@@ -482,12 +484,11 @@ export default function ActionsPage() {
                 ? paymentMethodLabelMap.get(detailSub.payment_method_id)
                 : undefined
             }
-            onOpenChange={(open) => {
-              if (!open) setDetailSub(null)
-            }}
+            onOpenChange={setDetailOpen}
             onEdit={(sub) => {
-              setDetailSub(null)
+              setDetailOpen(false)
               setEditingSub(sub)
+              setFormOpen(true)
             }}
           />
         </Suspense>

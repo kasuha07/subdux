@@ -214,7 +214,7 @@ function SubscriptionDetailFallbackDrawer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-full md:max-w-xl data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+      <DialogContent data-motion="drawer" className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-full md:max-w-xl">
         <DialogHeader className="detail-drawer-stage border-b px-5 pt-5 pb-4 sm:px-6">
           <div className="flex items-start justify-between gap-4 pr-8">
             <div className="min-w-0">
@@ -276,8 +276,10 @@ export default function DashboardPage() {
   const { t, i18n } = useTranslation()
   const [subscriptionView, setSubscriptionView] = useState<"list" | "cards">("list")
   const [formOpen, setFormOpen] = useState(false)
+  const [formMounted, setFormMounted] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [batchMode, setBatchMode] = useState(false)
   const [selectedIDs, setSelectedIDs] = useState<number[]>([])
   const [displayAllAmountsInPrimaryCurrency, setDisplayAllAmountsInPrimaryCurrency] = useState(
@@ -420,6 +422,7 @@ export default function DashboardPage() {
   function handleEdit(sub: Subscription) {
     preloadSubscriptionForm()
     setEditingSub(sub)
+    setFormMounted(true)
     setFormOpen(true)
   }
 
@@ -427,6 +430,7 @@ export default function DashboardPage() {
     preloadSubscriptionDetailDrawer()
     preloadSubscriptionDetail(sub.id)
     setDetailSub(sub)
+    setDetailOpen(true)
   }
 
   function handlePreloadDetail(sub: Subscription) {
@@ -494,7 +498,6 @@ export default function DashboardPage() {
       const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, updatePayload)
       toast.success(t("dashboard.updateSuccess"))
       invalidateSubscriptionDetail(editingSub.id)
-      setEditingSub(null)
       setFormOpen(false)
       await fetchData()
       return updated
@@ -502,7 +505,6 @@ export default function DashboardPage() {
 
     const created = await api.post<Subscription>("/subscriptions", data)
     toast.success(t("dashboard.createSuccess"))
-    setEditingSub(null)
     setFormOpen(false)
     await fetchData()
     return created
@@ -512,7 +514,6 @@ export default function DashboardPage() {
     const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
     toast.success(t("dashboard.updateSuccess"))
     invalidateSubscriptionDetail(sub.id)
-    setEditingSub(null)
     setFormOpen(false)
     await fetchData()
     return renewed
@@ -521,12 +522,12 @@ export default function DashboardPage() {
   function openNewForm() {
     preloadSubscriptionForm()
     setEditingSub(null)
+    setFormMounted(true)
     setFormOpen(true)
   }
 
   function handleFormOpenChange(open: boolean) {
     setFormOpen(open)
-    if (!open) setEditingSub(null)
   }
 
   return (
@@ -785,7 +786,8 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {formOpen && (
+      {/* Keep the lazy form and its key stable while Radix plays the exit animation. */}
+      {formMounted && (
         <Suspense
           fallback={
             <SubscriptionFormFallbackDialog
@@ -818,17 +820,15 @@ export default function DashboardPage() {
         <Suspense
           fallback={
             <SubscriptionDetailFallbackDrawer
-              open={!!detailSub}
+              open={detailOpen}
               subscription={detailSub}
               currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
-              onOpenChange={(open) => {
-                if (!open) setDetailSub(null)
-              }}
+              onOpenChange={setDetailOpen}
             />
           }
         >
           <SubscriptionDetailDrawer
-            open={!!detailSub}
+            open={detailOpen}
             subscription={detailSub}
             categoryName={getSubscriptionCategoryName(detailSub)}
             currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
@@ -837,9 +837,7 @@ export default function DashboardPage() {
                 ? paymentMethodLabelMap.get(detailSub.payment_method_id)
                 : undefined
             }
-            onOpenChange={(open) => {
-              if (!open) setDetailSub(null)
-            }}
+            onOpenChange={setDetailOpen}
             onEdit={handleEdit}
           />
         </Suspense>
