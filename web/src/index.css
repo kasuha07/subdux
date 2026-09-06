@@ -321,11 +321,11 @@
 .motion-surface[data-side="right"] { --motion-x: -4px; --motion-y: 0px; }
 
 /* Existing subscription-edit-modal keyframes remain the specialized variant. */
-.motion-dialog:not(.subscription-edit-modal):not(.subscription-form-dialog)[data-state="open"] {
+.motion-dialog:not(.subscription-edit-modal):not(.subscription-form-dialog):not([data-motion="drawer"])[data-state="open"] {
   animation: surface-enter var(--motion-normal) var(--motion-ease) both;
 }
 
-.motion-dialog:not(.subscription-edit-modal):not(.subscription-form-dialog)[data-state="closed"] {
+.motion-dialog:not(.subscription-edit-modal):not(.subscription-form-dialog):not([data-motion="drawer"])[data-state="closed"] {
   animation: surface-exit var(--motion-exit) ease-in both;
 }
 
