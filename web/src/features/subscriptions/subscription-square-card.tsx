@@ -33,6 +33,8 @@ interface SubscriptionSquareCardProps {
   onPreloadDetail?: (sub: Subscription) => void
   selected?: boolean
   onToggleSelect?: (id: number) => void
+  className?: string
+  style?: React.CSSProperties
 }
 
 const statusStyles: Record<string, string> = {
@@ -61,6 +63,8 @@ export default function SubscriptionSquareCard({
   onPreloadDetail,
   selected = false,
   onToggleSelect,
+  className,
+  style,
 }: SubscriptionSquareCardProps) {
   const { t, i18n } = useTranslation()
   const amountToDisplay = displayAmount ?? subscription.amount
@@ -153,10 +157,13 @@ export default function SubscriptionSquareCard({
       } : undefined}
       onFocus={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
       onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
+      style={style}
       className={cn(
-        "group relative h-auto w-full self-start gap-0 overflow-hidden py-2 subscription-card-motion hover:shadow-md",
+        "group relative h-auto w-full self-start gap-0 overflow-hidden py-2 subscription-card-motion subscription-card-enter hover:shadow-md",
         !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-        ended && "grayscale opacity-60"
+        ended && "grayscale opacity-60 hover:opacity-85 transition-opacity",
+        selected && "ring-2 ring-primary/40 border-primary/50 bg-primary/[0.03] shadow-xs",
+        className
       )}
     >
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
@@ -170,7 +177,7 @@ export default function SubscriptionSquareCard({
                 className="shrink-0"
               />
             )}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg transition-transform duration-200 ease-out group-hover:scale-105">
               <SubscriptionIcon icon={subscription.icon} name={subscription.name} size={22} />
             </div>
             <div className="min-w-0 flex-1">
@@ -188,14 +195,14 @@ export default function SubscriptionSquareCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-all duration-150 hover:bg-muted/60 hover:text-foreground hover:scale-110 active:scale-95"
             >
               <ExternalLink className="size-4" />
             </a>
           )}
         </div>
 
-        <div className="flex items-start justify-between gap-2 rounded-lg bg-muted/35 px-3 py-2">
+        <div className="flex items-start justify-between gap-2 rounded-lg bg-muted/35 px-3 py-2 transition-colors duration-200 group-hover:bg-muted/50">
           <div className="min-w-0">
             <p className="text-sm tabular-nums leading-tight" title={priceTitle}>
               {formatCurrencyWithSymbol(amountToDisplay, currencyToDisplay, symbolToDisplay, i18n.language)}
@@ -222,7 +229,7 @@ export default function SubscriptionSquareCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="shrink-0 text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-muted-foreground transition-transform duration-150 hover:text-foreground hover:scale-110 active:scale-95"
               onFocus={() => onPreloadDetail?.(subscription)}
               onPointerDown={() => onPreloadDetail?.(subscription)}
               onPointerEnter={() => onPreloadDetail?.(subscription)}

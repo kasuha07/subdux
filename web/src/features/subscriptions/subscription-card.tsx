@@ -36,6 +36,8 @@ interface SubscriptionCardProps {
   onDelete: (id: number) => void
   selected?: boolean
   onToggleSelect?: (id: number) => void
+  className?: string
+  style?: React.CSSProperties
 }
 
 const statusStyles: Record<string, string> = {
@@ -77,6 +79,8 @@ export default function SubscriptionCard({
   onDelete,
   selected = false,
   onToggleSelect,
+  className,
+  style,
 }: SubscriptionCardProps) {
   const { t, i18n } = useTranslation()
   const hoverCapablePointer = useHoverCapablePointer()
@@ -184,10 +188,13 @@ export default function SubscriptionCard({
       } : undefined}
       onFocus={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
       onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
+      style={style}
       className={cn(
-        "group relative overflow-hidden py-3 subscription-card-motion hover:shadow-md",
+        "group relative overflow-hidden py-3 subscription-card-motion subscription-card-enter hover:shadow-md",
         !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-        ended && "grayscale opacity-60"
+        ended && "grayscale opacity-60 hover:opacity-85 transition-opacity",
+        selected && "ring-2 ring-primary/40 border-primary/50 bg-primary/[0.03] shadow-xs",
+        className
       )}
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
@@ -200,7 +207,7 @@ export default function SubscriptionCard({
           />
         )}
         <div
-          className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+          className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out group-hover:scale-105"
         >
           <SubscriptionIcon
             icon={subscription.icon}
@@ -217,7 +224,7 @@ export default function SubscriptionCard({
               <Button
                 variant="ghost"
                 size="icon-xs"
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground transition-transform duration-150 hover:text-foreground hover:scale-110 active:scale-95"
                 onFocus={() => onPreloadDetail?.(subscription)}
                 onPointerDown={() => onPreloadDetail?.(subscription)}
                 onPointerEnter={() => onPreloadDetail?.(subscription)}
@@ -237,7 +244,7 @@ export default function SubscriptionCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(event) => event.stopPropagation()}
-                  className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
+                  className="text-muted-foreground transition-transform duration-150 hover:text-foreground hover:scale-110 active:scale-95 inline-flex items-center justify-center"
                   aria-label={t("subscription.form.urlLabel")}
                 >
                   <ExternalLink className="size-4" />
@@ -323,12 +330,13 @@ export default function SubscriptionCard({
         </div>
 
         {hoverCapablePointer ? (
-          <div className="pointer-events-none flex self-center flex-col items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
+          <div className="pointer-events-none flex self-center flex-col items-center gap-1 opacity-0 translate-x-1.5 transition-all duration-200 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-x-0 focus-within:pointer-events-auto focus-within:opacity-100 focus-within:translate-x-0">
             <Tooltip content={t("common.edit")}>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t("common.edit")}
+                className="transition-transform duration-150 hover:scale-110 active:scale-95"
                 onClick={(event) => {
                   event.stopPropagation()
                   onEdit(subscription)
@@ -341,7 +349,7 @@ export default function SubscriptionCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive transition-transform duration-150 hover:scale-110 active:scale-95"
                 aria-label={t("common.delete")}
                 onClick={(event) => {
                   event.stopPropagation()

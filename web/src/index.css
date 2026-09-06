@@ -352,9 +352,113 @@
   scale: 0.97;
 }
 
+.subscription-card-enter {
+  animation: subscription-card-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: var(--card-delay, 0ms);
+}
+
+@keyframes scroll-card-in-out {
+  entry 0% {
+    opacity: 0;
+    translate: 0 28px;
+    scale: 0.98;
+  }
+  entry 100% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+  exit 0% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+  exit 100% {
+    opacity: 0;
+    translate: 0 -28px;
+    scale: 0.97;
+  }
+}
+
+.subscription-scroll-wrap {
+  min-width: 0;
+}
+
+@supports (animation-timeline: view()) {
+  .subscription-scroll-wrap {
+    animation: scroll-card-in-out linear both;
+    animation-timeline: view();
+  }
+}
+
+@supports not (animation-timeline: view()) {
+  .subscription-scroll-wrap {
+    transition: opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      translate 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      scale 280ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, translate, scale;
+  }
+
+  .subscription-scroll-wrap[data-scroll-state="in-view"] {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+
+  .subscription-scroll-wrap[data-scroll-state="entering-bottom"] {
+    opacity: 0;
+    translate: 0 28px;
+    scale: 0.98;
+  }
+
+  .subscription-scroll-wrap[data-scroll-state="exiting-top"] {
+    opacity: 0;
+    translate: 0 -28px;
+    scale: 0.97;
+  }
+}
+
+@keyframes subscription-card-enter {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes cycle-progress-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.cycle-progress-fill {
+  transform-origin: left center;
+  animation: cycle-progress-grow 400ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
 .subscription-card-motion {
-  transition: box-shadow var(--motion-normal) var(--motion-ease),
-    border-color var(--motion-fast) ease-out;
+  transition: translate var(--motion-fast) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-normal) var(--motion-ease),
+    border-color var(--motion-fast) ease-out,
+    background-color var(--motion-fast) ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .subscription-card-motion:hover {
+    translate: 0 -2px;
+  }
+}
+
+.subscription-card-motion[role="button"]:active:not(:has(button:active)):not(:has(a:active)):not(:has(input:active)) {
+  scale: 0.995;
 }
 
 /* Cover shared primitives, loading indicators, toast library styles and future
@@ -369,7 +473,20 @@
     scroll-behavior: auto !important;
   }
 
-  [data-slot="button"]:active {
+  [data-slot="button"]:active,
+  .subscription-card-motion[role="button"]:active {
     scale: 1;
+  }
+
+  .subscription-card-motion:hover {
+    translate: 0 0;
+  }
+
+  .subscription-scroll-wrap {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    translate: 0 0 !important;
+    scale: 1 !important;
   }
 }

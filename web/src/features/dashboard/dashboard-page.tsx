@@ -41,6 +41,7 @@ import type { CreateSubscriptionInput, Subscription } from "@/types"
 
 import SubscriptionCard from "@/features/subscriptions/subscription-card"
 import SubscriptionSquareCard from "@/features/subscriptions/subscription-square-card"
+import SubscriptionScrollWrapper from "@/features/subscriptions/subscription-scroll-wrapper"
 import SubscriptionBatchBar from "@/features/subscriptions/subscription-batch-bar"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import { DashboardLoadError } from "./dashboard-load-error"
@@ -691,6 +692,7 @@ export default function DashboardPage() {
             )}
 
             <div
+              key={subscriptionView}
               className={
                 subscriptionView === "list"
                   ? "space-y-3"
@@ -698,7 +700,7 @@ export default function DashboardPage() {
               }
             >
               {subscriptions.length === 0 ? (
-                <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                <div className="subscription-card-enter col-span-full flex flex-col items-center justify-center py-16 text-center">
                   <div className="mb-4 rounded-full bg-muted p-4">
                     <Plus className="size-6 text-muted-foreground" />
                   </div>
@@ -718,14 +720,17 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               ) : filteredSubscriptions.length === 0 ? (
-                <div className="col-span-full flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+                <div className="subscription-card-enter col-span-full flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
                   <h3 className="font-medium">{t("dashboard.filters.empty.title")}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {t("dashboard.filters.empty.description")}
                   </p>
                 </div>
               ) : (
-                filteredSubscriptions.map((sub) => {
+                filteredSubscriptions.map((sub, index) => {
+                  const cardStyle = {
+                    "--card-delay": `${Math.min(index * 35, 300)}ms`,
+                  } as React.CSSProperties
                   const targetCurrency = preferredCurrency.toUpperCase()
                   const sourceCurrency = sub.currency.toUpperCase()
                   const sourceIsPrimaryCurrency = sourceCurrency === targetCurrency
@@ -758,8 +763,42 @@ export default function DashboardPage() {
 
                   if (subscriptionView === "list") {
                     return (
-                      <SubscriptionCard
-                        key={sub.id}
+                      <SubscriptionScrollWrapper key={sub.id}>
+                        <SubscriptionCard
+                          subscription={sub}
+                          categoryName={getSubscriptionCategoryName(sub)}
+                          currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
+                          displayAmount={monthlyDisplayAmount ?? displayAmount}
+                          displayCurrency={displayCurrency}
+                          displayCurrencySymbol={displayCurrencySymbol}
+                          priceTitle={priceTitle}
+                          showMonthlyAmount={monthlyFactor !== null}
+                          showCycleProgress={displaySubscriptionCycleProgress && isSubscriptionActive(sub)}
+                          paymentMethodName={
+                            sub.payment_method_id
+                              ? paymentMethodLabelMap.get(sub.payment_method_id)
+                              : undefined
+                          }
+                          paymentMethodIcon={
+                            sub.payment_method_id
+                              ? paymentMethodIconMap.get(sub.payment_method_id)
+                              : undefined
+                          }
+                          onOpenDetail={handleOpenDetail}
+                          onPreloadDetail={handlePreloadDetail}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          selected={liveSelectedIDs.includes(sub.id)}
+                          onToggleSelect={batchMode ? handleToggleSelect : undefined}
+                          style={cardStyle}
+                        />
+                      </SubscriptionScrollWrapper>
+                    )
+                  }
+
+                  return (
+                    <SubscriptionScrollWrapper key={sub.id} className="h-auto w-full self-start">
+                      <SubscriptionSquareCard
                         subscription={sub}
                         categoryName={getSubscriptionCategoryName(sub)}
                         currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
@@ -774,43 +813,13 @@ export default function DashboardPage() {
                             ? paymentMethodLabelMap.get(sub.payment_method_id)
                             : undefined
                         }
-                        paymentMethodIcon={
-                          sub.payment_method_id
-                            ? paymentMethodIconMap.get(sub.payment_method_id)
-                            : undefined
-                        }
                         onOpenDetail={handleOpenDetail}
                         onPreloadDetail={handlePreloadDetail}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
                         selected={liveSelectedIDs.includes(sub.id)}
                         onToggleSelect={batchMode ? handleToggleSelect : undefined}
+                        style={cardStyle}
                       />
-                    )
-                  }
-
-                  return (
-                    <SubscriptionSquareCard
-                      key={sub.id}
-                      subscription={sub}
-                      categoryName={getSubscriptionCategoryName(sub)}
-                      currencySymbol={currencySymbolMap.get(sub.currency.toUpperCase())}
-                      displayAmount={monthlyDisplayAmount ?? displayAmount}
-                      displayCurrency={displayCurrency}
-                      displayCurrencySymbol={displayCurrencySymbol}
-                      priceTitle={priceTitle}
-                      showMonthlyAmount={monthlyFactor !== null}
-                      showCycleProgress={displaySubscriptionCycleProgress && isSubscriptionActive(sub)}
-                      paymentMethodName={
-                        sub.payment_method_id
-                          ? paymentMethodLabelMap.get(sub.payment_method_id)
-                          : undefined
-                      }
-                      onOpenDetail={handleOpenDetail}
-                      onPreloadDetail={handlePreloadDetail}
-                      selected={liveSelectedIDs.includes(sub.id)}
-                      onToggleSelect={batchMode ? handleToggleSelect : undefined}
-                    />
+                    </SubscriptionScrollWrapper>
                   )
                 })
               )}

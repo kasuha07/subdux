@@ -150,7 +150,7 @@ export default function SubscriptionCycleProgressBar({
       title={ariaLabel}
     >
       <div
-        className={cn("h-full transition-[width,background-color] duration-300", getProgressColor(progress))}
+        className={cn("cycle-progress-fill h-full transition-[width,background-color] duration-500 ease-out", getProgressColor(progress))}
         style={{ width: `${progress}%` }}
       />
     </div>
