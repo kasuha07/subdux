@@ -19,8 +19,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { buildLoadErrorCopy } from "@/lib/load-error"
 import { reportRenewalModeLabel } from "@/lib/subscription-event-formatters"
 import { formatCurrencyWithSymbol } from "@/lib/utils"
+import {
+  preloadSubscriptionDetail,
+  preloadSubscriptionDetailDrawer,
+} from "@/features/subscriptions/subscription-detail-cache"
+import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
 import type {
   AnalyticsReport,
+  Subscription,
   SubscriptionRenewalMode,
   UserCurrency,
 } from "@/types"
@@ -44,6 +50,9 @@ export default function ReportsPage() {
   const { t, i18n } = useTranslation()
   const [report, setReport] = useState<AnalyticsReport | null>(null)
   const [currencies, setCurrencies] = useState<UserCurrency[]>([])
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
 
@@ -51,9 +60,10 @@ export default function ReportsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [reportData, currencyData] = await requestReportsData()
+      const [reportData, currencyData, subscriptionData] = await requestReportsData()
       setReport(reportData)
       setCurrencies(currencyData || [])
+      setSubscriptions(subscriptionData || [])
     } catch (error) {
       setError(error)
     } finally {
@@ -86,6 +96,19 @@ export default function ReportsPage() {
   const maxForecastAmount = Math.max(1, ...monthlyForecast.map((item) => item.amount_due))
   const forecast12MonthTotal = monthlyForecast.reduce((sum, item) => sum + item.amount_due, 0)
   const forecast12MonthPayments = monthlyForecast.reduce((sum, item) => sum + item.occurrence_count, 0)
+  const subscriptionsByID = useMemo(
+    () => new Map(subscriptions.map((subscription) => [subscription.id, subscription])),
+    [subscriptions]
+  )
+
+  function handleOpenDetail(id: number) {
+    const subscription = subscriptionsByID.get(id)
+    if (!subscription) return
+    preloadSubscriptionDetailDrawer()
+    preloadSubscriptionDetail(id)
+    setDetailSub(subscription)
+    setDetailOpen(true)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -230,11 +253,16 @@ export default function ReportsPage() {
             </section>
 
             <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <TopSubscriptionsPanel items={topSubscriptions} formatAmount={formatAmount} />
+              <TopSubscriptionsPanel
+                items={topSubscriptions}
+                formatAmount={formatAmount}
+                onOpenSubscription={handleOpenDetail}
+              />
               <UpcomingRenewalsPanel
                 items={upcomingRenewals}
                 formatAmount={formatAmount}
                 language={i18n.language}
+                onOpenSubscription={handleOpenDetail}
               />
             </section>
 
@@ -243,18 +271,36 @@ export default function ReportsPage() {
                 items={priceIncreases}
                 formatAmount={formatAmount}
                 language={i18n.language}
+                onOpenSubscription={handleOpenDetail}
               />
-              <AnnualGrowthPanel items={annualGrowth} formatAmount={formatAmount} />
+              <AnnualGrowthPanel
+                items={annualGrowth}
+                formatAmount={formatAmount}
+                onOpenSubscription={handleOpenDetail}
+              />
             </section>
 
             <section>
-              <RecentChangesPanel items={recentChanges} language={i18n.language} formatAmount={formatAmount} />
+              <RecentChangesPanel
+                items={recentChanges}
+                language={i18n.language}
+                formatAmount={formatAmount}
+                onOpenSubscription={handleOpenDetail}
+              />
             </section>
           </div>
         )}
           </LoadErrorState>
         )}
       </main>
+      {detailSub ? (
+        <SubscriptionDetailDrawer
+          open={detailOpen}
+          subscription={detailSub}
+          currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+          onOpenChange={setDetailOpen}
+        />
+      ) : null}
     </div>
   )
 }

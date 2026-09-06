@@ -359,9 +359,11 @@ export function BreakdownPanel({
 export function TopSubscriptionsPanel({
   formatAmount,
   items,
+  onOpenSubscription,
 }: {
   formatAmount: (amount: number) => string
   items: ReportSubscriptionSpend[]
+  onOpenSubscription?: (id: number) => void
 }) {
   const { t, i18n } = useTranslation()
   return (
@@ -378,7 +380,13 @@ export function TopSubscriptionsPanel({
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="flex items-center gap-3 rounded-lg border p-3">
+              <button
+                key={item.id}
+                type="button"
+                className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onOpenSubscription?.(item.id)}
+                disabled={!onOpenSubscription}
+              >
                 <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                   <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
                 </div>
@@ -396,7 +404,7 @@ export function TopSubscriptionsPanel({
                   <p className="text-sm font-semibold tabular-nums">{formatAmount(item.monthly_amount)}</p>
                   <p className="text-xs text-muted-foreground">{t("reports.topSubscriptions.monthly")}</p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -409,10 +417,12 @@ export function UpcomingRenewalsPanel({
   formatAmount,
   items,
   language,
+  onOpenSubscription,
 }: {
   formatAmount: (amount: number) => string
   items: ReportUpcomingRenewal[]
   language: string
+  onOpenSubscription?: (id: number) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -429,7 +439,13 @@ export function UpcomingRenewalsPanel({
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
-              <div key={`${item.id}-${item.billing_date}`} className="flex items-center gap-3 rounded-lg border p-3">
+              <button
+                key={`${item.id}-${item.billing_date}`}
+                type="button"
+                className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onOpenSubscription?.(item.id)}
+                disabled={!onOpenSubscription}
+              >
                 <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                   <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
                 </div>
@@ -445,7 +461,7 @@ export function UpcomingRenewalsPanel({
                     {reportRenewalModeLabel(item.renewal_mode, t)}
                   </Badge>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -458,10 +474,12 @@ export function PriceIncreasesPanel({
   formatAmount,
   items,
   language,
+  onOpenSubscription,
 }: {
   formatAmount: (amount: number) => string
   items: ReportPriceIncrease[]
   language: string
+  onOpenSubscription?: (id: number) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -478,7 +496,13 @@ export function PriceIncreasesPanel({
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
-              <div key={`${item.subscription_id}-${item.changed_at}`} className="rounded-lg border p-3">
+              <button
+                key={`${item.subscription_id}-${item.changed_at}`}
+                type="button"
+                className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onOpenSubscription?.(item.subscription_id)}
+                disabled={!onOpenSubscription}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{item.name}</p>
@@ -498,7 +522,7 @@ export function PriceIncreasesPanel({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t("reports.priceIncreases.delta", { amount: formatAmount(item.delta_monthly_amount) })}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -510,9 +534,11 @@ export function PriceIncreasesPanel({
 export function AnnualGrowthPanel({
   formatAmount,
   items,
+  onOpenSubscription,
 }: {
   formatAmount: (amount: number) => string
   items: ReportAnnualGrowthItem[]
+  onOpenSubscription?: (id: number) => void
 }) {
   const { t } = useTranslation()
   const maxDelta = Math.max(1, ...items.map((item) => item.delta_monthly_amount))
@@ -530,7 +556,13 @@ export function AnnualGrowthPanel({
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <div key={item.subscription_id} className="space-y-2">
+              <button
+                key={item.subscription_id}
+                type="button"
+                className="w-full space-y-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onOpenSubscription?.(item.subscription_id)}
+                disabled={!onOpenSubscription}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{item.name}</p>
@@ -552,7 +584,7 @@ export function AnnualGrowthPanel({
                     style={{ width: `${Math.max(4, Math.min(100, (item.delta_monthly_amount / maxDelta) * 100))}%` }}
                   />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -565,10 +597,12 @@ export function RecentChangesPanel({
   formatAmount,
   items,
   language,
+  onOpenSubscription,
 }: {
   formatAmount: (amount: number) => string
   items: ReportSubscriptionEvent[]
   language: string
+  onOpenSubscription?: (id: number) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -585,7 +619,13 @@ export function RecentChangesPanel({
         ) : (
           <div className="divide-y rounded-lg border">
             {items.map((item) => (
-              <div key={item.id} className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <button
+                key={item.id}
+                type="button"
+                className="grid w-full gap-3 p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                onClick={() => item.subscription_id !== null && onOpenSubscription?.(item.subscription_id)}
+                disabled={item.subscription_id === null || !onOpenSubscription}
+              >
                 <div className="min-w-0">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-medium">{item.name}</p>
@@ -599,7 +639,7 @@ export function RecentChangesPanel({
                 <p className="text-left text-sm tabular-nums sm:text-right">
                   {formatSubscriptionEventAmountChange(item, formatAmount)}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
         )}

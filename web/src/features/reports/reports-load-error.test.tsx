@@ -9,7 +9,7 @@ import { requestReportsData } from "./reports-data"
 import { ReportsLoadError } from "./reports-load-error"
 
 describe("ReportsLoadError", () => {
-  it("keeps the production report error ahead of the empty state and retries both requests", async () => {
+  it("keeps the production report error ahead of the empty state and retries all requests", async () => {
     const error = new BackendAPIError("exchange rate is unavailable", {
       code: "exchange_rate_unavailable",
       status: 503,
@@ -17,7 +17,9 @@ describe("ReportsLoadError", () => {
     const get = vi.fn()
       .mockRejectedValueOnce(error)
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]) as unknown as
         Parameters<typeof requestReportsData>[0]
 
@@ -42,12 +44,14 @@ describe("ReportsLoadError", () => {
     expect(markup).not.toContain("reports.empty.title")
 
     ReportsLoadError({ copy, onRetry: retry }).props.onRetry()
-    expect(get).toHaveBeenCalledTimes(4)
+    expect(get).toHaveBeenCalledTimes(6)
     expect(get.mock.calls.map(([path]) => path)).toEqual([
       "/reports/analytics",
       "/currencies",
+      "/subscriptions",
       "/reports/analytics",
       "/currencies",
+      "/subscriptions",
     ])
   })
 })

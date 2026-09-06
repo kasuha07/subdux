@@ -33,7 +33,7 @@ export interface SubscriptionDetailDrawerProps {
   currencySymbol?: string
   paymentMethodName?: string
   onOpenChange: (open: boolean) => void
-  onEdit: (subscription: Subscription) => void
+  onEdit?: (subscription: Subscription) => void
   onDelete?: (id: number) => void
 }
 
@@ -118,7 +118,7 @@ export default function SubscriptionDetailDrawer({
     if (!activeSubscription) {
       return
     }
-    onEdit(activeSubscription)
+    onEdit?.(activeSubscription)
     onOpenChange(false)
   }
 
@@ -180,17 +180,19 @@ export default function SubscriptionDetailDrawer({
                 </Button>
               </Tooltip>
             ) : null}
-            <Tooltip content={t("subscription.detail.edit")}>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={handleEdit}
-                disabled={!activeSubscription}
-                aria-label={t("subscription.detail.edit")}
-              >
-                <Pencil className="size-4" />
-              </Button>
-            </Tooltip>
+            {onEdit ? (
+              <Tooltip content={t("subscription.detail.edit")}>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={handleEdit}
+                  disabled={!activeSubscription}
+                  aria-label={t("subscription.detail.edit")}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              </Tooltip>
+            ) : null}
             {onDelete ? (
               <Tooltip content={t("common.delete")}>
                 <Button
