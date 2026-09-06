@@ -336,7 +336,13 @@ export default function SubscriptionCard({
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1">
+        <div
+          className={cn(
+            "flex shrink-0 flex-col items-end gap-1",
+            hoverCapablePointer &&
+              "transition-all duration-200 ease-out group-hover:pointer-events-none group-hover:opacity-0 group-hover:translate-x-2 group-has-[[data-card-actions]:focus-within]:pointer-events-none group-has-[[data-card-actions]:focus-within]:opacity-0 group-has-[[data-card-actions]:focus-within]:translate-x-2"
+          )}
+        >
           <div className="flex max-w-[14rem] items-baseline gap-1 text-right">
             <p className="font-semibold tabular-nums whitespace-nowrap" title={priceTitle}>
               {formatCurrencyWithSymbol(
@@ -372,8 +378,9 @@ export default function SubscriptionCard({
 
         {hoverCapablePointer ? (
           <div
+            data-card-actions
             onClick={(event) => event.stopPropagation()}
-            className="pointer-events-none absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur-xs opacity-0 translate-x-1 transition-all duration-200 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-x-0 focus-within:pointer-events-auto focus-within:opacity-100 focus-within:translate-x-0"
+            className="pointer-events-none absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur-xs opacity-0 translate-x-2 transition-all duration-200 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-x-0 focus-within:pointer-events-auto focus-within:opacity-100 focus-within:translate-x-0"
           >
             <Tooltip content={t("common.edit")}>
               <Button
