@@ -2,6 +2,8 @@ const calendar = {
   "title": "Calendar",
   "back": "Back",
   "today": "Today",
+  "prevMonth": "Previous month",
+  "nextMonth": "Next month",
   "weekdays": {
     "sun": "Sun",
     "mon": "Mon",

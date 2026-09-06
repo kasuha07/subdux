@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tooltip } from "@/components/ui/tooltip"
 import { GripVertical, Trash2, Pencil, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
 import { getCategoryLabel } from "@/lib/preset-labels"
@@ -199,43 +200,51 @@ export default function CategoryManagement() {
                 </div>
                 {editingId === item.id ? (
                   <>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => handleEditSave(item.id)}
-                      disabled={editLoading}
-                      title={t("settings.categoryManagement.saveButton")}
-                    >
-                      <Check className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={handleEditCancel}
-                      disabled={editLoading}
-                      title={t("settings.categoryManagement.cancelButton")}
-                    >
-                      <X className="size-4" />
-                    </Button>
+                    <Tooltip content={t("settings.categoryManagement.saveButton")}>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => handleEditSave(item.id)}
+                        disabled={editLoading}
+                        aria-label={t("settings.categoryManagement.saveButton")}
+                      >
+                        <Check className="size-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t("settings.categoryManagement.cancelButton")}>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={handleEditCancel}
+                        disabled={editLoading}
+                        aria-label={t("settings.categoryManagement.cancelButton")}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </Tooltip>
                   </>
                 ) : (
                   <>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => handleEditStart(item)}
-                      title={t("settings.categoryManagement.editButton")}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => handleDeleteCategory(item.id)}
-                      title={t("common.delete")}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <Tooltip content={t("settings.categoryManagement.editButton")}>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => handleEditStart(item)}
+                        aria-label={t("settings.categoryManagement.editButton")}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t("common.delete")}>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteCategory(item.id)}
+                        aria-label={t("common.delete")}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </Tooltip>
                   </>
                 )}
               </div>

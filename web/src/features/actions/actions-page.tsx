@@ -374,11 +374,13 @@ export default function ActionsPage() {
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/" aria-label={t("actions.nav.back")} title={t("actions.nav.back")}>
-                <ArrowLeft className="size-4" />
-              </Link>
-            </Button>
+            <Tooltip content={t("actions.nav.back")}>
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link to="/" aria-label={t("actions.nav.back")}>
+                  <ArrowLeft className="size-4" />
+                </Link>
+              </Button>
+            </Tooltip>
             <h1 className="text-lg font-bold tracking-tight">{t("actions.title")}</h1>
           </div>
           <Tooltip>

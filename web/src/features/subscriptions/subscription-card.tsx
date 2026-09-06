@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tooltip } from "@/components/ui/tooltip"
 import { safeHref } from "@/lib/safe-href"
 import { cn, formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
@@ -212,32 +213,36 @@ export default function SubscriptionCard({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <h3 className="min-w-0 truncate font-medium">{subscription.name}</h3>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="text-muted-foreground hover:text-foreground"
-              onFocus={() => onPreloadDetail?.(subscription)}
-              onPointerDown={() => onPreloadDetail?.(subscription)}
-              onPointerEnter={() => onPreloadDetail?.(subscription)}
-              onClick={(event) => {
-                event.stopPropagation()
-                onOpenDetail(subscription)
-              }}
-              aria-label={t("subscription.detail.open")}
-              title={t("subscription.detail.open")}
-            >
-              <PanelRightOpen className="size-3.5" />
-            </Button>
-            {subscriptionHref && (
-              <a
-                href={subscriptionHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(event) => event.stopPropagation()}
+            <Tooltip content={t("subscription.detail.open")}>
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 className="text-muted-foreground hover:text-foreground"
+                onFocus={() => onPreloadDetail?.(subscription)}
+                onPointerDown={() => onPreloadDetail?.(subscription)}
+                onPointerEnter={() => onPreloadDetail?.(subscription)}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenDetail(subscription)
+                }}
+                aria-label={t("subscription.detail.open")}
               >
-                <ExternalLink className="size-4" />
-              </a>
+                <PanelRightOpen className="size-3.5" />
+              </Button>
+            </Tooltip>
+            {subscriptionHref && (
+              <Tooltip content={t("subscription.form.urlLabel")}>
+                <a
+                  href={subscriptionHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
+                  aria-label={t("subscription.form.urlLabel")}
+                >
+                  <ExternalLink className="size-4" />
+                </a>
+              </Tooltip>
             )}
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
@@ -319,27 +324,33 @@ export default function SubscriptionCard({
 
         {hoverCapablePointer ? (
           <div className="pointer-events-none flex self-center flex-col items-center gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={(event) => {
-                event.stopPropagation()
-                onEdit(subscription)
-              }}
-            >
-              <Pencil className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-destructive hover:text-destructive"
-              onClick={(event) => {
-                event.stopPropagation()
-                onDelete(subscription.id)
-              }}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
+            <Tooltip content={t("common.edit")}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("common.edit")}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onEdit(subscription)
+                }}
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            </Tooltip>
+            <Tooltip content={t("common.delete")}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:text-destructive"
+                aria-label={t("common.delete")}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDelete(subscription.id)
+                }}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </Tooltip>
           </div>
         ) : null}
       </CardContent>

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tooltip } from "@/components/ui/tooltip"
 import { GripVertical, Trash2 } from "lucide-react"
 import { api } from "@/lib/api"
 import { getPaymentMethodLabel } from "@/lib/preset-labels"
@@ -247,15 +248,18 @@ export default function PaymentMethodManagement() {
                     }}
                   />
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 text-muted-foreground hover:text-destructive"
-                    onClick={() => void handleDeleteMethod(item.id)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  <Tooltip content={t("common.delete")}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => void handleDeleteMethod(item.id)}
+                      aria-label={t("common.delete")}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </Tooltip>
                 </div>
               )
             })}

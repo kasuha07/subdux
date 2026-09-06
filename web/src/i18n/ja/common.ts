@@ -6,6 +6,8 @@ const common = {
   "close": "閉じる",
   "clear": "クリア",
   "back": "戻る",
+  "edit": "編集",
+  "delete": "削除",
   "copy": "コピー",
   "copied": "コピーしました",
   "showPassword": "パスワードを表示",

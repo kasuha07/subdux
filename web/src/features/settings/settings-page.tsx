@@ -6,6 +6,7 @@ import { ArrowLeft, Bell, CircleUserRound, CreditCard, FileClock, Info, KeyRound
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip } from "@/components/ui/tooltip"
 import { useSettingsAccount } from "@/features/settings/hooks/use-settings-account"
 import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payment"
 import { api } from "@/lib/api"
@@ -146,11 +147,13 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link to="/" aria-label={t("common.back")} title={t("common.back")}>
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
+          <Tooltip content={t("common.back")}>
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/" aria-label={t("common.back")}>
+                <ArrowLeft className="size-4" />
+              </Link>
+            </Button>
+          </Tooltip>
           <h1 className="text-lg font-bold tracking-tight">{t("settings.title")}</h1>
         </div>
       </header>

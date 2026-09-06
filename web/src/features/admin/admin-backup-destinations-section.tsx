@@ -4,6 +4,7 @@ import { AlertTriangle, Clock, History, Lock, Pencil, PlayCircle, Plus, RefreshC
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tooltip } from "@/components/ui/tooltip"
 import {
   Dialog,
   DialogContent,
@@ -754,51 +755,63 @@ export default function AdminBackupDestinationsSection({
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title={t("admin.backup.destinations.browse")}
-                    onClick={() => void openBrowse(dest)}
-                  >
-                    <History className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={runningDestinationId === dest.id}
-                    title={t("admin.backup.destinations.runNow")}
-                    onClick={() => onRequestRun(dest)}
-                  >
-                    <PlayCircle
-                      className={`size-3.5 ${runningDestinationId === dest.id ? "animate-pulse" : ""}`}
-                    />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={testingDestinationId === dest.id}
-                    title={t("admin.backup.destinations.testConnection")}
-                    onClick={() => {
-                      setTestingDestinationId(dest.id)
-                      void onTestDestination(dest.id).finally(() => setTestingDestinationId(null))
-                    }}
-                  >
-                    <Wifi className={`size-3.5 ${testingDestinationId === dest.id ? "animate-pulse" : ""}`} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => openEditForm(dest)}
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => onRequestDelete(dest)}
-                  >
-                    <Trash2 className="size-3.5 text-destructive" />
-                  </Button>
+                  <Tooltip content={t("admin.backup.destinations.browse")}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("admin.backup.destinations.browse")}
+                      onClick={() => void openBrowse(dest)}
+                    >
+                      <History className="size-3.5" />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={t("admin.backup.destinations.runNow")}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={runningDestinationId === dest.id}
+                      aria-label={t("admin.backup.destinations.runNow")}
+                      onClick={() => onRequestRun(dest)}
+                    >
+                      <PlayCircle
+                        className={`size-3.5 ${runningDestinationId === dest.id ? "animate-pulse" : ""}`}
+                      />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={t("admin.backup.destinations.testConnection")}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={testingDestinationId === dest.id}
+                      aria-label={t("admin.backup.destinations.testConnection")}
+                      onClick={() => {
+                        setTestingDestinationId(dest.id)
+                        void onTestDestination(dest.id).finally(() => setTestingDestinationId(null))
+                      }}
+                    >
+                      <Wifi className={`size-3.5 ${testingDestinationId === dest.id ? "animate-pulse" : ""}`} />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={t("common.edit")}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("common.edit")}
+                      onClick={() => openEditForm(dest)}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={t("common.delete")}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("common.delete")}
+                      onClick={() => onRequestDelete(dest)}
+                    >
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </Tooltip>
                 </div>
               </li>
             )

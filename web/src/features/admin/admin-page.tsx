@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip } from "@/components/ui/tooltip"
 import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
 
 import AdminLoadingSkeleton from "./admin-loading-skeleton"
@@ -71,11 +72,13 @@ export default function AdminPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link to="/" aria-label={t("common.back")} title={t("common.back")}>
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
+          <Tooltip content={t("common.back")}>
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/" aria-label={t("common.back")}>
+                <ArrowLeft className="size-4" />
+              </Link>
+            </Button>
+          </Tooltip>
           <h1 className="text-lg font-bold tracking-tight">{t("admin.title")}</h1>
         </div>
       </header>

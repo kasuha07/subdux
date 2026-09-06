@@ -6,6 +6,8 @@ const common = {
   "close": "Close",
   "clear": "Clear",
   "back": "Back",
+  "edit": "Edit",
+  "delete": "Delete",
   "copy": "Copy",
   "copied": "Copied",
   "showPassword": "Show password",

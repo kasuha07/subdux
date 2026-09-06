@@ -2,6 +2,8 @@ const calendar = {
   "title": "カレンダー",
   "back": "戻る",
   "today": "今日",
+  "prevMonth": "前月",
+  "nextMonth": "翌月",
   "weekdays": {
     "sun": "日",
     "mon": "月",

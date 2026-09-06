@@ -4,6 +4,7 @@ import { KeyRound, Plus, Trash2 } from "lucide-react"
 import { CopyButton } from "@/components/copy-button"
 
 import { Button } from "@/components/ui/button"
+import { Tooltip } from "@/components/ui/tooltip"
 import {
   Dialog,
   DialogContent,
@@ -382,15 +383,18 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                     )}
                   </div>
                 </div>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive"
-                  disabled={deletingId === key.id || deleteReauthId === key.id}
-                  onClick={() => void handleDelete(key.id)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <Tooltip content={t("common.delete")}>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deletingId === key.id || deleteReauthId === key.id}
+                    onClick={() => void handleDelete(key.id)}
+                    aria-label={t("common.delete")}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </Tooltip>
               </div>
             ))}
           </div>

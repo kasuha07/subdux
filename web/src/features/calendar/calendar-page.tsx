@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip } from "@/components/ui/tooltip"
 import { CopyButton } from "@/components/copy-button"
 import { SubscriptionIcon } from "@/features/subscriptions/subscription-icon"
 import { api } from "@/lib/api"
@@ -338,18 +339,22 @@ export default function CalendarPage() {
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/" aria-label={t("common.back")} title={t("common.back")}>
-                <ArrowLeft className="size-4" />
-              </Link>
-            </Button>
+            <Tooltip content={t("common.back")}>
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link to="/" aria-label={t("common.back")}>
+                  <ArrowLeft className="size-4" />
+                </Link>
+              </Button>
+            </Tooltip>
             <h1 className="text-lg font-bold tracking-tight">{t("calendar.title")}</h1>
           </div>
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link to="/settings">
-              <Settings className="size-4" />
-            </Link>
-          </Button>
+          <Tooltip content={t("settings.title")}>
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link to="/settings" aria-label={t("settings.title")}>
+                <Settings className="size-4" />
+              </Link>
+            </Button>
+          </Tooltip>
         </div>
       </header>
 
@@ -358,9 +363,11 @@ export default function CalendarPage() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="icon-sm" onClick={prevMonth}>
-                <ChevronLeft className="size-4" />
-              </Button>
+              <Tooltip content={t("calendar.prevMonth")}>
+                <Button variant="ghost" size="icon-sm" onClick={prevMonth} aria-label={t("calendar.prevMonth")}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+              </Tooltip>
               <div className="flex items-center gap-2">
                 <span className="font-semibold capitalize">{monthLabel}</span>
                 {!isCurrentMonth && (
@@ -374,9 +381,11 @@ export default function CalendarPage() {
                   </Button>
                 )}
               </div>
-              <Button variant="ghost" size="icon-sm" onClick={nextMonth}>
-                <ChevronRight className="size-4" />
-              </Button>
+              <Tooltip content={t("calendar.nextMonth")}>
+                <Button variant="ghost" size="icon-sm" onClick={nextMonth} aria-label={t("calendar.nextMonth")}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </Tooltip>
             </div>
           </CardHeader>
           <CardContent className="p-0 pb-4">
@@ -636,15 +645,17 @@ export default function CalendarPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteToken(token.id)}
-                      title={t("calendar.token.delete")}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <Tooltip content={t("calendar.token.delete")}>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteToken(token.id)}
+                        aria-label={t("calendar.token.delete")}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </div>
               ))}

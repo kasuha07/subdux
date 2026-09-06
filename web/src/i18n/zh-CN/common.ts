@@ -6,6 +6,8 @@ const common = {
   "close": "关闭",
   "clear": "清空",
   "back": "返回",
+  "edit": "编辑",
+  "delete": "删除",
   "copy": "复制",
   "copied": "已复制",
   "showPassword": "显示密码",

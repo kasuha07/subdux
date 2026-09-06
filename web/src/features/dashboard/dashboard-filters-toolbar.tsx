@@ -160,15 +160,16 @@ export default function DashboardFiltersToolbar({
             className={cn("pl-9", searchTerm ? "pr-8" : "pr-8 sm:pr-9")}
           />
           {searchTerm ? (
-            <button
-              type="button"
-              onClick={() => onSearchTermChange("")}
-              className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={t("common.clear")}
-              title={t("common.clear")}
-            >
-              <X className="size-3.5" />
-            </button>
+            <Tooltip content={t("common.clear")}>
+              <button
+                type="button"
+                onClick={() => onSearchTermChange("")}
+                className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t("common.clear")}
+              >
+                <X className="size-3.5" />
+              </button>
+            </Tooltip>
           ) : (
             <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 select-none items-center rounded border border-border/80 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
               /

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Tooltip } from "@/components/ui/tooltip"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
@@ -438,15 +439,16 @@ export default function IconPicker({
                   className={`h-8 text-sm ${brandSearch ? "pr-7" : ""}`}
                 />
                 {brandSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setBrandSearch("")}
-                    className="absolute right-3.5 top-1/2 mt-0.5 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={t("common.clear")}
-                    title={t("common.clear")}
-                  >
-                    <X className="size-3.5" />
-                  </button>
+                  <Tooltip content={t("common.clear")}>
+                    <button
+                      type="button"
+                      onClick={() => setBrandSearch("")}
+                      className="absolute right-3.5 top-1/2 mt-0.5 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={t("common.clear")}
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
               <div 
@@ -554,15 +556,18 @@ export default function IconPicker({
             {filePreview ? (
               <div className="flex items-center gap-3 rounded-lg border p-3">
                 <img src={filePreview} alt="" className="h-10 w-10 object-contain rounded" />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="ml-auto"
-                  onClick={handleRemoveFile}
-                >
-                  <X className="size-4" />
-                </Button>
+                <Tooltip content={t("common.clear")}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="ml-auto"
+                    onClick={handleRemoveFile}
+                    aria-label={t("common.clear")}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </Tooltip>
               </div>
             ) : (
               <label className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/50 transition-colors">

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tooltip } from "@/components/ui/tooltip"
 import {
   getSubscriptionDueDate,
   getSubscriptionRenewalMode,
@@ -217,22 +218,23 @@ export default function SubscriptionSquareCard({
             {dueText}
           </Badge>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-            onFocus={() => onPreloadDetail?.(subscription)}
-            onPointerDown={() => onPreloadDetail?.(subscription)}
-            onPointerEnter={() => onPreloadDetail?.(subscription)}
-            onClick={(event) => {
-              event.stopPropagation()
-              onOpenDetail(subscription)
-            }}
-            aria-label={t("subscription.detail.open")}
-            title={t("subscription.detail.open")}
-          >
-            <PanelRightOpen className="size-3.5" />
-          </Button>
+          <Tooltip content={t("subscription.detail.open")}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+              onFocus={() => onPreloadDetail?.(subscription)}
+              onPointerDown={() => onPreloadDetail?.(subscription)}
+              onPointerEnter={() => onPreloadDetail?.(subscription)}
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpenDetail(subscription)
+              }}
+              aria-label={t("subscription.detail.open")}
+            >
+              <PanelRightOpen className="size-3.5" />
+            </Button>
+          </Tooltip>
         </div>
       </CardContent>
       {showCycleProgress ? <SubscriptionCycleProgressBar subscription={subscription} /> : null}

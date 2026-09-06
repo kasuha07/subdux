@@ -26,6 +26,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip } from "@/components/ui/tooltip"
 import {
   formatSubscriptionEventAmountChange,
   subscriptionDetailEventChangeRows,
@@ -201,17 +202,18 @@ export default function SubscriptionDetailDrawer({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {subscriptionUrlHref ? (
-              <Button variant="outline" size="icon-sm" asChild>
-                <a
-                  href={subscriptionUrlHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={t("subscription.form.urlLabel")}
-                  title={t("subscription.form.urlLabel")}
-                >
-                  <ExternalLink className="size-4" />
-                </a>
-              </Button>
+              <Tooltip content={t("subscription.form.urlLabel")}>
+                <Button variant="outline" size="icon-sm" asChild>
+                  <a
+                    href={subscriptionUrlHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={t("subscription.form.urlLabel")}
+                  >
+                    <ExternalLink className="size-4" />
+                  </a>
+                </Button>
+              </Tooltip>
             ) : null}
             <Button
               variant="outline"
@@ -223,17 +225,19 @@ export default function SubscriptionDetailDrawer({
               <Pencil className="size-4" />
               {t("subscription.detail.edit")}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="-mr-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-              asChild
-            >
-              <DialogClose aria-label={t("common.close")}>
-                <X />
-              </DialogClose>
-            </Button>
+            <Tooltip content={t("common.close")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="-mr-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                asChild
+              >
+                <DialogClose aria-label={t("common.close")}>
+                  <X />
+                </DialogClose>
+              </Button>
+            </Tooltip>
           </div>
         </DialogHeader>
 

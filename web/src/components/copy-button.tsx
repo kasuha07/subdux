@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, forwardRef } from "react"
 import { Check, Copy } from "lucide-react"
 
 import { Button, type ButtonProps } from "@/components/ui/button"
@@ -15,20 +15,24 @@ export interface CopyButtonProps extends Omit<ButtonProps, "onClick"> {
   onCopied?: () => void
 }
 
-export function CopyButton({
-  text,
-  label = "Copy",
-  copiedLabel = "Copied",
-  showToast = false,
-  toastMessage,
-  successToast,
-  variant = "outline",
-  size = "icon-sm",
-  className,
-  onCopied,
-  children,
-  ...props
-}: CopyButtonProps) {
+export const CopyButton = forwardRef<HTMLButtonElement, CopyButtonProps>(
+  function CopyButton(
+    {
+      text,
+      label = "Copy",
+      copiedLabel = "Copied",
+      showToast = false,
+      toastMessage,
+      successToast,
+      variant = "outline",
+      size = "icon-sm",
+      className,
+      onCopied,
+      children,
+      ...props
+    },
+    ref
+  ) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -52,6 +56,7 @@ export function CopyButton({
 
   return (
     <Button
+      ref={ref}
       type="button"
       variant={variant}
       size={size}
@@ -74,4 +79,4 @@ export function CopyButton({
       )}
     </Button>
   )
-}
+})
