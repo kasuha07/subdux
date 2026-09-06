@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { currencyExponent } from "@/lib/money"
 
 import {
   cn,
@@ -139,5 +140,38 @@ describe("daysUntil", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 5, 15))
     expect(daysUntil("2026-06-10")).toBe(-5)
+  })
+})
+
+describe("reused currency formatters", () => {
+  it.each(["en", "zh-CN", "ja"])("preserves Intl output across amounts and currencies in %s", (locale) => {
+    for (const [currency, digits] of [["USD", 2], ["JPY", 0], ["KWD", 3]] as const) {
+      const formatter = new Intl.NumberFormat(locale, {
+        style: "currency", currency,
+        minimumFractionDigits: digits, maximumFractionDigits: digits,
+      })
+      for (const amount of [0, -0, -1234.567, 99999.999]) {
+        expect(formatCurrency(amount, currency, locale)).toBe(formatter.format(amount))
+        for (const symbol of ["custom", "替代"]) {
+          expect(formatCurrencyWithSymbol(amount, currency.toLowerCase(), symbol, locale)).toBe(
+            formatter.formatToParts(amount).map((part) => part.type === "currency" ? symbol : part.value).join("")
+          )
+        }
+      }
+    }
+  })
+
+  it("keeps results correct after more currency variants than the cache can retain", () => {
+    const original = formatCurrency(1234.56, "USD", "ja")
+    for (let i = 0; i < 80; i++) {
+      const currency = `X${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + i % 26)}`
+      expect(formatCurrency(1, currency, "ja")).toBe(new Intl.NumberFormat("ja", {
+        style: "currency", currency,
+        minimumFractionDigits: currencyExponent(currency), maximumFractionDigits: currencyExponent(currency),
+      }).format(1))
+    }
+    expect(formatCurrency(1234.56, "USD", "ja")).toBe(original)
+    expect(formatCurrency(1, "bad-code", "ja")).toBe("1.00 bad-code")
+    expect(formatCurrency(2, "invalid", "ja")).toBe("2.00 invalid")
   })
 })

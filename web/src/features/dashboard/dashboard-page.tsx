@@ -51,26 +51,11 @@ const loadSubscriptionDetailDrawer = () => import("@/features/subscriptions/subs
 const SubscriptionDetailDrawer = lazy(loadSubscriptionDetailDrawer)
 
 function preloadSubscriptionForm() {
-  void loadSubscriptionForm()
+  void loadSubscriptionForm().catch(() => {})
 }
 
 function preloadSubscriptionDetailDrawer() {
-  void loadSubscriptionDetailDrawer()
-}
-
-function scheduleIdlePreload(callback: () => void, timeout: number): () => void {
-  const idleWindow = window as Window & {
-    cancelIdleCallback?: (handle: number) => void
-    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
-  }
-
-  if (typeof idleWindow.requestIdleCallback === "function") {
-    const handle = idleWindow.requestIdleCallback(callback, { timeout })
-    return () => idleWindow.cancelIdleCallback?.(handle)
-  }
-
-  const handle = window.setTimeout(callback, timeout)
-  return () => window.clearTimeout(handle)
+  void loadSubscriptionDetailDrawer().catch(() => {})
 }
 
 function DashboardSkeleton() {
@@ -385,24 +370,6 @@ export default function DashboardPage() {
     return () => window.removeEventListener("storage", handleStorage)
   }, [])
 
-  useEffect(() => {
-    return scheduleIdlePreload(preloadSubscriptionForm, 700)
-  }, [])
-
-  useEffect(() => {
-    return scheduleIdlePreload(preloadSubscriptionDetailDrawer, 1100)
-  }, [])
-
-  useEffect(() => {
-    preloadRouteForPath("/actions")
-    preloadRouteForPath("/calendar")
-    preloadRouteForPath("/reports")
-    preloadRouteForPath("/settings")
-    if (isAdmin()) {
-      preloadRouteForPath("/admin")
-    }
-  }, [])
-
   // Derived selection: bulk actions only ever address subscriptions that still
   // exist. Stale ids (e.g. a subscription deleted elsewhere) are filtered out
   // for display and never sent to the batch endpoint.
@@ -581,29 +548,29 @@ export default function DashboardPage() {
               {t("dashboard.add")}
             </Button>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/actions" aria-label={t("actions.title")} title={t("actions.title")}>
+              <Link onFocus={() => preloadRouteForPath("/actions")} onPointerEnter={() => preloadRouteForPath("/actions")} to="/actions" aria-label={t("actions.title")} title={t("actions.title")}>
                 <ListChecks className="size-4" />
               </Link>
             </Button>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/calendar" aria-label={t("calendar.title")} title={t("calendar.title")}>
+              <Link onFocus={() => preloadRouteForPath("/calendar")} onPointerEnter={() => preloadRouteForPath("/calendar")} to="/calendar" aria-label={t("calendar.title")} title={t("calendar.title")}>
                 <CalendarDays className="size-4" />
               </Link>
             </Button>
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/reports" aria-label={t("reports.title")} title={t("reports.title")}>
+              <Link onFocus={() => preloadRouteForPath("/reports")} onPointerEnter={() => preloadRouteForPath("/reports")} to="/reports" aria-label={t("reports.title")} title={t("reports.title")}>
                 <BarChart3 className="size-4" />
               </Link>
             </Button>
             {isAdmin() && (
               <Button variant="ghost" size="icon-sm" asChild>
-                <Link to="/admin" aria-label={t("admin.title")} title={t("admin.title")}>
+                <Link onFocus={() => preloadRouteForPath("/admin")} onPointerEnter={() => preloadRouteForPath("/admin")} to="/admin" aria-label={t("admin.title")} title={t("admin.title")}>
                   <Shield className="size-4" />
                 </Link>
               </Button>
             )}
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/settings" aria-label={t("settings.title")} title={t("settings.title")}>
+              <Link onFocus={() => preloadRouteForPath("/settings")} onPointerEnter={() => preloadRouteForPath("/settings")} to="/settings" aria-label={t("settings.title")} title={t("settings.title")}>
                 <Settings className="size-4" />
               </Link>
             </Button>

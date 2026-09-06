@@ -60,28 +60,41 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Bound retained Intl instances even when imported data contains many currencies.
+const numberFormatters = new Map<string, Intl.NumberFormat>()
+const MAX_NUMBER_FORMATTERS = 64
+
+function getNumberFormatter(currency: string, locale: string): Intl.NumberFormat {
+  const code = isWellFormedCurrencyCode(currency) ? currency.toUpperCase() : ""
+  const key = JSON.stringify([locale, code])
+  const cached = numberFormatters.get(key)
+  if (cached) return cached
+
+  const exponent = currencyExponent(code)
+  const formatter = new Intl.NumberFormat(locale, {
+    ...(code ? { style: "currency", currency: code } : {}),
+    minimumFractionDigits: exponent,
+    maximumFractionDigits: exponent,
+  })
+  if (numberFormatters.size >= MAX_NUMBER_FORMATTERS) {
+    numberFormatters.delete(numberFormatters.keys().next().value!)
+  }
+  numberFormatters.set(key, formatter)
+  return formatter
+}
+
 export function formatCurrency(amount: number, currency: string = "USD", locale: string = "en-US"): string {
   const code = currency.trim()
-  const exponent = currencyExponent(code)
-
   // Intl.NumberFormat throws a RangeError for a malformed currency code (not
   // exactly three ASCII letters). Fall back to a plain number with the raw
   // code appended so imported data with a bad currency still renders instead
   // of crashing the caller.
   if (!isWellFormedCurrencyCode(code)) {
-    const formatted = new Intl.NumberFormat(locale, {
-      minimumFractionDigits: exponent,
-      maximumFractionDigits: exponent,
-    }).format(amount)
+    const formatted = getNumberFormatter(code, locale).format(amount)
     return code ? `${formatted} ${code}` : formatted
   }
 
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: code,
-    minimumFractionDigits: exponent,
-    maximumFractionDigits: exponent,
-  }).format(amount)
+  return getNumberFormatter(code, locale).format(amount)
 }
 
 export function formatCurrencyWithSymbol(
@@ -102,13 +115,7 @@ export function formatCurrencyWithSymbol(
     return formatCurrency(amount, code, locale)
   }
 
-  const exponent = currencyExponent(code)
-  const parts = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: code,
-    minimumFractionDigits: exponent,
-    maximumFractionDigits: exponent,
-  }).formatToParts(amount)
+  const parts = getNumberFormatter(code, locale).formatToParts(amount)
 
   return parts
     .map((part) => (part.type === "currency" ? normalizedSymbol : part.value))

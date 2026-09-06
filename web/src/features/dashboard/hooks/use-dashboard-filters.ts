@@ -89,6 +89,11 @@ export function useDashboardFilters({
   const [sortField, setSortField] = useState<SortField>(defaultSortField)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection)
 
+  const collator = useMemo(
+    () => new Intl.Collator(language, { sensitivity: "base" }),
+    [language]
+  )
+
   const categoryMap = useMemo(
     () => new Map(categories.map((item) => [item.id, item] as const)),
     [categories]
@@ -117,10 +122,8 @@ export function useDashboardFilters({
       }
     }
 
-    return Array.from(uniqueCategories).sort((a, b) =>
-      a.localeCompare(b, language, { sensitivity: "base" })
-    )
-  }, [subscriptions, getSubscriptionCategoryName, language])
+    return Array.from(uniqueCategories).sort(collator.compare)
+  }, [subscriptions, getSubscriptionCategoryName, collator])
 
   const paymentMethodLabelMap = useMemo(
     () => new Map(paymentMethods.map((item) => [item.id, getPaymentMethodLabel(item, t)] as const)),
@@ -178,7 +181,7 @@ export function useDashboardFilters({
 
     const compareSubscriptions = (a: Subscription, b: Subscription) => {
       if (sortField === "name") {
-        return a.name.localeCompare(b.name, language, { sensitivity: "base" })
+        return collator.compare(a.name, b.name)
       }
       if (sortField === "created_at") {
         return toTimestamp(a.created_at) - toTimestamp(b.created_at)
@@ -192,7 +195,7 @@ export function useDashboardFilters({
       return toTimestamp(a.next_billing_date) - toTimestamp(b.next_billing_date)
     }
 
-    return [...filtered].sort((a, b) => {
+    return filtered.sort((a, b) => {
       if (displayDisabledSubscriptionsLast) {
         const aStatus = getSubscriptionStatus(a)
         const bStatus = getSubscriptionStatus(b)
@@ -224,7 +227,7 @@ export function useDashboardFilters({
     displayDisabledSubscriptionsLast,
     exchangeRates,
     getSubscriptionCategoryName,
-    language,
+    collator,
     preferredCurrency,
   ])
 
