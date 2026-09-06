@@ -330,7 +330,10 @@ export default function SubscriptionCard({
         </div>
 
         {hoverCapablePointer ? (
-          <div className="pointer-events-none flex self-center flex-col items-center gap-1 opacity-0 translate-x-1.5 transition-all duration-200 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-x-0 focus-within:pointer-events-auto focus-within:opacity-100 focus-within:translate-x-0">
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="pointer-events-none absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur-xs opacity-0 translate-x-1 transition-all duration-200 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-x-0 focus-within:pointer-events-auto focus-within:opacity-100 focus-within:translate-x-0"
+          >
             <Tooltip content={t("common.edit")}>
               <Button
                 variant="ghost"
@@ -349,7 +352,7 @@ export default function SubscriptionCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="text-destructive hover:text-destructive transition-transform duration-150 hover:scale-110 active:scale-95"
+                className="text-destructive transition-transform duration-150 hover:bg-destructive/10 hover:text-destructive hover:scale-110 active:scale-95"
                 aria-label={t("common.delete")}
                 onClick={(event) => {
                   event.stopPropagation()
