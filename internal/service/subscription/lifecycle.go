@@ -208,18 +208,41 @@ func markSubscriptionEndedAt(sub *model.Subscription, endedAt time.Time) {
 // persistAdvancedSubscriptionLifecycle advances sub and, when its state changed,
 // writes the updated lifecycle columns. It is used by write paths and the
 // background sweep; read paths must never call it.
+//
+// The write is gated on the row's updated_at still matching the snapshot sub
+// was loaded from. The advanced dates are computed from the subscription's
+// lifecycle columns (status, renewal mode, dates) and its billing rules
+// (billing type, recurrence, interval/monthly/yearly fields), so any
+// concurrent edit — not just one that changes the compared lifecycle columns —
+// must invalidate the snapshot. updated_at acts as a row version: GORM bumps
+// it on every update, so the gate fails for any concurrent write regardless of
+// which columns it touched. When it matches no rows the row has moved on and
+// the transition is skipped — the concurrent winner's state stands, and the
+// next sweep pass (or a write path, which reconciles first) recomputes the
+// transition from that fresh state.
 func persistAdvancedSubscriptionLifecycle(db *gorm.DB, userID uint, sub *model.Subscription, referenceDate time.Time) error {
+	// Capture the row version the advance is computed against before
+	// advanceSubscriptionLifecycle mutates sub in memory.
+	snapshotUpdatedAt := sub.UpdatedAt
+
 	if !advanceSubscriptionLifecycle(sub, referenceDate) {
 		return nil
 	}
-	return db.Model(&model.Subscription{}).
-		Where("id = ? AND user_id = ?", sub.ID, userID).
+
+	result := db.Model(&model.Subscription{}).
+		Where("id = ? AND user_id = ? AND updated_at = ?", sub.ID, userID, snapshotUpdatedAt).
 		Updates(map[string]interface{}{
 			"next_billing_date": sub.NextBillingDate,
 			"ends_at":           sub.EndsAt,
 			"status":            sub.Status,
 			"enabled":           sub.Enabled,
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	// RowsAffected == 0 means the row changed since it was loaded; the
+	// concurrent writer's state stands and no error is raised.
+	return nil
 }
 
 // reconcileSubscriptionLifecycleForUser persists any due lifecycle transitions

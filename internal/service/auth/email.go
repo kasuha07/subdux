@@ -358,28 +358,71 @@ func (s *Service) consumeVerificationCode(userID *uint, email string, purpose st
 	}
 
 	if verification.FailedAttempts >= verificationCodeMaxFailures {
-		_ = s.DB.Model(&verification).Update("consumed_at", &now).Error
+		_ = s.DB.Model(&model.EmailVerificationCode{}).
+			Where("id = ? AND consumed_at IS NULL AND failed_attempts >= ?", verification.ID, verificationCodeMaxFailures).
+			Update("consumed_at", &now).Error
 		return ErrVerificationCodeTooManyAttempts
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(verification.CodeHash), []byte(trimmedCode)); err != nil {
-		nextAttempts := verification.FailedAttempts + 1
-		updates := map[string]interface{}{"failed_attempts": nextAttempts}
-		if nextAttempts >= verificationCodeMaxFailures {
-			updates["consumed_at"] = &now
+		// Atomically bump the failure counter. The consumed-at and cap guards in
+		// the WHERE clause make the increment conditional on the code still
+		// being live and under the attempt limit, so concurrent wrong guesses
+		// neither lose updates nor slip past the limit.
+		result := s.DB.Model(&model.EmailVerificationCode{}).
+			Where("id = ? AND consumed_at IS NULL AND failed_attempts < ?", verification.ID, verificationCodeMaxFailures).
+			Update("failed_attempts", gorm.Expr("failed_attempts + 1"))
+		if result.Error != nil {
+			return result.Error
 		}
-		_ = s.DB.Model(&verification).Updates(updates).Error
-		if nextAttempts >= verificationCodeMaxFailures {
+		if result.RowsAffected == 0 {
+			return s.deadVerificationCodeError(verification.ID)
+		}
+
+		// Re-read the counter: concurrent increments may have pushed it to the
+		// limit even if this request's own increment did not.
+		var fresh model.EmailVerificationCode
+		if err := s.DB.Select("failed_attempts").First(&fresh, verification.ID).Error; err != nil {
+			return err
+		}
+		if fresh.FailedAttempts >= verificationCodeMaxFailures {
+			_ = s.DB.Model(&model.EmailVerificationCode{}).
+				Where("id = ? AND consumed_at IS NULL AND failed_attempts >= ?", verification.ID, verificationCodeMaxFailures).
+				Update("consumed_at", &now).Error
 			return ErrVerificationCodeTooManyAttempts
 		}
 		return ErrVerificationCodeInvalid
 	}
 
-	if err := s.DB.Model(&verification).Update("consumed_at", &now).Error; err != nil {
-		return err
+	// Correct code: claim it atomically. The unconsumed and under-cap guards
+	// make this update the single point of consumption — a concurrent request
+	// that already consumed or exhausted the code loses the race here.
+	result := s.DB.Model(&model.EmailVerificationCode{}).
+		Where("id = ? AND consumed_at IS NULL AND failed_attempts < ?", verification.ID, verificationCodeMaxFailures).
+		Update("consumed_at", &now)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return s.deadVerificationCodeError(verification.ID)
 	}
 
 	return nil
+}
+
+// deadVerificationCodeError explains why a conditional verification-code
+// update matched no rows: a code that exhausted its attempts reports the
+// too-many-attempts error, anything else (already consumed or deleted)
+// reports the generic invalid-code error.
+func (s *Service) deadVerificationCodeError(id uint) error {
+	var row model.EmailVerificationCode
+	if err := s.DB.Select("failed_attempts").First(&row, id).Error; err != nil {
+		return ErrVerificationCodeInvalid
+	}
+	if row.FailedAttempts >= verificationCodeMaxFailures {
+		return ErrVerificationCodeTooManyAttempts
+	}
+	return ErrVerificationCodeInvalid
 }
 
 func (s *Service) sendVerificationCodeEmail(recipient string, purpose string, code string) error {

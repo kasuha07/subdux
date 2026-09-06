@@ -230,10 +230,18 @@ func (s *TOTPService) VerifyBackupCode(userID uint, code string) bool {
 	}
 
 	for _, bc := range backupCodes {
-		if bcrypt.CompareHashAndPassword([]byte(bc.CodeHash), []byte(code)) == nil {
-			s.DB.Delete(&bc)
-			return true
+		if bcrypt.CompareHashAndPassword([]byte(bc.CodeHash), []byte(code)) != nil {
+			continue
 		}
+		// Delete conditionally by primary key and require that exactly one row
+		// was removed: concurrent attempts to spend the same code race between
+		// the read above and the delete here, and only the request whose delete
+		// actually removes the row may consider the code consumed.
+		result := s.DB.Where("id = ? AND user_id = ?", bc.ID, userID).Delete(&model.UserBackupCode{})
+		if result.Error != nil || result.RowsAffected != 1 {
+			return false
+		}
+		return true
 	}
 	return false
 }
