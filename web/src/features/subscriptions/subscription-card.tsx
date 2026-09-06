@@ -7,7 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip } from "@/components/ui/tooltip"
 import { safeHref } from "@/lib/safe-href"
 import { cn, formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
-import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
+import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen, MoreHorizontal } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   getSubscriptionDueDate,
   getSubscriptionRenewalMode,
@@ -190,7 +196,7 @@ export default function SubscriptionCard({
       onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
       style={style}
       className={cn(
-        "group relative overflow-hidden py-3 subscription-card-motion subscription-card-enter hover:shadow-md",
+        "group relative overflow-hidden py-3 subscription-card-motion subscription-card-enter hover:shadow-md has-[[data-state=open]]:translate-none has-[[data-state=open]]:scale-100",
         !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         ended && "grayscale opacity-60 hover:opacity-85 transition-opacity",
         selected && "ring-2 ring-primary/40 border-primary/50 bg-primary/[0.03] shadow-xs",
@@ -250,6 +256,41 @@ export default function SubscriptionCard({
                   <ExternalLink className="size-4" />
                 </a>
               </Tooltip>
+            )}
+            {!hoverCapablePointer && (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-muted-foreground transition-colors hover:text-foreground active:scale-100! active:transform-none"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={t("common.moreActions")}
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  sideOffset={4}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <DropdownMenuItem
+                    onSelect={() => onEdit(subscription)}
+                  >
+                    <Pencil className="mr-2 size-3.5" />
+                    <span>{t("common.edit")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                    onSelect={() => onDelete(subscription.id)}
+                  >
+                    <Trash2 className="mr-2 size-3.5" />
+                    <span>{t("common.delete")}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">

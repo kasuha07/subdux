@@ -10,6 +10,7 @@ import {
   History,
   Pencil,
   ReceiptText,
+  Trash2,
   X,
 } from "lucide-react"
 
@@ -59,6 +60,7 @@ interface Props {
   paymentMethodName?: string
   onOpenChange: (open: boolean) => void
   onEdit: (subscription: Subscription) => void
+  onDelete?: (id: number) => void
 }
 
 const eventBadgeStyles: Record<string, string> = {
@@ -95,6 +97,7 @@ export default function SubscriptionDetailDrawer({
   paymentMethodName,
   onOpenChange,
   onEdit,
+  onDelete,
 }: Props) {
   const { t, i18n } = useTranslation()
   const [detail, setDetail] = useState<SubscriptionDetail | null>(null)
@@ -165,6 +168,13 @@ export default function SubscriptionDetailDrawer({
     onOpenChange(false)
   }
 
+  function handleDelete() {
+    if (!activeSubscription || !onDelete) {
+      return
+    }
+    onDelete(activeSubscription.id)
+  }
+
   const subscriptionUrlHref = activeSubscription?.url ? safeHref(activeSubscription.url) : null
 
   return (
@@ -226,6 +236,20 @@ export default function SubscriptionDetailDrawer({
                 <Pencil className="size-4" />
               </Button>
             </Tooltip>
+            {onDelete ? (
+              <Tooltip content={t("common.delete")}>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handleDelete}
+                  disabled={!activeSubscription}
+                  aria-label={t("common.delete")}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </Tooltip>
+            ) : null}
             <Tooltip content={t("common.close")}>
               <Button
                 type="button"

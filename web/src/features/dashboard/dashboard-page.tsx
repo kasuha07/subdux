@@ -419,6 +419,10 @@ export default function DashboardPage() {
       invalidateSubscriptionDetail(id)
       setSelectedIDs((previous) => previous.filter((value) => value !== id))
       toast.success(t("dashboard.deleteSuccess"))
+      if (detailSub?.id === id) {
+        setDetailOpen(false)
+        setDetailSub(null)
+      }
       await fetchData()
     } catch {
       void 0
@@ -882,6 +886,7 @@ export default function DashboardPage() {
             }
             onOpenChange={setDetailOpen}
             onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </Suspense>
       )}

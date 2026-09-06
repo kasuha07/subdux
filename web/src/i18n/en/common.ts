@@ -8,6 +8,7 @@ const common = {
   "back": "Back",
   "edit": "Edit",
   "delete": "Delete",
+  "moreActions": "More actions",
   "copy": "Copy",
   "copied": "Copied",
   "showPassword": "Show password",

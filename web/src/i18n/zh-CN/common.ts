@@ -8,6 +8,7 @@ const common = {
   "back": "返回",
   "edit": "编辑",
   "delete": "删除",
+  "moreActions": "更多操作",
   "copy": "复制",
   "copied": "已复制",
   "showPassword": "显示密码",

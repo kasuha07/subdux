@@ -8,6 +8,7 @@ const common = {
   "back": "戻る",
   "edit": "編集",
   "delete": "削除",
+  "moreActions": "その他の操作",
   "copy": "コピー",
   "copied": "コピーしました",
   "showPassword": "パスワードを表示",
