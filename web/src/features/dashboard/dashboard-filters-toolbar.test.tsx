@@ -93,4 +93,29 @@ describe("DashboardFiltersToolbar responsive design", () => {
     expect(markup).toContain("hidden cursor-default select-none text-sm tabular-nums text-muted-foreground shrink-0 min-[480px]:block")
     expect(markup).toContain("5 / 10")
   })
+
+  it("renders keyboard shortcut hint across breakpoints when search term is empty", () => {
+    const markup = renderToStaticMarkup(<DashboardFiltersToolbar {...defaultProps} searchTerm="" />)
+
+    // Shortcut badge is inline-flex without hidden/sm: breakpoint gating
+    expect(markup).toContain("<kbd")
+    expect(markup).toContain("inline-flex")
+    expect(markup).not.toContain("hidden -translate-y-1/2 select-none items-center rounded border border-border/80 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex")
+    expect(markup).toContain(">/</kbd>")
+  })
+
+  it("does not render keyboard shortcut hint on mobile devices", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+      maxTouchPoints: 5,
+    })
+    vi.stubGlobal("window", {})
+
+    const markup = renderToStaticMarkup(<DashboardFiltersToolbar {...defaultProps} searchTerm="" />)
+    expect(markup).not.toContain("<kbd")
+    expect(markup).not.toContain(">/</kbd>")
+    expect(markup).toContain("pr-3")
+
+    vi.unstubAllGlobals()
+  })
 })

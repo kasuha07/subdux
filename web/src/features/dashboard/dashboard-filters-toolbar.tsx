@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { useIsMobileDevice } from "@/lib/device"
 import { cn } from "@/lib/utils"
 import type { PaymentMethod, SubscriptionRenewalMode } from "@/types"
 import {
@@ -104,6 +105,7 @@ export default function DashboardFiltersToolbar({
   sortField,
 }: DashboardFiltersToolbarProps) {
   const { t } = useTranslation()
+  const isMobile = useIsMobileDevice()
 
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -167,7 +169,7 @@ export default function DashboardFiltersToolbar({
               }
             }}
             placeholder={t("dashboard.filters.searchPlaceholder")}
-            className={cn("pl-9", searchTerm ? "pr-8" : "pr-8 sm:pr-9")}
+            className={cn("pl-9", searchTerm ? "pr-8" : isMobile ? "pr-3" : "pr-9")}
           />
           {searchTerm ? (
             <Tooltip content={t("common.clear")}>
@@ -180,11 +182,11 @@ export default function DashboardFiltersToolbar({
                 <X className="size-3.5" />
               </button>
             </Tooltip>
-          ) : (
-            <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 select-none items-center rounded border border-border/80 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+          ) : !isMobile ? (
+            <kbd className="pointer-events-none absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 select-none items-center rounded border border-border/80 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
               /
             </kbd>
-          )}
+          ) : null}
         </div>
 
         {totalCount > 0 ? (
