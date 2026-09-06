@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
-import { Upload, X, Image as ImageIcon } from "lucide-react"
+import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import type { BrandIcon } from "@/lib/brand-icons/types"
 import { emojiCategories } from "@/lib/emoji-data"
@@ -430,13 +430,24 @@ export default function IconPicker({
           {/* ── Brand tab ── */}
           <TabsContent value="brand" className="p-0 m-0">
             <div className="flex flex-col" style={{ maxHeight: "320px" }}>
-              <div className="px-2 pt-2 pb-1 shrink-0">
+              <div className="relative px-2 pt-2 pb-1 shrink-0">
                 <Input
                   placeholder={t("subscription.form.iconPicker.searchPlaceholder")}
                   value={brandSearch}
                   onChange={(e) => setBrandSearch(e.target.value)}
-                  className="h-8 text-sm"
+                  className={`h-8 text-sm ${brandSearch ? "pr-7" : ""}`}
                 />
+                {brandSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setBrandSearch("")}
+                    className="absolute right-3.5 top-1/2 mt-0.5 -translate-y-1/2 rounded-xs p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={t("common.clear")}
+                    title={t("common.clear")}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
               </div>
               <div 
                 className="overflow-y-auto overflow-x-hidden" 
@@ -452,8 +463,9 @@ export default function IconPicker({
                 }}
               >
                 {brandIcons === null ? (
-                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                    Loading...
+                  <div className="flex items-center justify-center h-full gap-2 text-sm text-muted-foreground" role="status">
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    <span>{t("common.loading")}</span>
                   </div>
                 ) : filteredIcons.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-sm text-muted-foreground">

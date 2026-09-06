@@ -8,7 +8,6 @@ import {
   BellOff,
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
   Clock3,
   CreditCard,
   Eye,
@@ -781,8 +780,8 @@ function EmptyState({ title, description }: { title: string, description: string
   return (
     <Card>
       <CardContent className="flex flex-col items-center justify-center px-4 py-14 text-center">
-        <div className="mb-4 rounded-full bg-muted p-4">
-          <ChevronRight className="size-6 text-muted-foreground" />
+        <div className="mb-4 rounded-full bg-emerald-500/10 p-4 text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="size-6" />
         </div>
         <h2 className="font-medium">{title}</h2>
         <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p>

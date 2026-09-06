@@ -15,7 +15,7 @@ import {
 } from "@/features/subscriptions/subscription-lifecycle"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { safeHref } from "@/lib/safe-href"
-import { daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
+import { cn, daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
 
@@ -182,7 +182,23 @@ export default function SubscriptionSquareCard({
 
   return (
     <Card
-      className={`group relative h-auto w-full self-start gap-0 overflow-hidden py-2 subscription-card-motion hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
+      tabIndex={!onToggleSelect ? 0 : undefined}
+      role={!onToggleSelect ? "button" : undefined}
+      aria-label={!onToggleSelect ? t("subscription.detail.open") : undefined}
+      onClick={!onToggleSelect ? () => onOpenDetail(subscription) : undefined}
+      onKeyDown={!onToggleSelect ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onOpenDetail(subscription)
+        }
+      } : undefined}
+      onFocus={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
+      onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
+      className={cn(
+        "group relative h-auto w-full self-start gap-0 overflow-hidden py-2 subscription-card-motion hover:shadow-md",
+        !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        ended && "grayscale opacity-60"
+      )}
     >
       <CardContent className="flex flex-col gap-2 px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-2">
@@ -212,6 +228,7 @@ export default function SubscriptionSquareCard({
               href={subscriptionHref}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
             >
               <ExternalLink className="size-4" />

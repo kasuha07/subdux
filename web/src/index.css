@@ -116,6 +116,8 @@
 @layer base {
   * {
     @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
   }
   html {
     scrollbar-gutter: stable;

@@ -1,6 +1,7 @@
 import { Suspense, lazy, type ReactNode, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router"
+import { Loader2 } from "lucide-react"
 import { isAuthenticated, isAdmin, restoreSession } from "@/lib/api"
 import { AppToaster } from "@/components/app-toaster"
 import { useSiteTitle } from "@/hooks/useSiteSettings"
@@ -54,8 +55,9 @@ function AdminRoute({ children, authReady }: { children: ReactNode, authReady: b
 function RouteLoading() {
   const { t } = useTranslation()
   return (
-    <div role="status" className="flex min-h-screen items-center justify-center px-4 text-sm text-muted-foreground">
-      {t("common.loading")}
+    <div role="status" className="flex min-h-screen items-center justify-center gap-2.5 px-4 text-sm text-muted-foreground">
+      <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+      <span>{t("common.loading")}</span>
     </div>
   )
 }

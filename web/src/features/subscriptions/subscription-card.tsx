@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { safeHref } from "@/lib/safe-href"
-import { formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
+import { cn, formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
 import {
   getSubscriptionDueDate,
@@ -271,7 +271,23 @@ export default function SubscriptionCard({
 
   return (
     <Card
-      className={`group relative overflow-hidden py-3 subscription-card-motion hover:shadow-md${ended ? " grayscale opacity-60" : ""}`}
+      tabIndex={!onToggleSelect ? 0 : undefined}
+      role={!onToggleSelect ? "button" : undefined}
+      aria-label={!onToggleSelect ? t("subscription.detail.open") : undefined}
+      onClick={!onToggleSelect ? () => onOpenDetail(subscription) : undefined}
+      onKeyDown={!onToggleSelect ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onOpenDetail(subscription)
+        }
+      } : undefined}
+      onFocus={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
+      onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
+      className={cn(
+        "group relative overflow-hidden py-3 subscription-card-motion hover:shadow-md",
+        !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        ended && "grayscale opacity-60"
+      )}
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         {onToggleSelect && (
@@ -312,6 +328,7 @@ export default function SubscriptionCard({
                 href={subscriptionHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ExternalLink className="size-4" />

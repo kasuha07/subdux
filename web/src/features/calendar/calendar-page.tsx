@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import { api } from "@/lib/api"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
@@ -276,6 +277,15 @@ export default function CalendarPage() {
     year: "numeric",
   })
 
+  const isCurrentMonth =
+    viewYear === today.getFullYear() && viewMonth === today.getMonth()
+
+  function goToToday() {
+    setViewYear(today.getFullYear())
+    setViewMonth(today.getMonth())
+    setSelectedDay(today.getDate())
+  }
+
   const dayHeaders = Array.from({ length: 7 }, (_, i) =>
     new Date(2023, 0, i + 1).toLocaleDateString(i18n.language, { weekday: "short" })
   )
@@ -404,7 +414,19 @@ export default function CalendarPage() {
               <Button variant="ghost" size="icon-sm" onClick={prevMonth}>
                 <ChevronLeft className="size-4" />
               </Button>
-              <span className="font-semibold capitalize">{monthLabel}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold capitalize">{monthLabel}</span>
+                {!isCurrentMonth && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={goToToday}
+                  >
+                    {t("calendar.today")}
+                  </Button>
+                )}
+              </div>
               <Button variant="ghost" size="icon-sm" onClick={nextMonth}>
                 <ChevronRight className="size-4" />
               </Button>
@@ -421,9 +443,19 @@ export default function CalendarPage() {
             </div>
             {/* Day cells */}
             {loadingSubs ? (
-              <div className="grid grid-cols-7">
+              <div className="grid grid-cols-7" role="status" aria-label={t("common.loading")}>
                 {Array.from({ length: 42 }).map((_, i) => (
-                  <div key={i} className="min-h-[60px] sm:min-h-[80px] border-b border-r last:border-r-0 p-1" />
+                  <div
+                    key={i}
+                    className={cn(
+                      "min-h-[60px] sm:min-h-[80px] border-b border-r p-1.5 flex flex-col justify-between",
+                      (i + 1) % 7 === 0 && "border-r-0"
+                    )}
+                  >
+                    <Skeleton className="ml-auto size-5 rounded-full" />
+                    {i % 3 === 1 && <Skeleton className="h-3 w-4/5 rounded-xs" />}
+                    {i % 4 === 2 && <Skeleton className="h-3 w-3/5 rounded-xs" />}
+                  </div>
                 ))}
               </div>
             ) : (
