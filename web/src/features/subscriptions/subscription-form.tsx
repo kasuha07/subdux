@@ -72,6 +72,7 @@ export default function SubscriptionForm({
     setField,
     values,
   } = useSubscriptionFormState({
+    categories,
     language: i18n.language,
     onMarkRenewed,
     onOpenChange,
@@ -100,15 +101,21 @@ export default function SubscriptionForm({
     ),
     [handleIconChange, handleIconFileSelected, values.icon]
   )
-  const editDialogClass = isEditing ? "subscription-edit-modal" : ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`subscription-form-dialog ${editDialogClass} flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]`}
+        className="subscription-form-dialog subscription-edit-modal flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
         showCloseButton={false}
         onInteractOutside={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          if (typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches) {
+            const nameInput = document.getElementById("name") as HTMLInputElement | null
+            nameInput?.focus({ preventScroll: true })
+          }
+        }}
       >
         <DialogHeader className="subscription-form-dialog-header flex-row items-start justify-between gap-3 border-b px-5 pt-5 pb-4 text-left sm:px-6">
           <div className="min-w-0 space-y-2">

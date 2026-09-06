@@ -244,25 +244,34 @@
   }
 }
 
-.subscription-edit-modal[data-state="open"] {
+.subscription-edit-modal[data-state="open"],
+.subscription-form-dialog[data-state="open"] {
   animation: subscription-edit-modal-enter 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: translate, opacity, scale;
 }
 
-.subscription-edit-modal[data-state="closed"] {
+.subscription-edit-modal[data-state="closed"],
+.subscription-form-dialog[data-state="closed"] {
   animation: subscription-edit-modal-exit 180ms ease-out forwards;
+  will-change: translate, opacity, scale;
 }
 
 .subscription-edit-modal .subscription-form-dialog-header,
 .subscription-edit-modal .subscription-form-dialog-body,
-.subscription-edit-modal .subscription-form-dialog-footer {
+.subscription-edit-modal .subscription-form-dialog-footer,
+.subscription-form-dialog .subscription-form-dialog-header,
+.subscription-form-dialog .subscription-form-dialog-body,
+.subscription-form-dialog .subscription-form-dialog-footer {
   animation: subscription-form-section-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-.subscription-edit-modal .subscription-form-dialog-body {
+.subscription-edit-modal .subscription-form-dialog-body,
+.subscription-form-dialog .subscription-form-dialog-body {
   animation-delay: 40ms;
 }
 
-.subscription-edit-modal .subscription-form-dialog-footer {
+.subscription-edit-modal .subscription-form-dialog-footer,
+.subscription-form-dialog .subscription-form-dialog-footer {
   animation-delay: 75ms;
 }
 
@@ -312,11 +321,11 @@
 .motion-surface[data-side="right"] { --motion-x: -4px; --motion-y: 0px; }
 
 /* Existing subscription-edit-modal keyframes remain the specialized variant. */
-.motion-dialog:not(.subscription-edit-modal)[data-state="open"] {
+.motion-dialog:not(.subscription-edit-modal):not(.subscription-form-dialog)[data-state="open"] {
   animation: surface-enter var(--motion-normal) var(--motion-ease) both;
 }
 
-.motion-dialog:not(.subscription-edit-modal)[data-state="closed"] {
+.motion-dialog:not(.subscription-edit-modal):not(.subscription-form-dialog)[data-state="closed"] {
   animation: surface-exit var(--motion-exit) ease-in both;
 }
 

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import { BarChart3, CalendarDays, ListChecks, Plus, Settings, Shield } from "lucide-react"
@@ -6,7 +6,6 @@ import { BarChart3, CalendarDays, ListChecks, Plus, Settings, Shield } from "luc
 import { LoadErrorState } from "@/components/load-error-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
@@ -21,6 +20,7 @@ import {
   preloadSubscriptionDetailDrawer,
 } from "@/features/subscriptions/subscription-detail-cache"
 import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
+import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import { api, isAdmin } from "@/lib/api"
 import { formatCurrencyWithSymbol } from "@/lib/utils"
 import { preloadRouteForPath } from "@/lib/route-preload"
@@ -46,13 +46,6 @@ import SubscriptionBatchBar from "@/features/subscriptions/subscription-batch-ba
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import { DashboardLoadError } from "./dashboard-load-error"
 import DashboardSummaryCards, { DashboardSummaryCardsSkeleton } from "./dashboard-summary-cards"
-
-const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
-const SubscriptionForm = lazy(loadSubscriptionForm)
-
-function preloadSubscriptionForm() {
-  void loadSubscriptionForm().catch(() => {})
-}
 
 function DashboardSkeleton() {
   return (
@@ -83,78 +76,7 @@ function DashboardSkeleton() {
   )
 }
 
-function SubscriptionFormFallbackDialog({
-  description,
-  onOpenChange,
-  open,
-  title,
-}: {
-  description: string
-  onOpenChange: (open: boolean) => void
-  open: boolean
-  title: string
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex max-h-[calc(100vh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[85vh]"
-        onInteractOutside={(event) => event.preventDefault()}
-        onPointerDownOutside={(event) => event.preventDefault()}
-      >
-        <DialogHeader className="border-b px-5 pt-5 pb-4 sm:px-6">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription className="sr-only">{description}</DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-3">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-14" />
-              <Skeleton className="size-9 rounded-md" />
-            </div>
-            <div className="min-w-0 space-y-2">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
-          </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,0.9fr)] gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-14" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
-          </div>
-          <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-9 w-full rounded-md" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Skeleton className="h-9 w-full rounded-md" />
-            <Skeleton className="h-9 w-full rounded-md" />
-          </div>
-        </div>
-        <div className="sticky bottom-0 z-10 border-t bg-background/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Skeleton className="h-9 w-full rounded-md sm:w-24" />
-            <Skeleton className="h-9 w-full rounded-md sm:ml-auto sm:w-28" />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
+
 
 
 export default function DashboardPage() {
@@ -305,7 +227,6 @@ export default function DashboardPage() {
   }, [preferredCurrency, subscriptions])
 
   function handleEdit(sub: Subscription) {
-    preloadSubscriptionForm()
     setEditingSub(sub)
     setFormMounted(true)
     setFormOpen(true)
@@ -409,7 +330,6 @@ export default function DashboardPage() {
   }
 
   function openNewForm() {
-    preloadSubscriptionForm()
     setEditingSub(null)
     setFormMounted(true)
     setFormOpen(true)
@@ -428,9 +348,6 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              onFocus={preloadSubscriptionForm}
-              onPointerDown={preloadSubscriptionForm}
-              onPointerEnter={preloadSubscriptionForm}
               onClick={openNewForm}
               disabled={loading}
             >
@@ -625,9 +542,6 @@ export default function DashboardPage() {
                   </p>
                   <Button
                     className="mt-4"
-                    onFocus={preloadSubscriptionForm}
-                    onPointerDown={preloadSubscriptionForm}
-                    onPointerEnter={preloadSubscriptionForm}
                     onClick={openNewForm}
                   >
                     <Plus className="size-4" />
@@ -744,34 +658,19 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Keep the lazy form and its key stable while Radix plays the exit animation. */}
+      {/* Keep the form mounted while Radix plays the exit animation. */}
       {formMounted && (
-        <Suspense
-          fallback={
-            <SubscriptionFormFallbackDialog
-              open={formOpen}
-              onOpenChange={handleFormOpenChange}
-              title={editingSub ? t("subscription.form.editTitle") : t("subscription.form.addTitle")}
-              description={
-                editingSub
-                  ? t("subscription.form.editDescription")
-                  : t("subscription.form.addDescription")
-              }
-            />
-          }
-        >
-          <SubscriptionForm
-            key={editingSub?.id ?? "new"}
-            open={formOpen}
-            onOpenChange={handleFormOpenChange}
-            subscription={editingSub}
-            onSubmit={handleFormSubmit}
-            onMarkRenewed={handleMarkRenewed}
-            userCurrencies={userCurrencies}
-            categories={categories}
-            paymentMethods={paymentMethods}
-          />
-        </Suspense>
+        <SubscriptionForm
+          key={editingSub?.id ?? "new"}
+          open={formOpen}
+          onOpenChange={handleFormOpenChange}
+          subscription={editingSub}
+          onSubmit={handleFormSubmit}
+          onMarkRenewed={handleMarkRenewed}
+          userCurrencies={userCurrencies}
+          categories={categories}
+          paymentMethods={paymentMethods}
+        />
       )}
 
       {detailSub && (

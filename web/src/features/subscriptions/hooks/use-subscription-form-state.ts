@@ -4,6 +4,7 @@ import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
 import { formatDateKey } from "@/lib/utils"
 import type {
+  Category,
   CreateSubscriptionInput,
   PaymentMethod,
   Subscription,
@@ -39,6 +40,7 @@ interface SubscriptionFormValues {
 }
 
 interface UseSubscriptionFormStateOptions {
+  categories?: Category[]
   language: string
   onMarkRenewed?: (subscription: Subscription) => Promise<Subscription>
   onOpenChange: (open: boolean) => void
@@ -88,17 +90,31 @@ function formatDateInput(value: string | null | undefined): string {
 
 function buildInitialValues(
   subscription: Subscription | null | undefined,
-  fallbackCurrencyCode: string
+  fallbackCurrencyCode: string,
+  categories: Category[] = [],
+  paymentMethods: PaymentMethod[] = []
 ): SubscriptionFormValues {
   const today = new Date()
   const todayDate = formatDateKey(today)
 
   if (subscription) {
+    const rawCatId = subscription.category_id?.toString() || ""
+    const categoryId =
+      categories.length === 0 || !rawCatId || categories.some((c) => c.id.toString() === rawCatId)
+        ? rawCatId
+        : ""
+
+    const rawPmId = subscription.payment_method_id?.toString() || ""
+    const paymentMethodId =
+      paymentMethods.length === 0 || !rawPmId || paymentMethods.some((pm) => pm.id.toString() === rawPmId)
+        ? rawPmId
+        : ""
+
     return {
       amount: subscription.amount.toString(),
       nextBillingDate: formatDateInput(subscription.next_billing_date),
       endsAt: formatDateInput(subscription.ends_at || subscription.next_billing_date),
-      categoryId: subscription.category_id?.toString() || "",
+      categoryId,
       currency: subscription.currency || fallbackCurrencyCode,
       icon: subscription.icon || "",
       intervalCount: (subscription.interval_count ?? 1).toString(),
@@ -113,7 +129,7 @@ function buildInitialValues(
           : subscription.notify_enabled
             ? "enabled"
             : "disabled",
-      paymentMethodId: subscription.payment_method_id?.toString() || "",
+      paymentMethodId,
       recurrenceType: subscription.recurrence_type || "interval",
       renewalMode:
         subscription.renewal_mode || "auto_renew",
@@ -149,6 +165,7 @@ function buildInitialValues(
 }
 
 export function useSubscriptionFormState({
+  categories = [],
   language,
   onMarkRenewed,
   onOpenChange,
@@ -178,12 +195,12 @@ export function useSubscriptionFormState({
   const defaultCurrencyCode = currencyOptions[0]?.code || DEFAULT_CURRENCY_FALLBACK[0] || ""
 
   const [values, setValues] = useState<SubscriptionFormValues>(() =>
-    buildInitialValues(subscription, defaultCurrencyCode)
+    buildInitialValues(subscription, defaultCurrencyCode, categories, paymentMethods)
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
-  const wasOpenRef = useRef(false)
+  const wasOpenRef = useRef(open)
 
   const setField = useCallback(
     <K extends keyof SubscriptionFormValues>(field: K, value: SubscriptionFormValues[K]) => {
@@ -212,7 +229,7 @@ export function useSubscriptionFormState({
       setError("")
       setLoading(false)
       setIconFile(null)
-      setValues(buildInitialValues(subscription, defaultCurrencyCode))
+      setValues(buildInitialValues(subscription, defaultCurrencyCode, categories, paymentMethods))
     }
 
     if (!open) {
@@ -220,7 +237,7 @@ export function useSubscriptionFormState({
     }
 
     wasOpenRef.current = open
-  }, [defaultCurrencyCode, open, subscription])
+  }, [categories, defaultCurrencyCode, open, paymentMethods, subscription])
 
   useEffect(() => {
     if (!open || currencyOptions.length === 0) {

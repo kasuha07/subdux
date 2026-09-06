@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
@@ -42,6 +42,7 @@ import {
   preloadSubscriptionDetailDrawer,
 } from "@/features/subscriptions/subscription-detail-cache"
 import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
+import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import SubscriptionScrollWrapper from "@/features/subscriptions/subscription-scroll-wrapper"
 import type {
   ActionCenter,
@@ -54,9 +55,6 @@ import type {
   SubscriptionActionType,
   UserCurrency,
 } from "@/types"
-
-const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
-const SubscriptionForm = lazy(loadSubscriptionForm)
 
 const actionIconMap: Record<SubscriptionActionType, LucideIcon> = {
   upcoming_renewal: CalendarClock,
@@ -275,7 +273,6 @@ export default function ActionsPage() {
   function openEdit(action: SubscriptionAction) {
     const sub = subscriptionForAction(action)
     if (!sub) return
-    void loadSubscriptionForm()
     setEditingSub(sub)
     setFormOpen(true)
   }
@@ -573,19 +570,17 @@ export default function ActionsPage() {
       </main>
 
       {editingSub && (
-        <Suspense fallback={null}>
-          <SubscriptionForm
-            key={editingSub.id}
-            open={formOpen}
-            onOpenChange={setFormOpen}
-            subscription={editingSub}
-            onSubmit={handleFormSubmit}
-            onMarkRenewed={handleFormMarkRenewed}
-            userCurrencies={userCurrencies}
-            categories={categories}
-            paymentMethods={paymentMethods}
-          />
-        </Suspense>
+        <SubscriptionForm
+          key={editingSub.id}
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          subscription={editingSub}
+          onSubmit={handleFormSubmit}
+          onMarkRenewed={handleFormMarkRenewed}
+          userCurrencies={userCurrencies}
+          categories={categories}
+          paymentMethods={paymentMethods}
+        />
       )}
 
       {detailSub && (
@@ -811,8 +806,6 @@ function ActionGroupItem({
                   variant={command.variant}
                   onClick={() => void command.run()}
                   disabled={busy}
-                  onFocus={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
-                  onPointerEnter={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
                   className="transition-transform duration-150 active:scale-95"
                 >
                   <Icon className="size-4" />
@@ -841,8 +834,6 @@ function ActionGroupItem({
                       key={command.key}
                       onClick={() => void command.run()}
                       disabled={busy}
-                      onFocus={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
-                      onPointerEnter={command.key === "edit" ? () => void loadSubscriptionForm() : undefined}
                     >
                       <Icon className="size-4" />
                       {command.label}
