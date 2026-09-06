@@ -44,7 +44,7 @@ import SubscriptionSquareCard from "@/features/subscriptions/subscription-square
 import SubscriptionBatchBar from "@/features/subscriptions/subscription-batch-bar"
 import DashboardFiltersToolbar from "./dashboard-filters-toolbar"
 import { DashboardLoadError } from "./dashboard-load-error"
-import DashboardSummaryCards from "./dashboard-summary-cards"
+import DashboardSummaryCards, { DashboardSummaryCardsSkeleton } from "./dashboard-summary-cards"
 
 const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
 const SubscriptionForm = lazy(loadSubscriptionForm)
@@ -62,35 +62,7 @@ function preloadSubscriptionDetailDrawer() {
 function DashboardSkeleton() {
   return (
     <>
-      <Card className="mb-6 overflow-hidden py-0">
-        <CardContent className="grid gap-px p-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="space-y-4 p-6 sm:p-7">
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-11 rounded-2xl" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-            <Skeleton className="h-11 w-56" />
-            <div className="flex flex-wrap gap-3">
-              <Skeleton className="h-10 w-32 rounded-full" />
-              <Skeleton className="h-10 w-32 rounded-full" />
-            </div>
-          </div>
-
-          <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="space-y-3 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="size-8 rounded-xl" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-5 w-24" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <DashboardSummaryCardsSkeleton />
 
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
