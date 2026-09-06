@@ -39,7 +39,9 @@ import { cn, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import {
   invalidateSubscriptionDetail,
   preloadSubscriptionDetail,
+  preloadSubscriptionDetailDrawer,
 } from "@/features/subscriptions/subscription-detail-cache"
+import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
 import SubscriptionScrollWrapper from "@/features/subscriptions/subscription-scroll-wrapper"
 import type {
   ActionCenter,
@@ -55,8 +57,6 @@ import type {
 
 const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
 const SubscriptionForm = lazy(loadSubscriptionForm)
-const loadSubscriptionDetailDrawer = () => import("@/features/subscriptions/subscription-detail-drawer")
-const SubscriptionDetailDrawer = lazy(loadSubscriptionDetailDrawer)
 
 const actionIconMap: Record<SubscriptionActionType, LucideIcon> = {
   upcoming_renewal: CalendarClock,
@@ -283,7 +283,7 @@ export default function ActionsPage() {
   function openDetail(action: SubscriptionAction) {
     const sub = subscriptionForAction(action)
     if (!sub) return
-    void loadSubscriptionDetailDrawer()
+    preloadSubscriptionDetailDrawer()
     preloadSubscriptionDetail(sub.id)
     setDetailSub(sub)
     setDetailOpen(true)
@@ -327,6 +327,22 @@ export default function ActionsPage() {
         return next
       })
       setBusyKey(null)
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm(t("dashboard.deleteConfirm"))) return
+    try {
+      await api.delete(`/subscriptions/${id}`, { errorHandling: "toast" })
+      invalidateSubscriptionDetail(id)
+      toast.success(t("dashboard.deleteSuccess"))
+      if (detailSub?.id === id) {
+        setDetailOpen(false)
+        setDetailSub(null)
+      }
+      await fetchData()
+    } catch {
+      void 0
     }
   }
 
@@ -573,25 +589,24 @@ export default function ActionsPage() {
       )}
 
       {detailSub && (
-        <Suspense fallback={null}>
-          <SubscriptionDetailDrawer
-            open={detailOpen}
-            subscription={detailSub}
-            categoryName={getSubscriptionCategoryName(detailSub)}
-            currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
-            paymentMethodName={
-              detailSub.payment_method_id
-                ? paymentMethodLabelMap.get(detailSub.payment_method_id)
-                : undefined
-            }
-            onOpenChange={setDetailOpen}
-            onEdit={(sub) => {
-              setDetailOpen(false)
-              setEditingSub(sub)
-              setFormOpen(true)
-            }}
-          />
-        </Suspense>
+        <SubscriptionDetailDrawer
+          open={detailOpen}
+          subscription={detailSub}
+          categoryName={getSubscriptionCategoryName(detailSub)}
+          currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+          paymentMethodName={
+            detailSub.payment_method_id
+              ? paymentMethodLabelMap.get(detailSub.payment_method_id)
+              : undefined
+          }
+          onOpenChange={setDetailOpen}
+          onEdit={(sub) => {
+            setDetailOpen(false)
+            setEditingSub(sub)
+            setFormOpen(true)
+          }}
+          onDelete={handleDelete}
+        />
       )}
     </div>
   )
@@ -751,8 +766,8 @@ function ActionGroupItem({
             type="button"
             className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 p-4 text-left transition-colors hover:bg-muted/40"
             onClick={() => onOpenDetail(primary)}
-            onFocus={() => void loadSubscriptionDetailDrawer()}
-            onPointerEnter={() => void loadSubscriptionDetailDrawer()}
+            onFocus={() => preloadSubscriptionDetailDrawer()}
+            onPointerEnter={() => preloadSubscriptionDetailDrawer()}
           >
             <div className="flex size-11 items-center justify-center overflow-hidden rounded-lg border bg-muted/30 transition-transform duration-200 ease-out group-hover:scale-105">
               {renderActionIcon(primary.subscription_icon, primary.subscription_name)}

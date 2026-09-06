@@ -68,6 +68,10 @@ export function preloadSubscriptionDetail(id: number): void {
   void loadSubscriptionDetail(id).catch(() => undefined)
 }
 
+export function preloadSubscriptionDetailDrawer(): void {
+  void import("./subscription-detail-content").catch(() => undefined)
+}
+
 export function invalidateSubscriptionDetail(id: number): void {
   bumpDetailVersion(id)
   detailCache.delete(id)

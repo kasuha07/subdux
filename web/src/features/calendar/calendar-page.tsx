@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Plus, Trash2, Link2 } from "lucide-react"
@@ -26,15 +26,17 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
-import { preloadSubscriptionDetail } from "@/features/subscriptions/subscription-detail-cache"
+import {
+  invalidateSubscriptionDetail,
+  preloadSubscriptionDetail,
+  preloadSubscriptionDetailDrawer,
+} from "@/features/subscriptions/subscription-detail-cache"
+import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
 import {
   hasFutureCharge,
   hasFutureRecurringSchedule,
   isSubscriptionActive,
 } from "@/features/subscriptions/subscription-lifecycle"
-
-const loadSubscriptionDetailDrawer = () => import("@/features/subscriptions/subscription-detail-drawer")
-const SubscriptionDetailDrawer = lazy(loadSubscriptionDetailDrawer)
 
 interface CalendarToken {
   id: number
@@ -298,7 +300,7 @@ export default function CalendarPage() {
   }
 
   function openSubscriptionDetail(sub: Subscription) {
-    void loadSubscriptionDetailDrawer()
+    preloadSubscriptionDetailDrawer()
     preloadSubscriptionDetail(sub.id)
     setDetailSub(sub)
     setDetailOpen(true)
@@ -330,6 +332,22 @@ export default function CalendarPage() {
     ])
     setSubscriptions(subs || [])
     return renewed
+  }
+
+  async function handleDeleteSubscription(id: number) {
+    if (!confirm(t("dashboard.deleteConfirm"))) return
+    try {
+      await api.delete(`/subscriptions/${id}`, { errorHandling: "toast" })
+      invalidateSubscriptionDetail(id)
+      setSubscriptions((prev) => prev.filter((s) => s.id !== id))
+      toast.success(t("dashboard.deleteSuccess"))
+      if (detailSub?.id === id) {
+        setDetailOpen(false)
+        setDetailSub(null)
+      }
+    } catch {
+      void 0
+    }
   }
 
   const selectedSubs = selectedDay !== null ? (billingMap.get(selectedDay) ?? []) : []
@@ -677,25 +695,24 @@ export default function CalendarPage() {
       />
 
       {detailSub && (
-        <Suspense fallback={null}>
-          <SubscriptionDetailDrawer
-            open={detailOpen}
-            subscription={detailSub}
-            categoryName={getSubscriptionCategoryName(detailSub)}
-            currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
-            paymentMethodName={
-              detailSub.payment_method_id
-                ? paymentMethodLabelMap.get(detailSub.payment_method_id)
-                : undefined
-            }
-            onOpenChange={setDetailOpen}
-            onEdit={(sub) => {
-              setDetailOpen(false)
-              setEditingSub(sub)
-              setFormOpen(true)
-            }}
-          />
-        </Suspense>
+        <SubscriptionDetailDrawer
+          open={detailOpen}
+          subscription={detailSub}
+          categoryName={getSubscriptionCategoryName(detailSub)}
+          currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+          paymentMethodName={
+            detailSub.payment_method_id
+              ? paymentMethodLabelMap.get(detailSub.payment_method_id)
+              : undefined
+          }
+          onOpenChange={setDetailOpen}
+          onEdit={(sub) => {
+            setDetailOpen(false)
+            setEditingSub(sub)
+            setFormOpen(true)
+          }}
+          onDelete={handleDeleteSubscription}
+        />
       )}
     </div>
   )

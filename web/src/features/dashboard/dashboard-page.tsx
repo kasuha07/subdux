@@ -13,16 +13,16 @@ import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { getMonthlyAmountFactor } from "@/features/dashboard/dashboard-amount-utils"
 import {
-  getSubscriptionEndsAt,
-  getSubscriptionRenewalMode,
   isSubscriptionActive,
 } from "@/features/subscriptions/subscription-lifecycle"
 import {
   invalidateSubscriptionDetail,
   preloadSubscriptionDetail,
+  preloadSubscriptionDetailDrawer,
 } from "@/features/subscriptions/subscription-detail-cache"
+import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
 import { api, isAdmin } from "@/lib/api"
-import { formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
+import { formatCurrencyWithSymbol } from "@/lib/utils"
 import { preloadRouteForPath } from "@/lib/route-preload"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
@@ -49,15 +49,9 @@ import DashboardSummaryCards, { DashboardSummaryCardsSkeleton } from "./dashboar
 
 const loadSubscriptionForm = () => import("@/features/subscriptions/subscription-form")
 const SubscriptionForm = lazy(loadSubscriptionForm)
-const loadSubscriptionDetailDrawer = () => import("@/features/subscriptions/subscription-detail-drawer")
-const SubscriptionDetailDrawer = lazy(loadSubscriptionDetailDrawer)
 
 function preloadSubscriptionForm() {
   void loadSubscriptionForm().catch(() => {})
-}
-
-function preloadSubscriptionDetailDrawer() {
-  void loadSubscriptionDetailDrawer().catch(() => {})
 }
 
 function DashboardSkeleton() {
@@ -162,89 +156,6 @@ function SubscriptionFormFallbackDialog({
   )
 }
 
-function SubscriptionDetailFallbackDrawer({
-  currencySymbol,
-  onOpenChange,
-  open,
-  subscription,
-}: {
-  currencySymbol?: string
-  onOpenChange: (open: boolean) => void
-  open: boolean
-  subscription: Subscription
-}) {
-  const { t, i18n } = useTranslation()
-  const amount = formatCurrencyWithSymbol(
-    subscription.amount,
-    subscription.currency,
-    currencySymbol,
-    i18n.language
-  )
-  const status = subscription.status || "active"
-  const renewalMode = getSubscriptionRenewalMode(subscription)
-  const periodEndDate = getSubscriptionEndsAt(subscription)
-  const isEnding = renewalMode === "cancel_at_period_end" && periodEndDate
-  const nextSummaryDate = isEnding ? periodEndDate : subscription.next_billing_date
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-motion="drawer" className="fixed top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 duration-300 sm:max-w-full md:max-w-xl">
-        <DialogHeader className="detail-drawer-stage border-b px-5 pt-5 pb-4 sm:px-6">
-          <div className="flex items-start justify-between gap-4 pr-8">
-            <div className="min-w-0">
-              <DialogTitle className="truncate">
-                {subscription.name || t("subscription.detail.titleFallback")}
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                {t("subscription.detail.description")}
-              </DialogDescription>
-              <p className="mt-1 text-sm text-muted-foreground">{amount}</p>
-            </div>
-            <Skeleton className="h-9 w-20 shrink-0 rounded-md" />
-          </div>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-5 px-5 py-5 sm:px-6">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {isEnding ? t("subscription.detail.summary.periodEnd") : t("subscription.detail.summary.nextCharge")}
-                </p>
-                <p className="mt-2 truncate text-sm font-semibold">
-                  {nextSummaryDate
-                    ? formatDate(nextSummaryDate, i18n.language)
-                    : t("subscription.detail.empty.none")}
-                </p>
-                <Skeleton className="mt-2 h-3 w-28 rounded-md" />
-              </div>
-              <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t("subscription.detail.summary.lifecycle")}
-                </p>
-                <p className="mt-2 truncate text-sm font-semibold">
-                  {t(`subscription.card.status.${status}`)}
-                </p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {t(`subscription.card.renewalMode.${renewalMode}`)}
-                </p>
-              </div>
-              <div className="detail-drawer-stage rounded-lg border bg-muted/25 p-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t("subscription.detail.summary.latestActivity")}
-                </p>
-                <Skeleton className="mt-2 h-4 w-24 rounded-md" />
-                <Skeleton className="mt-2 h-3 w-32 rounded-md" />
-              </div>
-            </div>
-            <Skeleton className="detail-drawer-stage h-10 rounded-lg" />
-            <Skeleton className="detail-drawer-stage h-64 rounded-lg" />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation()
@@ -864,31 +775,20 @@ export default function DashboardPage() {
       )}
 
       {detailSub && (
-        <Suspense
-          fallback={
-            <SubscriptionDetailFallbackDrawer
-              open={detailOpen}
-              subscription={detailSub}
-              currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
-              onOpenChange={setDetailOpen}
-            />
+        <SubscriptionDetailDrawer
+          open={detailOpen}
+          subscription={detailSub}
+          categoryName={getSubscriptionCategoryName(detailSub)}
+          currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
+          paymentMethodName={
+            detailSub.payment_method_id
+              ? paymentMethodLabelMap.get(detailSub.payment_method_id)
+              : undefined
           }
-        >
-          <SubscriptionDetailDrawer
-            open={detailOpen}
-            subscription={detailSub}
-            categoryName={getSubscriptionCategoryName(detailSub)}
-            currencySymbol={currencySymbolMap.get(detailSub.currency.toUpperCase())}
-            paymentMethodName={
-              detailSub.payment_method_id
-                ? paymentMethodLabelMap.get(detailSub.payment_method_id)
-                : undefined
-            }
-            onOpenChange={setDetailOpen}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-        </Suspense>
+          onOpenChange={setDetailOpen}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       )}
     </div>
   )
