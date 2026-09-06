@@ -226,6 +226,14 @@ export default function PaymentMethodManagement() {
                     defaultValue={displayName}
                     maxLength={50}
                     placeholder={t("settings.paymentMethodManagement.namePlaceholder")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.currentTarget.blur()
+                      } else if (e.key === "Escape") {
+                        e.currentTarget.value = displayName
+                        e.currentTarget.blur()
+                      }
+                    }}
                     onBlur={(e) => {
                       const value = e.target.value.trim()
                       if (!value) {

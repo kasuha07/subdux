@@ -189,6 +189,7 @@ const subscription = {
     "yearlyDayLabel": "日",
     "categoryLabel": "カテゴリ",
     "categoryPlaceholder": "選択...",
+    "noCategory": "カテゴリなし",
     "paymentMethodLabel": "支払い方法",
     "paymentMethodPlaceholder": "選択...",
     "noPaymentMethod": "支払い方法なし",

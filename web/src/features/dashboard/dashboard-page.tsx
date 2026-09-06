@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDashboardData } from "@/features/dashboard/hooks/use-dashboard-data"
 import { useDashboardFilters } from "@/features/dashboard/hooks/use-dashboard-filters"
 import { getMonthlyAmountFactor } from "@/features/dashboard/dashboard-amount-utils"
@@ -548,33 +549,94 @@ export default function DashboardPage() {
               <Plus className="size-4" />
               {t("dashboard.add")}
             </Button>
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link onFocus={() => preloadRouteForPath("/actions")} onPointerEnter={() => preloadRouteForPath("/actions")} to="/actions" aria-label={t("actions.title")} title={t("actions.title")}>
-                <ListChecks className="size-4" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link onFocus={() => preloadRouteForPath("/calendar")} onPointerEnter={() => preloadRouteForPath("/calendar")} to="/calendar" aria-label={t("calendar.title")} title={t("calendar.title")}>
-                <CalendarDays className="size-4" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link onFocus={() => preloadRouteForPath("/reports")} onPointerEnter={() => preloadRouteForPath("/reports")} to="/reports" aria-label={t("reports.title")} title={t("reports.title")}>
-                <BarChart3 className="size-4" />
-              </Link>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link
+                    onFocus={() => preloadRouteForPath("/actions")}
+                    onPointerEnter={() => preloadRouteForPath("/actions")}
+                    to="/actions"
+                    aria-label={t("actions.title")}
+                    className="relative"
+                  >
+                    <ListChecks className="size-4" />
+                    {summary?.upcoming_renewal_count && summary.upcoming_renewal_count > 0 ? (
+                      <span
+                        className="absolute top-1 right-1 size-2 rounded-full bg-amber-500 ring-2 ring-background"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("actions.title")}</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link
+                    onFocus={() => preloadRouteForPath("/calendar")}
+                    onPointerEnter={() => preloadRouteForPath("/calendar")}
+                    to="/calendar"
+                    aria-label={t("calendar.title")}
+                  >
+                    <CalendarDays className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("calendar.title")}</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link
+                    onFocus={() => preloadRouteForPath("/reports")}
+                    onPointerEnter={() => preloadRouteForPath("/reports")}
+                    to="/reports"
+                    aria-label={t("reports.title")}
+                  >
+                    <BarChart3 className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("reports.title")}</TooltipContent>
+            </Tooltip>
+
             {isAdmin() && (
-              <Button variant="ghost" size="icon-sm" asChild>
-                <Link onFocus={() => preloadRouteForPath("/admin")} onPointerEnter={() => preloadRouteForPath("/admin")} to="/admin" aria-label={t("admin.title")} title={t("admin.title")}>
-                  <Shield className="size-4" />
-                </Link>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" asChild>
+                    <Link
+                      onFocus={() => preloadRouteForPath("/admin")}
+                      onPointerEnter={() => preloadRouteForPath("/admin")}
+                      to="/admin"
+                      aria-label={t("admin.title")}
+                    >
+                      <Shield className="size-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("admin.title")}</TooltipContent>
+              </Tooltip>
             )}
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link onFocus={() => preloadRouteForPath("/settings")} onPointerEnter={() => preloadRouteForPath("/settings")} to="/settings" aria-label={t("settings.title")} title={t("settings.title")}>
-                <Settings className="size-4" />
-              </Link>
-            </Button>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link
+                    onFocus={() => preloadRouteForPath("/settings")}
+                    onPointerEnter={() => preloadRouteForPath("/settings")}
+                    to="/settings"
+                    aria-label={t("settings.title")}
+                  >
+                    <Settings className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("settings.title")}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </header>

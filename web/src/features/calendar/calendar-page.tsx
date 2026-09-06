@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Copy, Plus, Trash2, Link2 } from "lucide-react"
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, Plus, Trash2, Link2 } from "lucide-react"
 import { toast } from "@/lib/toast"
 
 import { Button } from "@/components/ui/button"
@@ -18,9 +18,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AsyncBrandIcon } from "@/components/async-brand-icon"
+import { CopyButton } from "@/components/copy-button"
+import { SubscriptionIcon } from "@/features/subscriptions/subscription-icon"
 import { api } from "@/lib/api"
-import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { cn, formatCurrency } from "@/lib/utils"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
@@ -40,54 +40,6 @@ interface CalendarToken {
   token: string
   name: string
   created_at: string
-}
-
-function renderCalendarIcon(icon: string, name: string) {
-  const fallback = (
-    <div className="size-8 rounded bg-muted flex items-center justify-center shrink-0">
-      <span className="text-xs font-medium text-muted-foreground">
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </div>
-  )
-
-  if (!icon) {
-    return fallback
-  }
-
-  if (isAsyncBrandIconValue(icon)) {
-    return (
-      <div className="size-8 rounded bg-muted/40 flex items-center justify-center shrink-0">
-        <AsyncBrandIcon
-          value={icon}
-          size={20}
-          color="default"
-          fallback={<span className="text-xs font-medium text-muted-foreground">{name.charAt(0).toUpperCase()}</span>}
-        />
-      </div>
-    )
-  }
-
-  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
-    return <img src={icon} alt="" className="size-8 rounded object-contain shrink-0" />
-  }
-
-  if (icon.startsWith("file:")) {
-    const filename = icon.slice("file:".length)
-    if (filename && !filename.includes("/") && !filename.includes("\\")) {
-      return <img src={`/uploads/icons/${filename}`} alt="" className="size-8 rounded object-contain shrink-0" />
-    }
-  }
-
-  if (!icon.includes(":")) {
-    return (
-      <div className="size-8 rounded bg-muted flex items-center justify-center shrink-0">
-        <span className="text-base leading-none">{icon}</span>
-      </div>
-    )
-  }
-
-  return fallback
 }
 
 // Returns all dates (as YYYY-MM-DD strings) within the given year/month
@@ -333,11 +285,6 @@ export default function CalendarPage() {
     return `${window.location.origin}/api/calendar/feed?token=${token}`
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(t("calendar.token.copied"))
-    }).catch(() => void 0)
-  }
 
   function getSubscriptionCategoryName(sub: Subscription): string {
     if (sub.category_id != null) {
@@ -392,7 +339,7 @@ export default function CalendarPage() {
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/">
+              <Link to="/" aria-label={t("common.back")} title={t("common.back")}>
                 <ArrowLeft className="size-4" />
               </Link>
             </Button>
@@ -543,10 +490,26 @@ export default function CalendarPage() {
                   {selectedSubs.map((sub) => (
                     <div
                       key={sub.id}
-                      className="flex items-center gap-3 rounded-md border p-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      className="flex items-center gap-3 rounded-md border p-2 cursor-pointer hover:bg-muted/50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => openSubscriptionDetail(sub)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          openSubscriptionDetail(sub)
+                        }
+                      }}
                     >
-                      {renderCalendarIcon(sub.icon, sub.name)}
+                      <div className="size-8 rounded bg-muted/50 flex items-center justify-center overflow-hidden shrink-0">
+                        <SubscriptionIcon
+                          icon={sub.icon}
+                          name={sub.name}
+                          size={20}
+                          className="size-6 object-contain"
+                          fallbackClassName="text-xs"
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{sub.name}</p>
                       </div>
@@ -601,13 +564,13 @@ export default function CalendarPage() {
                         <code className="flex-1 rounded-md border bg-muted px-3 py-2 text-xs break-all">
                           {newlyCreatedUrl}
                         </code>
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
-                          onClick={() => copyToClipboard(newlyCreatedUrl)}
-                        >
-                          <Copy className="size-4" />
-                        </Button>
+                        <CopyButton
+                          text={newlyCreatedUrl}
+                          label={t("common.copy")}
+                          copiedLabel={t("calendar.token.copied")}
+                          showToast
+                          toastMessage={t("calendar.token.copied")}
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">

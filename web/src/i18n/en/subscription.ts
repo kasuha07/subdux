@@ -189,6 +189,7 @@ const subscription = {
     "yearlyDayLabel": "Day",
     "categoryLabel": "Category",
     "categoryPlaceholder": "Select...",
+    "noCategory": "No category",
     "paymentMethodLabel": "Payment method",
     "paymentMethodPlaceholder": "Select...",
     "noPaymentMethod": "No payment method",

@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api, getAPIErrorMessage } from "@/lib/api"
 import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
@@ -380,16 +381,20 @@ export default function ActionsPage() {
             </Button>
             <h1 className="text-lg font-bold tracking-tight">{t("actions.title")}</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => void handleRefresh()}
-            disabled={loading || refreshing}
-            aria-label={t("actions.nav.refresh")}
-            title={t("actions.nav.refresh")}
-          >
-            <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void handleRefresh()}
+                disabled={loading || refreshing}
+                aria-label={t("actions.nav.refresh")}
+              >
+                <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("actions.nav.refresh")}</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
@@ -397,10 +402,25 @@ export default function ActionsPage() {
         {loading ? (
           <ActionsSkeleton />
         ) : !center ? (
-          <EmptyState
-            title={t("actions.error.title")}
-            description={t("actions.error.description")}
-          />
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center px-4 py-14 text-center">
+              <div className="mb-4 rounded-full bg-destructive/10 p-4 text-destructive">
+                <AlertTriangle className="size-6" />
+              </div>
+              <h2 className="font-medium">{t("actions.error.title")}</h2>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("actions.error.description")}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 gap-2"
+                onClick={() => void handleRefresh()}
+                disabled={refreshing}
+              >
+                <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
+                {t("actions.error.retry")}
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <>
             <section className="grid grid-cols-3 gap-2 sm:gap-3">

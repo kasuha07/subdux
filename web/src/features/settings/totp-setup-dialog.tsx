@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import QRCode from "react-qr-code"
+import { CopyButton } from "@/components/copy-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -121,8 +122,11 @@ export default function TotpSetupDialog({ open, onOpenChange, reauthTicket, onEn
                   <p className="text-xs text-muted-foreground text-center">
                     {t("settings.twoFactor.orEnterManually")}
                   </p>
-                  <div className="rounded-md bg-muted px-3 py-2 text-center font-mono text-sm tracking-widest select-all break-all">
-                    {setup.secret}
+                  <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">
+                    <div className="min-w-0 flex-1 text-center font-mono text-sm tracking-widest select-all break-all">
+                      {setup.secret}
+                    </div>
+                    <CopyButton text={setup.secret} variant="ghost" size="icon-sm" />
                   </div>
                 </div>
               )}

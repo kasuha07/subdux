@@ -15,6 +15,7 @@ import {
 
 import { LoadErrorState } from "@/components/load-error-state"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { buildLoadErrorCopy } from "@/lib/load-error"
 import { reportRenewalModeLabel } from "@/lib/subscription-event-formatters"
 import { formatCurrencyWithSymbol } from "@/lib/utils"
@@ -92,18 +93,23 @@ export default function ReportsPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/">
+              <Link to="/" aria-label={t("common.back")} title={t("common.back")}>
                 <ArrowLeft className="size-4" />
               </Link>
             </Button>
             <h1 className="text-lg font-bold tracking-tight">{t("reports.title")}</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" asChild>
-              <Link to="/settings">
-                <Settings className="size-4" />
-              </Link>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link to="/settings" aria-label={t("settings.title")}>
+                    <Settings className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("settings.title")}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </header>

@@ -72,7 +72,7 @@ export default function AdminPage() {
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
           <Button variant="ghost" size="icon-sm" asChild>
-            <Link to="/">
+            <Link to="/" aria-label={t("common.back")} title={t("common.back")}>
               <ArrowLeft className="size-4" />
             </Link>
           </Button>

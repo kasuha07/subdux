@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Loader2 } from "lucide-react"
 import { isAuthenticated, isAdmin, restoreSession } from "@/lib/api"
 import { AppToaster } from "@/components/app-toaster"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSiteTitle } from "@/hooks/useSiteSettings"
 import { scheduleNeighborRoutePreload, preloadRouteForPath } from "@/lib/route-preload"
 
@@ -107,22 +108,24 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <AppToaster />
-      <RoutePreloader authReady={authReady} />
-      <Routes>
-        <Route path="/login" element={<LazyRoute><PublicRoute authReady={authReady}><LoginPage /></PublicRoute></LazyRoute>} />
-        <Route path="/register" element={<LazyRoute><PublicRoute authReady={authReady}><RegisterPage /></PublicRoute></LazyRoute>} />
-        <Route path="/forgot-password" element={<LazyRoute><PublicRoute authReady={authReady}><ForgotPasswordPage /></PublicRoute></LazyRoute>} />
-        <Route path="/reset-password" element={<LazyRoute><PublicRoute authReady={authReady}><ResetPasswordPage /></PublicRoute></LazyRoute>} />
-        <Route path="/" element={<LazyRoute><ProtectedRoute authReady={authReady}><DashboardPage /></ProtectedRoute></LazyRoute>} />
-        <Route path="/actions" element={<LazyRoute><ProtectedRoute authReady={authReady}><ActionsPage /></ProtectedRoute></LazyRoute>} />
-        <Route path="/reports" element={<LazyRoute><ProtectedRoute authReady={authReady}><ReportsPage /></ProtectedRoute></LazyRoute>} />
-        <Route path="/settings" element={<LazyRoute><ProtectedRoute authReady={authReady}><SettingsPage /></ProtectedRoute></LazyRoute>} />
-        <Route path="/calendar" element={<LazyRoute><ProtectedRoute authReady={authReady}><CalendarPage /></ProtectedRoute></LazyRoute>} />
-        <Route path="/admin" element={<LazyRoute><AdminRoute authReady={authReady}><AdminPage /></AdminRoute></LazyRoute>} />
-        <Route path="/oidc/reauth" element={<LazyRoute><OIDCReauthCallback /></LazyRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <TooltipProvider delayDuration={200}>
+        <AppToaster />
+        <RoutePreloader authReady={authReady} />
+        <Routes>
+          <Route path="/login" element={<LazyRoute><PublicRoute authReady={authReady}><LoginPage /></PublicRoute></LazyRoute>} />
+          <Route path="/register" element={<LazyRoute><PublicRoute authReady={authReady}><RegisterPage /></PublicRoute></LazyRoute>} />
+          <Route path="/forgot-password" element={<LazyRoute><PublicRoute authReady={authReady}><ForgotPasswordPage /></PublicRoute></LazyRoute>} />
+          <Route path="/reset-password" element={<LazyRoute><PublicRoute authReady={authReady}><ResetPasswordPage /></PublicRoute></LazyRoute>} />
+          <Route path="/" element={<LazyRoute><ProtectedRoute authReady={authReady}><DashboardPage /></ProtectedRoute></LazyRoute>} />
+          <Route path="/actions" element={<LazyRoute><ProtectedRoute authReady={authReady}><ActionsPage /></ProtectedRoute></LazyRoute>} />
+          <Route path="/reports" element={<LazyRoute><ProtectedRoute authReady={authReady}><ReportsPage /></ProtectedRoute></LazyRoute>} />
+          <Route path="/settings" element={<LazyRoute><ProtectedRoute authReady={authReady}><SettingsPage /></ProtectedRoute></LazyRoute>} />
+          <Route path="/calendar" element={<LazyRoute><ProtectedRoute authReady={authReady}><CalendarPage /></ProtectedRoute></LazyRoute>} />
+          <Route path="/admin" element={<LazyRoute><AdminRoute authReady={authReady}><AdminPage /></AdminRoute></LazyRoute>} />
+          <Route path="/oidc/reauth" element={<LazyRoute><OIDCReauthCallback /></LazyRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </TooltipProvider>
     </BrowserRouter>
   )
 }

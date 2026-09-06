@@ -12,8 +12,7 @@ import type { LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AsyncBrandIcon } from "@/components/async-brand-icon"
-import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
+import { SubscriptionIcon } from "@/features/subscriptions/subscription-icon"
 import {
   formatSubscriptionEventAmountChange,
   reportRenewalModeLabel,
@@ -356,7 +355,7 @@ export function TopSubscriptionsPanel({
             {items.map((item) => (
               <div key={item.id} className="flex items-center gap-3 rounded-lg border p-3">
                 <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <ReportSubscriptionIcon icon={item.icon} name={item.name} />
+                  <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
@@ -407,7 +406,7 @@ export function UpcomingRenewalsPanel({
             {items.map((item) => (
               <div key={`${item.id}-${item.billing_date}`} className="flex items-center gap-3 rounded-lg border p-3">
                 <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <ReportSubscriptionIcon icon={item.icon} name={item.name} />
+                  <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{item.name}</p>
@@ -582,46 +581,6 @@ export function RecentChangesPanel({
       </CardContent>
     </Card>
   )
-}
-
-function ReportSubscriptionIcon({ icon, name }: { icon: string, name: string }) {
-  const fallbackInitial = (
-    <span className="flex size-full items-center justify-center bg-muted text-sm font-semibold text-foreground">
-      {name.charAt(0).toUpperCase()}
-    </span>
-  )
-
-  if (!icon) {
-    return fallbackInitial
-  }
-
-  if (isAsyncBrandIconValue(icon)) {
-    return (
-      <AsyncBrandIcon
-        value={icon}
-        size={22}
-        color="default"
-        fallback={fallbackInitial}
-      />
-    )
-  }
-
-  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
-    return <img src={icon} alt={name} className="h-7 w-7 object-contain" />
-  }
-
-  if (icon.startsWith("file:")) {
-    const filename = icon.slice("file:".length)
-    if (filename && !filename.includes("/") && !filename.includes("\\")) {
-      return <img src={`/uploads/icons/${filename}`} alt={name} className="h-7 w-7 object-contain" />
-    }
-  }
-
-  if (icon.includes(":")) {
-    return fallbackInitial
-  }
-
-  return <span className="text-lg leading-none">{icon}</span>
 }
 
 function formatMonth(value: string, locale: string): string {

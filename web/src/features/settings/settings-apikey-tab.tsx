@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Copy, KeyRound, Plus, Trash2 } from "lucide-react"
-import { toast } from "@/lib/toast"
+import { KeyRound, Plus, Trash2 } from "lucide-react"
+import { CopyButton } from "@/components/copy-button"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -118,11 +118,6 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
     }
   }
 
-  function handleCopy(text: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(t("settings.apiKeys.copied"))
-    })
-  }
 
   function handleDialogClose(open: boolean) {
     setCreateOpen(open)
@@ -213,14 +208,13 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                       <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 pr-12 text-xs break-all">
                         {newKey}
                       </code>
-                      <Button
-                        size="icon-sm"
-                        variant="outline"
+                      <CopyButton
+                        text={newKey}
                         className="absolute top-2 right-2"
-                        onClick={() => handleCopy(newKey)}
-                      >
-                        <Copy className="size-4" />
-                      </Button>
+                        variant="outline"
+                        size="icon-sm"
+                        successToast={t("settings.apiKeys.copied")}
+                      />
                     </div>
                   </div>
                   {newKeyKind === "api_integration" && (
@@ -244,14 +238,13 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
                         <code className="block min-w-0 max-w-full rounded-md border bg-muted px-3 py-2 pr-12 text-xs break-all whitespace-pre-wrap">
                           {getMCPConfig(newKey)}
                         </code>
-                        <Button
-                          size="icon-sm"
-                          variant="outline"
+                        <CopyButton
+                          text={getMCPConfig(newKey)}
                           className="absolute top-2 right-2"
-                          onClick={() => handleCopy(getMCPConfig(newKey))}
-                        >
-                          <Copy className="size-4" />
-                        </Button>
+                          variant="outline"
+                          size="icon-sm"
+                          successToast={t("settings.apiKeys.copied")}
+                        />
                       </div>
                     </div>
                   ) : newKeyKind === "mcp_client" ? (

@@ -13,6 +13,7 @@ const actions = {
   "error": {
     "title": "Action center unavailable",
     "description": "Failed to load action center",
+    "retry": "Retry",
     "actionFailed": "Action failed",
     "missingNextBilling": "Set a next billing date before canceling at period end",
     "subscriptionMissing": "Subscription no longer exists"

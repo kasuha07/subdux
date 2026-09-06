@@ -1,12 +1,9 @@
-import type { ReactNode } from "react"
 import type { Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AsyncBrandIcon } from "@/components/async-brand-icon"
-import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { safeHref } from "@/lib/safe-href"
 import { cn, formatCurrencyWithSymbol, daysUntil, formatDate } from "@/lib/utils"
 import { Pencil, Trash2, ExternalLink, BellOff, PanelRightOpen } from "lucide-react"
@@ -18,58 +15,7 @@ import {
 } from "@/features/subscriptions/subscription-lifecycle"
 import { useHoverCapablePointer } from "@/features/subscriptions/hooks/use-hover-capable-pointer"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
-
-function renderIcon(icon: string, name: string): ReactNode {
-  const fallbackInitial = (
-    <span className="flex size-full items-center justify-center bg-muted text-base font-bold text-foreground">
-      {name.charAt(0).toUpperCase()}
-    </span>
-  )
-
-  if (!icon) {
-    return fallbackInitial
-  }
-
-  if (isAsyncBrandIconValue(icon)) {
-    return (
-      <AsyncBrandIcon
-        value={icon}
-        size={24}
-        color="default"
-        fallback={fallbackInitial}
-      />
-    )
-  }
-
-  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
-    return (
-      <img
-        src={icon}
-        alt={name}
-        className="h-7 w-7 object-contain"
-      />
-    )
-  }
-
-  if (icon.startsWith("file:")) {
-    const filename = icon.slice("file:".length)
-    if (filename && !filename.includes("/") && !filename.includes("\\")) {
-      return (
-        <img
-          src={`/uploads/icons/${filename}`}
-          alt={name}
-          className="h-7 w-7 object-contain"
-        />
-      )
-    }
-  }
-
-  if (icon.includes(":")) {
-    return fallbackInitial
-  }
-
-  return <span className="text-xl leading-none">{icon}</span>
-}
+import { SubscriptionIcon } from "./subscription-icon"
 
 interface SubscriptionCardProps {
   subscription: Subscription
@@ -110,52 +56,6 @@ function truncateWithEllipsis(value: string, maxLength = NOTE_PREVIEW_MAX_LENGTH
   }
 
   return `${value.slice(0, maxLength).trimEnd()}…`
-}
-
-function renderInlineIcon(icon: string, name: string): ReactNode {
-  if (!icon) {
-    return null
-  }
-
-  if (isAsyncBrandIconValue(icon)) {
-    return (
-      <AsyncBrandIcon
-        value={icon}
-        size={12}
-        color="default"
-        fallback={<span className="text-[10px] leading-none">{name.charAt(0).toUpperCase()}</span>}
-      />
-    )
-  }
-
-  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
-    return (
-      <img
-        src={icon}
-        alt={name}
-        className="h-3.5 w-3.5 object-contain"
-      />
-    )
-  }
-
-  if (icon.startsWith("file:")) {
-    const filename = icon.slice("file:".length)
-    if (filename && !filename.includes("/") && !filename.includes("\\")) {
-      return (
-        <img
-          src={`/uploads/icons/${filename}`}
-          alt={name}
-          className="h-3.5 w-3.5 object-contain"
-        />
-      )
-    }
-  }
-
-  if (icon.includes(":")) {
-    return <span className="text-[10px] leading-none">{name.charAt(0).toUpperCase()}</span>
-  }
-
-  return <span className="text-[10px] leading-none">{icon}</span>
 }
 
 export default function SubscriptionCard({
@@ -301,7 +201,12 @@ export default function SubscriptionCard({
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
         >
-          {renderIcon(subscription.icon, subscription.name)}
+          <SubscriptionIcon
+            icon={subscription.icon}
+            name={subscription.name}
+            size={24}
+            fallbackClassName="text-base"
+          />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -346,7 +251,13 @@ export default function SubscriptionCard({
               <span className="inline-flex min-w-0 shrink items-center gap-1">
                 {paymentMethodIcon && (
                   <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm bg-muted/50">
-                    {renderInlineIcon(paymentMethodIcon, paymentMethodName)}
+                    <SubscriptionIcon
+                      icon={paymentMethodIcon}
+                      name={paymentMethodName}
+                      size={12}
+                      className="size-3.5 object-contain"
+                      fallbackClassName="text-[10px] leading-none"
+                    />
                   </span>
                 )}
                 <span className="truncate" title={paymentMethodName}>

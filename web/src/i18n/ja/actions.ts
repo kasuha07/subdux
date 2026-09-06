@@ -13,6 +13,7 @@ const actions = {
   "error": {
     "title": "アクションセンターを表示できません",
     "description": "アクションセンターの読み込みに失敗しました",
+    "retry": "再試行",
     "actionFailed": "操作に失敗しました",
     "missingNextBilling": "期間終了でキャンセルする前に次回請求日を設定してください",
     "subscriptionMissing": "サブスクリプションは存在しません"

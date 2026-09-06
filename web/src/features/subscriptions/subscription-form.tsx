@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { X } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -308,11 +308,16 @@ export default function SubscriptionForm({
                 </Button>
               ) : null}
               <Button type="submit" className="w-full sm:flex-1" disabled={loading}>
-                {loading
-                  ? t("subscription.form.saving")
-                  : isEditing
-                    ? t("subscription.form.update")
-                    : t("subscription.form.addButton")}
+                {loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    <span>{t("subscription.form.saving")}</span>
+                  </>
+                ) : isEditing ? (
+                  t("subscription.form.update")
+                ) : (
+                  t("subscription.form.addButton")
+                )}
               </Button>
             </div>
           </div>

@@ -181,6 +181,15 @@ export default function CategoryManagement() {
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          void handleEditSave(item.id)
+                        } else if (e.key === "Escape") {
+                          e.preventDefault()
+                          handleEditCancel()
+                        }
+                      }}
                       className="h-8"
                       autoFocus
                     />

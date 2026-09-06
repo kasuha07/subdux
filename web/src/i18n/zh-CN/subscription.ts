@@ -189,6 +189,7 @@ const subscription = {
     "yearlyDayLabel": "日期",
     "categoryLabel": "分类",
     "categoryPlaceholder": "选择...",
+    "noCategory": "无分类",
     "paymentMethodLabel": "支付方式",
     "paymentMethodPlaceholder": "选择...",
     "noPaymentMethod": "不设",

@@ -9,9 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, PaymentMethod } from "@/types"
 
+const noCategoryValue = "__none__"
 const noPaymentMethodValue = "__none__"
 
 interface SubscriptionMetadataFieldsProps {
@@ -46,11 +48,17 @@ export default function SubscriptionMetadataFields({
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 sm:grid-cols-2">
         <div className="min-w-0 space-y-2">
           <Label htmlFor="category">{t("subscription.form.categoryLabel")}</Label>
-          <Select value={categoryId} onValueChange={onCategoryIdChange}>
+          <Select
+            value={categoryId || noCategoryValue}
+            onValueChange={(value) => {
+              onCategoryIdChange(value === noCategoryValue ? "" : value)
+            }}
+          >
             <SelectTrigger id="category" className="w-full min-w-0">
               <SelectValue placeholder={t("subscription.form.categoryPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={noCategoryValue}>{t("subscription.form.noCategory")}</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id.toString()}>
                   {getCategoryLabel(category, t)}
@@ -95,8 +103,10 @@ export default function SubscriptionMetadataFields({
 
       <div className="space-y-2">
         <Label htmlFor="notes">{t("subscription.form.notesLabel")}</Label>
-        <Input
+        <Textarea
           id="notes"
+          rows={2}
+          className="min-h-16 resize-y"
           placeholder={t("subscription.form.notesPlaceholder")}
           value={notes}
           onChange={(event) => onNotesChange(event.target.value)}

@@ -48,6 +48,7 @@ import {
   getCachedSubscriptionDetail,
   loadSubscriptionDetail,
 } from "./subscription-detail-cache"
+import { SubscriptionIcon } from "./subscription-icon"
 
 interface Props {
   open: boolean
@@ -163,6 +164,8 @@ export default function SubscriptionDetailDrawer({
     onOpenChange(false)
   }
 
+  const subscriptionUrlHref = activeSubscription?.url ? safeHref(activeSubscription.url) : null
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -171,20 +174,45 @@ export default function SubscriptionDetailDrawer({
         showCloseButton={false}
       >
         <DialogHeader className="detail-drawer-stage flex-row items-start justify-between gap-3 border-b px-5 pt-5 pb-4 text-left sm:px-6">
-          <div className="min-w-0">
-            <DialogTitle className="truncate">
-              {activeSubscription?.name ?? t("subscription.detail.titleFallback")}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {t("subscription.detail.description")}
-            </DialogDescription>
+          <div className="flex min-w-0 items-center gap-3">
             {activeSubscription ? (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatAmount(activeSubscription.amount, activeSubscription.currency)}
-              </p>
+              <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">
+                <SubscriptionIcon
+                  icon={activeSubscription.icon}
+                  name={activeSubscription.name}
+                  size={26}
+                  className="size-7 object-contain"
+                />
+              </div>
             ) : null}
+            <div className="min-w-0">
+              <DialogTitle className="truncate">
+                {activeSubscription?.name ?? t("subscription.detail.titleFallback")}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {t("subscription.detail.description")}
+              </DialogDescription>
+              {activeSubscription ? (
+                <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                  {formatAmount(activeSubscription.amount, activeSubscription.currency)}
+                </p>
+              ) : null}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {subscriptionUrlHref ? (
+              <Button variant="outline" size="icon-sm" asChild>
+                <a
+                  href={subscriptionUrlHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={t("subscription.form.urlLabel")}
+                  title={t("subscription.form.urlLabel")}
+                >
+                  <ExternalLink className="size-4" />
+                </a>
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="sm"

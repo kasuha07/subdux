@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import {
   CheckSquare,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -103,6 +105,30 @@ export default function DashboardFiltersToolbar({
 }: DashboardFiltersToolbarProps) {
   const { t } = useTranslation()
 
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    function handleGlobalKeyDown(event: KeyboardEvent) {
+      if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const activeEl = document.activeElement
+        const tagName = activeEl?.tagName.toLowerCase()
+        if (
+          tagName === "input" ||
+          tagName === "textarea" ||
+          tagName === "select" ||
+          activeEl?.getAttribute("contenteditable") === "true"
+        ) {
+          return
+        }
+        event.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalKeyDown)
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown)
+  }, [])
+
   const activeFilterCount =
     (selectedStatuses.size === 1 && selectedStatuses.has("active") ? 0 : 1) +
     selectedCategories.size +
@@ -117,16 +143,21 @@ export default function DashboardFiltersToolbar({
         <div className="relative w-full max-w-md lg:max-w-sm">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={searchInputRef}
             value={searchTerm}
             onChange={(event) => onSearchTermChange(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Escape" && searchTerm) {
+              if (event.key === "Escape") {
                 event.preventDefault()
-                onSearchTermChange("")
+                if (searchTerm) {
+                  onSearchTermChange("")
+                } else {
+                  searchInputRef.current?.blur()
+                }
               }
             }}
             placeholder={t("dashboard.filters.searchPlaceholder")}
-            className={cn("pl-9", searchTerm && "pr-8")}
+            className={cn("pl-9", searchTerm ? "pr-8" : "pr-8 sm:pr-9")}
           />
           {searchTerm ? (
             <button
@@ -138,7 +169,11 @@ export default function DashboardFiltersToolbar({
             >
               <X className="size-3.5" />
             </button>
-          ) : null}
+          ) : (
+            <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 select-none items-center rounded border border-border/80 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+              /
+            </kbd>
+          )}
         </div>
 
         {totalCount > 0 ? (
@@ -304,38 +339,48 @@ export default function DashboardFiltersToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant={batchMode ? "secondary" : "outline"}
-          size="icon-sm"
-          className="shrink-0"
-          onClick={onToggleBatchMode}
-          disabled={!batchMode && totalCount === 0}
-          aria-pressed={batchMode}
-          aria-label={t(batchMode ? "subscription.batch.exit" : "subscription.batch.actions")}
-          title={t(batchMode ? "subscription.batch.exit" : "subscription.batch.actions")}
-        >
-          {batchMode ? <X className="size-4" /> : <CheckSquare className="size-4" />}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={batchMode ? "secondary" : "outline"}
+              size="icon-sm"
+              className="shrink-0"
+              onClick={onToggleBatchMode}
+              disabled={!batchMode && totalCount === 0}
+              aria-pressed={batchMode}
+              aria-label={t(batchMode ? "subscription.batch.exit" : "subscription.batch.actions")}
+            >
+              {batchMode ? <X className="size-4" /> : <CheckSquare className="size-4" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {t(batchMode ? "subscription.batch.exit" : "subscription.batch.actions")}
+          </TooltipContent>
+        </Tooltip>
 
-        <Button
-          variant="outline"
-          size="icon-sm"
-          className="shrink-0"
-          onClick={onToggleSubscriptionView}
-          disabled={viewToggleDisabled}
-          aria-label={
-            subscriptionView === "list"
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="shrink-0"
+              onClick={onToggleSubscriptionView}
+              disabled={viewToggleDisabled}
+              aria-label={
+                subscriptionView === "list"
+                  ? t("dashboard.views.toggleToCards")
+                  : t("dashboard.views.toggleToList")
+              }
+            >
+              {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {subscriptionView === "list"
               ? t("dashboard.views.toggleToCards")
-              : t("dashboard.views.toggleToList")
-          }
-          title={
-            subscriptionView === "list"
-              ? t("dashboard.views.toggleToCards")
-              : t("dashboard.views.toggleToList")
-          }
-        >
-          {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
-        </Button>
+              : t("dashboard.views.toggleToList")}
+          </TooltipContent>
+        </Tooltip>
 
         {totalCount > 0 ? (
           <p className="ml-auto text-sm text-muted-foreground sm:hidden">

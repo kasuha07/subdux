@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router"
 import { CalendarDays, DollarSign, Layers3, TrendingUp } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
+import { preloadRouteForPath } from "@/lib/route-preload"
 import { formatCurrencyWithSymbol } from "@/lib/utils"
 import type { DashboardSummary } from "@/types"
 
@@ -66,13 +68,18 @@ export default function DashboardSummaryCards({
                   </span>
                 </div>
 
-                <div className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs shadow-xs sm:gap-2 sm:rounded-full sm:px-3.5 sm:py-2 sm:text-sm">
+                <Link
+                  to="/actions"
+                  onPointerEnter={() => preloadRouteForPath("/actions")}
+                  onFocus={() => preloadRouteForPath("/actions")}
+                  className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 px-2.5 py-1.5 text-xs shadow-xs transition-colors hover:bg-muted/80 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:rounded-full sm:px-3.5 sm:py-2 sm:text-sm"
+                >
                   <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="font-semibold tabular-nums">
                     {summary.upcoming_renewal_count ?? 0}
                   </span>
                   <span className="min-w-0 truncate text-muted-foreground">{t("dashboard.stats.upcoming")}</span>
-                </div>
+                </Link>
               </div>
             </div>
           </div>

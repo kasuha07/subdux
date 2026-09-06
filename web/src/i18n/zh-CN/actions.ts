@@ -13,6 +13,7 @@ const actions = {
   "error": {
     "title": "行动中心不可用",
     "description": "加载行动中心失败",
+    "retry": "重试",
     "actionFailed": "操作失败",
     "missingNextBilling": "请先设置下次扣费日，再设置到期终止",
     "subscriptionMissing": "订阅已不存在"

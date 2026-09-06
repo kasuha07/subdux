@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { ExternalLink, PanelRightOpen } from "lucide-react"
 
@@ -6,58 +5,17 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AsyncBrandIcon } from "@/components/async-brand-icon"
 import {
   getSubscriptionDueDate,
   getSubscriptionRenewalMode,
   getSubscriptionStatus,
   isSubscriptionEnded,
 } from "@/features/subscriptions/subscription-lifecycle"
-import { isAsyncBrandIconValue } from "@/lib/brand-icons/async-value"
 import { safeHref } from "@/lib/safe-href"
 import { cn, daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
-
-function renderIcon(icon: string, name: string): ReactNode {
-  const fallbackInitial = (
-    <span className="flex size-full items-center justify-center text-sm font-bold text-foreground">
-      {name.charAt(0).toUpperCase()}
-    </span>
-  )
-
-  if (!icon) {
-    return fallbackInitial
-  }
-
-  if (isAsyncBrandIconValue(icon)) {
-    return (
-      <AsyncBrandIcon
-        value={icon}
-        size={22}
-        color="default"
-        fallback={fallbackInitial}
-      />
-    )
-  }
-
-  if (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/api/icon-proxy/")) {
-    return <img src={icon} alt={name} className="h-7 w-7 object-contain" />
-  }
-
-  if (icon.startsWith("file:")) {
-    const filename = icon.slice("file:".length)
-    if (filename && !filename.includes("/") && !filename.includes("\\")) {
-      return <img src={`/uploads/icons/${filename}`} alt={name} className="h-7 w-7 object-contain" />
-    }
-  }
-
-  if (icon.includes(":")) {
-    return fallbackInitial
-  }
-
-  return <span className="text-lg leading-none">{icon}</span>
-}
+import { SubscriptionIcon } from "./subscription-icon"
 
 interface SubscriptionSquareCardProps {
   subscription: Subscription
@@ -212,7 +170,7 @@ export default function SubscriptionSquareCard({
               />
             )}
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
-              {renderIcon(subscription.icon, subscription.name)}
+              <SubscriptionIcon icon={subscription.icon} name={subscription.name} size={22} />
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="truncate text-sm font-medium leading-tight">{subscription.name}</h3>
