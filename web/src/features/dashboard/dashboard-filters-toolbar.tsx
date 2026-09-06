@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   CheckSquare,
@@ -137,10 +137,20 @@ export default function DashboardFiltersToolbar({
     selectedRenewalModes.size +
     (includeNoPaymentMethod ? 1 : 0)
 
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
+
+  const filterTooltipText =
+    activeFilterCount > 0
+      ? `${t("dashboard.filters.filterButton")} (${activeFilterCount})`
+      : t("dashboard.filters.filterButton")
+
+  const sortTooltipText = `${t("dashboard.filters.sortBy")}: ${getSortFieldLabel(sortField)} (${t(`dashboard.filters.orders.${sortDirection}`)})`
+
   return (
-    <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="relative w-full min-w-0 flex-1 max-w-[260px]">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchInputRef}
@@ -179,22 +189,36 @@ export default function DashboardFiltersToolbar({
 
         {totalCount > 0 ? (
           <Tooltip content={t("dashboard.filters.resultCountTooltip")}>
-            <p className="hidden cursor-default select-none text-sm tabular-nums text-muted-foreground sm:block">
+            <p className="cursor-default select-none text-sm tabular-nums text-muted-foreground shrink-0">
               {shownCount} / {totalCount}
             </p>
           </Tooltip>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="shrink-0">
-              <Filter className="size-4" />
-              {t("dashboard.filters.filterButton")}
-              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-            </Button>
-          </DropdownMenuTrigger>
+      <div className="flex items-center gap-2 shrink-0">
+        <DropdownMenu modal={false} open={filterMenuOpen} onOpenChange={setFilterMenuOpen}>
+          <Tooltip content={filterMenuOpen ? null : filterTooltipText} contentClassName="md:hidden">
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative w-8 px-0 md:w-auto md:px-3 shrink-0"
+                aria-label={filterTooltipText}
+              >
+                <Filter className="size-4" />
+                <span className="hidden md:inline">
+                  {t("dashboard.filters.filterButton")}
+                  {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                </span>
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold text-primary-foreground md:hidden">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+          </Tooltip>
           <DropdownMenuContent align="start">
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>{t("dashboard.filters.status")}</DropdownMenuSubTrigger>
@@ -312,14 +336,25 @@ export default function DashboardFiltersToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="shrink-0">
-              <ArrowUpDown className="size-4" />
-              {getSortFieldLabel(sortField)}
-              {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
-            </Button>
-          </DropdownMenuTrigger>
+        <DropdownMenu modal={false} open={sortMenuOpen} onOpenChange={setSortMenuOpen}>
+          <Tooltip content={sortMenuOpen ? null : sortTooltipText} contentClassName="md:hidden">
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-8 px-0 md:w-auto md:px-3 shrink-0"
+                aria-label={sortTooltipText}
+              >
+                <ArrowUpDown className="size-4" />
+                <span className="hidden md:inline">
+                  {getSortFieldLabel(sortField)}
+                </span>
+                <span className="hidden md:inline-flex">
+                  {sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+          </Tooltip>
           <DropdownMenuContent align="start">
             {sortFieldOptions.map((field) => (
               <DropdownMenuItem
@@ -384,12 +419,6 @@ export default function DashboardFiltersToolbar({
               : t("dashboard.views.toggleToList")}
           </TooltipContent>
         </Tooltip>
-
-        {totalCount > 0 ? (
-          <p className="ml-auto text-sm text-muted-foreground sm:hidden">
-            {t("dashboard.filters.resultCount", { shown: shownCount, total: totalCount })}
-          </p>
-        ) : null}
       </div>
     </div>
   )
