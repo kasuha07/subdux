@@ -104,6 +104,7 @@ export function MonthlyForecastPanel({
 }) {
   const { t, i18n } = useTranslation()
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   const chartWidth = 760
   const chartHeight = 240
   const chartPadding = { top: 24, right: 24, bottom: 34, left: 24 }
@@ -121,7 +122,8 @@ export function MonthlyForecastPanel({
     ? `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${chartBottom} L ${points[0].x.toFixed(1)} ${chartBottom} Z`
     : ""
   const yTicks = [0, 0.25, 0.5, 0.75, 1]
-  const activePoint = activeIndex === null ? null : points[activeIndex]
+  const selectedIndex = activeIndex ?? focusedIndex
+  const activePoint = selectedIndex === null ? null : points[selectedIndex]
 
   return (
     <Card>
@@ -135,29 +137,42 @@ export function MonthlyForecastPanel({
         {items.length === 0 ? (
           <EmptyState title={t("reports.empty.title")} description={t("reports.empty.description")} />
         ) : (
-          <div
-            className="relative rounded-lg border bg-card p-3 sm:p-4"
-            onMouseLeave={() => setActiveIndex(null)}
-          >
+          <div className="relative rounded-lg border bg-card p-3 sm:p-4">
             <div className="pointer-events-none absolute inset-0 rounded-lg bg-linear-to-b from-muted/25 to-transparent" />
-            <div className="relative h-[240px]">
+            <div
+              className="relative h-[240px]"
+              onPointerMove={(event) => {
+                if (event.pointerType === "touch") return
+                const bounds = event.currentTarget.getBoundingClientRect()
+                if (bounds.width === 0) return
+                const x = ((event.clientX - bounds.left) / bounds.width) * chartWidth
+                const index = Math.round(((x - chartPadding.left) / chartSpanX) * (items.length - 1))
+                setActiveIndex(Math.max(0, Math.min(items.length - 1, index)))
+              }}
+              onPointerLeave={() => setActiveIndex(null)}
+              onPointerCancel={() => setActiveIndex(null)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setActiveIndex(null)
+                  setFocusedIndex(null)
+                }
+              }}
+            >
               {activePoint ? (
                 <div
-                  className="pointer-events-none absolute z-20 min-w-36 rounded-md border bg-popover px-3 py-2 text-xs shadow-lg"
+                  role="status"
+                  className="reports-forecast-tooltip pointer-events-none absolute z-20 w-44 max-w-full rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg"
                   style={{
-                    left: `${(activePoint.x / chartWidth) * 100}%`,
+                    left: `clamp(0px, calc(${(activePoint.x / chartWidth) * 100}% - 5.5rem), max(0px, calc(100% - 11rem)))`,
                     top: `${(activePoint.y / chartHeight) * 100}%`,
-                    transform:
-                      activePoint.x > chartWidth * 0.68
-                        ? "translate(-100%, calc(-100% - 12px))"
-                        : activePoint.x < chartWidth * 0.32
-                          ? "translate(0, calc(-100% - 12px))"
-                          : "translate(-50%, calc(-100% - 12px))",
+                    transform: activePoint.y < chartHeight / 2
+                      ? "translateY(16px)"
+                      : "translateY(calc(-100% - 16px))",
                   }}
                 >
                   <p className="font-medium">{formatMonth(activePoint.item.month, i18n.language)}</p>
-                  <p className="mt-1 font-semibold tabular-nums">{formatAmount(activePoint.item.amount_due)}</p>
-                  <p className="mt-1 whitespace-nowrap text-muted-foreground">
+                  <p className="mt-1 break-words font-semibold tabular-nums">{formatAmount(activePoint.item.amount_due)}</p>
+                  <p className="mt-1 text-muted-foreground">
                     {t("reports.forecast.occurrences", { count: activePoint.item.occurrence_count })}
                   </p>
                 </div>
@@ -208,18 +223,19 @@ export function MonthlyForecastPanel({
                 </g>
                 {activePoint ? (
                   <line
-                    x1={activePoint.x}
+                    x1="0"
                     y1={chartPadding.top}
-                    x2={activePoint.x}
+                    x2="0"
                     y2={chartBottom}
-                    className="stroke-primary/30"
+                    className="reports-forecast-guide stroke-primary/30"
+                    style={{ transform: `translateX(${activePoint.x}px)` }}
                     strokeDasharray="4 6"
                     vectorEffect="non-scaling-stroke"
                   />
                 ) : null}
               </svg>
               {points.map(({ item, x, y }, index) => {
-                const isActive = activeIndex === index
+                const isActive = selectedIndex === index
                 const showLabel = index === 0 || index === points.length - 1 || index % 3 === 0
                 const isEdgeLabel = index === 0 || index === points.length - 1
                 const labelAlignmentClass = index === 0
@@ -254,15 +270,21 @@ export function MonthlyForecastPanel({
                         top: `${(y / chartHeight) * 100}%`,
                       }}
                       aria-label={`${formatMonth(item.month, i18n.language)} ${formatAmount(item.amount_due)} ${t("reports.forecast.occurrences", { count: item.occurrence_count })}`}
-                      onMouseEnter={() => setActiveIndex(index)}
-                      onFocus={() => setActiveIndex(index)}
-                      onBlur={() => setActiveIndex(null)}
+                      onClick={() => setActiveIndex(index)}
+                      onFocus={() => {
+                        setActiveIndex(null)
+                        setFocusedIndex(index)
+                      }}
+                      onBlur={() => {
+                        setActiveIndex(null)
+                        setFocusedIndex(null)
+                      }}
                     >
                       <span
                         style={{ animationDelay: `${160 + (x / chartWidth) * 1000}ms` }}
                         className={[
-                          "reports-forecast-point absolute left-1/2 top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-card transition-all",
-                          isActive ? "size-3.5 shadow-sm" : "size-2.5",
+                          "reports-forecast-point absolute left-1/2 top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-card transition-[width,height,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+                          isActive ? "size-3.5 shadow-sm ring-4 ring-primary/15" : "size-2.5",
                         ].join(" ")}
                       />
                     </button>
