@@ -140,7 +140,7 @@ export default function DashboardFiltersToolbar({
   return (
     <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full max-w-md lg:max-w-sm">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchInputRef}
@@ -178,9 +178,11 @@ export default function DashboardFiltersToolbar({
         </div>
 
         {totalCount > 0 ? (
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            {t("dashboard.filters.resultCount", { shown: shownCount, total: totalCount })}
-          </p>
+          <Tooltip content={t("dashboard.filters.resultCountTooltip")}>
+            <p className="hidden cursor-default select-none text-sm tabular-nums text-muted-foreground sm:block">
+              {shownCount} / {totalCount}
+            </p>
+          </Tooltip>
         ) : null}
       </div>
 

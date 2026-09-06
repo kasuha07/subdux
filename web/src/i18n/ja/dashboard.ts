@@ -54,6 +54,7 @@ const dashboard = {
       "desc": "降順"
     },
     "resultCount": "{{total}} 件中 {{shown}} 件を表示",
+    "resultCountTooltip": "フィルター / 合計",
     "empty": {
       "title": "一致するサブスクリプションがありません",
       "description": "検索キーワードまたはフィルター条件を調整してください"

@@ -54,6 +54,7 @@ const dashboard = {
       "desc": "降序"
     },
     "resultCount": "显示 {{shown}} / {{total}}",
+    "resultCountTooltip": "筛选/总共",
     "empty": {
       "title": "没有符合条件的订阅",
       "description": "请调整搜索关键词或筛选条件"

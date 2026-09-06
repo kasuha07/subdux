@@ -215,16 +215,17 @@ export default function SubscriptionDetailDrawer({
                 </Button>
               </Tooltip>
             ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEdit}
-              disabled={!activeSubscription}
-              className="shrink-0"
-            >
-              <Pencil className="size-4" />
-              {t("subscription.detail.edit")}
-            </Button>
+            <Tooltip content={t("subscription.detail.edit")}>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={handleEdit}
+                disabled={!activeSubscription}
+                aria-label={t("subscription.detail.edit")}
+              >
+                <Pencil className="size-4" />
+              </Button>
+            </Tooltip>
             <Tooltip content={t("common.close")}>
               <Button
                 type="button"
@@ -756,12 +757,13 @@ function UpcomingChargesPanel({
               : t("subscription.detail.calendar.noEvent")}
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link to={detail.calendar.path}>
-            <CalendarDays className="size-4" />
-            {t("subscription.detail.calendar.open")}
-          </Link>
-        </Button>
+        <Tooltip content={t("subscription.detail.calendar.open")}>
+          <Button variant="outline" size="icon-sm" asChild>
+            <Link to={detail.calendar.path} aria-label={t("subscription.detail.calendar.open")}>
+              <CalendarDays className="size-4" />
+            </Link>
+          </Button>
+        </Tooltip>
       </div>
 
       <div className="divide-y rounded-lg border">

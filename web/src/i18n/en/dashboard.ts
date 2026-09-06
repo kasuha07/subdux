@@ -54,6 +54,7 @@ const dashboard = {
       "desc": "Descending"
     },
     "resultCount": "Showing {{shown}} / {{total}}",
+    "resultCountTooltip": "Filtered / Total",
     "empty": {
       "title": "No matching subscriptions",
       "description": "Try adjusting your search or filters"
