@@ -461,6 +461,65 @@
   scale: 0.995;
 }
 
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.page-transition {
+  animation: page-enter var(--motion-normal) var(--motion-ease) both;
+  will-change: opacity, translate;
+}
+
+@keyframes page-stage-enter {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.page-stage-enter {
+  animation: page-stage-enter 240ms var(--motion-ease) backwards;
+  animation-delay: 40ms;
+  will-change: opacity, translate;
+}
+
+@keyframes page-content-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.page-content-enter {
+  animation: page-content-fade-in var(--motion-normal) var(--motion-ease) both;
+}
+
+@keyframes page-loading-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.page-loading-enter {
+  animation: page-loading-enter 180ms ease-out both;
+}
+
 /* Cover shared primitives, loading indicators, toast library styles and future
    animations, including pseudo-elements. Near-zero duration preserves events. */
 @media (prefers-reduced-motion: reduce) {

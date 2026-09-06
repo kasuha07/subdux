@@ -116,7 +116,7 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+      <main className="page-stage-enter mx-auto max-w-6xl space-y-6 px-4 py-6">
         {loading ? (
           <ReportsSkeleton />
         ) : (
@@ -132,7 +132,7 @@ export default function ReportsPage() {
             {!report ? (
           <EmptyState title={t("reports.error.title")} description={t("reports.error.description")} />
         ) : (
-          <>
+          <div className="page-content-enter space-y-6">
             <section className="-mx-4 overflow-x-auto pb-1 sm:mx-0 sm:overflow-visible sm:pb-0">
               <div className="flex snap-x gap-2 pl-4 sm:grid sm:grid-cols-2 sm:gap-3 sm:px-0 lg:grid-cols-4">
                 <KpiCard
@@ -250,7 +250,7 @@ export default function ReportsPage() {
             <section>
               <RecentChangesPanel items={recentChanges} language={i18n.language} formatAmount={formatAmount} />
             </section>
-          </>
+          </div>
         )}
           </LoadErrorState>
         )}

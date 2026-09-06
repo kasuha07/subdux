@@ -83,7 +83,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="page-stage-enter mx-auto max-w-6xl px-4 py-6">
         {admin.loading ? (
           <AdminLoadingSkeleton />
         ) : (
@@ -97,7 +97,7 @@ export default function AdminPage() {
                 ))
               }
             }}
-            className="space-y-6"
+            className="page-content-enter space-y-6"
           >
             <div className="w-full overflow-x-auto pb-1">
               <TabsList className="w-max min-w-max">

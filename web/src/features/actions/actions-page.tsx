@@ -400,7 +400,7 @@ export default function ActionsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
+      <main className="page-stage-enter mx-auto max-w-5xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
         {loading ? (
           <ActionsSkeleton />
         ) : !center ? (
@@ -424,7 +424,7 @@ export default function ActionsPage() {
             </CardContent>
           </Card>
         ) : (
-          <>
+          <div className="page-content-enter space-y-4 sm:space-y-6">
             <section className="grid grid-cols-3 gap-2 sm:gap-3">
               <SummaryCard
                 icon={AlertTriangle}
@@ -473,7 +473,7 @@ export default function ActionsPage() {
                 ))}
               </section>
             )}
-          </>
+          </div>
         )}
       </main>
 

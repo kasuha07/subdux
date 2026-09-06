@@ -168,7 +168,7 @@ export default function LoginPage() {
   if (step === "totp") {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
-        <Card className="w-full max-w-sm">
+        <Card className="page-stage-enter w-full max-w-sm">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">
               {t("auth.login.twoFactor.title")}
@@ -217,7 +217,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
+      <Card className="page-stage-enter w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">{t("auth.login.title")}</CardTitle>
           <CardDescription>{t("auth.login.description")}</CardDescription>

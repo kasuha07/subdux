@@ -358,7 +358,7 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-6 space-y-6">
+      <main className="page-stage-enter mx-auto max-w-4xl px-4 py-6 space-y-6">
         {/* Calendar */}
         <Card>
           <CardHeader className="pb-3">
@@ -415,7 +415,7 @@ export default function CalendarPage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-7">
+              <div key={`${viewYear}-${viewMonth}`} className="page-content-enter grid grid-cols-7">
                 {cells.map((day, idx) => {
                   const isToday =
                     day !== null &&
