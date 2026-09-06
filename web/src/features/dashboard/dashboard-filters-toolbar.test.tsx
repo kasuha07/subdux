@@ -85,4 +85,12 @@ describe("DashboardFiltersToolbar responsive design", () => {
     expect(markup).toContain(">2<")
     expect(markup).toContain("dashboard.filters.filterButton (2)")
   })
+
+  it("hides result counter on very small screens below 480px", () => {
+    const markup = renderToStaticMarkup(<DashboardFiltersToolbar {...defaultProps} />)
+
+    // Result counter is hidden on extra small viewports and displayed from 480px
+    expect(markup).toContain("hidden cursor-default select-none text-sm tabular-nums text-muted-foreground shrink-0 min-[480px]:block")
+    expect(markup).toContain("5 / 10")
+  })
 })

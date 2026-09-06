@@ -189,7 +189,7 @@ export default function DashboardFiltersToolbar({
 
         {totalCount > 0 ? (
           <Tooltip content={t("dashboard.filters.resultCountTooltip")}>
-            <p className="cursor-default select-none text-sm tabular-nums text-muted-foreground shrink-0">
+            <p className="hidden cursor-default select-none text-sm tabular-nums text-muted-foreground shrink-0 min-[480px]:block">
               {shownCount} / {totalCount}
             </p>
           </Tooltip>
