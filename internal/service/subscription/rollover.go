@@ -79,6 +79,9 @@ func nextRecurringBillingDateOnOrAfter(sub *model.Subscription, referenceDate ti
 }
 
 func nextIntervalOccurrence(anchor, from time.Time, intervalCount int, intervalUnit string) time.Time {
+	if intervalCount < 1 || intervalCount > MaxIntervalCount || !isValidIntervalUnit(intervalUnit) || anchor.Year() < 1 || anchor.Year() > 9999 || from.Year() < 1 || from.Year() > 9999 {
+		return time.Time{}
+	}
 	anchor = normalizeDateUTC(anchor)
 	from = normalizeDateUTC(from)
 	if !from.After(anchor) {
@@ -86,28 +89,48 @@ func nextIntervalOccurrence(anchor, from time.Time, intervalCount int, intervalU
 	}
 
 	current := anchor
+	// Jump close to the target before taking at most one final step. This
+	// avoids work proportional to the age of a daily subscription.
+	switch intervalUnit {
+	case intervalUnitDay, intervalUnitWeek:
+		days := intervalCount
+		if intervalUnit == intervalUnitWeek {
+			days *= 7
+		}
+		steps := (from.Unix() - anchor.Unix()) / (86400 * int64(days))
+		current = anchor.AddDate(0, 0, int(steps)*days)
+	case intervalUnitMonth:
+		months := (from.Year()-anchor.Year())*12 + int(from.Month()-anchor.Month())
+		current = addMonthsPreservePreferredDay(anchor, months/intervalCount*intervalCount, anchor.Day())
+	case intervalUnitYear:
+		years := (from.Year() - anchor.Year()) / intervalCount * intervalCount
+		current = addYearsPreservePreferredDate(anchor, years, anchor.Month(), anchor.Day())
+	}
+	previous := current
 	switch intervalUnit {
 	case intervalUnitDay:
-		for current.Before(from) {
+		if current.Before(from) {
 			current = current.AddDate(0, 0, intervalCount)
 		}
 	case intervalUnitWeek:
-		for current.Before(from) {
+		if current.Before(from) {
 			current = current.AddDate(0, 0, intervalCount*7)
 		}
 	case intervalUnitMonth:
 		preferredDay := anchor.Day()
-		for current.Before(from) {
+		if current.Before(from) {
 			current = addMonthsPreservePreferredDay(current, intervalCount, preferredDay)
 		}
 	case intervalUnitYear:
 		preferredDay := anchor.Day()
 		preferredMonth := anchor.Month()
-		for current.Before(from) {
+		if current.Before(from) {
 			current = addYearsPreservePreferredDate(current, intervalCount, preferredMonth, preferredDay)
 		}
 	}
-
+	if current.Before(from) || current.Before(previous) || current.Year() < 1 || current.Year() > 9999 {
+		return time.Time{}
+	}
 	return current
 }
 

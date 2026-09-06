@@ -283,7 +283,8 @@ func nextRecurringOccurrenceOnOrAfter(sub model.Subscription, anchor, from time.
 
 	switch sub.RecurrenceType {
 	case recurrenceTypeInterval:
-		return nextIntervalOccurrence(anchor, from, *sub.IntervalCount, sub.IntervalUnit), true
+		next := nextIntervalOccurrence(anchor, from, *sub.IntervalCount, sub.IntervalUnit)
+		return next, !next.IsZero()
 	case recurrenceTypeMonthlyDate:
 		return nextMonthlyDayOccurrence(from, *sub.MonthlyDay), true
 	case recurrenceTypeYearlyDate:

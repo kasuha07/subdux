@@ -367,6 +367,9 @@ func TestAdminHandlerTestSMTPRecipientLookupFailureUsesStableCode(t *testing.T) 
 func TestAdminSSRFTestRouteRequiresAdminRole(t *testing.T) {
 	t.Setenv("JWT_SECRET", "admin-ssrf-test-jwt-secret-0123456789")
 	db := newAdminSettingsTestDB(t)
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		t.Fatal(err)
+	}
 	if err := pkg.InitJWTSecret(db); err != nil {
 		t.Fatalf("failed to initialize jwt secret: %v", err)
 	}
@@ -374,7 +377,8 @@ func TestAdminSSRFTestRouteRequiresAdminRole(t *testing.T) {
 	e := echo.New()
 	SetupRoutes(context.Background(), e, db, serviceutil.NewBackgroundTaskMonitor())
 
-	token, err := pkg.GenerateAccessToken(1, "alice", "alice@example.com", "user")
+	user := createHumanOnlyRouteTestUser(t, db)
+	token, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
 	if err != nil {
 		t.Fatalf("failed to generate access token: %v", err)
 	}

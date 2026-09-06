@@ -62,6 +62,11 @@ func main() {
 	bootstrapInitialAdmin(db)
 
 	e := echo.New()
+	ipExtractor, err := apimw.ClientIPExtractor(os.Getenv("TRUSTED_PROXY_CIDRS"))
+	if err != nil {
+		logging.Fatal("invalid proxy configuration", slog.Any("error", err))
+	}
+	e.IPExtractor = ipExtractor
 	e.HideBanner = true
 
 	e.Use(logging.RequestLogger())

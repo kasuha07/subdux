@@ -146,6 +146,9 @@ func (a *App) NotificationService() *notificationservice.Service { return a.noti
 // Mount registers the central error handler, the MCP endpoint, and every API
 // route group onto e.
 func (a *App) Mount(e *echo.Echo) {
+	if e.IPExtractor == nil {
+		e.IPExtractor = echo.ExtractIPDirect()
+	}
 	// Route all handler-returned errors through the single typed-error handler.
 	// Handlers signal failures by returning *serviceerr.Error (or a wrapped
 	// cause); the handler renders the frozen {"error": message} envelope with a
@@ -191,10 +194,12 @@ func (a *App) buildRouteGroups(e *echo.Echo) RouteGroups {
 
 	protected := api.Group("")
 	protected.Use(apimw.JWTOrAPIKeyMiddleware(jwtConfig, a.apiKeyService))
+	protected.Use(apimw.CurrentUserMiddleware(a.db))
 	protected.Use(apimw.APIKeyScopeMiddleware)
 
 	humanProtected := api.Group("")
 	humanProtected.Use(apimw.JWTOrAPIKeyMiddleware(jwtConfig, a.apiKeyService))
+	humanProtected.Use(apimw.CurrentUserMiddleware(a.db))
 	humanProtected.Use(apimw.HumanSessionOnlyMiddleware)
 	humanProtected.Use(apimw.APIKeyScopeMiddleware)
 
@@ -203,11 +208,13 @@ func (a *App) buildRouteGroups(e *echo.Echo) RouteGroups {
 	// a human-session-only group mirroring humanProtected, not under /admin.
 	reauth := api.Group("/reauth")
 	reauth.Use(apimw.JWTOrAPIKeyMiddleware(jwtConfig, a.apiKeyService))
+	reauth.Use(apimw.CurrentUserMiddleware(a.db))
 	reauth.Use(apimw.HumanSessionOnlyMiddleware)
 	reauth.Use(apimw.APIKeyScopeMiddleware)
 
 	admin := api.Group("/admin")
 	admin.Use(echojwt.WithConfig(jwtConfig))
+	admin.Use(apimw.CurrentUserMiddleware(a.db))
 	admin.Use(apimw.AdminMiddleware)
 
 	return RouteGroups{

@@ -30,6 +30,7 @@ var (
 	// Billing / recurrence validation.
 	ErrNextBillingDateRequiredRecurring = serviceerr.New(serviceerr.KindInvalid, "next_billing_date_is_required_for_recurring_subscriptions", "next_billing_date is required for recurring subscriptions")
 	ErrIntervalCountTooLow              = serviceerr.New(serviceerr.KindInvalid, "interval_count_must_be_at_least_1_for_interval_recurrence", "interval_count must be at least 1 for interval recurrence")
+	ErrIntervalCountTooHigh             = serviceerr.New(serviceerr.KindInvalid, "interval_count_must_not_exceed_10000", "interval_count must not exceed 10000")
 	ErrIntervalUnitInvalid              = serviceerr.New(serviceerr.KindInvalid, "interval_unit_must_be_one_of_day_week_month_year", "interval_unit must be one of: day, week, month, year")
 	ErrMonthlyDayInvalid                = serviceerr.New(serviceerr.KindInvalid, "monthly_day_must_be_between_1_and_31_for_monthly_date_recurrence", "monthly_day must be between 1 and 31 for monthly date recurrence")
 	ErrYearlyMonthInvalid               = serviceerr.New(serviceerr.KindInvalid, "yearly_month_must_be_between_1_and_12_for_yearly_date_recurrence", "yearly_month must be between 1 and 12 for yearly date recurrence")

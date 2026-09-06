@@ -30,6 +30,15 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
+// Validate restricts signed REST JWTs to completed human authentication.
+// Pending TOTP tokens deliberately have no auth_type and cannot pass this gate.
+func (c JWTClaims) Validate() error {
+	if c.AuthType != AuthTypeUser || c.UserID == 0 {
+		return errors.New("not an access token")
+	}
+	return nil
+}
+
 const (
 	jwtSecretKey       = "jwt_secret"
 	minJWTSecretLength = 32

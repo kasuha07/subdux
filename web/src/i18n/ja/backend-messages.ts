@@ -1,4 +1,5 @@
 const backendMessages = {
+  "interval_count_must_not_exceed_10000": "interval_count は 10000 以下にしてください",
   "2fa_disabled_successfully": "2FA が正常に無効になりました",
   "account_is_disabled": "アカウントが無効になっています",
   "admin_access_required": "管理者アクセスが必要です",

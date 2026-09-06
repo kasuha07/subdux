@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// MaxIntervalCount bounds all interval units, including imported schedules.
+const MaxIntervalCount = 10000
+
 func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error) {
 	draft.BillingType = normalizeBillingType(draft.BillingType)
 	if draft.BillingType == "" {
@@ -29,6 +32,9 @@ func normalizeBillingDraft(draft billingDraft) (billingDraft, *time.Time, error)
 		case recurrenceTypeInterval:
 			if draft.IntervalCount == nil || *draft.IntervalCount < 1 {
 				return draft, nil, ErrIntervalCountTooLow
+			}
+			if *draft.IntervalCount > MaxIntervalCount {
+				return draft, nil, ErrIntervalCountTooHigh
 			}
 			intervalCount := *draft.IntervalCount
 			draft.IntervalCount = &intervalCount

@@ -220,6 +220,7 @@ Calendar feeds provide read-only subscriptions through independent tokens for us
 | `JWT_SECRET` | auto-generated on first run if unset | Recommended in production; must be at least 32 characters |
 | `SETTINGS_ENCRYPTION_KEY` | falls back to `JWT_SECRET`, then a generated local key file | Used to encrypt sensitive system settings and notification secrets |
 | `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access token lifetime |
+| `TRUSTED_PROXY_CIDRS` | empty | Comma-separated trusted reverse-proxy CIDRs. Empty uses the connection IP. Configured proxies must append or overwrite `X-Forwarded-For`; only explicitly listed ranges are trusted. |
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh token lifetime |
 | `CORS_ALLOW_ORIGINS` | unset | Comma-separated list of allowed origins |
 | `TZ` | system timezone | IANA timezone such as `UTC` or `Asia/Shanghai` |

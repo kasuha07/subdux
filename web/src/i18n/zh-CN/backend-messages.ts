@@ -1,4 +1,5 @@
 const backendMessages = {
+  "interval_count_must_not_exceed_10000": "interval_count 不能超过 10000",
   "2fa_disabled_successfully": "2FA 已成功禁用",
   "account_is_disabled": "帐户已被禁用",
   "admin_access_required": "需要管理员访问权限",

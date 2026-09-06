@@ -112,7 +112,7 @@ type accountKeyExtractor func(c echo.Context) string
 
 const (
 	MaxAuthRequestBodyBytes    int64 = 128 << 10 // 128 KiB
-	maxAccountKeyReadBodyBytes int64 = 8 << 10   // 8 KiB
+	maxAccountKeyReadBodyBytes int64 = MaxAuthRequestBodyBytes
 )
 
 func AuthAccountRateLimit(limit int, window time.Duration, extractor accountKeyExtractor) echo.MiddlewareFunc {
@@ -120,6 +120,9 @@ func AuthAccountRateLimit(limit int, window time.Duration, extractor accountKeyE
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			accountKey := extractor(c)
+			if c.Get("account_body_read_failed") == true {
+				return httpx.WriteError(c, http.StatusBadRequest, "invalid_request_body")
+			}
 			if accountKey == "" {
 				return next(c)
 			}
@@ -136,6 +139,7 @@ func AuthAccountRateLimit(limit int, window time.Duration, extractor accountKeyE
 func readInputField(c echo.Context, field string) string {
 	body, err := readRequestBodyAndRestore(c, maxAccountKeyReadBodyBytes)
 	if err != nil {
+		c.Set("account_body_read_failed", true)
 		return ""
 	}
 
@@ -211,6 +215,17 @@ func readRequestBodyAndRestore(c echo.Context, maxBytes int64) ([]byte, error) {
 }
 
 func LoginAccountKey(c echo.Context) string {
+	if strings.HasPrefix(c.Request().Header.Get(echo.HeaderContentType), echo.MIMEApplicationJSON) {
+		body, err := readRequestBodyAndRestore(c, MaxAuthRequestBodyBytes)
+		var input struct {
+			Identifier string `json:"identifier"`
+		}
+		if err != nil || json.NewDecoder(bytes.NewReader(body)).Decode(&input) != nil {
+			c.Set("account_body_read_failed", true)
+			return ""
+		}
+		return strings.ToLower(strings.TrimSpace(input.Identifier))
+	}
 	return strings.ToLower(strings.TrimSpace(readInputField(c, "identifier")))
 }
 
