@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
 import { createPasskeyCredential, isPasskeySupported, type CredentialCreationJSON } from "@/lib/passkey"
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
@@ -180,7 +181,21 @@ export default function PasskeySection() {
 
       <div className="space-y-2">
         {loading && (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          <div className="space-y-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-start justify-between gap-3 rounded-md border bg-card px-3 py-2.5 skeleton-shimmer subscription-card-enter"
+                style={{ "--card-delay": `${i * 40}ms` } as React.CSSProperties}
+              >
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-44" />
+                </div>
+                <Skeleton className="size-7 rounded" />
+              </div>
+            ))}
+          </div>
         )}
         {!loading && passkeys.length === 0 && (
           <p className="text-sm text-muted-foreground">{t("settings.passkeys.empty")}</p>

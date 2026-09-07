@@ -15,12 +15,11 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip } from "@/components/ui/tooltip"
 import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
 
-import AdminLoadingSkeleton from "./admin-loading-skeleton"
+import AdminLoadingSkeleton, { AdminTabSkeleton } from "./admin-loading-skeleton"
 
 const AdminBackupTab = lazy(() => import("./admin-backup-tab"))
 const AdminAuditTab = lazy(() => import("./admin-audit-tab"))
@@ -52,10 +51,8 @@ function AdminTabLoading({ value }: { value: AdminTab }) {
         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
         <span>{t("common.loading")}</span>
       </div>
-      <div className="space-y-3">
-        <Skeleton className="h-9 w-44 rounded-lg" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-28 w-full rounded-xl" />
+      <div className="page-loading-enter">
+        <AdminTabSkeleton tab={value} />
       </div>
     </TabsContent>
   )

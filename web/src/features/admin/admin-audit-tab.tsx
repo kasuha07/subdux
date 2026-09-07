@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TabsContent } from "@/components/ui/tabs"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import type { AuditEvent } from "@/types"
 
 export default function AdminAuditTab() {
   const { t } = useTranslation()
   const [events, setEvents] = useState<AuditEvent[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const loadEvents = useCallback(() => {
     setLoading(true)
@@ -31,6 +34,11 @@ export default function AdminAuditTab() {
         }
       })
       .catch(() => void 0)
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
     return () => {
       cancelled = true
     }
@@ -45,9 +53,29 @@ export default function AdminAuditTab() {
             <p className="mt-0.5 text-sm text-muted-foreground">{t("admin.audit.description")}</p>
           </div>
           <Button size="sm" variant="outline" onClick={loadEvents} disabled={loading}>
+            <RefreshCw className={cn("size-3.5 mr-1.5", loading && "animate-spin")} />
             {t("admin.audit.refresh")}
           </Button>
         </div>
+
+        {loading && events.length === 0 && (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-md border bg-card px-3 py-2.5 space-y-2 skeleton-shimmer subscription-card-enter"
+                style={{ "--card-delay": `${i * 35}ms` } as React.CSSProperties}
+              >
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-3 w-48" />
+              </div>
+            ))}
+          </div>
+        )}
 
         {!loading && events.length === 0 && (
           <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">

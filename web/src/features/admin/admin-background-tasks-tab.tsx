@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TabsContent } from "@/components/ui/tabs"
 import type { BackgroundTask } from "@/types"
+import { AdminTasksListSkeleton } from "./admin-loading-skeleton"
 
 interface AdminBackgroundTasksTabProps {
   tasks: BackgroundTask[]
@@ -103,7 +104,9 @@ export default function AdminBackgroundTasksTab({
         </Button>
       </div>
 
-      {tasks.length === 0 ? (
+      {tasks.length === 0 && refreshing ? (
+        <AdminTasksListSkeleton />
+      ) : tasks.length === 0 ? (
         <div className="rounded-md border border-dashed px-4 py-8 text-sm text-muted-foreground">
           {t("admin.backgroundTasks.empty")}
         </div>

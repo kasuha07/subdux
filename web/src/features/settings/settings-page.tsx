@@ -1,11 +1,10 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, Bell, CircleUserRound, CreditCard, FileClock, Info, KeyRound, Loader2, Settings } from "lucide-react"
+import { ArrowLeft, Bell, CircleUserRound, CreditCard, FileClock, Info, KeyRound, Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip } from "@/components/ui/tooltip"
 import { useSettingsAccount } from "@/features/settings/hooks/use-settings-account"
 import { useSettingsPayment } from "@/features/settings/hooks/use-settings-payment"
@@ -41,27 +40,12 @@ const SettingsGeneralTab = lazy(() => import("./settings-general-tab"))
 const SettingsNotificationTab = lazy(() => import("./settings-notification-tab"))
 const SettingsPaymentTab = lazy(() => import("./settings-payment-tab"))
 
+import { SettingsTabLoading } from "./settings-loading-skeleton"
+
 type SettingsTab = "general" | "payment" | "notification" | "account" | "apikey" | "audit" | "about"
 
 function isSettingsTab(value: string): value is SettingsTab {
   return value === "general" || value === "payment" || value === "notification" || value === "account" || value === "apikey" || value === "audit" || value === "about"
-}
-
-function SettingsTabLoading({ value }: { value: SettingsTab }) {
-  const { t } = useTranslation()
-  return (
-    <TabsContent value={value} className="space-y-4 pt-1">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        <span>{t("common.loading")}</span>
-      </div>
-      <div className="space-y-3">
-        <Skeleton className="h-9 w-44 rounded-lg" />
-        <Skeleton className="h-28 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-      </div>
-    </TabsContent>
-  )
 }
 
 export default function SettingsPage() {

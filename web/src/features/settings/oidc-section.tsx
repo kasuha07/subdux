@@ -4,6 +4,7 @@ import { toast } from "@/lib/toast"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import ReauthDialog from "@/features/admin/reauth-dialog"
 import { api } from "@/lib/api"
 import type { OIDCConfig, OIDCConnection, OIDCSessionResult, OIDCStartResponse } from "@/types"
@@ -121,7 +122,12 @@ export default function OIDCSection() {
         <p className="mt-0.5 text-sm text-muted-foreground">{t("settings.oidc.description")}</p>
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+      {loading && (
+        <div className="rounded-md border bg-card p-3 skeleton-shimmer space-y-2">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
+        </div>
+      )}
 
       {!loading && !enabled && (
         <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">

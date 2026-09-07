@@ -2,12 +2,14 @@ import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import type { NotificationChannel } from "@/types"
 
 interface Props {
   channels: NotificationChannel[]
+  loading?: boolean
   onAddChannel: () => void
   onDeleteChannel: (channel: NotificationChannel) => void | Promise<void>
   onEditChannel: (channel: NotificationChannel) => void
@@ -19,6 +21,7 @@ interface Props {
 
 export function NotificationChannelList({
   channels,
+  loading,
   onAddChannel,
   onDeleteChannel,
   onEditChannel,
@@ -43,7 +46,27 @@ export function NotificationChannelList({
         </Button>
       </div>
 
-      {channels.length === 0 ? (
+      {loading && channels.length === 0 ? (
+        <div className="space-y-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between rounded-md border bg-card p-3 skeleton-shimmer subscription-card-enter"
+              style={{ "--card-delay": `${i * 45}ms` } as React.CSSProperties}
+            >
+              <div className="space-y-1.5 flex-1">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-9 rounded-full" />
+                <Skeleton className="size-8 rounded-md" />
+                <Skeleton className="size-8 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : channels.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("settings.notifications.channels.empty")}</p>
       ) : (
         <div className="space-y-2">

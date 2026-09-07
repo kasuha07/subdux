@@ -1,14 +1,16 @@
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { formatDate } from "@/lib/utils"
 import type { NotificationLog } from "@/types"
 
 interface Props {
   logs: NotificationLog[]
+  loading?: boolean
 }
 
-export function NotificationLogList({ logs }: Props) {
+export function NotificationLogList({ logs, loading }: Props) {
   const { t, i18n } = useTranslation()
 
   return (
@@ -20,7 +22,24 @@ export function NotificationLogList({ logs }: Props) {
         </p>
       </div>
 
-      {logs.length === 0 ? (
+      {loading && logs.length === 0 ? (
+        <div className="rounded-md border bg-card overflow-hidden skeleton-shimmer">
+          <div className="flex items-center gap-4 border-b bg-muted/40 px-4 py-2.5">
+            <Skeleton className="h-3.5 w-20" />
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3.5 w-16" />
+            <Skeleton className="ml-auto h-3.5 w-20" />
+          </div>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 border-b px-4 py-2.5 last:border-0">
+              <Skeleton className="h-3.5 w-20" />
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-5 w-14 rounded-full" />
+              <Skeleton className="ml-auto h-3.5 w-20" />
+            </div>
+          ))}
+        </div>
+      ) : logs.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("settings.notifications.logs.empty")}</p>
       ) : (
         <div className="overflow-x-auto">

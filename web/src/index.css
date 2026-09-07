@@ -603,12 +603,14 @@
   }
 }
 
-.reports-skeleton-shimmer {
+.reports-skeleton-shimmer,
+.skeleton-shimmer {
   position: relative;
   overflow: hidden;
 }
 
-.reports-skeleton-shimmer::after {
+.reports-skeleton-shimmer::after,
+.skeleton-shimmer::after {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
@@ -625,7 +627,8 @@
   pointer-events: none;
 }
 
-.dark .reports-skeleton-shimmer::after {
+.dark .reports-skeleton-shimmer::after,
+.dark .skeleton-shimmer::after {
   background: linear-gradient(
     90deg,
     transparent 0%,

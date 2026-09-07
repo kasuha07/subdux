@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TabsContent } from "@/components/ui/tabs"
 import ReauthDialog from "@/features/admin/reauth-dialog"
 import { api } from "@/lib/api"
@@ -35,7 +36,7 @@ interface SettingsAPIKeyTabProps {
 export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   const { t } = useTranslation()
   const [keys, setKeys] = useState<APIKey[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [reauthOpen, setReauthOpen] = useState(false)
   const [name, setName] = useState("")
@@ -338,6 +339,27 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
         />
 
         <Separator />
+
+        {loading && keys.length === 0 && (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md border bg-card px-3 py-2.5 skeleton-shimmer subscription-card-enter"
+                style={{ "--card-delay": `${i * 45}ms` } as React.CSSProperties}
+              >
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-4 w-16 rounded-full" />
+                  </div>
+                </div>
+                <Skeleton className="size-8 rounded-md" />
+              </div>
+            ))}
+          </div>
+        )}
 
         {!loading && keys.length === 0 && (
           <div className="py-8 text-center">

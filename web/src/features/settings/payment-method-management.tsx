@@ -9,6 +9,7 @@ import { api } from "@/lib/api"
 import { getPaymentMethodLabel } from "@/lib/preset-labels"
 import { toast } from "@/lib/toast"
 import IconPicker from "@/features/subscriptions/icon-picker"
+import { Skeleton } from "@/components/ui/skeleton"
 import type {
   PaymentMethod,
   CreatePaymentMethodInput,
@@ -21,6 +22,7 @@ export default function PaymentMethodManagement() {
   const { t, i18n } = useTranslation()
 
   const [methods, setMethods] = useState<PaymentMethod[]>([])
+  const [loading, setLoading] = useState(true)
   const [addName, setAddName] = useState("")
   const [addIcon, setAddIcon] = useState("")
   const [addIconFile, setAddIconFile] = useState<File | null>(null)
@@ -33,9 +35,16 @@ export default function PaymentMethodManagement() {
   const dragTo = useRef<number | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
     api.get<PaymentMethod[]>("/payment-methods").then((list) => {
-      setMethods(list ?? [])
-    }).catch(() => void 0)
+      if (!cancelled) setMethods(list ?? [])
+    }).catch(() => void 0).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function uploadMethodIcon(id: number, file: File, errorHandling: "silent" | "toast" = "silent"): Promise<string> {
@@ -188,7 +197,26 @@ export default function PaymentMethodManagement() {
       </p>
 
       <div className="mt-4 space-y-2">
-        {methods.length === 0 ? (
+        {loading && methods.length === 0 ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md border bg-card p-3 skeleton-shimmer subscription-card-enter"
+                style={{ "--card-delay": `${i * 35}ms` } as React.CSSProperties}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Skeleton className="size-4 rounded" />
+                  <Skeleton className="size-6 rounded" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="flex gap-1">
+                  <Skeleton className="size-7 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : methods.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("settings.paymentMethodManagement.empty")}
           </p>

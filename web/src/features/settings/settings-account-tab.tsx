@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TabsContent } from "@/components/ui/tabs"
 import ReauthDialog from "@/features/admin/reauth-dialog"
 import { useSettingsAccountTransfer } from "@/features/settings/hooks/use-settings-account-transfer"
@@ -141,7 +142,11 @@ export default function SettingsAccountTab({
           <Label className="text-xs text-muted-foreground">
             {t("settings.account.username")}
           </Label>
-          <p className="mt-0.5 text-sm">{user?.username ?? "—"}</p>
+          {user ? (
+            <p className="mt-0.5 text-sm">{user.username}</p>
+          ) : (
+            <Skeleton className="mt-0.5 h-5 w-28 rounded" />
+          )}
         </div>
 
         <div>
@@ -149,7 +154,11 @@ export default function SettingsAccountTab({
             {t("settings.account.email")}
           </Label>
           <div className="mt-0.5 flex items-center gap-2">
-            <p className="text-sm">{user?.email ?? "—"}</p>
+            {user ? (
+              <p className="text-sm">{user.email}</p>
+            ) : (
+              <Skeleton className="h-5 w-40 rounded" />
+            )}
             <EmailChangeDialog
               confirmLoading={emailChangeLoading}
               emailChangeError={emailChangeError}

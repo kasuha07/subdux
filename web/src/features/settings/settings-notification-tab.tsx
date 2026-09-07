@@ -39,6 +39,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
   const [logs, setLogs] = useState<NotificationLog[]>([])
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
 
+  const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [editingChannel, setEditingChannel] = useState<NotificationChannel | null>(null)
   const [formSaving, setFormSaving] = useState(false)
@@ -53,40 +54,42 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
       return
     }
     loaded.current = true
+    setLoading(true)
 
-    api.get<NotificationChannel[]>("/notifications/channels")
-      .then((data) => {
-        startHydrationTransition(() => {
-          setChannels(data ?? [])
-        })
-      })
-      .catch(() => void 0)
-
-    api.get<NotificationPolicy>("/notifications/policy")
-      .then((data) => {
-        if (data) {
+    void Promise.allSettled([
+      api.get<NotificationChannel[]>("/notifications/channels")
+        .then((data) => {
           startHydrationTransition(() => {
-            setPolicy(data)
+            setChannels(data ?? [])
           })
-        }
-      })
-      .catch(() => void 0)
-
-    api.get<NotificationLog[]>("/notifications/logs")
-      .then((data) => {
-        startHydrationTransition(() => {
-          setLogs(data ?? [])
         })
-      })
-      .catch(() => void 0)
-
-    api.get<NotificationTemplate[]>("/notifications/templates")
-      .then((data) => {
-        startHydrationTransition(() => {
-          setTemplates(data ?? [])
+        .catch(() => void 0),
+      api.get<NotificationPolicy>("/notifications/policy")
+        .then((data) => {
+          if (data) {
+            startHydrationTransition(() => {
+              setPolicy(data)
+            })
+          }
         })
-      })
-      .catch(() => void 0)
+        .catch(() => void 0),
+      api.get<NotificationLog[]>("/notifications/logs")
+        .then((data) => {
+          startHydrationTransition(() => {
+            setLogs(data ?? [])
+          })
+        })
+        .catch(() => void 0),
+      api.get<NotificationTemplate[]>("/notifications/templates")
+        .then((data) => {
+          startHydrationTransition(() => {
+            setTemplates(data ?? [])
+          })
+        })
+        .catch(() => void 0),
+    ]).finally(() => {
+      setLoading(false)
+    })
   }, [active])
 
   function handleAddChannel() {
@@ -207,6 +210,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
 
       <NotificationChannelList
         channels={channels}
+        loading={loading}
         onAddChannel={handleAddChannel}
         onEditChannel={handleEditChannel}
         onToggleChannel={handleToggleChannel}
@@ -228,7 +232,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
 
       <Separator />
 
-      <NotificationLogList logs={logs} />
+      <NotificationLogList logs={logs} loading={loading} />
     </TabsContent>
   )
 }

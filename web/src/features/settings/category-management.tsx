@@ -7,6 +7,7 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { GripVertical, Trash2, Pencil, Check, X } from "lucide-react"
 import { api } from "@/lib/api"
 import { getCategoryLabel } from "@/lib/preset-labels"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/lib/toast"
 import type { Category, CreateCategoryInput, UpdateCategoryInput, ReorderCategoryItem } from "@/types"
 
@@ -14,6 +15,7 @@ export default function CategoryManagement() {
   const { t } = useTranslation()
 
   const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
   const [addName, setAddName] = useState("")
   const [addLoading, setAddLoading] = useState(false)
   const [orderChanged, setOrderChanged] = useState(false)
@@ -26,9 +28,16 @@ export default function CategoryManagement() {
   const dragTo = useRef<number | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
     api.get<Category[]>("/categories").then((list) => {
-      setCategories(list ?? [])
-    }).catch(() => void 0)
+      if (!cancelled) setCategories(list ?? [])
+    }).catch(() => void 0).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function handleAddCategory(e: FormEvent) {
@@ -161,7 +170,26 @@ export default function CategoryManagement() {
       </p>
 
       <div className="mt-4 space-y-2">
-        {categories.length === 0 ? (
+        {loading && categories.length === 0 ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md border bg-card p-3 skeleton-shimmer subscription-card-enter"
+                style={{ "--card-delay": `${i * 35}ms` } as React.CSSProperties}
+              >
+                <div className="flex items-center gap-2">
+                  <Skeleton className="size-4 rounded" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+                <div className="flex gap-1">
+                  <Skeleton className="size-7 rounded" />
+                  <Skeleton className="size-7 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : categories.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("settings.categoryManagement.empty")}
           </p>
