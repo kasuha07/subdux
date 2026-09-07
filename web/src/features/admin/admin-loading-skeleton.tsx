@@ -1,4 +1,7 @@
+import { useTranslation } from "react-i18next"
+
 import { Skeleton } from "@/components/ui/skeleton"
+import { TabsContent } from "@/components/ui/tabs"
 
 export function AdminUsersTableSkeleton() {
   return (
@@ -218,6 +221,24 @@ export function AdminTabSkeleton({
     default:
       return <AdminFormTabSkeleton />
   }
+}
+
+export function AdminTabLoading({
+  value,
+}: {
+  value: "users" | "settings" | "smtp" | "auth" | "exchange-rates" | "background-tasks" | "audit" | "backup"
+}) {
+  const { t } = useTranslation()
+  return (
+    <TabsContent
+      value={value}
+      role="status"
+      aria-label={t("common.loading")}
+      className="admin-tab-content outline-none"
+    >
+      <AdminTabSkeleton tab={value} />
+    </TabsContent>
+  )
 }
 
 const TAB_WIDTHS = [56, 68, 52, 92, 96, 110, 56, 64]

@@ -1,10 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
+import { Tabs } from "@/components/ui/tabs"
 import AdminLoadingSkeleton, {
   AdminAuditTabSkeleton,
   AdminBackupTabSkeleton,
   AdminFormTabSkeleton,
+  AdminTabLoading,
   AdminTabSkeleton,
   AdminTasksListSkeleton,
   AdminTasksTabSkeleton,
@@ -65,5 +67,20 @@ describe("AdminLoadingSkeleton", () => {
     expect(renderToStaticMarkup(<AdminTabSkeleton tab="smtp" />)).toContain("skeleton-shimmer")
     expect(renderToStaticMarkup(<AdminTabSkeleton tab="auth" />)).toContain("skeleton-shimmer")
     expect(renderToStaticMarkup(<AdminTabSkeleton tab="exchange-rates" />)).toContain("skeleton-shimmer")
+  })
+
+  it("renders AdminTabLoading with accessibility status, skeleton shimmer, and no visible loading text", () => {
+    const markup = renderToStaticMarkup(
+      <Tabs value="settings">
+        <AdminTabLoading value="settings" />
+      </Tabs>
+    )
+
+    expect(markup).toContain('role="status"')
+    expect(markup).toContain("aria-label=")
+    expect(markup).not.toContain("animate-spin")
+    expect(markup).not.toContain("加载中")
+    expect(markup).toContain("skeleton-shimmer")
+    expect(markup).toContain("admin-tab-content")
   })
 })

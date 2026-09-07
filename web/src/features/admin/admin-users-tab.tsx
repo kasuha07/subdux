@@ -121,7 +121,7 @@ export default function AdminUsersTab({
   }
 
   return (
-    <TabsContent value="users">
+    <TabsContent value="users" className="admin-tab-content">
       <div className="mb-4 flex justify-end">
         <Dialog open={createDialogOpen} onOpenChange={onCreateDialogOpenChange}>
           <DialogTrigger asChild>

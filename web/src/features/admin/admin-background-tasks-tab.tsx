@@ -90,7 +90,7 @@ export default function AdminBackgroundTasksTab({
   const { t, i18n } = useTranslation()
 
   return (
-    <TabsContent value="background-tasks" className="space-y-4">
+    <TabsContent value="background-tasks" className="space-y-4 admin-tab-content">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">{t("admin.backgroundTasks.title")}</h2>

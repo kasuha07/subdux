@@ -157,7 +157,7 @@ export default function AdminBackupTab({
         : undefined
 
   return (
-    <TabsContent value="backup" className="space-y-6 select-none">
+    <TabsContent value="backup" className="space-y-6 select-none admin-tab-content">
       <div className="space-y-4">
         <div>
           <h3 className="text-sm font-medium">{t("admin.backup.download")}</h3>

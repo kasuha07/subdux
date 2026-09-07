@@ -1,11 +1,10 @@
-import { Suspense, lazy, useState } from "react"
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
   ArrowLeft,
   Database,
   FileClock,
-  Loader2,
   Mail,
   RefreshCw,
   ServerCog,
@@ -15,11 +14,14 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip } from "@/components/ui/tooltip"
 import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
+import { cn } from "@/lib/utils"
 
-import AdminLoadingSkeleton, { AdminTabSkeleton } from "./admin-loading-skeleton"
+import AdminLoadingSkeleton, { AdminTabLoading } from "./admin-loading-skeleton"
+
+export { AdminTabLoading }
 
 const AdminBackupTab = lazy(() => import("./admin-backup-tab"))
 const AdminAuditTab = lazy(() => import("./admin-audit-tab"))
@@ -43,20 +45,21 @@ function isAdminTab(value: string): value is AdminTab {
     value === "backup"
 }
 
-function AdminTabLoading({ value }: { value: AdminTab }) {
-  const { t } = useTranslation()
-  return (
-    <TabsContent value={value} className="space-y-4 pt-1">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        <span>{t("common.loading")}</span>
-      </div>
-      <div className="page-loading-enter">
-        <AdminTabSkeleton tab={value} />
-      </div>
-    </TabsContent>
-  )
-}
+const TAB_DEFINITIONS: {
+  value: AdminTab
+  labelKey: string
+  icon: typeof Users
+  loader: () => Promise<unknown>
+}[] = [
+  { value: "users", labelKey: "admin.tabs.users", icon: Users, loader: () => import("./admin-users-tab") },
+  { value: "settings", labelKey: "admin.tabs.settings", icon: Settings, loader: () => import("./admin-settings-tab") },
+  { value: "smtp", labelKey: "admin.tabs.email", icon: Mail, loader: () => import("./admin-settings-smtp-tab") },
+  { value: "auth", labelKey: "admin.tabs.authentication", icon: ShieldCheck, loader: () => import("./admin-settings-oidc-tab") },
+  { value: "exchange-rates", labelKey: "admin.exchangeRates.title", icon: RefreshCw, loader: () => import("./admin-exchange-rates-tab") },
+  { value: "background-tasks", labelKey: "admin.tabs.backgroundTasks", icon: ServerCog, loader: () => import("./admin-background-tasks-tab") },
+  { value: "audit", labelKey: "admin.tabs.audit", icon: FileClock, loader: () => import("./admin-audit-tab") },
+  { value: "backup", labelKey: "admin.tabs.backup", icon: Database, loader: () => import("./admin-backup-tab") },
+]
 
 export default function AdminPage() {
   const { t } = useTranslation()
@@ -64,6 +67,66 @@ export default function AdminPage() {
   const { settingsForm } = admin
   const [activeTab, setActiveTab] = useState<AdminTab>("users")
   const [visitedTabs, setVisitedTabs] = useState<AdminTab[]>(["users"])
+
+  const tabsListRef = useRef<HTMLDivElement>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState<{
+    left: number
+    top: number
+    width: number
+    height: number
+  } | null>(null)
+  const [isTransitionReady, setIsTransitionReady] = useState(false)
+
+  // Preload tab components during browser idle time so tab transitions are instant
+  useEffect(() => {
+    const preloadAll = () => {
+      TAB_DEFINITIONS.forEach(({ loader }) => {
+        void loader()
+      })
+    }
+
+    if (typeof window !== "undefined") {
+      if ("requestIdleCallback" in window) {
+        const handle = window.requestIdleCallback(preloadAll)
+        return () => window.cancelIdleCallback(handle)
+      }
+      const timer = setTimeout(preloadAll, 200)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const list = tabsListRef.current
+    if (!list) return
+
+    const updateIndicator = () => {
+      const activeTrigger = list.querySelector<HTMLElement>(
+        '[data-slot="tabs-trigger"][data-state="active"]'
+      )
+      if (activeTrigger) {
+        setIndicatorStyle({
+          left: activeTrigger.offsetLeft,
+          top: activeTrigger.offsetTop,
+          width: activeTrigger.offsetWidth,
+          height: activeTrigger.offsetHeight,
+        })
+      }
+    }
+
+    updateIndicator()
+
+    const rafId = requestAnimationFrame(() => {
+      setIsTransitionReady(true)
+    })
+
+    const observer = new ResizeObserver(updateIndicator)
+    observer.observe(list)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      observer.disconnect()
+    }
+  }, [activeTab])
 
   return (
     <div className="min-h-screen bg-background">
@@ -94,42 +157,43 @@ export default function AdminPage() {
                 ))
               }
             }}
-            className="page-content-enter space-y-6"
+            className="admin-tabs page-content-enter space-y-6"
           >
             <div className="w-full overflow-x-auto pb-1">
-              <TabsList className="w-max min-w-max">
-                <TabsTrigger value="users" className="flex-none gap-2">
-                  <Users className="size-4" />
-                  {t("admin.tabs.users")}
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="flex-none gap-2">
-                  <Settings className="size-4" />
-                  {t("admin.tabs.settings")}
-                </TabsTrigger>
-                <TabsTrigger value="smtp" className="flex-none gap-2">
-                  <Mail className="size-4" />
-                  {t("admin.tabs.email")}
-                </TabsTrigger>
-                <TabsTrigger value="auth" className="flex-none gap-2">
-                  <ShieldCheck className="size-4" />
-                  {t("admin.tabs.authentication")}
-                </TabsTrigger>
-                <TabsTrigger value="exchange-rates" className="flex-none gap-2">
-                  <RefreshCw className="size-4" />
-                  {t("admin.exchangeRates.title")}
-                </TabsTrigger>
-                <TabsTrigger value="background-tasks" className="flex-none gap-2">
-                  <ServerCog className="size-4" />
-                  {t("admin.tabs.backgroundTasks")}
-                </TabsTrigger>
-                <TabsTrigger value="audit" className="flex-none gap-2">
-                  <FileClock className="size-4" />
-                  {t("admin.tabs.audit")}
-                </TabsTrigger>
-                <TabsTrigger value="backup" className="flex-none gap-2">
-                  <Database className="size-4" />
-                  {t("admin.tabs.backup")}
-                </TabsTrigger>
+              <TabsList
+                ref={tabsListRef}
+                className={cn(
+                  "relative w-max min-w-max",
+                  indicatorStyle && "admin-tabs-list"
+                )}
+              >
+                {indicatorStyle && (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "pointer-events-none absolute rounded-md bg-background shadow-xs dark:bg-input/30 dark:border dark:border-input",
+                      isTransitionReady && "transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    )}
+                    style={{
+                      left: `${indicatorStyle.left}px`,
+                      top: `${indicatorStyle.top}px`,
+                      width: `${indicatorStyle.width}px`,
+                      height: `${indicatorStyle.height}px`,
+                    }}
+                  />
+                )}
+                {TAB_DEFINITIONS.map(({ value, labelKey, icon: Icon, loader }) => (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="flex-none gap-2"
+                    onPointerEnter={() => void loader()}
+                    onFocus={() => void loader()}
+                  >
+                    <Icon className="size-4" />
+                    {t(labelKey)}
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </div>
 

@@ -45,7 +45,7 @@ export default function AdminAuditTab() {
   }, [])
 
   return (
-    <TabsContent value="audit">
+    <TabsContent value="audit" className="admin-tab-content">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>

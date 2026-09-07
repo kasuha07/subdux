@@ -48,7 +48,7 @@ export default function AdminExchangeRatesTab({
     : currencyApiKey || (currencyApiKeyConfigured ? configuredMaskValue : "")
 
   return (
-    <TabsContent value="exchange-rates" className="space-y-6">
+    <TabsContent value="exchange-rates" className="space-y-6 admin-tab-content">
       <div className="space-y-2">
         <Label htmlFor="currency-api-key">{t("admin.exchangeRates.apiKeyLabel")}</Label>
         <Input

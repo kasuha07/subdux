@@ -57,7 +57,7 @@ export default function AdminSettingsTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="settings" className="space-y-6 select-none">
+    <TabsContent value="settings" className="space-y-6 select-none admin-tab-content">
       <AdminSettingsGeneralSection
         allowImageUpload={allowImageUpload}
         iconProxyDomainWhitelist={iconProxyDomainWhitelist}
