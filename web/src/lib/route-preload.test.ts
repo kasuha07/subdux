@@ -93,9 +93,21 @@ describe("preloadRoute", () => {
   })
 
   it("handles failed speculative imports without an unhandled rejection", async () => {
-    vi.doMock("@/features/settings/settings-page", () => {
-      throw new Error("Chunk download failed")
-    })
+    vi.resetModules()
+    loaded.length = 0
+    for (const [specifier, label] of FEATURE_MODULES) {
+      if (specifier === "@/features/settings/settings-page") {
+        vi.doMock(specifier, () => {
+          throw new Error("Chunk download failed")
+        })
+      } else {
+        vi.doMock(specifier, () => {
+          loaded.push(label)
+          return { default: () => null }
+        })
+      }
+    }
+    mod = await import("@/lib/route-preload")
     mod.preloadRoute("protected", "settings")
     await flush()
     expect(loaded).toEqual([])

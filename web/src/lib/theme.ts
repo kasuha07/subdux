@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react"
+
 export type Theme = "light" | "dark" | "system"
 export type ThemeColorScheme = "default" | "ocean" | "sunset" | "forest" | "custom"
 
@@ -355,13 +357,68 @@ export function watchSystemTheme(): void {
   })
 }
 
-export function useTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "light"
-
+function getThemeSnapshot(): "light" | "dark" {
+  if (typeof document === "undefined") {
+    return "light"
+  }
+  if (document.documentElement.classList.contains("dark")) {
+    return "dark"
+  }
   const theme = getTheme()
-  if (theme === "light" || theme === "dark") {
-    return theme
+  if (theme === "light") {
+    return "light"
+  }
+  if (theme === "dark") {
+    return "dark"
+  }
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light"
+}
+
+function subscribeTheme(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {}
   }
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  let observer: MutationObserver | null = null
+  if (typeof MutationObserver !== "undefined") {
+    observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes" && mutation.attributeName === "class") {
+          onStoreChange()
+          break
+        }
+      }
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+  }
+
+  const media = window.matchMedia?.("(prefers-color-scheme: dark)")
+  const handleMedia = () => {
+    if (getTheme() === "system") {
+      onStoreChange()
+    }
+  }
+  media?.addEventListener?.("change", handleMedia)
+
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === THEME_KEY) {
+      onStoreChange()
+    }
+  }
+  window.addEventListener("storage", handleStorage)
+
+  return () => {
+    observer?.disconnect()
+    media?.removeEventListener?.("change", handleMedia)
+    window.removeEventListener("storage", handleStorage)
+  }
+}
+
+export function useTheme(): "light" | "dark" {
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, () => "light")
 }
