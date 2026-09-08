@@ -370,8 +370,9 @@ def build_plan(current: dict[str, Any], desired: dict[str, Any]) -> dict[str, An
     if preferred and preferred != current_preferred:
         actions.append({"type": "update_preferred_currency", "payload": {"preferred_currency": preferred}})
 
+    bind_plan_revisions(actions, current)
     return {
-        "version": 1,
+        "version": 2,
         "summary": summarize_actions(actions),
         "actions": actions,
     }
@@ -422,11 +423,30 @@ def build_cleanup_plan(current: dict[str, Any]) -> dict[str, Any]:
         if method_id not in used_payment_method_ids:
             actions.append({"type": "delete_payment_method", "id": method_id, "name": method.get("name")})
 
+    bind_plan_revisions(actions, current)
     return {
-        "version": 1,
+        "version": 2,
         "summary": summarize_actions(actions),
         "actions": actions,
     }
+
+
+def bind_plan_revisions(actions: list[dict[str, Any]], current: dict[str, Any]) -> None:
+    """Bind edits to the reviewed snapshot, including earlier edits in this plan."""
+    for singular, plural in (("currency", "currencies"), ("category", "categories"), ("payment_method", "payment_methods")):
+        revisions = {item["id"]: item.get("revision") for item in current.get(plural, [])}
+        for action in actions:
+            action_type = action["type"]
+            if action_type not in (f"update_{singular}", f"delete_{singular}", f"reorder_{plural}"):
+                continue
+            items = action["payload"] if action_type == f"reorder_{plural}" else [action]
+            for item in items:
+                revision = revisions.get(item["id"])
+                if type(revision) is not int or revision <= 0:
+                    raise SubduxError("current state has no valid revision; reload it before planning")
+                target = item["payload"] if action_type == f"update_{singular}" else item
+                target["revision"] = revision
+                revisions[item["id"]] = revision + 1
 
 
 def summarize_actions(actions: list[dict[str, Any]]) -> dict[str, int]:
@@ -447,7 +467,7 @@ def apply_action(client: SubduxClient, action: dict[str, Any]) -> Any:
     if action_type == "reorder_currencies":
         return client.request("PUT", "/api/currencies/reorder", payload)
     if action_type == "delete_currency":
-        return client.request("DELETE", f"/api/currencies/{action['id']}")
+        return client.request("DELETE", f"/api/currencies/{action['id']}?revision={action['revision']}")
     if action_type == "create_category":
         return client.request("POST", "/api/categories", payload)
     if action_type == "update_category":
@@ -455,7 +475,7 @@ def apply_action(client: SubduxClient, action: dict[str, Any]) -> Any:
     if action_type == "reorder_categories":
         return client.request("PUT", "/api/categories/reorder", payload)
     if action_type == "delete_category":
-        return client.request("DELETE", f"/api/categories/{action['id']}")
+        return client.request("DELETE", f"/api/categories/{action['id']}?revision={action['revision']}")
     if action_type == "create_payment_method":
         return client.request("POST", "/api/payment-methods", payload)
     if action_type == "update_payment_method":
@@ -463,7 +483,7 @@ def apply_action(client: SubduxClient, action: dict[str, Any]) -> Any:
     if action_type == "reorder_payment_methods":
         return client.request("PUT", "/api/payment-methods/reorder", payload)
     if action_type == "delete_payment_method":
-        return client.request("DELETE", f"/api/payment-methods/{action['id']}")
+        return client.request("DELETE", f"/api/payment-methods/{action['id']}?revision={action['revision']}")
     if action_type == "update_preferred_currency":
         return client.request("PUT", "/api/preferences/currency", payload)
     raise SubduxError(f"unknown action type: {action_type}")
@@ -529,6 +549,8 @@ def cmd_apply(args: argparse.Namespace) -> int:
     if not isinstance(plan, dict) or not isinstance(plan.get("actions"), list):
         raise SubduxError("plan file must contain an actions array")
     results = []
+    if plan.get("version") != 2:
+        raise SubduxError("regenerate this plan to include record revisions before applying it")
     for index, action in enumerate(plan["actions"]):
         if not isinstance(action, dict):
             raise SubduxError(f"plan action {index} must be an object")

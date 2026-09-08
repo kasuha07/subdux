@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -25,6 +26,9 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	var input adminservice.UpdateSettingsInput
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
+	}
+	if input.Revisions == nil {
+		return serviceutil.ErrRevisionRequired
 	}
 
 	// No admin setting requires step-up re-authentication any more: the backup

@@ -101,6 +101,7 @@ type CreateSubscriptionInput struct {
 }
 
 type UpdateSubscriptionInput struct {
+	Revision         uint64   `json:"revision"`
 	Name             *string  `json:"name"`
 	Amount           *float64 `json:"amount"`
 	Currency         *string  `json:"currency"`

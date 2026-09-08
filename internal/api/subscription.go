@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -206,6 +207,9 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
 	}
 
+	if request.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
 	sub, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), request.UpdateSubscriptionInput)
 	if err != nil {
 		return err
@@ -221,7 +225,12 @@ func (h *SubscriptionHandler) Delete(c echo.Context) error {
 		return nil
 	}
 
-	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id), revision); err != nil {
 		return err
 	}
 
@@ -239,6 +248,11 @@ func (h *SubscriptionHandler) Batch(c echo.Context) error {
 		return nil
 	}
 
+	for _, id := range request.IDs {
+		if request.Revisions[id] == 0 {
+			return serviceutil.ErrRevisionRequired
+		}
+	}
 	result, err := h.Service.WithContext(c.Request().Context()).Batch(userID, request.BatchSubscriptionInput)
 	if err != nil {
 		return err
@@ -254,7 +268,16 @@ func (h *SubscriptionHandler) MarkRenewed(c echo.Context) error {
 		return nil
 	}
 
-	sub, err := h.Service.WithContext(c.Request().Context()).MarkManualRenewed(userID, uint(id))
+	var input struct {
+		Revision uint64 `json:"revision"`
+	}
+	if !httpx.BindJSON(c, &input, "invalid_request_body") {
+		return nil
+	}
+	if input.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
+	sub, err := h.Service.WithContext(c.Request().Context()).MarkManualRenewed(userID, uint(id), input.Revision)
 	if err != nil {
 		return err
 	}
@@ -327,7 +350,11 @@ func (h *SubscriptionHandler) UploadIcon(c echo.Context) error {
 	}
 	defer src.Close()
 
-	iconPath, err := svc.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+	iconPath, err := svc.UploadSubscriptionIcon(userID, uint(id), src, fileHeader.Filename, maxSize, revision)
 	if err != nil {
 		return err
 	}

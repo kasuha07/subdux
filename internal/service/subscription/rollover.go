@@ -29,8 +29,8 @@ func autoAdvanceRecurringNextBillingDatesForUser(db *gorm.DB, userID uint, refer
 			continue
 		}
 		if err := db.Model(&model.Subscription{}).
-			Where("id = ? AND user_id = ?", sub.ID, userID).
-			Update("next_billing_date", *nextBillingDate).Error; err != nil {
+			Where("id = ? AND user_id = ? AND revision = ?", sub.ID, userID, sub.Revision).
+			Updates(map[string]interface{}{"next_billing_date": *nextBillingDate, "revision": gorm.Expr("revision + 1")}).Error; err != nil {
 			return err
 		}
 	}

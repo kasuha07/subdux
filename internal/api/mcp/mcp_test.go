@@ -555,7 +555,7 @@ func TestMCPUpdateAuditRecordsChangedFields(t *testing.T) {
 	handler := newMCPTestHandler(db)
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
-	result, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{
+	result, rpcErr := handler.callUpdateSubscription(context.Background(), principal, map[string]interface{}{"revision": float64(sub.Revision),
 		"idempotency_key": "update-audit-1",
 		"id":              float64(sub.ID),
 		"name":            "New",
@@ -601,7 +601,7 @@ func TestMCPDeleteAuditFailureKeepsManagedIconFile(t *testing.T) {
 	if err := db.Migrator().DropTable(&model.AuditEvent{}); err != nil {
 		t.Fatalf("failed to drop audit table: %v", err)
 	}
-	_, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"idempotency_key": "delete-rollback-1", "id": float64(sub.ID)})
+	_, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"revision": float64(sub.Revision), "idempotency_key": "delete-rollback-1", "id": float64(sub.ID)})
 	if rpcErr == nil {
 		t.Fatal("callDeleteSubscription() rpcErr = nil, want audit failure")
 	}
@@ -639,7 +639,7 @@ func TestMCPDeleteCleansManagedIconFileAfterAuditCommit(t *testing.T) {
 	handler := newMCPTestHandler(db)
 	principal := &mcpPrincipal{UserID: user.ID, KeyID: 7, KeyKind: apikeyservice.APIKeyKindMCPClient, Scopes: []string{apikeyservice.APIKeyScopeRead, apikeyservice.APIKeyScopeWrite}}
 
-	result, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"idempotency_key": "delete-commit-1", "id": float64(sub.ID)})
+	result, rpcErr := handler.callDeleteSubscription(context.Background(), principal, map[string]interface{}{"revision": float64(sub.Revision), "idempotency_key": "delete-commit-1", "id": float64(sub.ID)})
 	if rpcErr != nil {
 		t.Fatalf("callDeleteSubscription() rpcErr = %v", rpcErr)
 	}
@@ -1184,6 +1184,7 @@ func TestMCPRejectsNegativeNotifyDaysBefore(t *testing.T) {
 			name:     "update",
 			toolName: "update_subscription",
 			arguments: map[string]interface{}{
+				"revision":           1,
 				"notify_days_before": -1,
 			},
 			setup: func(t *testing.T, db *gorm.DB, user model.User) uint {
@@ -1310,7 +1311,7 @@ func TestMCPUpdateSubscriptionClearsNullableReferences(t *testing.T) {
 		"method":  "tools/call",
 		"params": map[string]interface{}{
 			"name": "update_subscription",
-			"arguments": map[string]interface{}{
+			"arguments": map[string]interface{}{"revision": float64(sub.Revision),
 				"idempotency_key":   "update-clear-1",
 				"id":                sub.ID,
 				"category_id":       nil,
@@ -1449,17 +1450,17 @@ func TestMCPWriteToolsRequireIdempotencyKey(t *testing.T) {
 		{
 			name:      "update",
 			toolName:  "update_subscription",
-			arguments: map[string]interface{}{"id": sub.ID, "name": "Renamed"},
+			arguments: map[string]interface{}{"revision": sub.Revision, "id": sub.ID, "name": "Renamed"},
 		},
 		{
 			name:      "delete",
 			toolName:  "delete_subscription",
-			arguments: map[string]interface{}{"id": sub.ID},
+			arguments: map[string]interface{}{"revision": sub.Revision, "id": sub.ID},
 		},
 		{
 			name:      "mark_renewed",
 			toolName:  "mark_subscription_renewed",
-			arguments: map[string]interface{}{"id": sub.ID},
+			arguments: map[string]interface{}{"revision": sub.Revision, "id": sub.ID},
 		},
 	}
 
@@ -1701,7 +1702,7 @@ func TestMCPMarkRenewedReplayDoesNotAdvanceTwice(t *testing.T) {
 		t.Fatalf("failed to create subscription: %v", err)
 	}
 
-	args := map[string]interface{}{"idempotency_key": "renew-replay-1", "id": float64(sub.ID)}
+	args := map[string]interface{}{"revision": float64(sub.Revision), "idempotency_key": "renew-replay-1", "id": float64(sub.ID)}
 
 	first, rpcErr := handler.callMarkSubscriptionRenewed(context.Background(), principal, args)
 	if rpcErr != nil {
@@ -1762,7 +1763,7 @@ func TestMCPDeleteReplayIsIdempotent(t *testing.T) {
 		t.Fatalf("failed to create subscription: %v", err)
 	}
 
-	args := map[string]interface{}{"idempotency_key": "delete-replay-1", "id": float64(sub.ID)}
+	args := map[string]interface{}{"revision": float64(sub.Revision), "idempotency_key": "delete-replay-1", "id": float64(sub.ID)}
 
 	first, rpcErr := handler.callDeleteSubscription(context.Background(), principal, args)
 	if rpcErr != nil {

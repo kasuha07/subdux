@@ -75,6 +75,11 @@ func createSubscriptionInputFromMCPArgs(args map[string]interface{}) subscriptio
 
 func updateSubscriptionInputFromMCPArgs(args map[string]interface{}) (subscriptionservice.UpdateSubscriptionInput, error) {
 	var input subscriptionservice.UpdateSubscriptionInput
+	revision, err := readRequiredIDArg(args, "revision")
+	if err != nil {
+		return input, err
+	}
+	input.Revision = uint64(revision)
 	if err := validateSubscriptionWriteArgTypes(args); err != nil {
 		return input, err
 	}

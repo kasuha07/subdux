@@ -18,6 +18,7 @@ export type NotificationChannelType =
 export type WebhookMethod = "GET" | "POST" | "PUT"
 
 export interface NotificationChannel {
+  revision: number
   id: number
   type: NotificationChannelType
   enabled: boolean
@@ -144,11 +145,13 @@ export interface CreateNotificationChannelInput {
 }
 
 export interface UpdateNotificationChannelInput {
+  revision?: number
   enabled?: boolean
   config?: string
 }
 
 export interface NotificationPolicy {
+  revision: number
   days_before: number
   notify_on_due_day: boolean
   notify_manual_renew_daily: boolean
@@ -158,6 +161,7 @@ export interface NotificationPolicy {
 }
 
 export interface UpdateNotificationPolicyInput {
+  revision?: number
   days_before?: number
   notify_on_due_day?: boolean
   notify_manual_renew_daily?: boolean
@@ -177,6 +181,7 @@ export interface NotificationLog {
 }
 
 export interface NotificationTemplate {
+  revision: number
   id: number
   user_id: number
   channel_type: string | null
@@ -193,6 +198,7 @@ export interface CreateTemplateInput {
 }
 
 export interface UpdateTemplateInput {
+  revision?: number
   format?: string
   template?: string
 }

@@ -7,6 +7,7 @@ import (
 )
 
 type SubscriptionResponse struct {
+	Revision         uint64    `json:"revision"`
 	ID               uint      `json:"id"`
 	Name             string    `json:"name"`
 	Amount           float64   `json:"amount"`
@@ -35,6 +36,7 @@ type SubscriptionResponse struct {
 }
 
 type CategoryResponse struct {
+	Revision       uint64  `json:"revision"`
 	ID             uint    `json:"id"`
 	Name           string  `json:"name"`
 	SystemKey      *string `json:"system_key"`
@@ -43,6 +45,7 @@ type CategoryResponse struct {
 }
 
 type PaymentMethodResponse struct {
+	Revision       uint64  `json:"revision"`
 	ID             uint    `json:"id"`
 	Name           string  `json:"name"`
 	SystemKey      *string `json:"system_key"`
@@ -53,6 +56,7 @@ type PaymentMethodResponse struct {
 
 func MapSubscriptionResponse(sub model.Subscription) SubscriptionResponse {
 	return SubscriptionResponse{
+		Revision:         sub.Revision,
 		ID:               sub.ID,
 		Name:             sub.Name,
 		Amount:           sub.Amount,
@@ -91,6 +95,7 @@ func MapSubscriptionResponses(subs []model.Subscription) []SubscriptionResponse 
 
 func MapCategoryResponse(category model.Category) CategoryResponse {
 	return CategoryResponse{
+		Revision:       category.Revision,
 		ID:             category.ID,
 		Name:           category.Name,
 		SystemKey:      category.SystemKey,
@@ -109,6 +114,7 @@ func MapCategoryResponses(categories []model.Category) []CategoryResponse {
 
 func MapPaymentMethodResponse(method model.PaymentMethod) PaymentMethodResponse {
 	return PaymentMethodResponse{
+		Revision:       method.Revision,
 		ID:             method.ID,
 		Name:           method.Name,
 		SystemKey:      method.SystemKey,

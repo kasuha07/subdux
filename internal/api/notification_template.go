@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -65,6 +66,9 @@ func (h *NotificationTemplateHandler) UpdateTemplate(c echo.Context) error {
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
+	if input.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
 
 	template, err := h.Service.WithContext(c.Request().Context()).UpdateTemplate(userID, uint(id), input)
 	if err != nil {
@@ -80,7 +84,12 @@ func (h *NotificationTemplateHandler) DeleteTemplate(c echo.Context) error {
 		return nil
 	}
 
-	if err := h.Service.WithContext(c.Request().Context()).DeleteTemplate(userID, uint(id)); err != nil {
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).DeleteTemplate(userID, uint(id), revision); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)

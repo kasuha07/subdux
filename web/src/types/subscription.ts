@@ -2,6 +2,7 @@ export type SubscriptionStatus = "active" | "ended"
 export type SubscriptionRenewalMode = "auto_renew" | "manual_renew" | "cancel_at_period_end"
 
 export interface Subscription {
+  revision: number
   id: number
   name: string
   amount: number
@@ -99,6 +100,7 @@ export interface SubscriptionDetail {
 }
 
 export interface CreateSubscriptionInput {
+  revision?: number
   name: string
   amount: number
   currency: string
@@ -124,6 +126,7 @@ export interface CreateSubscriptionInput {
 }
 
 export interface UpdateSubscriptionInput {
+  revision?: number
   name?: string
   amount?: number
   currency?: string
@@ -151,6 +154,7 @@ export interface UpdateSubscriptionInput {
 export type SubscriptionBatchAction = "delete" | "update" | "mark_renewed"
 
 export interface SubscriptionBatchInput {
+  revisions?: Record<number, number>
   action: SubscriptionBatchAction
   ids: number[]
   status?: SubscriptionStatus

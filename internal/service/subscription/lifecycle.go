@@ -209,13 +209,13 @@ func markSubscriptionEndedAt(sub *model.Subscription, endedAt time.Time) {
 // writes the updated lifecycle columns. It is used by write paths and the
 // background sweep; read paths must never call it.
 //
-// The write is gated on the row's updated_at still matching the snapshot sub
+// The write is gated on the row's revision still matching the snapshot sub
 // was loaded from. The advanced dates are computed from the subscription's
 // lifecycle columns (status, renewal mode, dates) and its billing rules
 // (billing type, recurrence, interval/monthly/yearly fields), so any
 // concurrent edit — not just one that changes the compared lifecycle columns —
-// must invalidate the snapshot. updated_at acts as a row version: GORM bumps
-// it on every update, so the gate fails for any concurrent write regardless of
+// must invalidate the snapshot. Writers increment the integer revision
+// on every update, so the gate fails for any concurrent write regardless of
 // which columns it touched. When it matches no rows the row has moved on and
 // the transition is skipped — the concurrent winner's state stands, and the
 // next sweep pass (or a write path, which reconciles first) recomputes the
@@ -223,15 +223,16 @@ func markSubscriptionEndedAt(sub *model.Subscription, endedAt time.Time) {
 func persistAdvancedSubscriptionLifecycle(db *gorm.DB, userID uint, sub *model.Subscription, referenceDate time.Time) error {
 	// Capture the row version the advance is computed against before
 	// advanceSubscriptionLifecycle mutates sub in memory.
-	snapshotUpdatedAt := sub.UpdatedAt
+	snapshotRevision := sub.Revision
 
 	if !advanceSubscriptionLifecycle(sub, referenceDate) {
 		return nil
 	}
 
 	result := db.Model(&model.Subscription{}).
-		Where("id = ? AND user_id = ? AND updated_at = ?", sub.ID, userID, snapshotUpdatedAt).
+		Where("id = ? AND user_id = ? AND revision = ?", sub.ID, userID, snapshotRevision).
 		Updates(map[string]interface{}{
+			"revision":          gorm.Expr("revision + 1"),
 			"next_billing_date": sub.NextBillingDate,
 			"ends_at":           sub.EndsAt,
 			"status":            sub.Status,

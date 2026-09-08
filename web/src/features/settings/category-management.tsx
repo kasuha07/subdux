@@ -21,6 +21,7 @@ export default function CategoryManagement() {
   const [orderChanged, setOrderChanged] = useState(false)
   const [orderSaving, setOrderSaving] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingRevision, setEditingRevision] = useState<number>()
   const [editName, setEditName] = useState("")
   const [editLoading, setEditLoading] = useState(false)
 
@@ -72,7 +73,7 @@ export default function CategoryManagement() {
     }
 
     try {
-      await api.delete(`/categories/${id}`, { errorHandling: "toast" })
+      await api.delete(`/categories/${id}?revision=${categories.find(item => item.id === id)?.revision}`, { errorHandling: "toast" })
       setCategories((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.categoryManagement.deleteSuccess"))
     } catch {
@@ -83,6 +84,7 @@ export default function CategoryManagement() {
   function handleEditStart(category: Category) {
     setEditingId(category.id)
     setEditName(category.name)
+    setEditingRevision(category.revision)
   }
 
   function handleEditCancel() {
@@ -99,7 +101,7 @@ export default function CategoryManagement() {
 
     setEditLoading(true)
     try {
-      const input: UpdateCategoryInput = { name }
+      const input: UpdateCategoryInput = { name, revision: editingRevision }
       const updated = await api.put<Category>(`/categories/${id}`, input)
       setCategories((prev) =>
         prev.map((item) => (item.id === id ? updated : item))
@@ -142,12 +144,14 @@ export default function CategoryManagement() {
     try {
       const payload: ReorderCategoryItem[] = categories.map((item, index) => ({
         id: item.id,
+        revision: item.revision,
         sort_order: index,
       }))
       await api.put("/categories/reorder", payload)
       setCategories((prev) =>
         prev.map((item, index) => ({
           ...item,
+          revision: item.revision + 1,
           display_order: index,
         }))
       )

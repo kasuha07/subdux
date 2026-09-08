@@ -11,6 +11,7 @@ import {
 
 function settings(overrides: Partial<SystemSettings> = {}): SystemSettings {
   return {
+    revisions: {},
     allow_image_upload: true,
     audit_enabled: true,
     currencyapi_key_configured: false,
@@ -79,7 +80,7 @@ function form(overrides: Partial<AdminSettingsFormState> = {}): AdminSettingsFor
 }
 
 function payloadKeys(scope: Parameters<typeof buildAdminSettingsPayload>[1]) {
-  return Object.keys(buildAdminSettingsPayload(form(), scope)).sort()
+  return Object.keys(buildAdminSettingsPayload(form(), scope)).filter(key => key !== "revisions").sort()
 }
 
 describe("buildAdminSettingsPayload", () => {
@@ -177,6 +178,25 @@ describe("buildAdminSettingsPayload", () => {
 })
 
 describe("mergeAdminSettingsFormScope", () => {
+  it("keeps other drafts' old revisions when acknowledging a saved scope", () => {
+    const current = form({
+      revisions: { site_name: 3, smtp_host: 4, smtp_password: 5 },
+      siteName: "unsaved site draft",
+      smtpPassword: "new password",
+    })
+    const fresh = settings({
+      revisions: { site_name: 6, smtp_host: 7, smtp_password: 8 },
+      site_name: "concurrent site edit",
+      smtp_host: "saved.smtp.example",
+      smtp_password_configured: true,
+    })
+    const merged = mergeAdminSettingsFormScope(current, fresh, "smtp")
+    expect(merged.siteName).toBe("unsaved site draft")
+    expect(merged.revisions).toEqual({ site_name: 3, smtp_host: 7, smtp_password: 8 })
+    expect(buildAdminSettingsPayload(merged, "general").revisions?.site_name).toBe(3)
+    expect(current.revisions.smtp_host).toBe(4)
+  })
+
   it("merges normalized settings only for the saved scope", () => {
     const current = form({
       exchangeRateSource: "draft source",

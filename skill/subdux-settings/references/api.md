@@ -39,6 +39,18 @@ timeout_seconds: 15
 
 The script also accepts `.json` config files for compatibility when `--config` points to one, but YAML is the recommended format.
 
+## Revision preconditions
+
+Read responses include a positive `revision`. Updates must send that revision in
+the JSON body; deletes must send `?revision=N`; each reorder item must include
+its own revision. Missing revisions return HTTP 400. Stale revisions return
+HTTP 409 with `error_code: revision_conflict`. Reload and review a new plan
+after a conflict; do not automatically overwrite it with a newly fetched version.
+
+Generated plans use version 2 and capture revisions at planning time. If a plan
+updates and then reorders the same item, the reorder uses the incremented version.
+Old version 1 plans must be regenerated.
+
 ## Endpoints
 
 Preferences:
@@ -73,15 +85,15 @@ Create payload:
 Update payload:
 
 ```json
-{ "symbol": "¥", "alias": "Chinese yuan", "sort_order": 0 }
+{ "revision": 1, "symbol": "¥", "alias": "Chinese yuan", "sort_order": 0 }
 ```
 
 Reorder payload:
 
 ```json
 [
-  { "id": 1, "sort_order": 0 },
-  { "id": 2, "sort_order": 1 }
+  { "id": 1, "revision": 1, "sort_order": 0 },
+  { "id": 2, "revision": 1, "sort_order": 1 }
 ]
 ```
 

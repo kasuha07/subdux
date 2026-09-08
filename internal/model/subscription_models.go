@@ -3,6 +3,7 @@ package model
 import "time"
 
 type Subscription struct {
+	Revision         uint64         `json:"revision" gorm:"not null;default:1"`
 	ID               uint           `gorm:"primaryKey" json:"id"`
 	UserID           uint           `gorm:"not null;index;index:idx_subscriptions_user_status_billing,priority:1;index:idx_subscriptions_user_next_billing,priority:1" json:"user_id"`
 	Name             string         `gorm:"not null;size:255" json:"name"`
@@ -81,6 +82,7 @@ type SubscriptionActionSnooze struct {
 }
 
 type Category struct {
+	Revision       uint64    `json:"revision" gorm:"not null;default:1"`
 	ID             uint      `gorm:"primaryKey" json:"id"`
 	UserID         uint      `gorm:"not null;index;uniqueIndex:idx_user_category_name;uniqueIndex:idx_user_category_system_key" json:"user_id"`
 	Name           string    `gorm:"not null;size:30;uniqueIndex:idx_user_category_name" json:"name"`
@@ -93,6 +95,7 @@ type Category struct {
 }
 
 type PaymentMethod struct {
+	Revision       uint64    `json:"revision" gorm:"not null;default:1"`
 	ID             uint      `gorm:"primaryKey" json:"id"`
 	UserID         uint      `gorm:"not null;index;uniqueIndex:idx_user_payment_method_name;uniqueIndex:idx_user_payment_method_system_key" json:"user_id"`
 	Name           string    `gorm:"not null;size:50;uniqueIndex:idx_user_payment_method_name" json:"name"`

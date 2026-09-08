@@ -8,6 +8,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
@@ -65,6 +66,9 @@ func (s *Service) UpdateChannel(userID, channelID uint, input UpdateChannelInput
 		return nil, err
 	}
 
+	if err := serviceutil.CheckRevision(input.Revision, channel.Revision); err != nil {
+		return nil, err
+	}
 	updates := make(map[string]interface{})
 	if input.Enabled != nil {
 		if *input.Enabled && !channel.Enabled {
@@ -92,7 +96,7 @@ func (s *Service) UpdateChannel(userID, channelID uint, input UpdateChannelInput
 	}
 
 	if len(updates) > 0 {
-		if err := s.DB.Model(&channel).Updates(updates).Error; err != nil {
+		if err := serviceutil.UpdateRevision(s.DB.Model(&channel).Where("user_id = ?", userID), channel.Revision, updates); err != nil {
 			return nil, err
 		}
 	}
@@ -129,12 +133,19 @@ func (s *Service) ensureEnabledChannelLimit(userID uint) error {
 	return nil
 }
 
-func (s *Service) DeleteChannel(userID, channelID uint) error {
-	result := s.DB.Where("id = ? AND user_id = ?", channelID, userID).Delete(&model.NotificationChannel{})
+func (s *Service) DeleteChannel(userID, channelID uint, revisions ...uint64) error {
+	query := s.DB.Where("id = ? AND user_id = ?", channelID, userID)
+	if len(revisions) > 0 && revisions[0] > 0 {
+		query = query.Where("revision = ?", revisions[0])
+	}
+	result := query.Delete(&model.NotificationChannel{})
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
+		if len(revisions) > 0 && revisions[0] > 0 {
+			return serviceutil.ErrRevisionConflict
+		}
 		return ErrChannelNotFound
 	}
 	return nil

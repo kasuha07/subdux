@@ -8,7 +8,9 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Service struct {
@@ -142,8 +144,8 @@ func GetString(ctx context.Context, db *gorm.DB, key string, defaultValue string
 	if !pkg.IsSystemSettingEncrypted(storedValue) && value != "" && IsEncryptedKey(key) {
 		if encryptedValue, encryptErr := EncryptValueIfNeeded(key, value); encryptErr == nil {
 			_ = db.WithContext(ctx).Model(&model.SystemSetting{}).
-				Where("key = ?", key).
-				Update("value", encryptedValue).Error
+				Where("key = ? AND value = ?", key, storedValue).
+				Updates(map[string]interface{}{"value": encryptedValue, "revision": gorm.Expr("revision + 1")}).Error
 		}
 	}
 
@@ -220,9 +222,24 @@ func SaveBool(tx *gorm.DB, key string, enabled bool) error {
 }
 
 func SaveString(tx *gorm.DB, key string, value string) error {
-	return tx.Where("key = ?", key).
-		Assign(map[string]interface{}{"value": value}).
-		FirstOrCreate(&model.SystemSetting{Key: key}).Error
+	return tx.Transaction(func(db *gorm.DB) error {
+		var row model.SystemSetting
+		err := db.Where("key = ?", key).First(&row).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.SystemSetting{Key: key, Value: value})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != 1 {
+				return serviceutil.ErrRevisionConflict
+			}
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return serviceutil.UpdateRevision(db.Model(&model.SystemSetting{}).Where("key = ?", key), row.Revision, map[string]interface{}{"value": value})
+	})
 }
 
 func SaveEncrypted(tx *gorm.DB, key string, value string) error {

@@ -9,6 +9,7 @@ import (
 	"github.com/kasuha07/subdux/internal/pkg"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
@@ -1008,7 +1009,7 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 							"quiet_hours_start":         quietHoursStart,
 							"quiet_hours_end":           quietHoursEnd,
 						}
-						if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+						if err := serviceutil.UpdateRevision(tx.Model(&existing).Where("user_id = ?", userID), existing.Revision, updates); err != nil {
 							result.Errors = append(result.Errors, fmt.Sprintf("failed to update policy: %v", err))
 						} else {
 							result.Imported++

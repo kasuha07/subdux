@@ -47,16 +47,16 @@ export default function PaymentMethodManagement() {
     }
   }, [])
 
-  async function uploadMethodIcon(id: number, file: File, errorHandling: "silent" | "toast" = "silent"): Promise<string> {
+  async function uploadMethodIcon(id: number, file: File, revision: number, errorHandling: "silent" | "toast" = "silent"): Promise<string> {
     const formData = new FormData()
     formData.append("icon", file)
     const result = errorHandling === "toast"
       ? await api.uploadFile<UploadIconResponse>(
-          `/payment-methods/${id}/icon`,
+          `/payment-methods/${id}/icon?revision=${revision}`,
           formData,
           { errorHandling: "toast" }
         )
-      : await api.uploadFile<UploadIconResponse>(`/payment-methods/${id}/icon`, formData)
+      : await api.uploadFile<UploadIconResponse>(`/payment-methods/${id}/icon?revision=${revision}`, formData)
     return result.icon
   }
 
@@ -81,8 +81,8 @@ export default function PaymentMethodManagement() {
       let nextMethod = created
       if (addIconFile) {
         try {
-          const icon = await uploadMethodIcon(created.id, addIconFile)
-          nextMethod = { ...created, icon }
+          const icon = await uploadMethodIcon(created.id, addIconFile, created.revision)
+          nextMethod = { ...created, icon, revision: created.revision + 1 }
         } catch {
           toast.error(t("settings.paymentMethodManagement.iconUploadFailed"))
         }
@@ -107,7 +107,7 @@ export default function PaymentMethodManagement() {
     }
 
     try {
-      await api.delete(`/payment-methods/${id}`, { errorHandling: "toast" })
+      await api.delete(`/payment-methods/${id}?revision=${methods.find(item => item.id === id)?.revision}`, { errorHandling: "toast" })
       setMethods((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.paymentMethodManagement.deleteSuccess"))
     } catch {
@@ -119,7 +119,7 @@ export default function PaymentMethodManagement() {
     try {
       const updated = await api.put<PaymentMethod>(
         `/payment-methods/${id}`,
-        input,
+        { ...input, revision: methods.find(item => item.id === id)?.revision },
         { errorHandling: "toast" }
       )
       setMethods((prev) => prev.map((item) => (item.id === id ? updated : item)))
@@ -130,10 +130,12 @@ export default function PaymentMethodManagement() {
   }
 
   async function handleUploadMethodIcon(id: number, file: File) {
+    const method = methods.find(item => item.id === id)
+    if (!method) return
     try {
-      const icon = await uploadMethodIcon(id, file, "toast")
+      const icon = await uploadMethodIcon(id, file, method.revision, "toast")
       setMethods((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, icon } : item))
+        prev.map((item) => (item.id === id ? { ...item, icon, revision: method.revision + 1 } : item))
       )
       toast.success(t("settings.paymentMethodManagement.updateSuccess"))
     } catch {
@@ -169,12 +171,14 @@ export default function PaymentMethodManagement() {
     try {
       const payload: ReorderPaymentMethodItem[] = methods.map((item, index) => ({
         id: item.id,
+        revision: item.revision,
         sort_order: index,
       }))
       await api.put("/payment-methods/reorder", payload, { errorHandling: "toast" })
       setMethods((prev) =>
         prev.map((item, index) => ({
           ...item,
+          revision: item.revision + 1,
           sort_order: index,
         }))
       )

@@ -10,6 +10,7 @@ import (
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	serviceoutbound "github.com/kasuha07/subdux/internal/service/outbound"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	servicesmtp "github.com/kasuha07/subdux/internal/service/smtp"
 	"gorm.io/gorm"
@@ -76,9 +77,13 @@ func (s *Service) GetSettings() (*SystemSettings, error) {
 	settings := defaultAdminSystemSettings()
 
 	var items []model.SystemSetting
-	s.DB.Find(&items)
+	if err := s.DB.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	settings.Revisions = make(map[string]uint64, len(items))
 
 	for _, item := range items {
+		settings.Revisions[item.Key] = item.Revision
 		settingValue := item.Value
 		decryptedValue, decryptErr := systemsettings.DecryptValueIfNeeded(item.Key, item.Value)
 		if decryptErr == nil {
@@ -216,6 +221,20 @@ func (s *Service) GetSettings() (*SystemSettings, error) {
 
 func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if input.Revisions != nil {
+			var rows []model.SystemSetting
+			if err := tx.Find(&rows).Error; err != nil {
+				return err
+			}
+			if len(rows) != len(input.Revisions) {
+				return serviceutil.ErrRevisionConflict
+			}
+			for _, row := range rows {
+				if input.Revisions[row.Key] != row.Revision {
+					return serviceutil.ErrRevisionConflict
+				}
+			}
+		}
 		if input.RegistrationEnabled != nil {
 			if err := saveBoolSystemSetting(tx, "registration_enabled", *input.RegistrationEnabled); err != nil {
 				return err

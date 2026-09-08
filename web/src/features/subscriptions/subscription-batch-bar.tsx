@@ -43,6 +43,7 @@ const CLEAR_VALUE = "__none__"
 
 interface SubscriptionBatchBarProps {
   categories: Category[]
+  getSubscriptionRevision: (id: number) => number
   getSubscriptionName: (id: number) => string
   onBatchApplied: () => void
   onClearSelection: () => void
@@ -72,6 +73,7 @@ function failureSummary(
 export default function SubscriptionBatchBar({
   categories,
   getSubscriptionName,
+  getSubscriptionRevision,
   onBatchApplied,
   onClearSelection,
   onSelectAll,
@@ -91,7 +93,7 @@ export default function SubscriptionBatchBar({
   async function runBatch(input: SubscriptionBatchInput) {
     setSubmitting(true)
     try {
-      const result = await api.post<SubscriptionBatchResult>("/subscriptions/batch", input, {
+      const result = await api.post<SubscriptionBatchResult>("/subscriptions/batch", { ...input, revisions: Object.fromEntries(input.ids.map(id => [id, getSubscriptionRevision(id)])) }, {
         errorHandling: "toast",
       })
       reportResult(input, result)

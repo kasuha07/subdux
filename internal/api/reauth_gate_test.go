@@ -188,6 +188,25 @@ func getBackupDestinationBackups(t *testing.T, e *echo.Echo, token string, id ui
 
 func putAdminSettings(t *testing.T, e *echo.Echo, token, body, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
+	// Read the configuration snapshot before constructing the authorized write.
+	var input map[string]interface{}
+	if json.Unmarshal([]byte(body), &input) == nil {
+		rec := getAdminSettings(t, e, token)
+		if rec.Code == http.StatusOK {
+			var snapshot struct {
+				Revisions map[string]uint64 `json:"revisions"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &snapshot); err != nil {
+				t.Fatal(err)
+			}
+			input["revisions"] = snapshot.Revisions
+			encoded, err := json.Marshal(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body = string(encoded)
+		}
+	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

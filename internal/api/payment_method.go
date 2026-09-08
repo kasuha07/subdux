@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -71,6 +72,9 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
+	if input.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
 	if input.Icon != nil && !validateIcon(*input.Icon) {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
 	}
@@ -90,7 +94,12 @@ func (h *PaymentMethodHandler) Delete(c echo.Context) error {
 		return nil
 	}
 
-	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id), revision); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -101,6 +110,11 @@ func (h *PaymentMethodHandler) Reorder(c echo.Context) error {
 	var items []catalogservice.ReorderItem
 	if !httpx.BindJSON(c, &items, "invalid_request_body") {
 		return nil
+	}
+	for _, item := range items {
+		if item.Revision == 0 {
+			return serviceutil.ErrRevisionRequired
+		}
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
@@ -129,7 +143,11 @@ func (h *PaymentMethodHandler) UploadIcon(c echo.Context) error {
 
 	svc := h.Service.WithContext(c.Request().Context())
 	maxSize := svc.GetMaxIconFileSize()
-	iconPath, err := svc.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize)
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+	iconPath, err := svc.UploadPaymentMethodIcon(userID, uint(id), src, fileHeader.Filename, maxSize, revision)
 	if err != nil {
 		return err
 	}

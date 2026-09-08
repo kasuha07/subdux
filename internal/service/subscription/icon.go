@@ -32,7 +32,7 @@ func (s *Service) AllowImageUpload() bool {
 	return true
 }
 
-func (s *Service) UploadSubscriptionIcon(userID, subID uint, file io.Reader, filename string, maxSize int64) (string, error) {
+func (s *Service) UploadSubscriptionIcon(userID, subID uint, file io.Reader, filename string, maxSize int64, revisions ...uint64) (string, error) {
 	if !s.AllowImageUpload() {
 		return "", serviceutil.ErrImageUploadDisabled
 	}
@@ -42,6 +42,11 @@ func (s *Service) UploadSubscriptionIcon(userID, subID uint, file io.Reader, fil
 		return "", ErrSubscriptionNotFound
 	}
 
+	if len(revisions) > 0 {
+		if err := serviceutil.CheckRevision(revisions[0], sub.Revision); err != nil {
+			return "", err
+		}
+	}
 	sanitized, ext, err := serviceutil.SanitizeUploadedIcon(file, filename, maxSize)
 	if err != nil {
 		return "", err
@@ -59,14 +64,13 @@ func (s *Service) UploadSubscriptionIcon(userID, subID uint, file io.Reader, fil
 		return "", errors.New("failed to save icon file")
 	}
 
-	s.removeManagedIconFile(sub.Icon)
-
 	iconValue := "file:" + newFilename
-	if err := s.DB.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", subID, userID).Update("icon", iconValue).Error; err != nil {
+	if err := serviceutil.UpdateRevision(s.DB.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", subID, userID), sub.Revision, map[string]interface{}{"icon": iconValue}); err != nil {
 		_ = os.Remove(destPath)
 		return "", err
 	}
 
+	s.removeManagedIconFile(sub.Icon)
 	return iconValue, nil
 }
 

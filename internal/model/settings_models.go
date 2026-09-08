@@ -3,8 +3,9 @@ package model
 import "time"
 
 type SystemSetting struct {
-	Key   string `gorm:"primaryKey;size:100" json:"key"`
-	Value string `gorm:"size:500" json:"value"`
+	Revision uint64 `json:"revision" gorm:"not null;default:1"`
+	Key      string `gorm:"primaryKey;size:100" json:"key"`
+	Value    string `gorm:"size:500" json:"value"`
 }
 
 type BackgroundTaskLease struct {
@@ -34,6 +35,7 @@ type UserPreference struct {
 }
 
 type UserCurrency struct {
+	Revision  uint64    `json:"revision" gorm:"not null;default:1"`
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"not null;index;uniqueIndex:idx_user_currency" json:"user_id"`
 	Code      string    `gorm:"not null;size:10;uniqueIndex:idx_user_currency" json:"code"`

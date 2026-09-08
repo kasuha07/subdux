@@ -90,7 +90,7 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 	}
 
 	foreignCategory := model.Category{UserID: otherUser.ID, Name: "Foreign", CreatedAt: now, UpdatedAt: now}
-	if err := db.Create(&foreignCategory).Error; err != nil {
+	if err := db.Omit("Revision").Create(&foreignCategory).Error; err != nil {
 		t.Fatalf("create foreign category error = %v", err)
 	}
 
@@ -109,7 +109,7 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
-	if err := db.Create(&subscription).Error; err != nil {
+	if err := db.Omit("Revision").Create(&subscription).Error; err != nil {
 		t.Fatalf("create legacy subscription error = %v", err)
 	}
 
@@ -371,7 +371,7 @@ func TestRunSchemaMigrationsClearsSubscriptionEventOrphans(t *testing.T) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := db.Create(&subscription).Error; err != nil {
+	if err := db.Omit("Revision").Create(&subscription).Error; err != nil {
 		t.Fatalf("create subscription error = %v", err)
 	}
 	otherSubscription := model.Subscription{
@@ -386,7 +386,7 @@ func TestRunSchemaMigrationsClearsSubscriptionEventOrphans(t *testing.T) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := db.Create(&otherSubscription).Error; err != nil {
+	if err := db.Omit("Revision").Create(&otherSubscription).Error; err != nil {
 		t.Fatalf("create other subscription error = %v", err)
 	}
 
@@ -711,6 +711,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 			Destructive:   true,
 			DiscardPolicy: "Delete notification and MCP audit rows older than the newest 30 rows for each user. The discarded rows are intentionally outside the bounded recent-history view and are not recoverable from the live database.",
 		},
+		{Name: "20260908_01_row_revisions", Checksum: "d52005c5134c6e599bb60d82d85b77922f3f9f1cda0e923637b01ae8f34f0993"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -729,7 +730,7 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260717_01_backup_run_state.go":                "9b5502c69d8f7a6ceed88e5c94cd5f43a503f64a0ba75118fb57b31cd9427680",
 		"migration_20260726_01_backup_per_destination_schedule.go": "306ab9126e7f75911faa6fbd7be4e09fd346eab20a15ae64d09af4a3d410c19e",
 		"migration_20260726_02_backup_run_records.go":              "85e679eb91c2530fcd0187d7c79c1373143c4a6ae5b62f040ad7aaf9ee002667",
-		"schema_migration_registry.go":                             "053d3854a3341d1a3fbabffd2659ed70e6c90a0350e1aa7de926803ab734d96f",
+		"schema_migration_registry.go":                             "31705e363cb62505d65f6d03ef66a87ef9423ce83faffaf1977bd5d07e9bbb73",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

@@ -173,6 +173,10 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 		return nil, invalidMCPParams(err)
 	}
 
+	revision, err := readRequiredIDArg(args, "revision")
+	if err != nil {
+		return nil, invalidMCPParams(err)
+	}
 	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
 		ToolName:     "delete_subscription",
 		ResourceType: auditservice.ResourceSubscription,
@@ -183,7 +187,7 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 				return nil, err
 			}
 			before := *existing
-			deleted, err := txService.DeleteRecord(userID, id)
+			deleted, err := txService.DeleteRecord(userID, id, uint64(revision))
 			if err != nil {
 				return nil, err
 			}
@@ -211,6 +215,10 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 		return nil, invalidMCPParams(err)
 	}
 
+	revision, err := readRequiredIDArg(args, "revision")
+	if err != nil {
+		return nil, invalidMCPParams(err)
+	}
 	return h.runIdempotentWrite(ctx, principal, args, mcpWriteSpec{
 		ToolName:     "mark_subscription_renewed",
 		ResourceType: auditservice.ResourceSubscription,
@@ -221,7 +229,7 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 				return nil, err
 			}
 			before := *existing
-			updated, err := txService.MarkManualRenewed(userID, id)
+			updated, err := txService.MarkManualRenewed(userID, id, uint64(revision))
 			if err != nil {
 				return nil, err
 			}

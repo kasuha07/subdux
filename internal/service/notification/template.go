@@ -7,6 +7,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"gorm.io/gorm"
 )
@@ -38,6 +39,7 @@ type CreateTemplateInput struct {
 }
 
 type UpdateTemplateInput struct {
+	Revision uint64  `json:"revision"`
 	Format   *string `json:"format"`
 	Template *string `json:"template"`
 }
@@ -119,6 +121,9 @@ func (s *NotificationTemplateService) UpdateTemplate(userID, templateID uint, in
 		return nil, err
 	}
 
+	if err := serviceutil.CheckRevision(input.Revision, tmpl.Revision); err != nil {
+		return nil, err
+	}
 	updates := make(map[string]interface{})
 
 	if input.Format != nil {
@@ -137,7 +142,7 @@ func (s *NotificationTemplateService) UpdateTemplate(userID, templateID uint, in
 	}
 
 	if len(updates) > 0 {
-		if err := s.DB.Model(&tmpl).Updates(updates).Error; err != nil {
+		if err := serviceutil.UpdateRevision(s.DB.Model(&tmpl).Where("user_id = ?", userID), tmpl.Revision, updates); err != nil {
 			return nil, err
 		}
 	}
@@ -150,12 +155,19 @@ func (s *NotificationTemplateService) UpdateTemplate(userID, templateID uint, in
 }
 
 // DeleteTemplate deletes a template
-func (s *NotificationTemplateService) DeleteTemplate(userID, templateID uint) error {
-	result := s.DB.Where("id = ? AND user_id = ?", templateID, userID).Delete(&model.NotificationTemplate{})
+func (s *NotificationTemplateService) DeleteTemplate(userID, templateID uint, revisions ...uint64) error {
+	query := s.DB.Where("id = ? AND user_id = ?", templateID, userID)
+	if len(revisions) > 0 && revisions[0] > 0 {
+		query = query.Where("revision = ?", revisions[0])
+	}
+	result := query.Delete(&model.NotificationTemplate{})
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
+		if len(revisions) > 0 && revisions[0] > 0 {
+			return serviceutil.ErrRevisionConflict
+		}
 		return ErrTemplateNotFound
 	}
 	return nil

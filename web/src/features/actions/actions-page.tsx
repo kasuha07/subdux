@@ -330,7 +330,7 @@ export default function ActionsPage() {
   async function handleDelete(id: number) {
     if (!confirm(t("dashboard.deleteConfirm"))) return
     try {
-      await api.delete(`/subscriptions/${id}`, { errorHandling: "toast" })
+      await api.delete(`/subscriptions/${id}?revision=${subscriptions.find(sub => sub.id === id)?.revision}`, { errorHandling: "toast" })
       invalidateSubscriptionDetail(id)
       toast.success(t("dashboard.deleteSuccess"))
       if (detailSub?.id === id) {
@@ -353,7 +353,7 @@ export default function ActionsPage() {
       groupKey,
       action.key,
       async () => {
-        await api.post<Subscription>(`/subscriptions/${action.subscription_id}/mark-renewed`, {})
+        await api.post<Subscription>(`/subscriptions/${action.subscription_id}/mark-renewed`, { revision: sub.revision })
         toast.success(t("actions.toast.markRenewed"))
       },
       action.subscription_id
@@ -375,6 +375,7 @@ export default function ActionsPage() {
       action.key,
       async () => {
         await api.put<Subscription>(`/subscriptions/${action.subscription_id}`, {
+          revision: sub.revision,
           renewal_mode: "cancel_at_period_end",
           ends_at: sub.next_billing_date,
         })
@@ -395,6 +396,7 @@ export default function ActionsPage() {
       action.key,
       async () => {
         await api.put<Subscription>(`/subscriptions/${action.subscription_id}`, {
+          revision: sub.revision,
           renewal_mode: "auto_renew",
         })
         toast.success(t("actions.toast.keepSubscription"))
@@ -423,7 +425,7 @@ export default function ActionsPage() {
       ...data,
       payment_method_id: data.payment_method_id ?? 0,
     }
-    const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, updatePayload)
+    const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, { ...updatePayload, revision: data.revision ?? editingSub.revision })
     toast.success(t("dashboard.updateSuccess"))
     setFormOpen(false)
     await refreshAfterAction(editingSub.id)
@@ -431,7 +433,7 @@ export default function ActionsPage() {
   }
 
   async function handleFormMarkRenewed(sub: Subscription) {
-    const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
+    const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, { revision: sub.revision })
     toast.success(t("actions.toast.markRenewed"))
     setFormOpen(false)
     await refreshAfterAction(sub.id)

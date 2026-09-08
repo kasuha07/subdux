@@ -54,6 +54,7 @@ type CreateCategoryInput struct {
 }
 
 type UpdateCategoryInput struct {
+	Revision     uint64  `json:"revision"`
 	Name         *string `json:"name"`
 	DisplayOrder *int    `json:"display_order"`
 }
@@ -120,13 +121,21 @@ func (s *CategoryService) Update(userID, id uint, input UpdateCategoryInput) (*m
 		category.DisplayOrder = *input.DisplayOrder
 	}
 
-	if err := s.DB.Save(&category).Error; err != nil {
+	if err := serviceutil.CheckRevision(input.Revision, category.Revision); err != nil {
 		return nil, err
 	}
+	if err := serviceutil.UpdateRevision(s.DB.Model(&category).Where("id = ? AND user_id = ?", id, userID), category.Revision, map[string]interface{}{
+		"name":            category.Name,
+		"name_customized": category.NameCustomized,
+		"display_order":   category.DisplayOrder,
+	}); err != nil {
+		return nil, err
+	}
+	category.Revision++
 	return &category, nil
 }
 
-func (s *CategoryService) Delete(userID, id uint) error {
+func (s *CategoryService) Delete(userID, id uint, revisions ...uint64) error {
 	var category model.Category
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&category).Error; err != nil {
 		return ErrCategoryNotFound
@@ -142,15 +151,25 @@ func (s *CategoryService) Delete(userID, id uint) error {
 		return ErrCategoryInUse
 	}
 
-	return s.DB.Delete(&category).Error
+	if len(revisions) > 0 {
+		if err := serviceutil.CheckRevision(revisions[0], category.Revision); err != nil {
+			return err
+		}
+	}
+	return serviceutil.DeleteRevision(s.DB.Where("user_id = ?", userID), &category, category.Revision)
 }
 
 func (s *CategoryService) Reorder(userID uint, items []ReorderItem) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		for _, item := range items {
-			if err := tx.Model(&model.Category{}).
-				Where("id = ? AND user_id = ?", item.ID, userID).
-				Update("display_order", item.SortOrder).Error; err != nil {
+			var row model.Category
+			if err := tx.Where("id = ? AND user_id = ?", item.ID, userID).First(&row).Error; err != nil {
+				return err
+			}
+			if err := serviceutil.CheckRevision(item.Revision, row.Revision); err != nil {
+				return err
+			}
+			if err := serviceutil.UpdateRevision(tx.Model(&model.Category{}).Where("id = ? AND user_id = ?", item.ID, userID), row.Revision, map[string]interface{}{"display_order": item.SortOrder}); err != nil {
 				return err
 			}
 		}
@@ -174,14 +193,16 @@ type CreateCurrencyInput struct {
 }
 
 type UpdateCurrencyInput struct {
+	Revision  uint64  `json:"revision"`
 	Symbol    *string `json:"symbol"`
 	Alias     *string `json:"alias"`
 	SortOrder *int    `json:"sort_order"`
 }
 
 type ReorderItem struct {
-	ID        uint `json:"id"`
-	SortOrder int  `json:"sort_order"`
+	Revision  uint64 `json:"revision"`
+	ID        uint   `json:"id"`
+	SortOrder int    `json:"sort_order"`
 }
 
 func (s *CurrencyService) WithContext(ctx context.Context) *CurrencyService {
@@ -241,13 +262,21 @@ func (s *CurrencyService) Update(userID, id uint, input UpdateCurrencyInput) (*m
 	if input.SortOrder != nil {
 		currency.SortOrder = *input.SortOrder
 	}
-	if err := s.DB.Save(&currency).Error; err != nil {
+	if err := serviceutil.CheckRevision(input.Revision, currency.Revision); err != nil {
 		return nil, err
 	}
+	if err := serviceutil.UpdateRevision(s.DB.Model(&currency).Where("id = ? AND user_id = ?", id, userID), currency.Revision, map[string]interface{}{
+		"symbol":     currency.Symbol,
+		"alias":      currency.Alias,
+		"sort_order": currency.SortOrder,
+	}); err != nil {
+		return nil, err
+	}
+	currency.Revision++
 	return &currency, nil
 }
 
-func (s *CurrencyService) Delete(userID, id uint, preferredCurrency string) error {
+func (s *CurrencyService) Delete(userID, id uint, preferredCurrency string, revisions ...uint64) error {
 	var currency model.UserCurrency
 	if err := s.DB.Where("id = ? AND user_id = ?", id, userID).First(&currency).Error; err != nil {
 		return ErrCurrencyNotFound
@@ -266,15 +295,25 @@ func (s *CurrencyService) Delete(userID, id uint, preferredCurrency string) erro
 		return ErrCurrencyInUse
 	}
 
-	return s.DB.Delete(&currency).Error
+	if len(revisions) > 0 {
+		if err := serviceutil.CheckRevision(revisions[0], currency.Revision); err != nil {
+			return err
+		}
+	}
+	return serviceutil.DeleteRevision(s.DB.Where("user_id = ?", userID), &currency, currency.Revision)
 }
 
 func (s *CurrencyService) Reorder(userID uint, items []ReorderItem) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		for _, item := range items {
-			if err := tx.Model(&model.UserCurrency{}).
-				Where("id = ? AND user_id = ?", item.ID, userID).
-				Update("sort_order", item.SortOrder).Error; err != nil {
+			var row model.UserCurrency
+			if err := tx.Where("id = ? AND user_id = ?", item.ID, userID).First(&row).Error; err != nil {
+				return err
+			}
+			if err := serviceutil.CheckRevision(item.Revision, row.Revision); err != nil {
+				return err
+			}
+			if err := serviceutil.UpdateRevision(tx.Model(&model.UserCurrency{}).Where("id = ? AND user_id = ?", item.ID, userID), row.Revision, map[string]interface{}{"sort_order": item.SortOrder}); err != nil {
 				return err
 			}
 		}
@@ -297,6 +336,7 @@ type CreatePaymentMethodInput struct {
 }
 
 type UpdatePaymentMethodInput struct {
+	Revision  uint64  `json:"revision"`
 	Name      *string `json:"name"`
 	Icon      *string `json:"icon"`
 	SortOrder *int    `json:"sort_order"`
@@ -375,7 +415,15 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 		method.SortOrder = *input.SortOrder
 	}
 
-	if err := s.DB.Save(method).Error; err != nil {
+	if err := serviceutil.CheckRevision(input.Revision, method.Revision); err != nil {
+		return nil, err
+	}
+	if err := serviceutil.UpdateRevision(s.DB.Model(method).Where("id = ? AND user_id = ?", id, userID), method.Revision, map[string]interface{}{
+		"name":            method.Name,
+		"name_customized": method.NameCustomized,
+		"icon":            method.Icon,
+		"sort_order":      method.SortOrder,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -383,10 +431,11 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 		s.removeManagedIconFile(oldIcon)
 	}
 
+	method.Revision++
 	return method, nil
 }
 
-func (s *PaymentMethodService) Delete(userID, id uint) error {
+func (s *PaymentMethodService) Delete(userID, id uint, revisions ...uint64) error {
 	method, err := s.GetByID(userID, id)
 	if err != nil {
 		return ErrPaymentMethodNotFound
@@ -402,7 +451,12 @@ func (s *PaymentMethodService) Delete(userID, id uint) error {
 		return ErrPaymentMethodInUse
 	}
 
-	if err := s.DB.Delete(&model.PaymentMethod{}, "id = ? AND user_id = ?", id, userID).Error; err != nil {
+	if len(revisions) > 0 {
+		if err := serviceutil.CheckRevision(revisions[0], method.Revision); err != nil {
+			return err
+		}
+	}
+	if err := serviceutil.DeleteRevision(s.DB.Where("id = ? AND user_id = ?", id, userID), &model.PaymentMethod{}, method.Revision); err != nil {
 		return err
 	}
 
@@ -413,9 +467,14 @@ func (s *PaymentMethodService) Delete(userID, id uint) error {
 func (s *PaymentMethodService) Reorder(userID uint, items []ReorderItem) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		for _, item := range items {
-			if err := tx.Model(&model.PaymentMethod{}).
-				Where("id = ? AND user_id = ?", item.ID, userID).
-				Update("sort_order", item.SortOrder).Error; err != nil {
+			var row model.PaymentMethod
+			if err := tx.Where("id = ? AND user_id = ?", item.ID, userID).First(&row).Error; err != nil {
+				return err
+			}
+			if err := serviceutil.CheckRevision(item.Revision, row.Revision); err != nil {
+				return err
+			}
+			if err := serviceutil.UpdateRevision(tx.Model(&model.PaymentMethod{}).Where("id = ? AND user_id = ?", item.ID, userID), row.Revision, map[string]interface{}{"sort_order": item.SortOrder}); err != nil {
 				return err
 			}
 		}
@@ -450,7 +509,7 @@ func (s *PaymentMethodService) AllowImageUpload() bool {
 	return true
 }
 
-func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, file io.Reader, filename string, maxSize int64) (string, error) {
+func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, file io.Reader, filename string, maxSize int64, revisions ...uint64) (string, error) {
 	if !s.AllowImageUpload() {
 		return "", ErrImageUploadDisabled
 	}
@@ -460,6 +519,11 @@ func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, fi
 		return "", ErrPaymentMethodNotFound
 	}
 
+	if len(revisions) > 0 {
+		if err := serviceutil.CheckRevision(revisions[0], method.Revision); err != nil {
+			return "", err
+		}
+	}
 	sanitized, ext, err := serviceutil.SanitizeUploadedIcon(file, filename, maxSize)
 	if err != nil {
 		return "", err
@@ -478,9 +542,8 @@ func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, fi
 	}
 
 	iconValue := "file:" + newFilename
-	if err := s.DB.Model(&model.PaymentMethod{}).
-		Where("id = ? AND user_id = ?", methodID, userID).
-		Update("icon", iconValue).Error; err != nil {
+	if err := serviceutil.UpdateRevision(s.DB.Model(&model.PaymentMethod{}).
+		Where("id = ? AND user_id = ?", methodID, userID), method.Revision, map[string]interface{}{"icon": iconValue}); err != nil {
 		_ = os.Remove(destPath)
 		return "", err
 	}

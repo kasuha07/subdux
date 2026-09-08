@@ -30,12 +30,13 @@ const (
 // distinguish an explicit clear (null) from "not provided", matching
 // UpdateSubscriptionInput's null-handling semantics.
 type BatchSubscriptionInput struct {
-	Action          string  `json:"action"`
-	IDs             []uint  `json:"ids"`
-	Status          *string `json:"status"`
-	RenewalMode     *string `json:"renewal_mode"`
-	CategoryID      *uint   `json:"category_id"`
-	PaymentMethodID *uint   `json:"payment_method_id"`
+	Revisions       map[uint]uint64 `json:"revisions"`
+	Action          string          `json:"action"`
+	IDs             []uint          `json:"ids"`
+	Status          *string         `json:"status"`
+	RenewalMode     *string         `json:"renewal_mode"`
+	CategoryID      *uint           `json:"category_id"`
+	PaymentMethodID *uint           `json:"payment_method_id"`
 
 	CategoryIDSet      bool `json:"-"`
 	PaymentMethodIDSet bool `json:"-"`
@@ -174,11 +175,12 @@ func (s *Service) Batch(userID uint, input BatchSubscriptionInput) (*BatchSubscr
 		var err error
 		switch input.Action {
 		case BatchActionDelete:
-			err = s.Delete(userID, id)
+			err = s.Delete(userID, id, input.Revisions[id])
 		case BatchActionMarkRenewed:
-			_, err = s.MarkManualRenewed(userID, id)
+			_, err = s.MarkManualRenewed(userID, id, input.Revisions[id])
 		case BatchActionUpdate:
 			_, err = s.Update(userID, id, UpdateSubscriptionInput{
+				Revision:           input.Revisions[id],
 				Status:             input.Status,
 				RenewalMode:        input.RenewalMode,
 				CategoryID:         input.CategoryID,

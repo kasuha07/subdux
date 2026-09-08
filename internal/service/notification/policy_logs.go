@@ -7,6 +7,7 @@ import (
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"gorm.io/gorm"
 )
 
@@ -27,6 +28,18 @@ func (s *Service) GetPolicy(userID uint) (*model.NotificationPolicy, error) {
 }
 
 func (s *Service) UpdatePolicy(userID uint, input UpdatePolicyInput) (*model.NotificationPolicy, error) {
+	var policy *model.NotificationPolicy
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		clone := *s
+		clone.DB = tx
+		var err error
+		policy, err = clone.updatePolicy(userID, input)
+		return err
+	})
+	return policy, err
+}
+
+func (s *Service) updatePolicy(userID uint, input UpdatePolicyInput) (*model.NotificationPolicy, error) {
 	quietHoursChanged := input.QuietHoursEnabled != nil || input.QuietHoursStart != nil || input.QuietHoursEnd != nil
 	var policy model.NotificationPolicy
 	err := s.DB.Where("user_id = ?", userID).First(&policy).Error
@@ -43,6 +56,9 @@ func (s *Service) UpdatePolicy(userID uint, input UpdatePolicyInput) (*model.Not
 		}
 	}
 
+	if input.Revision != nil && *input.Revision != policy.Revision {
+		return nil, serviceutil.ErrRevisionConflict
+	}
 	if input.DaysBefore != nil {
 		if *input.DaysBefore < 0 || *input.DaysBefore > maxNotificationDaysBefore {
 			return nil, serviceerr.NewCode(
@@ -92,9 +108,17 @@ func (s *Service) UpdatePolicy(userID uint, input UpdatePolicyInput) (*model.Not
 			return nil, err
 		}
 	} else {
-		if err := s.DB.Save(&policy).Error; err != nil {
+		if err := serviceutil.UpdateRevision(s.DB.Model(&policy).Where("user_id = ?", userID), policy.Revision, map[string]interface{}{
+			"days_before":               policy.DaysBefore,
+			"notify_on_due_day":         policy.NotifyOnDueDay,
+			"notify_manual_renew_daily": policy.NotifyManualRenewDaily,
+			"quiet_hours_enabled":       policy.QuietHoursEnabled,
+			"quiet_hours_start":         policy.QuietHoursStart,
+			"quiet_hours_end":           policy.QuietHoursEnd,
+		}); err != nil {
 			return nil, err
 		}
+		policy.Revision++
 	}
 	if quietHoursChanged {
 		if err := s.reschedulePendingQuietHoursOutbox(userID, policy); err != nil {

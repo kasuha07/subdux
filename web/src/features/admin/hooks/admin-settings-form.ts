@@ -3,6 +3,7 @@ import type { SystemSettings, UpdateSettingsInput } from "@/types"
 export type AdminSettingsSaveScope = "general" | "smtp" | "auth" | "exchange-rates"
 
 export interface AdminSettingsFormState {
+  revisions: Record<string, number>
   allowImageUpload: boolean
   currencyApiKey: string
   currencyApiKeyConfigured: boolean
@@ -126,6 +127,7 @@ const formFieldsByScope: Record<AdminSettingsSaveScope, readonly (keyof AdminSet
 
 export function createAdminSettingsForm(settings?: SystemSettings): AdminSettingsFormState {
   return {
+    revisions: settings?.revisions ?? {},
     allowImageUpload: settings?.allow_image_upload ?? true,
     currencyApiKey: "",
     currencyApiKeyConfigured: settings?.currencyapi_key_configured ?? false,
@@ -194,13 +196,13 @@ export function buildAdminSettingsPayload(
 ): UpdateSettingsInput {
   switch (scope) {
     case "general":
-      return buildGeneralSettingsPayload(form)
+      return { ...buildGeneralSettingsPayload(form), revisions: form.revisions }
     case "smtp":
-      return buildSMTPSettingsPayload(form)
+      return { ...buildSMTPSettingsPayload(form), revisions: form.revisions }
     case "auth":
-      return buildAuthSettingsPayload(form)
+      return { ...buildAuthSettingsPayload(form), revisions: form.revisions }
     case "exchange-rates":
-      return buildExchangeRateSettingsPayload(form)
+      return { ...buildExchangeRateSettingsPayload(form), revisions: form.revisions }
   }
 }
 
@@ -210,7 +212,12 @@ export function mergeAdminSettingsFormScope(
   scope: AdminSettingsSaveScope
 ): AdminSettingsFormState {
   const freshForm = createAdminSettingsForm(fresh)
-  const next = { ...current }
+  const next = { ...current, revisions: { ...current.revisions } }
+  const payload = buildAdminSettingsPayload(current, scope)
+  for (const key of Object.keys(payload)) {
+    if (key === "revisions") continue
+    if (fresh.revisions && key in fresh.revisions) next.revisions[key] = fresh.revisions[key]
+  }
   for (const field of formFieldsByScope[scope]) {
     assignFormField(next, freshForm, field)
   }

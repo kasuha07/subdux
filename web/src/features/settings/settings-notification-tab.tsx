@@ -29,6 +29,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
 
   const [channels, setChannels] = useState<NotificationChannel[]>([])
   const [policy, setPolicy] = useState<NotificationPolicy>({
+    revision: 0,
     days_before: 3,
     notify_on_due_day: true,
     notify_manual_renew_daily: false,
@@ -108,7 +109,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
       if (editingChannel) {
         const updated = await api.put<NotificationChannel>(
           `/notifications/channels/${editingChannel.id}`,
-          { config },
+          { config, revision: editingChannel.revision },
           { errorHandling: "toast" }
         )
         setChannels((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)))
@@ -137,7 +138,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
     try {
       const updated = await api.put<NotificationChannel>(
         `/notifications/channels/${channel.id}`,
-        { enabled },
+        { enabled, revision: channel.revision },
         { errorHandling: "toast" }
       )
       setChannels((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)))
@@ -154,7 +155,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
     const previousChannels = channels
     setChannels((prev) => prev.filter((ch) => ch.id !== channel.id))
     try {
-      await api.delete(`/notifications/channels/${channel.id}`, { errorHandling: "toast" })
+      await api.delete(`/notifications/channels/${channel.id}?revision=${channel.revision}`, { errorHandling: "toast" })
       toast.success(t("settings.notifications.channels.deleteSuccess"))
     } catch {
       setChannels(previousChannels)
@@ -178,7 +179,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
     try {
       const updated = await api.put<NotificationPolicy>(
         "/notifications/policy",
-        input,
+        { ...input, revision: policy?.revision },
         { errorHandling: "toast" }
       )
       if (updated) setPolicy(updated)

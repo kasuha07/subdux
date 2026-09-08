@@ -1,4 +1,6 @@
 const backendMessages = {
+  "revision_conflict": "This record has changed. Reload before trying again.",
+  "revision_required": "A valid revision is required.",
   "interval_count_must_not_exceed_10000": "interval_count must not exceed 10000",
   "2fa_disabled_successfully": "2FA disabled successfully",
   "account_is_disabled": "account is disabled",

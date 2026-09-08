@@ -335,7 +335,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     }
 
     try {
-      await api.delete(`/currencies/${id}`, { errorHandling: "toast" })
+      await api.delete(`/currencies/${id}?revision=${userCurrencies.find(item => item.id === id)?.revision}`, { errorHandling: "toast" })
       setUserCurrencies((prev) => prev.filter((item) => item.id !== id))
       toast.success(t("settings.currencyManagement.deleteSuccess"))
     } catch {
@@ -345,7 +345,7 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
 
   async function handleUpdateCurrency(id: number, input: UpdateCurrencyInput) {
     try {
-      const updated = await api.put<UserCurrency>(`/currencies/${id}`, input)
+      const updated = await api.put<UserCurrency>(`/currencies/${id}`, { ...input, revision: userCurrencies.find(item => item.id === id)?.revision })
       setUserCurrencies((prev) => prev.map((item) => (item.id === id ? updated : item)))
       toast.success(t("settings.currencyManagement.updateSuccess"))
     } catch (err) {
@@ -381,12 +381,14 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     try {
       const payload: ReorderCurrencyItem[] = userCurrencies.map((item, index) => ({
         id: item.id,
+        revision: item.revision,
         sort_order: index,
       }))
       await api.put("/currencies/reorder", payload)
       setUserCurrencies((prev) =>
         prev.map((item, index) => ({
           ...item,
+          revision: item.revision + 1,
           sort_order: index,
         }))
       )

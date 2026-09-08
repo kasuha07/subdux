@@ -141,7 +141,7 @@ func loadSMTPRuntimeSettingValues(ctx context.Context, db *gorm.DB) (map[string]
 		}
 		if !pkg.IsSystemSettingEncrypted(storedValue) && value != "" && systemsettings.IsEncryptedKey(key) {
 			if encryptedValue, encryptErr := systemsettings.EncryptValueIfNeeded(key, value); encryptErr == nil {
-				_ = db.WithContext(ctx).Model(&model.SystemSetting{}).Where("key = ?", key).Update("value", encryptedValue).Error
+				_ = db.WithContext(ctx).Model(&model.SystemSetting{}).Where("key = ? AND value = ?", key, storedValue).Updates(map[string]interface{}{"value": encryptedValue, "revision": gorm.Expr("revision + 1")}).Error
 			}
 		}
 		values[key] = value

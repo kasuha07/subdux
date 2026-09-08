@@ -27,6 +27,7 @@ export interface BackgroundTask {
 }
 
 export interface SystemSettings {
+  revisions: Record<string, number>
   registration_enabled: boolean
   registration_email_verification_enabled: boolean
   email_domain_whitelist: string
@@ -82,6 +83,7 @@ export interface SystemSettings {
 }
 
 export interface UpdateSettingsInput {
+  revisions?: Record<string, number>
   registration_enabled?: boolean
   registration_email_verification_enabled?: boolean
   email_domain_whitelist?: string

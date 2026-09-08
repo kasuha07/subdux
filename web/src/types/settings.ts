@@ -16,6 +16,7 @@ export interface ExchangeRateStatus {
 }
 
 export interface UserCurrency {
+  revision: number
   id: number
   code: string
   symbol: string
@@ -31,17 +32,20 @@ export interface CreateCurrencyInput {
 }
 
 export interface UpdateCurrencyInput {
+  revision?: number
   symbol?: string
   alias?: string
   sort_order?: number
 }
 
 export interface ReorderCurrencyItem {
+  revision?: number
   id: number
   sort_order: number
 }
 
 export interface Category {
+  revision: number
   id: number
   name: string
   system_key: string | null
@@ -55,16 +59,19 @@ export interface CreateCategoryInput {
 }
 
 export interface UpdateCategoryInput {
+  revision?: number
   name?: string
   display_order?: number
 }
 
 export interface ReorderCategoryItem {
+  revision?: number
   id: number
   sort_order: number
 }
 
 export interface PaymentMethod {
+  revision: number
   id: number
   name: string
   system_key: string | null
@@ -80,12 +87,14 @@ export interface CreatePaymentMethodInput {
 }
 
 export interface UpdatePaymentMethodInput {
+  revision?: number
   name?: string
   icon?: string
   sort_order?: number
 }
 
 export interface ReorderPaymentMethodItem {
+  revision?: number
   id: number
   sort_order: number
 }

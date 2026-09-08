@@ -201,6 +201,7 @@ export function useSubscriptionFormState({
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
   const wasOpenRef = useRef(open)
+  const uploadedRevisionRef = useRef<number | undefined>(undefined)
 
   const setField = useCallback(
     <K extends keyof SubscriptionFormValues>(field: K, value: SubscriptionFormValues[K]) => {
@@ -226,6 +227,7 @@ export function useSubscriptionFormState({
     const isOpening = open && !wasOpenRef.current
 
     if (isOpening) {
+      uploadedRevisionRef.current = undefined
       setError("")
       setLoading(false)
       setIconFile(null)
@@ -303,19 +305,25 @@ export function useSubscriptionFormState({
 
     try {
       let iconValue = values.icon
+      let revision = uploadedRevisionRef.current ?? subscription?.revision
 
       if (iconFile && isEditing && subscription?.id) {
         const formData = new FormData()
         formData.append("icon", iconFile)
         const result = await api.uploadFile<UploadIconResponse>(
-          `/subscriptions/${subscription.id}/icon`,
+          `/subscriptions/${subscription.id}/icon?revision=${revision}`,
           formData
         )
         iconValue = result.icon
+        revision = (revision ?? 0) + 1
+        uploadedRevisionRef.current = revision
+        setField("icon", iconValue)
+        setIconFile(null)
       }
 
       const parsedNotifyDaysBefore = parseInt(values.notifyDaysBefore, 10)
       const payload: CreateSubscriptionInput = {
+        revision,
         name: values.name,
         amount: parseFloat(values.amount),
         currency: values.currency,
@@ -371,7 +379,7 @@ export function useSubscriptionFormState({
         const formData = new FormData()
         formData.append("icon", iconFile)
         try {
-          await api.uploadFile<UploadIconResponse>(`/subscriptions/${created.id}/icon`, formData)
+          await api.uploadFile<UploadIconResponse>(`/subscriptions/${created.id}/icon?revision=${created.revision}`, formData)
         } catch {
           setError(t("subscription.form.iconUploadFailed"))
           setTimeout(() => onOpenChange(false), 1500)
@@ -385,7 +393,7 @@ export function useSubscriptionFormState({
     } finally {
       setLoading(false)
     }
-  }, [iconFile, isEditing, onOpenChange, onSubmit, subscription?.id, t, values])
+  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription?.id, subscription?.revision, t, values])
 
   return {
     currencyOptions,

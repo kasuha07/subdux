@@ -271,7 +271,7 @@ func (s *Service) RefreshRates() error {
 		if !pkg.IsSystemSettingEncrypted(keySetting.Value) && apiKey != "" {
 			encryptedKey, encryptErr := systemsettings.EncryptValueIfNeeded("currencyapi_key", apiKey)
 			if encryptErr == nil {
-				_ = s.DB.Model(&model.SystemSetting{}).Where("key = ?", "currencyapi_key").Update("value", encryptedKey).Error
+				_ = s.DB.Model(&model.SystemSetting{}).Where("key = ? AND revision = ?", "currencyapi_key", keySetting.Revision).Updates(map[string]interface{}{"value": encryptedKey, "revision": gorm.Expr("revision + 1")}).Error
 			}
 		}
 	}

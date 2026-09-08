@@ -1,4 +1,6 @@
 const backendMessages = {
+  "revision_conflict": "このデータは変更されています。再読み込みしてから再試行してください。",
+  "revision_required": "有効なバージョン番号が必要です。",
   "interval_count_must_not_exceed_10000": "interval_count は 10000 以下にしてください",
   "2fa_disabled_successfully": "2FA が正常に無効になりました",
   "account_is_disabled": "アカウントが無効になっています",

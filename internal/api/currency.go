@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -17,6 +18,7 @@ type CurrencyHandler struct {
 }
 
 type userCurrencyResponse struct {
+	Revision  uint64 `json:"revision"`
 	ID        uint   `json:"id"`
 	Code      string `json:"code"`
 	Symbol    string `json:"symbol"`
@@ -26,6 +28,7 @@ type userCurrencyResponse struct {
 
 func mapUserCurrencyResponse(currency model.UserCurrency) userCurrencyResponse {
 	return userCurrencyResponse{
+		Revision:  currency.Revision,
 		ID:        currency.ID,
 		Code:      currency.Code,
 		Symbol:    currency.Symbol,
@@ -81,6 +84,9 @@ func (h *CurrencyHandler) Update(c echo.Context) error {
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
+	if input.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
 	currency, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
 		return err
@@ -101,7 +107,12 @@ func (h *CurrencyHandler) Delete(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := svc.Delete(userID, uint(id), pref.PreferredCurrency); err != nil {
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+
+	if err := svc.Delete(userID, uint(id), pref.PreferredCurrency, revision); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusNoContent, nil)
@@ -112,6 +123,11 @@ func (h *CurrencyHandler) Reorder(c echo.Context) error {
 	var items []catalogservice.ReorderItem
 	if !httpx.BindJSON(c, &items, "invalid_request_body") {
 		return nil
+	}
+	for _, item := range items {
+		if item.Revision == 0 {
+			return serviceutil.ErrRevisionRequired
+		}
 	}
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return err

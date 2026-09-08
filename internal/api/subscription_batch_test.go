@@ -33,6 +33,28 @@ func newBatchHandler(t *testing.T) (*SubscriptionHandler, uint) {
 func postBatchJSON(t *testing.T, handler *SubscriptionHandler, userID uint, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
+	var input map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &input); err == nil {
+		revisions := map[uint]uint64{}
+		if ids, ok := input["ids"].([]interface{}); ok {
+			for _, value := range ids {
+				if number, ok := value.(float64); ok {
+					id := uint(number)
+					var row model.Subscription
+					revisions[id] = 1
+					if err := handler.Service.DB.First(&row, id).Error; err == nil {
+						revisions[id] = row.Revision
+					}
+				}
+			}
+		}
+		input["revisions"] = revisions
+		encoded, err := json.Marshal(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body = string(encoded)
+	}
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/subscriptions/batch", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

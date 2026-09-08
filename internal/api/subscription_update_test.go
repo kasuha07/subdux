@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +19,20 @@ import (
 func postUpdateJSON(t *testing.T, handler *SubscriptionHandler, userID, id uint, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
+	// These tests exercise nullable fields using a freshly read revision.
+	var input map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &input); err == nil {
+		var row model.Subscription
+		if err := handler.Service.DB.First(&row, id).Error; err != nil {
+			t.Fatal(err)
+		}
+		input["revision"] = row.Revision
+		encoded, err := json.Marshal(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body = string(encoded)
+	}
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/subscriptions/%d", id), strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

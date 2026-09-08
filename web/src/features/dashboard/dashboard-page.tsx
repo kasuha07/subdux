@@ -247,7 +247,7 @@ export default function DashboardPage() {
   async function handleDelete(id: number) {
     if (!confirm(t("dashboard.deleteConfirm"))) return
     try {
-      await api.delete(`/subscriptions/${id}`, { errorHandling: "toast" })
+      await api.delete(`/subscriptions/${id}?revision=${subscriptions.find(sub => sub.id === id)?.revision}`, { errorHandling: "toast" })
       invalidateSubscriptionDetail(id)
       setSelectedIDs((previous) => previous.filter((value) => value !== id))
       toast.success(t("dashboard.deleteSuccess"))
@@ -305,7 +305,7 @@ export default function DashboardPage() {
         ...data,
         payment_method_id: data.payment_method_id ?? 0,
       }
-      const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, updatePayload)
+      const updated = await api.put<Subscription>(`/subscriptions/${editingSub.id}`, { ...updatePayload, revision: data.revision ?? editingSub.revision })
       toast.success(t("dashboard.updateSuccess"))
       invalidateSubscriptionDetail(editingSub.id)
       setFormOpen(false)
@@ -321,7 +321,7 @@ export default function DashboardPage() {
   }
 
   async function handleMarkRenewed(sub: Subscription) {
-    const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, {})
+    const renewed = await api.post<Subscription>(`/subscriptions/${sub.id}/mark-renewed`, { revision: sub.revision })
     toast.success(t("dashboard.updateSuccess"))
     invalidateSubscriptionDetail(sub.id)
     setFormOpen(false)
@@ -507,6 +507,7 @@ export default function DashboardPage() {
 
             {batchMode && (
               <SubscriptionBatchBar
+                  getSubscriptionRevision={(id) => subscriptions.find(sub => sub.id === id)?.revision ?? 0}
                 categories={categories}
                 paymentMethods={paymentMethods}
                 paymentMethodLabelMap={paymentMethodLabelMap}

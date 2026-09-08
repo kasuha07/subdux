@@ -127,6 +127,7 @@ type CreateChannelInput struct {
 }
 
 type UpdateChannelInput struct {
+	Revision                 uint64   `json:"revision"`
 	Enabled                  *bool    `json:"enabled"`
 	Config                   *string  `json:"config"`
 	ClearedSecretFields      []string `json:"cleared_secret_fields"`
@@ -134,6 +135,7 @@ type UpdateChannelInput struct {
 }
 
 type UpdatePolicyInput struct {
+	Revision               *uint64 `json:"revision"`
 	DaysBefore             *int    `json:"days_before"`
 	NotifyOnDueDay         *bool   `json:"notify_on_due_day"`
 	NotifyManualRenewDaily *bool   `json:"notify_manual_renew_daily"`

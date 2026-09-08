@@ -101,7 +101,7 @@ func TestUpdateSettingsRejectsInvalidIconProxyDomainWhitelist(t *testing.T) {
 
 func TestUpdateSettingsRejectsInvalidSSRFFilterMode(t *testing.T) {
 	e := echo.New()
-	body := `{"ssrf_domain_filter_mode":"deny"}`
+	body := `{"revisions":{},"ssrf_domain_filter_mode":"deny"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -120,7 +120,7 @@ func TestUpdateSettingsRejectsInvalidSSRFFilterMode(t *testing.T) {
 
 func TestUpdateSettingsRejectsInvalidSSRFIPFilterList(t *testing.T) {
 	e := echo.New()
-	body := `{"ssrf_ip_filter_list":"10.0.0.0/99"}`
+	body := `{"revisions":{},"ssrf_ip_filter_list":"10.0.0.0/99"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -145,12 +145,12 @@ func TestUpdateSettingsRejectsInvalidSystemProxyURL(t *testing.T) {
 	}{
 		{
 			name: "scheme mismatch",
-			body: `{"system_proxy_type":"http","system_proxy_url":"socks5://proxy.example.com:1080"}`,
+			body: `{"revisions":{},"system_proxy_type":"http","system_proxy_url":"socks5://proxy.example.com:1080"}`,
 			want: "system proxy url must start with http://",
 		},
 		{
 			name: "invalid port",
-			body: `{"system_proxy_type":"http","system_proxy_url":"http://proxy.example.com:99999"}`,
+			body: `{"revisions":{},"system_proxy_type":"http","system_proxy_url":"http://proxy.example.com:99999"}`,
 			want: "system proxy url port is invalid",
 		},
 	}

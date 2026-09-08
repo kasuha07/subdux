@@ -1,4 +1,6 @@
 const backendMessages = {
+  "revision_conflict": "记录已被修改，请重新加载后重试。",
+  "revision_required": "请提供有效的版本号。",
   "interval_count_must_not_exceed_10000": "interval_count 不能超过 10000",
   "2fa_disabled_successfully": "2FA 已成功禁用",
   "account_is_disabled": "帐户已被禁用",

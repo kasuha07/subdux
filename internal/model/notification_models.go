@@ -3,6 +3,7 @@ package model
 import "time"
 
 type NotificationChannel struct {
+	Revision  uint64    `json:"revision" gorm:"not null;default:1"`
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"index;not null" json:"user_id"`
 	Type      string    `gorm:"not null;size:20" json:"type"`
@@ -14,11 +15,12 @@ type NotificationChannel struct {
 }
 
 type NotificationPolicy struct {
-	ID                     uint `gorm:"primaryKey" json:"id"`
-	UserID                 uint `gorm:"uniqueIndex;not null" json:"user_id"`
-	DaysBefore             int  `gorm:"default:3;check:chk_notification_policies_days_before,days_before >= 0 AND days_before <= 10" json:"days_before"`
-	NotifyOnDueDay         bool `gorm:"default:true" json:"notify_on_due_day"`
-	NotifyManualRenewDaily bool `gorm:"default:false" json:"notify_manual_renew_daily"`
+	Revision               uint64 `json:"revision" gorm:"not null;default:1"`
+	ID                     uint   `gorm:"primaryKey" json:"id"`
+	UserID                 uint   `gorm:"uniqueIndex;not null" json:"user_id"`
+	DaysBefore             int    `gorm:"default:3;check:chk_notification_policies_days_before,days_before >= 0 AND days_before <= 10" json:"days_before"`
+	NotifyOnDueDay         bool   `gorm:"default:true" json:"notify_on_due_day"`
+	NotifyManualRenewDaily bool   `gorm:"default:false" json:"notify_manual_renew_daily"`
 	// QuietHours defer notification delivery that would otherwise happen during
 	// the configured window to the moment the window ends. Times are "HH:MM" in
 	// 24-hour form, interpreted in the system timezone. An empty start or end,
@@ -77,6 +79,7 @@ type NotificationOutbox struct {
 
 // NotificationTemplate stores user-customizable notification message templates
 type NotificationTemplate struct {
+	Revision    uint64    `json:"revision" gorm:"not null;default:1"`
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	UserID      uint      `gorm:"index;not null" json:"user_id"`
 	ChannelType *string   `gorm:"size:20;index" json:"channel_type"`

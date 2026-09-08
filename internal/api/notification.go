@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,6 +18,7 @@ type NotificationHandler struct {
 }
 
 type notificationChannelResponse struct {
+	Revision                    uint64    `json:"revision"`
 	ID                          uint      `json:"id"`
 	Type                        string    `json:"type"`
 	Enabled                     bool      `json:"enabled"`
@@ -69,6 +71,9 @@ func (h *NotificationHandler) UpdateChannel(c echo.Context) error {
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
+	if input.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
 
 	channel, err := h.Service.WithContext(c.Request().Context()).UpdateChannel(userID, uint(id), input)
 	if err != nil {
@@ -84,7 +89,12 @@ func (h *NotificationHandler) DeleteChannel(c echo.Context) error {
 		return nil
 	}
 
-	if err := h.Service.WithContext(c.Request().Context()).DeleteChannel(userID, uint(id)); err != nil {
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).DeleteChannel(userID, uint(id), revision); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -117,6 +127,9 @@ func (h *NotificationHandler) UpdatePolicy(c echo.Context) error {
 	var input notificationservice.UpdatePolicyInput
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
+	}
+	if input.Revision == nil {
+		return serviceutil.ErrRevisionRequired
 	}
 
 	policy, err := h.Service.WithContext(c.Request().Context()).UpdatePolicy(userID, input)
@@ -153,6 +166,7 @@ func mapNotificationChannelResponses(channels []model.NotificationChannel, notif
 func mapNotificationChannelResponse(channel model.NotificationChannel, notificationService *notificationservice.Service) notificationChannelResponse {
 	sanitized, configuredSecretFields, configuredWebhookHeaderKeys := notificationService.SanitizeChannelForResponse(channel)
 	return notificationChannelResponse{
+		Revision:                    sanitized.Revision,
 		ID:                          sanitized.ID,
 		Type:                        sanitized.Type,
 		Enabled:                     sanitized.Enabled,

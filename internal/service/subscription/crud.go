@@ -7,6 +7,7 @@ import (
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"gorm.io/gorm"
 )
 
@@ -149,6 +150,13 @@ func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Sub
 }
 
 func (s *Service) Update(userID, id uint, input UpdateSubscriptionInput) (*model.Subscription, error) {
+	return s.withRevision(userID, id, input.Revision, func(svc *Service) (*model.Subscription, error) {
+		input.Revision = 0 // The caller's precondition was checked before reconciliation.
+		return svc.update(userID, id, input)
+	})
+}
+
+func (s *Service) update(userID, id uint, input UpdateSubscriptionInput) (*model.Subscription, error) {
 	// A mutation must act on a row whose lifecycle is current: read paths only
 	// advance state in memory, so persist any due transition for this
 	// subscription before computing the update.
@@ -359,7 +367,7 @@ func (s *Service) Update(userID, id uint, input UpdateSubscriptionInput) (*model
 
 	var updated model.Subscription
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", id, userID).Updates(updates).Error; err != nil {
+		if err := serviceutil.UpdateRevision(tx.Model(&model.Subscription{}).Where("id = ? AND user_id = ?", id, userID), sub.Revision, updates); err != nil {
 			return err
 		}
 		if err := tx.Where("id = ? AND user_id = ?", id, userID).First(&updated).Error; err != nil {
@@ -396,8 +404,8 @@ func (s *Service) validatePaymentMethod(userID, paymentMethodID uint) error {
 	return nil
 }
 
-func (s *Service) Delete(userID, id uint) error {
-	deleted, err := s.DeleteRecord(userID, id)
+func (s *Service) Delete(userID, id uint, revisions ...uint64) error {
+	deleted, err := s.DeleteRecord(userID, id, revisions...)
 	if err != nil {
 		return err
 	}
@@ -409,7 +417,15 @@ func (s *Service) Delete(userID, id uint) error {
 
 // DeleteRecord removes the subscription database record and returns the deleted
 // snapshot without touching filesystem resources.
-func (s *Service) DeleteRecord(userID, id uint) (*model.Subscription, error) {
+func (s *Service) DeleteRecord(userID, id uint, revisions ...uint64) (*model.Subscription, error) {
+	var revision uint64
+	if len(revisions) > 0 {
+		revision = revisions[0]
+	}
+	return s.withRevision(userID, id, revision, func(svc *Service) (*model.Subscription, error) { return svc.deleteRecord(userID, id) })
+}
+
+func (s *Service) deleteRecord(userID, id uint) (*model.Subscription, error) {
 	if err := reconcileSubscriptionForWrite(s.DB, userID, id, pkg.NowInSystemTimezone()); err != nil {
 		return nil, err
 	}
@@ -423,7 +439,7 @@ func (s *Service) DeleteRecord(userID, id uint) (*model.Subscription, error) {
 		if err := (&Service{DB: tx}).recordSubscriptionDeleted(userID, *sub); err != nil {
 			return err
 		}
-		return tx.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Subscription{}).Error
+		return serviceutil.DeleteRevision(tx.Where("id = ? AND user_id = ?", id, userID), &model.Subscription{}, sub.Revision)
 	}); err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"net/http"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
@@ -64,6 +65,9 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
 	}
+	if input.Revision == 0 {
+		return serviceutil.ErrRevisionRequired
+	}
 	category, err := h.Service.WithContext(c.Request().Context()).Update(userID, uint(id), input)
 	if err != nil {
 		return err
@@ -77,7 +81,12 @@ func (h *CategoryHandler) Delete(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id)); err != nil {
+	revision, err := parseRevisionQuery(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.Service.WithContext(c.Request().Context()).Delete(userID, uint(id), revision); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusNoContent, nil)
@@ -88,6 +97,11 @@ func (h *CategoryHandler) Reorder(c echo.Context) error {
 	var items []catalogservice.ReorderItem
 	if !httpx.BindJSON(c, &items, "invalid_request_body") {
 		return nil
+	}
+	for _, item := range items {
+		if item.Revision == 0 {
+			return serviceutil.ErrRevisionRequired
+		}
 	}
 	if err := h.Service.WithContext(c.Request().Context()).Reorder(userID, items); err != nil {
 		return err

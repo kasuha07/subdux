@@ -48,6 +48,7 @@ func TestMCPUpdateSubscriptionReturnsTypedServiceErrorCode(t *testing.T) {
 
 	rec, response = performMCPToolCall(t, handler, apiKey, "update_subscription", map[string]interface{}{
 		"idempotency_key": "update-derived-too-large",
+		"revision":        1,
 		"id":              1,
 		"interval_unit":   "day",
 	})

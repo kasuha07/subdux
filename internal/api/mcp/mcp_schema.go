@@ -90,7 +90,7 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			Title:       "Update Subscription",
 			Description: "Update a subscription by ID. Send only fields that should change.",
 			InputSchema: func() map[string]interface{} {
-				return subscriptionWriteInputSchema([]string{"idempotency_key", "id"})
+				return subscriptionWriteInputSchema([]string{"idempotency_key", "id", "revision"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -104,8 +104,9 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{
 					"idempotency_key": idempotencyKeySchema(),
+					"revision":        idSchema("Revision returned when reading the subscription."),
 					"id":              idSchema("Subscription ID."),
-				}, []string{"idempotency_key", "id"})
+				}, []string{"idempotency_key", "id", "revision"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -119,8 +120,9 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{
 					"idempotency_key": idempotencyKeySchema(),
+					"revision":        idSchema("Revision returned when reading the subscription."),
 					"id":              idSchema("Subscription ID."),
-				}, []string{"idempotency_key", "id"})
+				}, []string{"idempotency_key", "id", "revision"})
 			},
 			Write: true,
 			Handler: func(ctx context.Context, h *MCPHandler, principal *mcpPrincipal, args map[string]interface{}) (*mcpToolResult, *mcpError) {
@@ -260,6 +262,7 @@ func isMCPWriteTool(name string) bool {
 func subscriptionWriteInputSchema(required []string) map[string]interface{} {
 	properties := map[string]interface{}{
 		"idempotency_key":    idempotencyKeySchema(),
+		"revision":           idSchema("Revision returned when reading the subscription."),
 		"id":                 idSchema("Subscription ID. Required for updates."),
 		"name":               stringSchema("Subscription name."),
 		"amount":             numberSchema("Subscription amount."),

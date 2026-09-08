@@ -54,7 +54,7 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
   async function handleDelete(template: NotificationTemplate) {
     if (!window.confirm(t("settings.notifications.templates.deleteConfirm"))) return
     try {
-      await api.delete(`/notifications/templates/${template.id}`, { errorHandling: "toast" })
+      await api.delete(`/notifications/templates/${template.id}?revision=${template.revision}`, { errorHandling: "toast" })
       onTemplatesChange(templates.filter((item) => item.id !== template.id))
       toast.success(t("settings.notifications.templates.deleteSuccess"))
     } catch {
@@ -92,6 +92,7 @@ export function NotificationTemplateSection({ templates, onTemplatesChange }: Pr
     try {
       if (editingTemplate) {
         const input: UpdateTemplateInput = {
+          revision: editingTemplate.revision,
           format,
           template: templateContent,
         }
