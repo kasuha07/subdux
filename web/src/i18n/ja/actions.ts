@@ -6,8 +6,8 @@ const actions = {
   },
   "toast": {
     "markRenewed": "更新済みにしました",
-    "cancelAtPeriodEnd": "期間終了でキャンセルにしました",
-    "keepSubscription": "継続するように変更しました",
+    "cancelAtPeriodEnd": "期間終了での解約を設定しました。今期の確認は完了です",
+    "keepSubscription": "継続するように変更しました。今期の確認は完了です",
     "snoozed": "7日間スヌーズしました"
   },
   "error": {

@@ -6,8 +6,8 @@ const actions = {
   },
   "toast": {
     "markRenewed": "Marked as renewed",
-    "cancelAtPeriodEnd": "Set to end at period end",
-    "keepSubscription": "Subscription will keep renewing",
+    "cancelAtPeriodEnd": "Set to end at period end; this cycle’s decision is complete",
+    "keepSubscription": "Subscription will keep renewing; this cycle’s decision is complete",
     "snoozed": "Reminder snoozed for 7 days"
   },
   "error": {

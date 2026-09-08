@@ -374,7 +374,11 @@ func (s *Service) update(userID, id uint, input UpdateSubscriptionInput) (*model
 			return err
 		}
 		normalizeSubscriptionForResponse(&updated)
-		return (&Service{DB: tx}).recordSubscriptionChanged(userID, before, updated, subscriptionEventUpdated)
+		svc := &Service{DB: tx}
+		if err := svc.recordSubscriptionChanged(userID, before, updated, subscriptionEventUpdated); err != nil {
+			return err
+		}
+		return svc.recordActionReview(userID, before, updated)
 	}); err != nil {
 		return nil, err
 	}

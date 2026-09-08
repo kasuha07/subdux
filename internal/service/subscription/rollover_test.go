@@ -24,6 +24,7 @@ func newSubscriptionRolloverTestDB(t *testing.T) *gorm.DB {
 		&model.User{},
 		&model.Subscription{},
 		&model.SubscriptionEvent{},
+		&model.SubscriptionActionSnooze{},
 		&model.NotificationPolicy{},
 		&model.NotificationChannel{},
 		&model.NotificationTemplate{},

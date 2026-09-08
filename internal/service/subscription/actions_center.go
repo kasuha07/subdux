@@ -57,6 +57,7 @@ type ActionCenterCounts struct {
 }
 
 type SubscriptionAction struct {
+	priceEventID          uint       // Internal identity for reviewing one price event, including same-day changes.
 	Key                   string     `json:"key"`
 	Type                  string     `json:"type"`
 	Severity              string     `json:"severity"`
@@ -112,7 +113,9 @@ func (s *Service) GetActionCenter(userID uint) (*ActionCenter, error) {
 
 	items := make([]SubscriptionAction, 0, len(subs))
 	for _, sub := range subs {
-		items = append(items, subscriptionScheduleActions(sub, today, windowEnd)...)
+		if _, reviewed := snoozes[scheduleReviewKey(sub)]; !reviewed {
+			items = append(items, subscriptionScheduleActions(sub, today, windowEnd)...)
+		}
 	}
 
 	notificationItems, err := s.notificationFailureActions(userID, today)
@@ -130,6 +133,11 @@ func (s *Service) GetActionCenter(userID uint) (*ActionCenter, error) {
 	visible := make([]SubscriptionAction, 0, len(items))
 	snoozedCount := 0
 	for _, item := range items {
+		if item.Type == actionTypePriceIncrease {
+			if _, reviewed := snoozes[priceReviewKey(item.SubscriptionID, item.priceEventID)]; reviewed {
+				continue
+			}
+		}
 		snooze, ok := snoozes[item.Key]
 		if ok && normalizeDateUTC(snooze.SnoozedUntil).After(today) {
 			snoozedCount++
@@ -486,13 +494,21 @@ func notificationRecoveryKey(subscriptionID uint, channelType string) string {
 }
 
 func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]SubscriptionAction, error) {
+	return s.priceIncreaseActionsForSubscription(userID, today, 0)
+}
+
+func (s *Service) priceIncreaseActionsForSubscription(userID uint, today time.Time, subscriptionID uint) ([]SubscriptionAction, error) {
 	since := today.AddDate(0, 0, -actionCenterRecentChangeDays)
 	var events []model.SubscriptionEvent
-	if err := s.DB.Where(
+	query := s.DB.Where(
 		"user_id = ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL AND created_at >= ?",
 		userID,
 		since,
-	).Order("created_at DESC, id DESC").Limit(100).Find(&events).Error; err != nil {
+	)
+	if subscriptionID != 0 {
+		query = query.Where("subscription_id = ?", subscriptionID)
+	}
+	if err := query.Order("created_at DESC, id DESC").Limit(100).Find(&events).Error; err != nil {
 		return nil, err
 	}
 
@@ -586,6 +602,7 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 		deltaCopy := candidate.delta
 		percentage := percentageDelta(previous, current)
 		items = append(items, SubscriptionAction{
+			priceEventID:          event.ID,
 			Key:                   subscriptionActionKey(sub.ID, actionTypePriceIncrease, event.CreatedAt.Format("2006-01-02")),
 			Type:                  actionTypePriceIncrease,
 			Severity:              actionSeverityMedium,

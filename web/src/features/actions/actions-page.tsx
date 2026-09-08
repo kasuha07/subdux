@@ -215,7 +215,7 @@ export default function ActionsPage() {
     [subscriptions]
   )
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (beforeApply?: (center: ActionCenter) => Promise<void>) => {
     const [actionCenter, subs, currencies, categoryList, methods] = await Promise.all([
       api.get<ActionCenter>("/actions"),
       api.get<Subscription[]>("/subscriptions"),
@@ -223,6 +223,7 @@ export default function ActionsPage() {
       api.get<Category[]>("/categories"),
       api.get<PaymentMethod[]>("/payment-methods"),
     ])
+    await beforeApply?.(actionCenter)
     setCenter(actionCenter)
     setSubscriptions(subs ?? [])
     setUserCurrencies(currencies ?? [])
@@ -290,15 +291,21 @@ export default function ActionsPage() {
     setBusyKey(actionKey)
     try {
       await actionFn()
-      setExitingKeys((prev) => new Set(prev).add(groupKey))
-      const prefersReducedMotion =
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      const delay = prefersReducedMotion ? 0 : 260
-      if (delay > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delay))
+      if (subscriptionID) {
+        invalidateSubscriptionDetail(subscriptionID)
       }
-      await refreshAfterAction(subscriptionID)
+      await fetchData(async (nextCenter) => {
+        // A subscription may still have an independent issue or a new billing
+        // period. Only animate its departure when the refreshed group is gone.
+        if (groupSubscriptionActions(nextCenter.items).some((group) => group.key === groupKey)) return
+        setExitingKeys((prev) => new Set(prev).add(groupKey))
+        const prefersReducedMotion =
+          typeof window !== "undefined" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        if (!prefersReducedMotion) {
+          await new Promise((resolve) => setTimeout(resolve, 260))
+        }
+      })
     } catch (error) {
       showActionError(error)
     } finally {

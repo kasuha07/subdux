@@ -23,6 +23,9 @@ func newBatchHandler(t *testing.T) (*SubscriptionHandler, uint) {
 	t.Cleanup(restoreClock)
 
 	db := newBootstrapTestDB(t)
+	if err := db.AutoMigrate(&model.SubscriptionActionSnooze{}); err != nil {
+		t.Fatal(err)
+	}
 	user := model.User{Username: "tester", Email: "tester@example.com", Password: "x", Role: "user", Status: "active"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user failed: %v", err)

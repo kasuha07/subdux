@@ -6,8 +6,8 @@ const actions = {
   },
   "toast": {
     "markRenewed": "已标记为已续费",
-    "cancelAtPeriodEnd": "已设置为到期终止",
-    "keepSubscription": "已改为继续保留",
+    "cancelAtPeriodEnd": "已设置到期终止，本周期不再重复提醒",
+    "keepSubscription": "已确认继续保留，本周期不再重复提醒",
     "snoozed": "已暂时忽略 7 天"
   },
   "error": {
