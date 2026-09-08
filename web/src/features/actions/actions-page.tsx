@@ -10,10 +10,7 @@ import {
   CheckCircle2,
   Clock3,
   CreditCard,
-  Eye,
   History,
-  MoreHorizontal,
-  Pencil,
   RefreshCw,
   TrendingUp,
 } from "lucide-react"
@@ -24,12 +21,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { AsyncBrandIcon } from "@/components/async-brand-icon"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api, getAPIErrorMessage } from "@/lib/api"
@@ -268,13 +259,6 @@ export default function ActionsPage() {
       }
     }
     return sub.category.trim()
-  }
-
-  function openEdit(action: SubscriptionAction) {
-    const sub = subscriptionForAction(action)
-    if (!sub) return
-    setEditingSub(sub)
-    setFormOpen(true)
   }
 
   function openDetail(action: SubscriptionAction) {
@@ -558,7 +542,6 @@ export default function ActionsPage() {
                           onCancelAtPeriodEnd={(action) => handleCancelAtPeriodEnd(action, group.key)}
                           onKeepSubscription={(action) => handleKeepSubscription(action, group.key)}
                           onSnooze={handleSnooze}
-                          onEdit={openEdit}
                           onOpenDetail={openDetail}
                         />
                       </div>
@@ -669,7 +652,6 @@ function ActionGroupItem({
   currencySymbol,
   language,
   onCancelAtPeriodEnd,
-  onEdit,
   onKeepSubscription,
   onMarkRenewed,
   onOpenDetail,
@@ -681,7 +663,6 @@ function ActionGroupItem({
   currencySymbol?: string
   language: string
   onCancelAtPeriodEnd: (action: SubscriptionAction) => void | Promise<void>
-  onEdit: (action: SubscriptionAction) => void
   onKeepSubscription: (action: SubscriptionAction) => void | Promise<void>
   onMarkRenewed: (action: SubscriptionAction) => void | Promise<void>
   onOpenDetail: (action: SubscriptionAction) => void
@@ -728,20 +709,6 @@ function ActionGroupItem({
       : null,
     prioritizeCancelAtPeriodEnd ? null : cancelAtPeriodEndCommand,
     {
-      key: "edit",
-      label: t("subscription.detail.edit"),
-      icon: Pencil,
-      variant: "outline",
-      run: () => onEdit(primary),
-    },
-    {
-      key: "open",
-      label: t("subscription.detail.open"),
-      icon: Eye,
-      variant: "outline",
-      run: () => onOpenDetail(primary),
-    },
-    {
       key: "snooze",
       label: t("actions.command.snooze"),
       icon: Clock3,
@@ -749,13 +716,11 @@ function ActionGroupItem({
       run: () => onSnooze(group),
     },
   ].filter((command): command is ActionCommand => command !== null)
-  const visibleCommands = commands.slice(0, 2)
-  const overflowCommands = commands.slice(2)
 
   return (
     <Card
       style={style}
-      className="group overflow-hidden py-0 subscription-card-motion subscription-card-enter hover:shadow-md has-[[data-state=open]]:translate-none has-[[data-state=open]]:scale-100"
+      className="group overflow-hidden py-0 subscription-card-motion subscription-card-enter hover:shadow-md"
     >
       <CardContent className="p-0">
         <div className="grid gap-0 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -798,7 +763,7 @@ function ActionGroupItem({
           </button>
 
           <div className="flex flex-wrap items-center gap-2 border-t p-3 sm:w-48 sm:flex-col sm:items-stretch sm:border-t-0 sm:border-l">
-            {visibleCommands.map((command) => {
+            {commands.map((command) => {
               const Icon = command.icon
 
               return (
@@ -815,35 +780,6 @@ function ActionGroupItem({
                 </Button>
               )
             })}
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  className="transition-transform duration-150 active:scale-95"
-                >
-                  <MoreHorizontal className="size-4" />
-                  {t("actions.command.more")}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {overflowCommands.map((command) => {
-                  const Icon = command.icon
-
-                  return (
-                    <DropdownMenuItem
-                      key={command.key}
-                      onClick={() => void command.run()}
-                      disabled={busy}
-                    >
-                      <Icon className="size-4" />
-                      {command.label}
-                    </DropdownMenuItem>
-                  )
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
       </CardContent>
