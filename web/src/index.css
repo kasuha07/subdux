@@ -624,7 +624,7 @@ html[dir='rtl'] .ulw-toast-close {
   animation: drawer-exit 180ms ease-in both;
 }
 
-[data-slot="tabs-content"][data-state="active"]:not(.detail-tabs-content):not(.admin-tab-content) {
+[data-slot="tabs-content"][data-state="active"]:not(.detail-tabs-content):not(.admin-tab-content):not(.settings-tab-content) {
   animation: subscription-form-section-enter var(--motion-fast) var(--motion-ease);
 }
 
@@ -640,17 +640,21 @@ html[dir='rtl'] .ulw-toast-close {
 }
 
 .admin-tabs [data-slot="tabs-content"][data-state="active"],
-.admin-tab-content[data-state="active"] {
+.admin-tab-content[data-state="active"],
+.settings-tabs [data-slot="tabs-content"][data-state="active"],
+.settings-tab-content[data-state="active"] {
   animation: admin-tab-content-enter var(--motion-normal) var(--motion-ease) both;
   will-change: opacity, translate;
 }
 
-.admin-tabs-list [data-slot="tabs-trigger"] {
+.admin-tabs-list [data-slot="tabs-trigger"],
+.settings-tabs-list [data-slot="tabs-trigger"] {
   position: relative;
   z-index: 10;
 }
 
-.admin-tabs-list [data-slot="tabs-trigger"][data-state="active"] {
+.admin-tabs-list [data-slot="tabs-trigger"][data-state="active"],
+.settings-tabs-list [data-slot="tabs-trigger"][data-state="active"] {
   background-color: transparent !important;
   box-shadow: none !important;
   border-color: transparent !important;

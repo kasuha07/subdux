@@ -129,7 +129,7 @@ export default function SettingsAccountTab({
   const transfer = useSettingsAccountTransfer()
 
   return (
-    <TabsContent value="account">
+    <TabsContent value="account" className="settings-tab-content">
       <div className="space-y-4">
         <div>
           <h2 className="text-base font-semibold tracking-tight select-none">{t("settings.account.title")}</h2>

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
+import { Tabs } from "@/components/ui/tabs"
 import {
   SettingsAboutTabSkeleton,
   SettingsAccountTabSkeleton,
@@ -9,6 +10,7 @@ import {
   SettingsGeneralTabSkeleton,
   SettingsNotificationTabSkeleton,
   SettingsPaymentTabSkeleton,
+  SettingsTabLoading,
   SettingsTabSkeleton,
 } from "./settings-loading-skeleton"
 
@@ -62,5 +64,20 @@ describe("SettingsLoadingSkeletons", () => {
     expect(renderToStaticMarkup(<SettingsTabSkeleton tab="apikey" />)).toContain("skeleton-shimmer")
     expect(renderToStaticMarkup(<SettingsTabSkeleton tab="audit" />)).toContain("skeleton-shimmer")
     expect(renderToStaticMarkup(<SettingsTabSkeleton tab="about" />)).toContain("skeleton-shimmer")
+  })
+
+  it("renders SettingsTabLoading with accessibility status, skeleton shimmer, and no visible loading text", () => {
+    const markup = renderToStaticMarkup(
+      <Tabs value="general">
+        <SettingsTabLoading value="general" />
+      </Tabs>
+    )
+
+    expect(markup).toContain('role="status"')
+    expect(markup).toContain("aria-label=")
+    expect(markup).not.toContain("animate-spin")
+    expect(markup).not.toContain("加载中")
+    expect(markup).toContain("skeleton-shimmer")
+    expect(markup).toContain("settings-tab-content")
   })
 })

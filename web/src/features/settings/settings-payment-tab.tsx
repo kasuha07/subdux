@@ -85,7 +85,7 @@ export default function SettingsPaymentTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="payment" className="space-y-6">
+    <TabsContent value="payment" className="space-y-6 settings-tab-content">
       <div>
         <h2 className="text-base font-semibold tracking-tight select-none">{t("settings.currency.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">

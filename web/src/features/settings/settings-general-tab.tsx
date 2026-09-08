@@ -82,7 +82,7 @@ export default function SettingsGeneralTab({
   const { t } = useTranslation()
 
   return (
-    <TabsContent value="general" className="space-y-6">
+    <TabsContent value="general" className="space-y-6 settings-tab-content">
       <div>
         <h2 className="text-base font-semibold tracking-tight select-none">{t("settings.displayAmount.title")}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">

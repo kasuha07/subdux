@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { TabsContent } from "@/components/ui/tabs"
-import { Loader2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 export function SettingsGeneralTabSkeleton() {
@@ -430,17 +429,13 @@ export function SettingsTabSkeleton({ tab }: { tab: SettingsTabType }) {
 export function SettingsTabLoading({ value }: { value: SettingsTabType }) {
   const { t } = useTranslation()
   return (
-    <TabsContent value={value} className="space-y-4 pt-1">
-      <div
-        className="flex items-center gap-2 text-xs text-muted-foreground"
-        role="status"
-      >
-        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        <span>{t("common.loading")}</span>
-      </div>
-      <div className="page-loading-enter">
-        <SettingsTabSkeleton tab={value} />
-      </div>
+    <TabsContent
+      value={value}
+      role="status"
+      aria-label={t("common.loading")}
+      className="settings-tab-content outline-none"
+    >
+      <SettingsTabSkeleton tab={value} />
     </TabsContent>
   )
 }

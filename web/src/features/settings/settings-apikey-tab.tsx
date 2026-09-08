@@ -172,7 +172,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   }
 
   return (
-    <TabsContent value="apikey">
+    <TabsContent value="apikey" className="settings-tab-content">
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <div>

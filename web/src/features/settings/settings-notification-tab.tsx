@@ -192,7 +192,7 @@ export default function SettingsNotificationTab({ active }: SettingsNotification
   }
 
   return (
-    <TabsContent value="notification" className="space-y-6">
+    <TabsContent value="notification" className="space-y-6 settings-tab-content">
       <NotificationPolicySection
         key={`${policy.days_before}:${policy.notify_on_due_day}:${policy.notify_manual_renew_daily}:${policy.quiet_hours_enabled}:${policy.quiet_hours_start}:${policy.quiet_hours_end}`}
         policy={policy}

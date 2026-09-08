@@ -40,7 +40,7 @@ export default function SettingsAboutTab({ versionInfo }: SettingsAboutTabProps)
     latestVersion !== versionInfo.version.replace(/^v/, "")
 
   return (
-    <TabsContent value="about" className="space-y-6">
+    <TabsContent value="about" className="space-y-6 settings-tab-content">
       {/* Version Info */}
       <div className="space-y-3">
         <div>

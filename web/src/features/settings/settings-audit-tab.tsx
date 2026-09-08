@@ -52,7 +52,7 @@ export default function SettingsAuditTab({ active }: SettingsAuditTabProps) {
   }, [active])
 
   return (
-    <TabsContent value="audit">
+    <TabsContent value="audit" className="settings-tab-content">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
