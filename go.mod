@@ -16,7 +16,7 @@ require (
 	github.com/pquerna/otp v1.5.0
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.58.0
+	golang.org/x/net v0.59.0
 	golang.org/x/oauth2 v0.37.0
 	gorm.io/gorm v1.31.2
 )
