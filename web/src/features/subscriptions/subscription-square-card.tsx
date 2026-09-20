@@ -148,7 +148,7 @@ export default function SubscriptionSquareCard({
       tabIndex={!onToggleSelect ? 0 : undefined}
       role={!onToggleSelect ? "button" : undefined}
       aria-label={!onToggleSelect ? t("subscription.detail.open") : undefined}
-      onClick={!onToggleSelect ? () => onOpenDetail(subscription) : undefined}
+      onClick={onToggleSelect ? () => onToggleSelect(subscription.id) : () => onOpenDetail(subscription)}
       onKeyDown={!onToggleSelect ? (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault()
@@ -159,8 +159,8 @@ export default function SubscriptionSquareCard({
       onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
       style={style}
       className={cn(
-        "group relative h-auto w-full self-start gap-0 overflow-hidden py-2 subscription-card-motion subscription-card-enter hover:shadow-md",
-        !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        "group relative h-auto w-full self-start gap-0 overflow-hidden py-2 subscription-card-motion subscription-card-enter hover:shadow-md cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        onToggleSelect && "select-none",
         ended && "grayscale opacity-60 hover:opacity-85 transition-opacity",
         selected && "ring-2 ring-primary/40 border-primary/50 bg-primary/[0.03] shadow-xs",
         className
@@ -170,7 +170,10 @@ export default function SubscriptionSquareCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             {onToggleSelect && (
-              <div className="batch-checkbox-wrap shrink-0">
+              <div
+                className="batch-checkbox-wrap shrink-0"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <Checkbox
                   checked={selected}
                   onCheckedChange={() => onToggleSelect(subscription.id)}

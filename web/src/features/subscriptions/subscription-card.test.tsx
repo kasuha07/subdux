@@ -1,5 +1,8 @@
+// @vitest-environment happy-dom
+import { act, StrictMode } from "react"
+import { createRoot, type Root } from "react-dom/client"
 import { renderToStaticMarkup } from "react-dom/server"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import SubscriptionCard from "./subscription-card"
 import type { Subscription } from "@/types"
@@ -86,5 +89,111 @@ describe("SubscriptionCard", () => {
     // Price and badges summary block should stay visible without hover hide classes
     expect(markup).not.toContain("group-hover:opacity-0")
     expect(markup).not.toContain("data-card-actions")
+  })
+
+  describe("click interactions", () => {
+    let container: HTMLDivElement
+    let root: Root
+
+    beforeEach(() => {
+      Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+      container = document.createElement("div")
+      document.body.appendChild(container)
+      root = createRoot(container)
+    })
+
+    afterEach(async () => {
+      await act(async () => root.unmount())
+      container.remove()
+    })
+
+    it("opens detail drawer when card body is clicked in normal mode", async () => {
+      const onOpenDetail = vi.fn()
+      await act(async () => {
+        root.render(
+          <StrictMode>
+            <SubscriptionCard {...defaultProps} onOpenDetail={onOpenDetail} />
+          </StrictMode>
+        )
+      })
+
+      const card = container.firstElementChild as HTMLElement
+      await act(async () => {
+        card.click()
+      })
+
+      expect(onOpenDetail).toHaveBeenCalledWith(sampleSubscription)
+    })
+
+    it("toggles selection when card body is clicked in batch mode", async () => {
+      const onToggleSelect = vi.fn()
+      const onOpenDetail = vi.fn()
+      await act(async () => {
+        root.render(
+          <StrictMode>
+            <SubscriptionCard
+              {...defaultProps}
+              onToggleSelect={onToggleSelect}
+              onOpenDetail={onOpenDetail}
+            />
+          </StrictMode>
+        )
+      })
+
+      const heading = container.querySelector("h3") as HTMLElement
+      await act(async () => {
+        heading.click()
+      })
+
+      expect(onToggleSelect).toHaveBeenCalledTimes(1)
+      expect(onToggleSelect).toHaveBeenCalledWith(1)
+      expect(onOpenDetail).not.toHaveBeenCalled()
+    })
+
+    it("toggles selection once when checkbox is clicked in batch mode", async () => {
+      const onToggleSelect = vi.fn()
+      await act(async () => {
+        root.render(
+          <StrictMode>
+            <SubscriptionCard
+              {...defaultProps}
+              onToggleSelect={onToggleSelect}
+            />
+          </StrictMode>
+        )
+      })
+
+      const checkbox = container.querySelector("[data-slot='checkbox']") as HTMLElement
+      await act(async () => {
+        checkbox.click()
+      })
+
+      expect(onToggleSelect).toHaveBeenCalledTimes(1)
+      expect(onToggleSelect).toHaveBeenCalledWith(1)
+    })
+
+    it("opens detail drawer and does not toggle selection when open detail button is clicked in batch mode", async () => {
+      const onToggleSelect = vi.fn()
+      const onOpenDetail = vi.fn()
+      await act(async () => {
+        root.render(
+          <StrictMode>
+            <SubscriptionCard
+              {...defaultProps}
+              onToggleSelect={onToggleSelect}
+              onOpenDetail={onOpenDetail}
+            />
+          </StrictMode>
+        )
+      })
+
+      const openButton = container.querySelector("button[aria-label='Open detail']") as HTMLElement
+      await act(async () => {
+        openButton.click()
+      })
+
+      expect(onOpenDetail).toHaveBeenCalledWith(sampleSubscription)
+      expect(onToggleSelect).not.toHaveBeenCalled()
+    })
   })
 })

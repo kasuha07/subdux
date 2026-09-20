@@ -185,7 +185,7 @@ export default function SubscriptionCard({
       tabIndex={!onToggleSelect ? 0 : undefined}
       role={!onToggleSelect ? "button" : undefined}
       aria-label={!onToggleSelect ? t("subscription.detail.open") : undefined}
-      onClick={!onToggleSelect ? () => onOpenDetail(subscription) : undefined}
+      onClick={onToggleSelect ? () => onToggleSelect(subscription.id) : () => onOpenDetail(subscription)}
       onKeyDown={!onToggleSelect ? (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault()
@@ -196,8 +196,8 @@ export default function SubscriptionCard({
       onPointerEnter={!onToggleSelect ? () => onPreloadDetail?.(subscription) : undefined}
       style={style}
       className={cn(
-        "group relative overflow-hidden py-3 subscription-card-motion subscription-card-enter hover:shadow-md has-[[data-state=open]]:translate-none has-[[data-state=open]]:scale-100",
-        !onToggleSelect && "cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        "group relative overflow-hidden py-3 subscription-card-motion subscription-card-enter hover:shadow-md has-[[data-state=open]]:translate-none has-[[data-state=open]]:scale-100 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        onToggleSelect && "select-none",
         ended && "grayscale opacity-60 hover:opacity-85 transition-opacity",
         selected && "ring-2 ring-primary/40 border-primary/50 bg-primary/[0.03] shadow-xs",
         className
@@ -205,7 +205,10 @@ export default function SubscriptionCard({
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         {onToggleSelect && (
-          <div className="batch-checkbox-wrap mt-1.5 shrink-0">
+          <div
+            className="batch-checkbox-wrap mt-1.5 shrink-0"
+            onClick={(event) => event.stopPropagation()}
+          >
             <Checkbox
               checked={selected}
               onCheckedChange={() => onToggleSelect(subscription.id)}
