@@ -22,7 +22,7 @@ import {
 import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import { api, isAdmin } from "@/lib/api"
-import { formatCurrencyWithSymbol } from "@/lib/utils"
+import { cn, formatCurrencyWithSymbol } from "@/lib/utils"
 import { preloadRouteForPath } from "@/lib/route-preload"
 import {
   DISPLAY_ALL_AMOUNTS_IN_PRIMARY_CURRENCY_KEY,
@@ -505,23 +505,33 @@ export default function DashboardPage() {
               viewToggleDisabled={subscriptions.length === 0}
             />
 
-            {batchMode && (
-              <SubscriptionBatchBar
-                  getSubscriptionRevision={(id) => subscriptions.find(sub => sub.id === id)?.revision ?? 0}
-                categories={categories}
-                paymentMethods={paymentMethods}
-                paymentMethodLabelMap={paymentMethodLabelMap}
-                selectedCount={liveSelectedIDs.length}
-                selectedIDs={liveSelectedIDs}
-                getSubscriptionName={(id) =>
-                  subscriptions.find((sub) => sub.id === id)?.name ?? ""
-                }
-                onSelectAll={selectAllVisible}
-                onInvertSelection={invertVisibleSelection}
-                visibleCount={filteredSubscriptions.length}
-                onClearSelection={clearSelection}
-                onBatchApplied={handleBatchApplied}
-              />
+            {(subscriptions.length > 0 || batchMode) && (
+              <div
+                className={cn(
+                  "batch-bar-wrap",
+                  batchMode && "batch-bar-open"
+                )}
+                aria-hidden={!batchMode}
+              >
+                <div className="batch-bar-inner">
+                  <SubscriptionBatchBar
+                    getSubscriptionRevision={(id) => subscriptions.find(sub => sub.id === id)?.revision ?? 0}
+                    categories={categories}
+                    paymentMethods={paymentMethods}
+                    paymentMethodLabelMap={paymentMethodLabelMap}
+                    selectedCount={liveSelectedIDs.length}
+                    selectedIDs={liveSelectedIDs}
+                    getSubscriptionName={(id) =>
+                      subscriptions.find((sub) => sub.id === id)?.name ?? ""
+                    }
+                    onSelectAll={selectAllVisible}
+                    onInvertSelection={invertVisibleSelection}
+                    visibleCount={filteredSubscriptions.length}
+                    onClearSelection={clearSelection}
+                    onBatchApplied={handleBatchApplied}
+                  />
+                </div>
+              </div>
             )}
 
             <div

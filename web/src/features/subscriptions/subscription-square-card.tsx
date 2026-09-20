@@ -170,12 +170,13 @@ export default function SubscriptionSquareCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             {onToggleSelect && (
-              <Checkbox
-                checked={selected}
-                onCheckedChange={() => onToggleSelect(subscription.id)}
-                aria-label={t("subscription.batch.select", { name: subscription.name })}
-                className="shrink-0"
-              />
+              <div className="batch-checkbox-wrap shrink-0">
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={() => onToggleSelect(subscription.id)}
+                  aria-label={t("subscription.batch.select", { name: subscription.name })}
+                />
+              </div>
             )}
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg transition-transform duration-200 ease-out group-hover:scale-105">
               <SubscriptionIcon icon={subscription.icon} name={subscription.name} size={22} />

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select"
 import { api, localizeBackendError } from "@/lib/api"
 import { toast } from "@/lib/toast"
+import { cn } from "@/lib/utils"
 import type {
   Category,
   PaymentMethod,
@@ -54,6 +55,7 @@ interface SubscriptionBatchBarProps {
   paymentMethods: PaymentMethod[]
   selectedCount: number
   selectedIDs: number[]
+  className?: string
 }
 
 function failureSummary(
@@ -83,6 +85,7 @@ export default function SubscriptionBatchBar({
   paymentMethods,
   selectedCount,
   selectedIDs,
+  className,
 }: SubscriptionBatchBarProps) {
   const { t } = useTranslation()
   const [dialog, setDialog] = useState<"delete" | "category" | "payment_method" | null>(null)
@@ -150,7 +153,7 @@ export default function SubscriptionBatchBar({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+      <div className={cn("flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2", className)}>
         <CheckSquare className="size-4 text-muted-foreground" />
         <span className="text-sm font-medium">
           {t("subscription.batch.selected", { count: selectedCount })}

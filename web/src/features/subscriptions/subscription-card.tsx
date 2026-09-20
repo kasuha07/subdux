@@ -205,12 +205,13 @@ export default function SubscriptionCard({
     >
       <CardContent className="flex items-start gap-3 px-4 py-1.5">
         {onToggleSelect && (
-          <Checkbox
-            checked={selected}
-            onCheckedChange={() => onToggleSelect(subscription.id)}
-            aria-label={t("subscription.batch.select", { name: subscription.name })}
-            className="mt-1.5"
-          />
+          <div className="batch-checkbox-wrap mt-1.5 shrink-0">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => onToggleSelect(subscription.id)}
+              aria-label={t("subscription.batch.select", { name: subscription.name })}
+            />
+          </div>
         )}
         <div
           className="h-11 w-11 shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-transform duration-200 ease-out group-hover:scale-105"
