@@ -4,6 +4,16 @@ const calendar = {
   "today": "Today",
   "prevMonth": "Previous month",
   "nextMonth": "Next month",
+  "prevYear": "Previous year",
+  "nextYear": "Next year",
+  "selectDate": "Select date",
+  "presets": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "nextWeek": "+1 Week",
+    "nextMonth": "+1 Month",
+    "nextYear": "+1 Year"
+  },
   "weekdays": {
     "sun": "Sun",
     "mon": "Mon",

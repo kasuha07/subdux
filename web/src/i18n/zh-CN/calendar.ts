@@ -4,6 +4,16 @@ const calendar = {
   "today": "今天",
   "prevMonth": "上个月",
   "nextMonth": "下个月",
+  "prevYear": "上一年",
+  "nextYear": "下一年",
+  "selectDate": "选择日期",
+  "presets": {
+    "today": "今天",
+    "tomorrow": "明天",
+    "nextWeek": "1 周后",
+    "nextMonth": "1 个月后",
+    "nextYear": "1 年后"
+  },
   "weekdays": {
     "sun": "日",
     "mon": "一",

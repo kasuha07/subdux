@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -232,11 +233,10 @@ export default function SubscriptionForm({
 
             <div className="space-y-2">
               <Label htmlFor="next-billing-date">{nextDateLabel}</Label>
-              <Input
+              <DatePicker
                 id="next-billing-date"
-                type="date"
                 value={values.nextBillingDate}
-                onChange={(event) => setField("nextBillingDate", event.target.value)}
+                onChange={(date) => setField("nextBillingDate", date)}
                 required
               />
             </div>
@@ -244,11 +244,10 @@ export default function SubscriptionForm({
             {values.status === "ended" ? (
               <div className="space-y-2">
                 <Label htmlFor="ends-at">{t("subscription.form.endsAtLabel")}</Label>
-                <Input
+                <DatePicker
                   id="ends-at"
-                  type="date"
                   value={values.endsAt}
-                  onChange={(event) => setField("endsAt", event.target.value)}
+                  onChange={(date) => setField("endsAt", date)}
                   required
                 />
               </div>
