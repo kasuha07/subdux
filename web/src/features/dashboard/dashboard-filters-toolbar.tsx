@@ -716,7 +716,7 @@ export default function DashboardFiltersToolbar({
             <Button
               variant="outline"
               size="icon-sm"
-              className="shrink-0"
+              className="shrink-0 transition-colors duration-200"
               onClick={onToggleSubscriptionView}
               disabled={viewToggleDisabled}
               aria-label={
@@ -725,7 +725,24 @@ export default function DashboardFiltersToolbar({
                   : t("dashboard.views.toggleToList")
               }
             >
-              {subscriptionView === "list" ? <Grid3X3 className="size-4" /> : <List className="size-4" />}
+              <span className="relative flex size-4 items-center justify-center">
+                <Grid3X3
+                  className={cn(
+                    "size-4 absolute transition-all duration-200 ease-out",
+                    subscriptionView === "list"
+                      ? "rotate-0 scale-100 opacity-100"
+                      : "rotate-90 scale-0 opacity-0 pointer-events-none"
+                  )}
+                />
+                <List
+                  className={cn(
+                    "size-4 absolute transition-all duration-200 ease-out",
+                    subscriptionView === "cards"
+                      ? "rotate-0 scale-100 opacity-100"
+                      : "-rotate-90 scale-0 opacity-0 pointer-events-none"
+                  )}
+                />
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>

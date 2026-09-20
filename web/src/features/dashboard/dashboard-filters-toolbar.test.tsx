@@ -148,4 +148,24 @@ describe("DashboardFiltersToolbar responsive design", () => {
     )
     expect(descMarkup).toContain("lucide-arrow-down")
   })
+
+  it("renders animated subscription view toggle with appropriate icon rotation states", () => {
+    const listMarkup = renderToStaticMarkup(
+      <DashboardFiltersToolbar {...defaultProps} subscriptionView="list" />
+    )
+    expect(listMarkup).toContain("lucide-grid-3x3")
+    expect(listMarkup).toContain("lucide-list")
+    expect(listMarkup).toContain("dashboard.views.toggleToCards")
+    expect(listMarkup).toMatch(/lucide-grid-3x3[^"]*rotate-0 scale-100 opacity-100/)
+    expect(listMarkup).toMatch(/lucide-list[^"]*-rotate-90 scale-0 opacity-0 pointer-events-none/)
+
+    const cardsMarkup = renderToStaticMarkup(
+      <DashboardFiltersToolbar {...defaultProps} subscriptionView="cards" />
+    )
+    expect(cardsMarkup).toContain("lucide-grid-3x3")
+    expect(cardsMarkup).toContain("lucide-list")
+    expect(cardsMarkup).toContain("dashboard.views.toggleToList")
+    expect(cardsMarkup).toMatch(/lucide-grid-3x3[^"]*rotate-90 scale-0 opacity-0 pointer-events-none/)
+    expect(cardsMarkup).toMatch(/lucide-list[^"]*rotate-0 scale-100 opacity-100/)
+  })
 })
