@@ -219,6 +219,13 @@ func (s *Service) ConfirmEmailChange(userID uint, newEmail string, verificationC
 
 	now := pkg.NowUTC()
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		scoped := *s
+		scoped.DB = tx
+		if exists, err := scoped.emailExists(normalizedEmail, userID); err != nil {
+			return err
+		} else if exists {
+			return ErrEmailAlreadyRegistered
+		}
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("email", normalizedEmail).Error; err != nil {
 			return err
 		}
@@ -464,7 +471,7 @@ func (s *Service) cleanupVerificationCodes(email string, purpose string) {
 }
 
 func (s *Service) emailExists(email string, excludeUserID uint) (bool, error) {
-	query := s.DB.Model(&model.User{}).Where("LOWER(email) = ?", email)
+	query := s.DB.Model(&model.User{}).Where("LOWER(email) = ? OR LOWER(username) = ?", email, email)
 	if excludeUserID > 0 {
 		query = query.Where("id <> ?", excludeUserID)
 	}

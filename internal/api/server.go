@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -174,7 +175,12 @@ func (a *App) mountMCP(e *echo.Echo) {
 
 func (a *App) buildRouteGroups(e *echo.Echo) RouteGroups {
 	jwtConfig := echojwt.Config{
-		SigningKey: pkg.GetJWTSecret(),
+		KeyFunc: func(token *jwt.Token) (interface{}, error) {
+			if token.Method != jwt.SigningMethodHS256 {
+				return nil, fmt.Errorf("unexpected signing method: %s", token.Method.Alg())
+			}
+			return pkg.GetJWTSecret(), nil
+		},
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return new(pkg.JWTClaims)
 		},

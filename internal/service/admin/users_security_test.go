@@ -81,3 +81,20 @@ func TestAdminListUsersReportsCredentialFactorState(t *testing.T) {
 		t.Fatalf("ListUsers()[0].SubscriptionCount = %d, want 2", users[0].SubscriptionCount)
 	}
 }
+
+func TestAdminCreateUserRejectsCrossFieldCollision(t *testing.T) {
+	db := newTestDB(t)
+	svc := NewService(db)
+	first, err := svc.CreateUser(CreateUserInput{Username: "reserved@example.com", Email: "owner@example.com", Password: "valid-password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range []CreateUserInput{
+		{Username: "OWNER@example.com", Email: "new@example.com", Password: "valid-password"},
+		{Username: "new-user", Email: "RESERVED@example.com", Password: "valid-password"},
+	} {
+		if _, err := svc.CreateUser(input); err == nil {
+			t.Fatalf("cross-field collision accepted against user %d", first.ID)
+		}
+	}
+}

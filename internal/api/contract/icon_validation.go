@@ -7,6 +7,8 @@ import (
 	"unicode"
 )
 
+// ValidateIcon checks syntax only. Services must also validate managed asset
+// ownership before persisting client-supplied file references.
 func ValidateIcon(icon string) bool {
 	if icon == "" {
 		return true

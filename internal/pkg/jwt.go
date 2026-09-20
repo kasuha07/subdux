@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -55,8 +56,15 @@ const (
 )
 
 var jwtSecretFromDB string
+var jwtSecretMu sync.RWMutex
 
 func InitJWTSecret(db *gorm.DB) error {
+	jwtSecretMu.Lock()
+	defer jwtSecretMu.Unlock()
+	return initJWTSecretLocked(db)
+}
+
+func initJWTSecretLocked(db *gorm.DB) error {
 	if envSecret := os.Getenv("JWT_SECRET"); envSecret != "" {
 		if err := validateJWTSecret(envSecret, "JWT_SECRET environment variable"); err != nil {
 			return err
@@ -95,6 +103,8 @@ func GetJWTSecret() []byte {
 }
 
 func getJWTSecretValue() string {
+	jwtSecretMu.RLock()
+	defer jwtSecretMu.RUnlock()
 	if secret := os.Getenv("JWT_SECRET"); secret != "" {
 		return secret
 	}

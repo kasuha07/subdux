@@ -70,14 +70,12 @@ func (s *Service) UploadSubscriptionIcon(userID, subID uint, file io.Reader, fil
 		return "", err
 	}
 
-	s.removeManagedIconFile(sub.Icon)
+	s.removeManagedIconFile(userID, sub.Icon)
 	return iconValue, nil
 }
 
-func (s *Service) removeManagedIconFile(icon string) {
-	if path, ok := managedIconFilePath(icon); ok {
-		_ = os.Remove(path)
-	}
+func (s *Service) removeManagedIconFile(userID uint, icon string) {
+	serviceutil.RemoveUnreferencedManagedIcon(s.DB, userID, icon)
 }
 
 func managedIconFilePath(icon string) (string, bool) {

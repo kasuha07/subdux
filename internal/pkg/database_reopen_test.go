@@ -147,3 +147,41 @@ func copyFileForTest(t *testing.T, sourcePath string, targetPath string) {
 		t.Fatalf("copy %q to %q error = %v", sourcePath, targetPath, err)
 	}
 }
+
+func TestReopenDatabaseRejectsInvalidSecretBeforePublishingPool(t *testing.T) {
+	t.Setenv("DATA_PATH", t.TempDir())
+	t.Setenv("SETTINGS_ENCRYPTION_KEY", "invalid-restore-test-key")
+	t.Setenv("JWT_SECRET", "")
+	restoreGlobalJWTSecret(t)
+	db, err := openSQLiteDatabase(filepath.Join(GetDataPath(), "subdux.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := InitJWTSecret(db); err != nil {
+		t.Fatal(err)
+	}
+	original := string(GetJWTSecret())
+	if err := db.Model(&model.SystemSetting{}).Where("key = ?", jwtSecretKey).Update("value", "invalid").Error; err != nil {
+		t.Fatal(err)
+	}
+	oldPool, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := oldPool.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ReopenDatabase(db); err == nil {
+		t.Fatal("invalid restored secret accepted")
+	}
+	pool, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pool != oldPool {
+		t.Fatal("database published despite failed secret validation")
+	}
+	if string(GetJWTSecret()) != original {
+		t.Fatal("failed reload changed active secret")
+	}
+}

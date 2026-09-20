@@ -483,6 +483,10 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 				continue
 			}
 
+			if err := serviceutil.ValidateManagedIconOwnership(userID, incoming.Icon); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("invalid payment method icon for %q", name))
+				continue
+			}
 			created := model.PaymentMethod{
 				UserID:         userID,
 				Name:           name,
@@ -840,6 +844,10 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 				continue
 			}
 
+			if err := serviceutil.ValidateManagedIconOwnership(userID, incoming.Icon); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("invalid subscription icon for %q", incoming.Name))
+				continue
+			}
 			created := model.Subscription{
 				UserID:           userID,
 				Name:             incoming.Name,

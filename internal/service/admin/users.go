@@ -2,14 +2,13 @@ package admin
 
 import (
 	"errors"
-	"os"
+	"strings"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
-	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -140,20 +139,18 @@ func (s *Service) DeleteUser(userID uint) error {
 	}
 
 	for _, icon := range subscriptionIcons {
-		if path, ok := subscriptionservice.ManagedIconFilePath(icon); ok {
-			_ = os.Remove(path)
-		}
+		serviceutil.RemoveUnreferencedManagedIcon(s.DB, userID, icon)
 	}
 	for _, icon := range paymentMethodIcons {
-		if path, ok := subscriptionservice.ManagedIconFilePath(icon); ok {
-			_ = os.Remove(path)
-		}
+		serviceutil.RemoveUnreferencedManagedIcon(s.DB, userID, icon)
 	}
 
 	return nil
 }
 
 func (s *Service) CreateUser(input CreateUserInput) (*model.User, error) {
+	input.Username = strings.TrimSpace(input.Username)
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 	if input.Username == "" || input.Email == "" || input.Password == "" {
 		return nil, errors.New("username, email and password are required")
 	}
@@ -171,10 +168,10 @@ func (s *Service) CreateUser(input CreateUserInput) (*model.User, error) {
 	}
 
 	var existing model.User
-	if err := s.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+	if err := s.DB.Where("LOWER(email) = ? OR LOWER(username) = ?", input.Email, input.Email).First(&existing).Error; err == nil {
 		return nil, ErrAdminEmailAlreadyRegistered
 	}
-	if err := s.DB.Where("username = ?", input.Username).First(&existing).Error; err == nil {
+	if err := s.DB.Where("username = ? OR LOWER(email) = ?", input.Username, strings.ToLower(input.Username)).First(&existing).Error; err == nil {
 		return nil, ErrAdminUsernameAlreadyTaken
 	}
 
@@ -192,6 +189,19 @@ func (s *Service) CreateUser(input CreateUserInput) (*model.User, error) {
 	}
 
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&model.User{}).Where("LOWER(email) = ? OR LOWER(username) = ?", input.Email, input.Email).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrAdminEmailAlreadyRegistered
+		}
+		if err := tx.Model(&model.User{}).Where("username = ? OR LOWER(email) = ?", input.Username, strings.ToLower(input.Username)).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrAdminUsernameAlreadyTaken
+		}
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}

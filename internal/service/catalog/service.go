@@ -355,6 +355,9 @@ func (s *PaymentMethodService) List(userID uint) ([]model.PaymentMethod, error) 
 }
 
 func (s *PaymentMethodService) Create(userID uint, input CreatePaymentMethodInput) (*model.PaymentMethod, error) {
+	if err := serviceutil.ValidateManagedIconOwnership(userID, strings.TrimSpace(input.Icon)); err != nil {
+		return nil, err
+	}
 	name := strings.TrimSpace(input.Name)
 	if name == "" || len(name) > 50 {
 		return nil, ErrPaymentMethodNameLength
@@ -407,6 +410,9 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 
 	if input.Icon != nil {
 		nextIcon := strings.TrimSpace(*input.Icon)
+		if err := serviceutil.ValidateManagedIconOwnership(userID, nextIcon); err != nil {
+			return nil, err
+		}
 		shouldRemoveOldIcon = oldIcon != "" && oldIcon != nextIcon
 		method.Icon = nextIcon
 	}
@@ -428,7 +434,7 @@ func (s *PaymentMethodService) Update(userID, id uint, input UpdatePaymentMethod
 	}
 
 	if shouldRemoveOldIcon {
-		s.removeManagedIconFile(oldIcon)
+		s.removeManagedIconFile(userID, oldIcon)
 	}
 
 	method.Revision++
@@ -460,7 +466,7 @@ func (s *PaymentMethodService) Delete(userID, id uint, revisions ...uint64) erro
 		return err
 	}
 
-	s.removeManagedIconFile(method.Icon)
+	s.removeManagedIconFile(userID, method.Icon)
 	return nil
 }
 
@@ -548,14 +554,12 @@ func (s *PaymentMethodService) UploadPaymentMethodIcon(userID, methodID uint, fi
 		return "", err
 	}
 
-	s.removeManagedIconFile(method.Icon)
+	s.removeManagedIconFile(userID, method.Icon)
 	return iconValue, nil
 }
 
-func (s *PaymentMethodService) removeManagedIconFile(icon string) {
-	if path, ok := managedIconFilePath(icon); ok {
-		_ = os.Remove(path)
-	}
+func (s *PaymentMethodService) removeManagedIconFile(userID uint, icon string) {
+	serviceutil.RemoveUnreferencedManagedIcon(s.DB, userID, icon)
 }
 
 func withContext(db *gorm.DB, ctx context.Context) *gorm.DB {

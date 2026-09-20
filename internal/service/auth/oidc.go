@@ -782,13 +782,13 @@ func validateOIDCReauthFreshLogin(claims *oidcIdentityClaims, startedAt time.Tim
 }
 
 func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error) {
-	email := strings.TrimSpace(claims.Email)
+	email := normalizeEmail(claims.Email)
 	if email == "" {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_provider_did_not_return_an_email", "oidc provider did not return an email")
 	}
 
 	var existing model.User
-	if err := s.DB.Where("email = ?", email).First(&existing).Error; err == nil {
+	if err := s.DB.Where("LOWER(email) = ? OR LOWER(username) = ?", email, email).First(&existing).Error; err == nil {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "email_already_registered_connect_oidc_from_account_settings", "email already registered, connect oidc from account settings")
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -834,12 +834,19 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 
 	err = s.DB.Transaction(func(tx *gorm.DB) error {
 		var existingByEmail model.User
-		if err := tx.Where("email = ?", email).First(&existingByEmail).Error; err == nil {
+		if err := tx.Where("LOWER(email) = ? OR LOWER(username) = ?", email, email).First(&existingByEmail).Error; err == nil {
 			return serviceerr.New(serviceerr.KindInvalid, "email_already_registered_connect_oidc_from_account_settings", "email already registered, connect oidc from account settings")
 		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
+		var usernameCount int64
+		if err := tx.Model(&model.User{}).Where("username = ? OR LOWER(email) = ?", username, strings.ToLower(username)).Count(&usernameCount).Error; err != nil {
+			return err
+		}
+		if usernameCount > 0 {
+			return ErrUsernameAlreadyTaken
+		}
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
@@ -885,7 +892,7 @@ func (s *Service) allocateOIDCUsername(seed string) (string, error) {
 		}
 
 		var count int64
-		if err := s.DB.Model(&model.User{}).Where("username = ?", candidate).Count(&count).Error; err != nil {
+		if err := s.DB.Model(&model.User{}).Where("username = ? OR LOWER(email) = ?", candidate, strings.ToLower(candidate)).Count(&count).Error; err != nil {
 			return "", err
 		}
 		if count == 0 {

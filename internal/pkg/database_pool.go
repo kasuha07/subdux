@@ -135,10 +135,9 @@ func switchableConnPoolOf(db *gorm.DB) (*switchableConnPool, bool) {
 // its *sql.DB is kept and stored into db's existing pool wrapper, so every
 // holder of the shared *gorm.DB keeps working.
 //
-// The JWT secret is reloaded afterwards: when it is not pinned by the
-// JWT_SECRET environment variable it lives in the restored database's
-// system_settings, and skipping the reload would validate tokens against the
-// pre-restore secret.
+// The JWT secret is validated before publishing the new pool. Publication
+// holds the secret lock so signing and verification see the restored secret
+// once the new pool is available. JWT_SECRET, when set, remains authoritative.
 //
 // Known limitation, deliberately not addressed here: the CORS allow-list is
 // read once at startup (cmd/server/main.go loadCORSOrigins) and installed into
@@ -161,11 +160,15 @@ func ReopenDatabase(db *gorm.DB) error {
 		return fmt.Errorf("access reopened database pool: %w", err)
 	}
 
-	pool.swap(sqlDB)
-
-	if err := InitJWTSecret(db); err != nil {
+	// Publish the validated secret and pool together. Readers of the signing
+	// key wait until both are ready; a failed reload leaves the old pool closed.
+	jwtSecretMu.Lock()
+	defer jwtSecretMu.Unlock()
+	if err := initJWTSecretLocked(reopened); err != nil {
+		_ = sqlDB.Close()
 		return fmt.Errorf("reload JWT secret after reopening database: %w", err)
 	}
 
+	pool.swap(sqlDB)
 	return nil
 }

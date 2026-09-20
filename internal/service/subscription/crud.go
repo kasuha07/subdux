@@ -40,6 +40,9 @@ func (s *Service) GetByID(userID, id uint) (*model.Subscription, error) {
 }
 
 func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Subscription, error) {
+	if err := serviceutil.ValidateManagedIconOwnership(userID, input.Icon); err != nil {
+		return nil, err
+	}
 	if err := validateSubscriptionAmount(input.Amount); err != nil {
 		return nil, err
 	}
@@ -205,6 +208,9 @@ func (s *Service) update(userID, id uint, input UpdateSubscriptionInput) (*model
 		}
 	}
 	if input.Icon != nil {
+		if err := serviceutil.ValidateManagedIconOwnership(userID, *input.Icon); err != nil {
+			return nil, err
+		}
 		updates["icon"] = *input.Icon
 	}
 	if input.URL != nil {
@@ -454,7 +460,7 @@ func (s *Service) deleteRecord(userID, id uint) (*model.Subscription, error) {
 // CleanupDeletedSubscriptionResources removes filesystem resources that should
 // only be cleaned after the deleting database transaction has committed.
 func (s *Service) CleanupDeletedSubscriptionResources(sub model.Subscription) {
-	s.removeManagedIconFile(sub.Icon)
+	s.removeManagedIconFile(sub.UserID, sub.Icon)
 }
 
 func copyIntPointer(value *int) *int {

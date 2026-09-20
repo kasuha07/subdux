@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -127,7 +128,7 @@ func (s *Service) Register(input RegisterInput) (*AuthResponse, error) {
 	}
 
 	var usernameCount int64
-	if err := s.DB.Model(&model.User{}).Where("username = ?", input.Username).Count(&usernameCount).Error; err != nil {
+	if err := s.DB.Model(&model.User{}).Where("username = ? OR LOWER(email) = ?", input.Username, strings.ToLower(input.Username)).Count(&usernameCount).Error; err != nil {
 		return nil, err
 	}
 	if usernameCount > 0 {
@@ -151,6 +152,22 @@ func (s *Service) Register(input RegisterInput) (*AuthResponse, error) {
 	}
 
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		// Recheck inside the write transaction so concurrent registrations cannot
+		// both claim opposite sides of the same login identifier.
+		scoped := *s
+		scoped.DB = tx
+		if exists, err := scoped.emailExists(input.Email, 0); err != nil {
+			return err
+		} else if exists {
+			return ErrEmailAlreadyRegistered
+		}
+		var count int64
+		if err := tx.Model(&model.User{}).Where("username = ? OR LOWER(email) = ?", input.Username, strings.ToLower(input.Username)).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrUsernameAlreadyTaken
+		}
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
@@ -215,7 +232,13 @@ func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 	normalizedEmail := strings.ToLower(identifier)
 
 	var user model.User
-	if err := s.DB.Where("LOWER(email) = ? OR username = ?", normalizedEmail, identifier).First(&user).Error; err != nil {
+	// Email owns the identifier when legacy cross-field collisions exist.
+	// Never fall back after a password failure: that could authenticate a different account.
+	err := s.DB.Where("LOWER(email) = ?", normalizedEmail).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = s.DB.Where("username = ?", identifier).First(&user).Error
+	}
+	if err != nil {
 		return nil, serviceerr.New(serviceerr.KindUnauthorized, "invalid_credentials", "invalid credentials")
 	}
 

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -270,5 +271,93 @@ func TestTOTPBeginSetupPropagatesInternalDBErrors(t *testing.T) {
 	}
 	if errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("BeginSetup() error = %v, should not collapse internal db failure into ErrUserNotFound", err)
+	}
+}
+
+// Force both confirmations past the initial user read, even with one SQL connection.
+func TestTOTPConcurrentConfirmHasOneWinner(t *testing.T) {
+	for _, separateSessions := range []bool{false, true} {
+		t.Run(fmt.Sprintf("separate_sessions_%v", separateSessions), func(t *testing.T) {
+			svc, user := newTOTPTestService(t)
+			sqlDB, err := svc.DB.DB()
+			if err != nil {
+				t.Fatal(err)
+			}
+			sqlDB.SetMaxOpenConns(1)
+			first, err := svc.BeginSetup(user.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			second := first
+			secondSvc := svc
+			if separateSessions {
+				// Independent setup stores must still compete for one atomic enable transition.
+				secondSvc = NewTOTPService(svc.DB)
+				second, err = secondSvc.BeginSetup(user.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			ready := make(chan struct{}, 2)
+			release := make(chan struct{})
+			if err := svc.DB.Callback().Query().After("gorm:query").Register("test:confirm_barrier", func(tx *gorm.DB) {
+				if tx.Statement.Table == "users" {
+					ready <- struct{}{}
+					<-release
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+			type outcome struct {
+				codes []string
+				err   error
+			}
+			results := make(chan outcome, 2)
+			for i, setup := range []*TotpSetupResult{first, second} {
+				confirmer := []*TOTPService{svc, secondSvc}[i]
+				code, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+				if err != nil {
+					t.Fatal(err)
+				}
+				go func(setup *TotpSetupResult, code string) {
+					codes, err := confirmer.ConfirmSetup(user.ID, setup.SessionID, code)
+					results <- outcome{codes, err}
+				}(setup, code)
+			}
+			for i := 0; i < 2; i++ {
+				select {
+				case <-ready:
+				case <-time.After(5 * time.Second):
+					close(release)
+					t.Fatal("confirmations did not reach barrier")
+				}
+			}
+			close(release)
+			winners := 0
+			var returned []string
+			for i := 0; i < 2; i++ {
+				result := <-results
+				if result.err == nil {
+					winners++
+					returned = result.codes
+				} else if !errors.Is(result.err, ErrTOTPAlreadyEnabled) {
+					t.Fatalf("unexpected loser error: %v", result.err)
+				}
+			}
+			if err := svc.DB.Callback().Query().Remove("test:confirm_barrier"); err != nil {
+				t.Fatal(err)
+			}
+			if winners != 1 {
+				t.Fatalf("successful confirmations = %d, want 1", winners)
+			}
+			if len(returned) != 8 {
+				t.Fatalf("backup codes = %d", len(returned))
+			}
+			for _, code := range returned {
+				if !svc.VerifyBackupCode(user.ID, code) {
+					t.Fatal("returned backup code is invalid")
+				}
+			}
+		})
 	}
 }

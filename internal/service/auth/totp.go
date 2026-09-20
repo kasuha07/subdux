@@ -135,12 +135,16 @@ func (s *TOTPService) ConfirmSetup(userID uint, sessionID string, code string) (
 	}
 
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&user).Updates(map[string]interface{}{
+		result := tx.Model(&user).Where("totp_enabled = ?", false).Updates(map[string]interface{}{
 			"totp_secret":      session.secret,
 			"totp_enabled":     true,
 			"totp_temp_secret": nil,
-		}).Error; err != nil {
-			return err
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrTOTPAlreadyEnabled
 		}
 
 		return replaceBackupCodes(tx, userID, backupCodes)

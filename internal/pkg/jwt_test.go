@@ -135,3 +135,34 @@ func TestGenerateRefreshTokenReturnsHashAndExpiry(t *testing.T) {
 		t.Fatalf("refresh token expiry = %v, want %v", expiresAt, wantExpiry)
 	}
 }
+
+func TestJWTSecretConcurrentReloadAndRead(t *testing.T) {
+	t.Setenv("JWT_SECRET", "")
+	restoreGlobalJWTSecret(t)
+	db := newJWTTestDB(t)
+	if err := InitJWTSecret(db); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	failures := make(chan error, 1)
+	go func() {
+		defer close(done)
+		for i := 0; i < 100; i++ {
+			if _, err := GenerateAccessToken(1, "user", "user@example.com", "user"); err != nil {
+				failures <- err
+				return
+			}
+		}
+	}()
+	for i := 0; i < 100; i++ {
+		if err := InitJWTSecret(db); err != nil {
+			t.Fatal(err)
+		}
+	}
+	<-done
+	select {
+	case err := <-failures:
+		t.Fatal(err)
+	default:
+	}
+}
