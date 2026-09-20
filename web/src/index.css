@@ -624,7 +624,7 @@ html[dir='rtl'] .ulw-toast-close {
   animation: drawer-exit 180ms ease-in both;
 }
 
-[data-slot="tabs-content"][data-state="active"]:not(.detail-tabs-content):not(.admin-tab-content):not(.settings-tab-content) {
+[data-slot="tabs-content"][data-state="active"]:not(.detail-tabs-content):not(.admin-tab-content):not(.settings-tab-content):not(.icon-picker-tab-content) {
   animation: subscription-form-section-enter var(--motion-fast) var(--motion-ease);
 }
 
@@ -648,16 +648,50 @@ html[dir='rtl'] .ulw-toast-close {
 }
 
 .admin-tabs-list [data-slot="tabs-trigger"],
-.settings-tabs-list [data-slot="tabs-trigger"] {
+.settings-tabs-list [data-slot="tabs-trigger"],
+.icon-picker-tabs-list [data-slot="tabs-trigger"] {
   position: relative;
   z-index: 10;
 }
 
 .admin-tabs-list [data-slot="tabs-trigger"][data-state="active"],
-.settings-tabs-list [data-slot="tabs-trigger"][data-state="active"] {
+.settings-tabs-list [data-slot="tabs-trigger"][data-state="active"],
+.icon-picker-tabs-list [data-slot="tabs-trigger"][data-state="active"] {
   background-color: transparent !important;
   box-shadow: none !important;
   border-color: transparent !important;
+}
+
+@keyframes icon-picker-tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.icon-picker-tab-content[data-state="active"] {
+  animation: icon-picker-tab-enter var(--motion-fast) var(--motion-ease) both;
+  will-change: opacity, transform;
+}
+
+@keyframes icon-picker-grid-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.icon-picker-grid-enter {
+  animation: icon-picker-grid-enter 160ms var(--motion-ease) both;
+  will-change: opacity, transform;
 }
 
 [data-slot="button"],

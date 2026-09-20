@@ -214,6 +214,16 @@ const subscription = {
         "brand": "Brand",
         "image": "Image"
       },
+      "categories": {
+        "smileys": "Smileys & Emotion",
+        "gestures": "People & Body",
+        "animals": "Animals & Nature",
+        "food": "Food & Drink",
+        "travel": "Travel & Places",
+        "activities": "Activities",
+        "objects": "Objects",
+        "symbols": "Symbols"
+      },
       "emojiPlaceholder": "🎬",
       "searchPlaceholder": "Search brand icons...",
       "noResults": "No icons found",

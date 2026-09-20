@@ -214,6 +214,16 @@ const subscription = {
         "brand": "ブランド",
         "image": "画像"
       },
+      "categories": {
+        "smileys": "顔文字と感情",
+        "gestures": "人物と身体",
+        "animals": "動物と自然",
+        "food": "食べ物と飲み物",
+        "travel": "旅行と場所",
+        "activities": "アクティビティ",
+        "objects": "物と道具",
+        "symbols": "記号とシンボル"
+      },
       "emojiPlaceholder": "🎬",
       "searchPlaceholder": "ブランドアイコンを検索...",
       "noResults": "アイコンが見つかりません",

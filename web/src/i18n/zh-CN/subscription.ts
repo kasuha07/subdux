@@ -214,6 +214,16 @@ const subscription = {
         "brand": "品牌图标",
         "image": "图片"
       },
+      "categories": {
+        "smileys": "笑脸与表情",
+        "gestures": "手势与人物",
+        "animals": "动物与自然",
+        "food": "食物与饮料",
+        "travel": "旅行与地点",
+        "activities": "活动与运动",
+        "objects": "物品与工具",
+        "symbols": "符号与标志"
+      },
       "emojiPlaceholder": "🎬",
       "searchPlaceholder": "搜索品牌图标...",
       "noResults": "未找到图标",
