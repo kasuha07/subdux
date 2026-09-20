@@ -466,6 +466,7 @@ export default function DashboardPage() {
                 preferredCurrency={preferredCurrency}
                 currencySymbol={currencySymbolMap.get((summary.currency || preferredCurrency).toUpperCase())}
                 language={i18n.language}
+                loading={loading}
               />
             )}
 

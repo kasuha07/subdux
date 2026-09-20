@@ -7,21 +7,27 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { preloadRouteForPath } from "@/lib/route-preload"
 import { cn, formatCurrencyWithSymbol } from "@/lib/utils"
 import type { DashboardSummary } from "@/types"
+import { useAnimatedNumber } from "./hooks/use-animated-number"
 
 interface DashboardSummaryCardsProps {
+  animate?: boolean
   currencySymbol?: string
   language: string
+  loading?: boolean
   preferredCurrency: string
   summary: DashboardSummary
 }
 
 export default function DashboardSummaryCards({
+  animate = true,
   currencySymbol,
   language,
+  loading = false,
   preferredCurrency,
   summary,
 }: DashboardSummaryCardsProps) {
   const { t } = useTranslation()
+
   const displayCurrency = summary.currency || preferredCurrency
   const formatAmount = (amount: number) =>
     formatCurrencyWithSymbol(amount, displayCurrency, currencySymbol, language)
@@ -29,23 +35,47 @@ export default function DashboardSummaryCards({
   const upcomingCount = summary.upcoming_renewal_count ?? 0
   const hasUpcoming = upcomingCount > 0
 
+  const animatedDueThisMonth = useAnimatedNumber(summary.due_this_month, {
+    disabled: !animate,
+  })
+  const animatedActiveCount = useAnimatedNumber(summary.active_count ?? 0, {
+    disabled: !animate,
+  })
+  const animatedUpcomingCount = useAnimatedNumber(upcomingCount, {
+    disabled: !animate,
+  })
+  const animatedTotalMonthly = useAnimatedNumber(summary.total_monthly, {
+    disabled: !animate,
+  })
+  const animatedTotalYearly = useAnimatedNumber(summary.total_yearly, {
+    disabled: !animate,
+  })
+
+  if (loading) {
+    return <DashboardSummaryCardsSkeleton />
+  }
+
   const detailStats = [
     {
       label: t("dashboard.stats.activeMonthly"),
-      value: formatAmount(summary.total_monthly),
+      value: formatAmount(animatedTotalMonthly),
+      finalValue: formatAmount(summary.total_monthly),
       icon: DollarSign,
       iconClassName: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      testId: "summary-active-monthly",
     },
     {
       label: t("dashboard.stats.activeYearly"),
-      value: formatAmount(summary.total_yearly),
+      value: formatAmount(animatedTotalYearly),
+      finalValue: formatAmount(summary.total_yearly),
       icon: TrendingUp,
       iconClassName: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      testId: "summary-active-yearly",
     },
   ] as const
 
   return (
-    <Card className="mb-4 overflow-hidden border-border/70 bg-gradient-to-br from-primary/[0.03] via-card to-card py-0 shadow-xs dark:from-primary/[0.05] dark:via-card dark:to-card sm:mb-6">
+    <Card className="subscription-card-enter mb-4 overflow-hidden border-border/70 bg-gradient-to-br from-primary/[0.03] via-card to-card py-0 shadow-xs dark:from-primary/[0.05] dark:via-card dark:to-card sm:mb-6">
       <CardContent className="grid gap-0 p-0 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
         {/* Left Hero: This Month's Due */}
         <div className="flex flex-col justify-between p-4 sm:p-6 lg:p-7">
@@ -69,10 +99,11 @@ export default function DashboardSummaryCards({
 
             <div className="mt-2.5 sm:mt-3">
               <p
+                data-testid="summary-due-this-month"
                 className="truncate text-2xl font-bold tracking-tight text-foreground tabular-nums sm:text-3xl lg:text-4xl"
                 title={formatAmount(summary.due_this_month)}
               >
-                {formatAmount(summary.due_this_month)}
+                {formatAmount(animatedDueThisMonth)}
               </p>
             </div>
           </div>
@@ -80,8 +111,11 @@ export default function DashboardSummaryCards({
           <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5 sm:gap-2.5">
             <div className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-2xs backdrop-blur-xs sm:gap-2 sm:px-3.5 sm:py-1.5 sm:text-sm">
               <Layers3 className="size-3.5 shrink-0 text-foreground/70" />
-              <span className="font-semibold tabular-nums text-foreground">
-                {summary.active_count ?? 0}
+              <span
+                data-testid="summary-active-count"
+                className="font-semibold tabular-nums text-foreground"
+              >
+                {Math.round(animatedActiveCount)}
               </span>
               <span className="truncate">{t("dashboard.stats.activeSubscriptions")}</span>
             </div>
@@ -105,12 +139,13 @@ export default function DashboardSummaryCards({
                 )}
               />
               <span
+                data-testid="summary-upcoming-count"
                 className={cn(
                   "font-semibold tabular-nums",
                   hasUpcoming ? "text-amber-900 dark:text-amber-200" : "text-foreground"
                 )}
               >
-                {upcomingCount}
+                {Math.round(animatedUpcomingCount)}
               </span>
               <span className="truncate">{t("dashboard.stats.upcoming")}</span>
               {hasUpcoming && <ArrowUpRight className="size-3 shrink-0 opacity-70" />}
@@ -120,7 +155,7 @@ export default function DashboardSummaryCards({
 
         {/* Right / Secondary Stats: Active Monthly & Active Yearly */}
         <div className="grid grid-cols-2 divide-x divide-border/60 border-t border-border/60 bg-muted/15 md:grid-cols-1 md:divide-x-0 md:divide-y md:border-t-0 md:border-l">
-          {detailStats.map(({ icon: Icon, iconClassName, label, value }) => (
+          {detailStats.map(({ finalValue, icon: Icon, iconClassName, label, testId, value }) => (
             <div
               key={label}
               className="flex flex-col justify-between p-3.5 transition-colors hover:bg-muted/30 sm:p-4.5 md:flex-row md:items-center md:justify-start md:gap-3.5 md:p-5"
@@ -145,8 +180,9 @@ export default function DashboardSummaryCards({
                   {label}
                 </p>
                 <p
+                  data-testid={testId}
                   className="truncate text-base font-semibold tracking-tight text-foreground tabular-nums sm:text-lg md:mt-1 md:text-xl"
-                  title={value}
+                  title={finalValue}
                 >
                   {value}
                 </p>
@@ -160,8 +196,13 @@ export default function DashboardSummaryCards({
 }
 
 export function DashboardSummaryCardsSkeleton() {
+  const { t } = useTranslation()
   return (
-    <Card className="mb-4 overflow-hidden border-border/70 bg-gradient-to-br from-primary/[0.03] via-card to-card py-0 shadow-xs sm:mb-6">
+    <Card
+      role="status"
+      aria-label={t("dashboard.loading")}
+      className="skeleton-shimmer subscription-card-enter mb-4 overflow-hidden border-border/70 bg-gradient-to-br from-primary/[0.03] via-card to-card py-0 shadow-xs sm:mb-6"
+    >
       <CardContent className="grid gap-0 p-0 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
         <div className="p-4 sm:p-6 lg:p-7">
           <div className="flex items-center gap-2.5 sm:gap-3">

@@ -8,6 +8,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
+        "dashboard.loading": "Loading...",
         "dashboard.stats.thisMonth": "This month",
         "dashboard.stats.activeMonthly": "Active monthly",
         "dashboard.stats.activeYearly": "Active yearly",
@@ -142,10 +143,48 @@ describe("DashboardSummaryCards", () => {
     expect(markup).toContain("border-border/70")
   })
 
-  it("renders DashboardSummaryCardsSkeleton with matching responsive layout", () => {
+  it("renders DashboardSummaryCardsSkeleton with matching responsive layout and shimmer animation", () => {
     const markup = renderToStaticMarkup(<DashboardSummaryCardsSkeleton />)
 
     expect(markup).toContain("md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]")
     expect(markup).toContain("grid-cols-2 divide-x divide-border/60")
+    expect(markup).toContain("skeleton-shimmer")
+    expect(markup).toContain("subscription-card-enter")
+    expect(markup).toContain('role="status"')
+    expect(markup).toContain('aria-label="Loading..."')
+  })
+
+  it("renders skeleton when loading prop is true", () => {
+    const markup = renderToStaticMarkup(
+      <DashboardSummaryCards
+        summary={sampleSummary}
+        preferredCurrency="USD"
+        currencySymbol="$"
+        language="en"
+        loading={true}
+      />
+    )
+
+    expect(markup).toContain("skeleton-shimmer")
+    expect(markup).toContain('role="status"')
+    expect(markup).not.toContain("$128.50")
+  })
+
+  it("renders card with subscription-card-enter class and number data-testids", () => {
+    const markup = renderToStaticMarkup(
+      <DashboardSummaryCards
+        summary={sampleSummary}
+        preferredCurrency="USD"
+        currencySymbol="$"
+        language="en"
+      />
+    )
+
+    expect(markup).toContain("subscription-card-enter")
+    expect(markup).toContain('data-testid="summary-due-this-month"')
+    expect(markup).toContain('data-testid="summary-active-count"')
+    expect(markup).toContain('data-testid="summary-upcoming-count"')
+    expect(markup).toContain('data-testid="summary-active-monthly"')
+    expect(markup).toContain('data-testid="summary-active-yearly"')
   })
 })
