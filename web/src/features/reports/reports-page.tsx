@@ -161,54 +161,76 @@ export default function ReportsPage() {
                 <KpiCard
                   icon={TrendingUp}
                   label={t("reports.kpis.monthly")}
-                  value={formatAmount(report.kpis.total_monthly)}
+                  numericValue={report.kpis.total_monthly}
+                  formatValue={formatAmount}
                   detail={t("reports.kpis.yearlyDetail", { amount: formatAmount(report.kpis.total_yearly) })}
+                  testId="reports-kpi-monthly"
+                  cardDelayMs={0}
                 />
                 <KpiCard
                   icon={TrendingUp}
                   label={t("reports.yearlyStats.totalYearly")}
-                  value={formatAmount(report.kpis.total_yearly)}
+                  numericValue={report.kpis.total_yearly}
+                  formatValue={formatAmount}
                   detail={t("reports.yearlyStats.monthlyAverage", { amount: formatAmount(report.kpis.total_yearly / 12) })}
+                  testId="reports-kpi-total-yearly"
+                  cardDelayMs={35}
                 />
                 <KpiCard
                   icon={RefreshCw}
                   label={t("reports.kpis.committed")}
-                  value={formatAmount(report.kpis.committed_monthly)}
+                  numericValue={report.kpis.committed_monthly}
+                  formatValue={formatAmount}
                   detail={t("reports.kpis.autoRenewDetail", { count: report.kpis.auto_renew_count })}
+                  testId="reports-kpi-committed-monthly"
+                  cardDelayMs={70}
                 />
                 <KpiCard
                   icon={RefreshCw}
                   label={t("reports.yearlyStats.committedYearly")}
-                  value={formatAmount(report.kpis.committed_yearly)}
+                  numericValue={report.kpis.committed_yearly}
+                  formatValue={formatAmount}
                   detail={t("reports.yearlyStats.autoRenewCount", { count: report.kpis.auto_renew_count })}
+                  testId="reports-kpi-committed-yearly"
+                  cardDelayMs={105}
                 />
                 <KpiCard
                   icon={ReceiptText}
                   label={t("reports.kpis.next30Days")}
-                  value={formatAmount(report.kpis.due_next_30_days)}
+                  numericValue={report.kpis.due_next_30_days}
+                  formatValue={formatAmount}
                   detail={t("reports.kpis.renewalDetail", { count: report.kpis.upcoming_renewal_count })}
+                  testId="reports-kpi-due-next-30-days"
+                  cardDelayMs={140}
                 />
                 <KpiCard
                   icon={CalendarDays}
                   label={t("reports.yearlyStats.forecast12Months")}
-                  value={formatAmount(forecast12MonthTotal)}
+                  numericValue={forecast12MonthTotal}
+                  formatValue={formatAmount}
                   detail={t("reports.yearlyStats.forecastMonths", { count: monthlyForecast.length })}
+                  testId="reports-kpi-forecast-12-months"
+                  cardDelayMs={175}
                 />
                 <KpiCard
                   icon={Layers3}
                   label={t("reports.kpis.active")}
-                  value={String(report.kpis.active_count)}
+                  numericValue={report.kpis.active_count}
                   detail={t("reports.kpis.modeDetail", {
                     auto: report.kpis.auto_renew_count,
                     manual: report.kpis.manual_renew_count,
                     canceling: report.kpis.canceling_count,
                   })}
+                  testId="reports-kpi-active-count"
+                  cardDelayMs={210}
                 />
                 <KpiCard
                   icon={ReceiptText}
                   label={t("reports.yearlyStats.forecastPayments")}
-                  value={String(forecast12MonthPayments)}
+                  numericValue={forecast12MonthPayments}
                   detail={t("reports.yearlyStats.paymentDetail")}
+                  testId="reports-kpi-forecast-payments"
+                  cardDelayMs={245}
                 />
                 <div className="w-2 shrink-0 sm:hidden" aria-hidden="true" />
               </div>

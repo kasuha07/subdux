@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SubscriptionIcon } from "@/features/subscriptions/subscription-icon"
+import { useAnimatedNumber } from "@/hooks/use-animated-number"
 import {
   formatSubscriptionEventAmountChange,
   reportRenewalModeLabel,
@@ -374,24 +375,66 @@ export function EmptyState({ title, description }: { title: string, description:
   )
 }
 
-export function KpiCard({
-  detail,
-  icon: Icon,
-  label,
-  value,
-}: {
+export interface KpiCardProps {
+  animate?: boolean
+  cardDelayMs?: number
   detail: string
+  formatValue?: (amount: number) => string
   icon: LucideIcon
   label: string
-  value: string
-}) {
+  numericValue?: number
+  testId?: string
+  title?: string
+  value?: string
+}
+
+export function KpiCard({
+  animate = true,
+  cardDelayMs,
+  detail,
+  formatValue,
+  icon: Icon,
+  label,
+  numericValue,
+  testId,
+  title,
+  value,
+}: KpiCardProps) {
+  const animatedValue = useAnimatedNumber(numericValue ?? 0, {
+    disabled: !animate || numericValue === undefined,
+  })
+
+  const displayValue =
+    numericValue !== undefined
+      ? formatValue
+        ? formatValue(animatedValue)
+        : String(Math.round(animatedValue))
+      : (value ?? "")
+
+  const finalTitle =
+    title ??
+    (numericValue !== undefined
+      ? formatValue
+        ? formatValue(numericValue)
+        : String(numericValue)
+      : value)
+
   return (
-    <Card className="w-40 shrink-0 snap-start py-0 sm:w-auto sm:min-w-0 sm:shrink">
+    <Card
+      className="subscription-card-enter w-40 shrink-0 snap-start py-0 sm:w-auto sm:min-w-0 sm:shrink"
+      style={cardDelayMs !== undefined ? ({ "--card-delay": `${cardDelayMs}ms` } as React.CSSProperties) : undefined}
+    >
       <CardContent className="px-2.5 py-3 sm:px-4 sm:py-4">
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
-            <p className="mt-0.5 truncate text-base font-semibold tabular-nums sm:mt-2 sm:text-2xl">{value}</p>
+            <p
+              data-testid={testId}
+              title={finalTitle}
+              className="mt-0.5 truncate text-base font-semibold tabular-nums sm:mt-2 sm:text-2xl"
+            >
+              {displayValue}
+            </p>
           </div>
           <div className="rounded-lg bg-primary/10 p-1 text-primary sm:rounded-xl sm:p-2">
             <Icon className="size-3 sm:size-4" />
@@ -610,6 +653,7 @@ export function MonthlyForecastPanel({
 }
 
 export function BreakdownPanel({
+  animate = true,
   emptyDescription,
   emptyTitle,
   formatAmount,
@@ -618,6 +662,7 @@ export function BreakdownPanel({
   labelForKey,
   title,
 }: {
+  animate?: boolean
   emptyDescription: string
   emptyTitle: string
   formatAmount: (amount: number) => string
@@ -640,24 +685,13 @@ export function BreakdownPanel({
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <div key={item.key} className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{labelForKey(item)}</p>
-                    <p className="text-xs text-muted-foreground">{item.count}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold tabular-nums">{formatAmount(item.monthly_amount)}</p>
-                    <p className="text-xs text-muted-foreground">{item.percentage.toFixed(1)}%</p>
-                  </div>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="cycle-progress-fill h-full rounded-full bg-primary"
-                    style={{ width: `${Math.max(2, Math.min(100, item.percentage))}%` }}
-                  />
-                </div>
-              </div>
+              <BreakdownRow
+                key={item.key}
+                animate={animate}
+                formatAmount={formatAmount}
+                item={item}
+                label={labelForKey(item)}
+              />
             ))}
           </div>
         )}
@@ -666,11 +700,59 @@ export function BreakdownPanel({
   )
 }
 
+function BreakdownRow({
+  animate = true,
+  formatAmount,
+  item,
+  label,
+}: {
+  animate?: boolean
+  formatAmount: (amount: number) => string
+  item: ReportBreakdownItem
+  label: string
+}) {
+  const animatedMonthly = useAnimatedNumber(item.monthly_amount, { disabled: !animate })
+  const animatedPercentage = useAnimatedNumber(item.percentage, { disabled: !animate })
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{label}</p>
+          <p className="text-xs text-muted-foreground">{item.count}</p>
+        </div>
+        <div className="text-right">
+          <p
+            className="text-sm font-semibold tabular-nums"
+            title={formatAmount(item.monthly_amount)}
+          >
+            {formatAmount(animatedMonthly)}
+          </p>
+          <p
+            className="text-xs text-muted-foreground tabular-nums"
+            title={`${item.percentage.toFixed(1)}%`}
+          >
+            {animatedPercentage.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className="cycle-progress-fill h-full rounded-full bg-primary"
+          style={{ width: `${Math.max(2, Math.min(100, item.percentage))}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function TopSubscriptionsPanel({
+  animate = true,
   formatAmount,
   items,
   onOpenSubscription,
 }: {
+  animate?: boolean
   formatAmount: (amount: number) => string
   items: ReportSubscriptionSpend[]
   onOpenSubscription?: (id: number) => void
@@ -690,31 +772,14 @@ export function TopSubscriptionsPanel({
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
-              <button
+              <TopSubscriptionRow
                 key={item.id}
-                type="button"
-                className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onOpenSubscription?.(item.id)}
-                disabled={!onOpenSubscription}
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <p className="truncate text-sm font-medium">{item.name}</p>
-                    <Badge variant="outline">{reportRenewalModeLabel(item.renewal_mode, t)}</Badge>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {item.category || t("reports.categories.none")}
-                    {item.next_billing_date ? ` / ${formatDate(item.next_billing_date, i18n.language)}` : ""}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold tabular-nums">{formatAmount(item.monthly_amount)}</p>
-                  <p className="text-xs text-muted-foreground">{t("reports.topSubscriptions.monthly")}</p>
-                </div>
-              </button>
+                animate={animate}
+                formatAmount={formatAmount}
+                item={item}
+                language={i18n.language}
+                onOpenSubscription={onOpenSubscription}
+              />
             ))}
           </div>
         )}
@@ -723,12 +788,63 @@ export function TopSubscriptionsPanel({
   )
 }
 
+function TopSubscriptionRow({
+  animate = true,
+  formatAmount,
+  item,
+  language,
+  onOpenSubscription,
+}: {
+  animate?: boolean
+  formatAmount: (amount: number) => string
+  item: ReportSubscriptionSpend
+  language: string
+  onOpenSubscription?: (id: number) => void
+}) {
+  const { t } = useTranslation()
+  const animatedMonthly = useAnimatedNumber(item.monthly_amount, { disabled: !animate })
+
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => onOpenSubscription?.(item.id)}
+      disabled={!onOpenSubscription}
+    >
+      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+        <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-medium">{item.name}</p>
+          <Badge variant="outline">{reportRenewalModeLabel(item.renewal_mode, t)}</Badge>
+        </div>
+        <p className="mt-1 truncate text-xs text-muted-foreground">
+          {item.category || t("reports.categories.none")}
+          {item.next_billing_date ? ` / ${formatDate(item.next_billing_date, language)}` : ""}
+        </p>
+      </div>
+      <div className="text-right">
+        <p
+          className="text-sm font-semibold tabular-nums"
+          title={formatAmount(item.monthly_amount)}
+        >
+          {formatAmount(animatedMonthly)}
+        </p>
+        <p className="text-xs text-muted-foreground">{t("reports.topSubscriptions.monthly")}</p>
+      </div>
+    </button>
+  )
+}
+
 export function UpcomingRenewalsPanel({
+  animate = true,
   formatAmount,
   items,
   language,
   onOpenSubscription,
 }: {
+  animate?: boolean
   formatAmount: (amount: number) => string
   items: ReportUpcomingRenewal[]
   language: string
@@ -749,29 +865,14 @@ export function UpcomingRenewalsPanel({
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
-              <button
+              <UpcomingRenewalRow
                 key={`${item.id}-${item.billing_date}`}
-                type="button"
-                className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onOpenSubscription?.(item.id)}
-                disabled={!onOpenSubscription}
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatDate(item.billing_date, language)} / {t("reports.upcoming.daysUntil", { count: item.days_until })}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold tabular-nums">{formatAmount(item.amount)}</p>
-                  <Badge variant="outline" className="mt-1">
-                    {reportRenewalModeLabel(item.renewal_mode, t)}
-                  </Badge>
-                </div>
-              </button>
+                animate={animate}
+                formatAmount={formatAmount}
+                item={item}
+                language={language}
+                onOpenSubscription={onOpenSubscription}
+              />
             ))}
           </div>
         )}
@@ -780,12 +881,61 @@ export function UpcomingRenewalsPanel({
   )
 }
 
+function UpcomingRenewalRow({
+  animate = true,
+  formatAmount,
+  item,
+  language,
+  onOpenSubscription,
+}: {
+  animate?: boolean
+  formatAmount: (amount: number) => string
+  item: ReportUpcomingRenewal
+  language: string
+  onOpenSubscription?: (id: number) => void
+}) {
+  const { t } = useTranslation()
+  const animatedAmount = useAnimatedNumber(item.amount, { disabled: !animate })
+
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => onOpenSubscription?.(item.id)}
+      disabled={!onOpenSubscription}
+    >
+      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+        <SubscriptionIcon icon={item.icon} name={item.name} size={22} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{item.name}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {formatDate(item.billing_date, language)} / {t("reports.upcoming.daysUntil", { count: item.days_until })}
+        </p>
+      </div>
+      <div className="text-right">
+        <p
+          className="text-sm font-semibold tabular-nums"
+          title={formatAmount(item.amount)}
+        >
+          {formatAmount(animatedAmount)}
+        </p>
+        <Badge variant="outline" className="mt-1">
+          {reportRenewalModeLabel(item.renewal_mode, t)}
+        </Badge>
+      </div>
+    </button>
+  )
+}
+
 export function PriceIncreasesPanel({
+  animate = true,
   formatAmount,
   items,
   language,
   onOpenSubscription,
 }: {
+  animate?: boolean
   formatAmount: (amount: number) => string
   items: ReportPriceIncrease[]
   language: string
@@ -806,33 +956,14 @@ export function PriceIncreasesPanel({
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
-              <button
+              <PriceIncreaseRow
                 key={`${item.subscription_id}-${item.changed_at}`}
-                type="button"
-                className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onOpenSubscription?.(item.subscription_id)}
-                disabled={!onOpenSubscription}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{item.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(item.changed_at, language)}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 tabular-nums">
-                    +{item.delta_percentage.toFixed(1)}%
-                  </Badge>
-                </div>
-                <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
-                  <p className="truncate tabular-nums text-muted-foreground">{formatAmount(item.previous_monthly_amount)}</p>
-                  <ArrowUpRight className="size-3.5 text-muted-foreground" />
-                  <p className="truncate text-right font-semibold tabular-nums">{formatAmount(item.new_monthly_amount)}</p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("reports.priceIncreases.delta", { amount: formatAmount(item.delta_monthly_amount) })}
-                </p>
-              </button>
+                animate={animate}
+                formatAmount={formatAmount}
+                item={item}
+                language={language}
+                onOpenSubscription={onOpenSubscription}
+              />
             ))}
           </div>
         )}
@@ -841,11 +972,63 @@ export function PriceIncreasesPanel({
   )
 }
 
+function PriceIncreaseRow({
+  animate = true,
+  formatAmount,
+  item,
+  language,
+  onOpenSubscription,
+}: {
+  animate?: boolean
+  formatAmount: (amount: number) => string
+  item: ReportPriceIncrease
+  language: string
+  onOpenSubscription?: (id: number) => void
+}) {
+  const { t } = useTranslation()
+  const animatedNewAmount = useAnimatedNumber(item.new_monthly_amount, { disabled: !animate })
+  const animatedDeltaPct = useAnimatedNumber(item.delta_percentage, { disabled: !animate })
+  const animatedDeltaAmount = useAnimatedNumber(item.delta_monthly_amount, { disabled: !animate })
+
+  return (
+    <button
+      type="button"
+      className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => onOpenSubscription?.(item.subscription_id)}
+      disabled={!onOpenSubscription}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{item.name}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatDate(item.changed_at, language)}
+          </p>
+        </div>
+        <Badge variant="outline" className="shrink-0 tabular-nums" title={`+${item.delta_percentage.toFixed(1)}%`}>
+          +{animatedDeltaPct.toFixed(1)}%
+        </Badge>
+      </div>
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
+        <p className="truncate tabular-nums text-muted-foreground">{formatAmount(item.previous_monthly_amount)}</p>
+        <ArrowUpRight className="size-3.5 text-muted-foreground" />
+        <p className="truncate text-right font-semibold tabular-nums" title={formatAmount(item.new_monthly_amount)}>
+          {formatAmount(animatedNewAmount)}
+        </p>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t("reports.priceIncreases.delta", { amount: formatAmount(animatedDeltaAmount) })}
+      </p>
+    </button>
+  )
+}
+
 export function AnnualGrowthPanel({
+  animate = true,
   formatAmount,
   items,
   onOpenSubscription,
 }: {
+  animate?: boolean
   formatAmount: (amount: number) => string
   items: ReportAnnualGrowthItem[]
   onOpenSubscription?: (id: number) => void
@@ -866,40 +1049,78 @@ export function AnnualGrowthPanel({
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <button
+              <AnnualGrowthRow
                 key={item.subscription_id}
-                type="button"
-                className="w-full space-y-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onOpenSubscription?.(item.subscription_id)}
-                disabled={!onOpenSubscription}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{item.name}</p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {t("reports.annualGrowth.fromTo", {
-                        from: formatAmount(item.baseline_monthly_amount),
-                        to: formatAmount(item.current_monthly_amount),
-                      })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold tabular-nums">{formatAmount(item.delta_monthly_amount)}</p>
-                    <p className="text-xs text-muted-foreground">+{item.delta_percentage.toFixed(1)}%</p>
-                  </div>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="cycle-progress-fill h-full rounded-full bg-primary"
-                    style={{ width: `${Math.max(4, Math.min(100, (item.delta_monthly_amount / maxDelta) * 100))}%` }}
-                  />
-                </div>
-              </button>
+                animate={animate}
+                formatAmount={formatAmount}
+                item={item}
+                maxDelta={maxDelta}
+                onOpenSubscription={onOpenSubscription}
+              />
             ))}
           </div>
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function AnnualGrowthRow({
+  animate = true,
+  formatAmount,
+  item,
+  maxDelta,
+  onOpenSubscription,
+}: {
+  animate?: boolean
+  formatAmount: (amount: number) => string
+  item: ReportAnnualGrowthItem
+  maxDelta: number
+  onOpenSubscription?: (id: number) => void
+}) {
+  const { t } = useTranslation()
+  const animatedDelta = useAnimatedNumber(item.delta_monthly_amount, { disabled: !animate })
+  const animatedPercentage = useAnimatedNumber(item.delta_percentage, { disabled: !animate })
+
+  return (
+    <button
+      type="button"
+      className="w-full space-y-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => onOpenSubscription?.(item.subscription_id)}
+      disabled={!onOpenSubscription}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{item.name}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {t("reports.annualGrowth.fromTo", {
+              from: formatAmount(item.baseline_monthly_amount),
+              to: formatAmount(item.current_monthly_amount),
+            })}
+          </p>
+        </div>
+        <div className="text-right">
+          <p
+            className="text-sm font-semibold tabular-nums"
+            title={formatAmount(item.delta_monthly_amount)}
+          >
+            {formatAmount(animatedDelta)}
+          </p>
+          <p
+            className="text-xs text-muted-foreground tabular-nums"
+            title={`+${item.delta_percentage.toFixed(1)}%`}
+          >
+            +{animatedPercentage.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className="cycle-progress-fill h-full rounded-full bg-primary"
+          style={{ width: `${Math.max(4, Math.min(100, (item.delta_monthly_amount / maxDelta) * 100))}%` }}
+        />
+      </div>
+    </button>
   )
 }
 
