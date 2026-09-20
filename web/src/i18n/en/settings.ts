@@ -1,4 +1,19 @@
 const settings = {
+  "jev": {
+    "title": "Jev automatic classification",
+    "description": "Automatically select a suggested category when adding a subscription. Your manual choices always take priority.",
+    "enabled": "Enable automatic classification",
+    "apiKey": "Your Jev API key",
+    "keyConfigured": "Key saved. Leave blank to keep it.",
+    "keyPlaceholder": "Enter your TypeSafe API key",
+    "privacy": "When enabled, the subscription name, website domain and your category names are sent to TypeSafe using your API key. Notes, amounts and URL paths are not sent. The key is stored encrypted on this server and is never displayed again.",
+    "removeKey": "Remove key and disable",
+    "saved": "Jev settings saved",
+    "loadFailed": "Unable to load Jev settings",
+    "retry": "Retry",
+    "save": "Save",
+    "saving": "Saving…"
+  },
   "title": "Settings",
   "back": "Back",
   "general": {

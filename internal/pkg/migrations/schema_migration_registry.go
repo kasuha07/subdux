@@ -59,6 +59,7 @@ var schemaMigrations = []schemaMigration{
 		DiscardPolicy: "Delete notification and MCP audit rows older than the newest 30 rows for each user. The discarded rows are intentionally outside the bounded recent-history view and are not recoverable from the live database.",
 	},
 	{Name: "20260908_01_row_revisions", Checksum: "d52005c5134c6e599bb60d82d85b77922f3f9f1cda0e923637b01ae8f34f0993", Run: migrateRowRevisions},
+	{Name: "20260920_01_user_jev_settings", Checksum: "f97f6d1d490a621eeeaf7bd6514715d5f51e3edcbb6358c27ab2d92ed80fc35f", Run: migrateUserJevSettings},
 }
 
 func autoMigrate20260512ApplicationSchema(db *gorm.DB) error {

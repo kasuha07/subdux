@@ -1,4 +1,9 @@
 const backendMessages = {
+  "jev_settings_conflict": "Jev settings changed. Reload this page and try again.",
+  "jev_invalid_api_key": "Enter a valid Jev API key.",
+  "jev_api_key_required": "Configure a Jev API key before enabling automatic classification.",
+  "jev_input_too_long": "The subscription name or URL is too long.",
+
   "revision_conflict": "This record has changed. Reload before trying again.",
   "revision_required": "A valid revision is required.",
   "interval_count_must_not_exceed_10000": "interval_count must not exceed 10000",

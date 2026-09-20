@@ -230,6 +230,7 @@ func deleteUserOwnedRecords(tx *gorm.DB, userID uint) error {
 		&model.UserCurrency{},
 		&model.Category{},
 		&model.UserPreference{},
+		&model.UserJevSetting{},
 		&model.UserBackupCode{},
 		&model.PasskeyCredential{},
 		&model.OIDCConnection{},

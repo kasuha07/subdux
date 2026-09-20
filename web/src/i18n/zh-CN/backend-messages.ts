@@ -1,4 +1,9 @@
 const backendMessages = {
+  "jev_settings_conflict": "Jev 设置已发生变化，请刷新页面后重试。",
+  "jev_invalid_api_key": "请输入有效的 Jev API key。",
+  "jev_api_key_required": "请先配置 Jev API key，再启用自动分类。",
+  "jev_input_too_long": "订阅名称或网址过长。",
+
   "revision_conflict": "记录已被修改，请重新加载后重试。",
   "revision_required": "请提供有效的版本号。",
   "interval_count_must_not_exceed_10000": "interval_count 不能超过 10000",

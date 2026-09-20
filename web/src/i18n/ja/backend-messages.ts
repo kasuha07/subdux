@@ -1,4 +1,9 @@
 const backendMessages = {
+  "jev_settings_conflict": "Jev 設定が変更されました。ページを再読み込みしてください。",
+  "jev_invalid_api_key": "有効な Jev API キーを入力してください。",
+  "jev_api_key_required": "自動分類を有効にする前に Jev API キーを設定してください。",
+  "jev_input_too_long": "サブスクリプション名または URL が長すぎます。",
+
   "revision_conflict": "このデータは変更されています。再読み込みしてから再試行してください。",
   "revision_required": "有効なバージョン番号が必要です。",
   "interval_count_must_not_exceed_10000": "interval_count は 10000 以下にしてください",

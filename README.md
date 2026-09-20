@@ -209,6 +209,12 @@ Subdux's native JSON format can migrate subscriptions, categories, payment metho
 
 Calendar feeds provide read-only subscriptions through independent tokens for use with common calendar clients. Administrators can also create or schedule instance backups, choose whether to include uploaded assets, enable encryption, and set a retention count. Together with the REST API and MCP, this keeps data both fully portable and safely available to other tools.
 
+### Optional Jev automatic classification
+
+In **Settings → Subscription → Jev automatic classification**, each user can save their own TypeSafe API key and enable automatic classification. It is off by default. When adding a subscription, Subdux quietly selects a sufficiently confident suggestion from that user's existing categories after typing pauses. Manual selection or clearing takes priority; editing existing subscriptions does not trigger classification. Unavailable or uncertain suggestions never block saving.
+
+Only the subscription name, website domain and category names are sent to TypeSafe. Notes, amounts, URL paths and query parameters are excluded. Keys are encrypted on the server, never returned by the API, and excluded from user JSON exports. Keep the server's settings encryption key with full database backups, as for other encrypted credentials. Removing a Jev key also disables the feature.
+
 ## Configuration
 
 ### Key environment variables

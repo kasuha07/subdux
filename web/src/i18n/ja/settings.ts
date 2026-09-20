@@ -1,4 +1,19 @@
 const settings = {
+  "jev": {
+    "title": "Jev 自動分類",
+    "description": "サブスクリプションの追加時に、おすすめのカテゴリを自動選択します。手動で選択または解除した後は変更しません。",
+    "enabled": "自動分類を有効にする",
+    "apiKey": "あなたの Jev API キー",
+    "keyConfigured": "キーは保存済みです。空欄で現在のキーを維持します。",
+    "keyPlaceholder": "TypeSafe API キーを入力",
+    "privacy": "有効にすると、サブスクリプション名、ウェブサイトのドメイン、カテゴリ名があなたの API キーで TypeSafe に送信されます。メモ、金額、URL パスは送信されません。キーはサーバーで暗号化して保存され、再表示されません。",
+    "removeKey": "キーを削除して無効化",
+    "saved": "Jev 設定を保存しました",
+    "loadFailed": "Jev 設定を読み込めませんでした",
+    "retry": "再試行",
+    "save": "保存",
+    "saving": "保存中…"
+  },
   "title": "設定",
   "back": "戻る",
   "general": {

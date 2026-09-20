@@ -1,4 +1,19 @@
 const settings = {
+  "jev": {
+    "title": "Jev 自动分类",
+    "description": "新增订阅时自动选择建议的分类。你手动选择或清空分类后，将不再自动更改。",
+    "enabled": "启用自动分类",
+    "apiKey": "你的 Jev API key",
+    "keyConfigured": "已保存密钥，留空则保持不变",
+    "keyPlaceholder": "输入你的 TypeSafe API key",
+    "privacy": "启用后，订阅名称、网址域名和你的分类名称会使用你的 API key 发送给 TypeSafe。不发送备注、金额或网址路径。密钥在服务器加密保存，不会再次显示。",
+    "removeKey": "移除密钥并关闭",
+    "saved": "Jev 设置已保存",
+    "loadFailed": "无法加载 Jev 设置",
+    "retry": "重试",
+    "save": "保存",
+    "saving": "保存中…"
+  },
   "title": "设置",
   "back": "返回",
   "general": {

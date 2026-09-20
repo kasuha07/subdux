@@ -156,6 +156,9 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 		method string
 		target string
 	}{
+		{name: "read Jev credentials", method: http.MethodGet, target: "/api/jev/settings"},
+		{name: "write Jev credentials", method: http.MethodPut, target: "/api/jev/settings"},
+		{name: "Jev classification", method: http.MethodPost, target: "/api/jev/category-suggestion"},
 		{
 			name:   "change password",
 			method: http.MethodPut,
@@ -471,6 +474,7 @@ func newHumanOnlyRouteTestDB(t *testing.T) *gorm.DB {
 		&model.APIKey{},
 		&model.RefreshToken{},
 		&model.UserPreference{},
+		&model.UserJevSetting{},
 		&model.UserCurrency{},
 		&model.Category{},
 		&model.PaymentMethod{},

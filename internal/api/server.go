@@ -22,6 +22,7 @@ import (
 	exporter "github.com/kasuha07/subdux/internal/service/exporter"
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	importer "github.com/kasuha07/subdux/internal/service/importer"
+	"github.com/kasuha07/subdux/internal/service/jev"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
@@ -53,6 +54,7 @@ type App struct {
 // apiHandlers groups the constructed handlers. Handlers hold their own service
 // dependencies; grouping them keeps NewApp readable.
 type apiHandlers struct {
+	jev           *JevHandler
 	auth          *AuthHandler
 	subscription  *SubscriptionHandler
 	admin         *AdminHandler
@@ -103,6 +105,7 @@ func NewApp(ctx context.Context, db *gorm.DB, taskMonitor *serviceutil.Backgroun
 	}
 
 	h := apiHandlers{
+		jev:           &JevHandler{Service: jev.NewService(db)},
 		auth:          NewAuthHandler(authService, totpService, reauthService),
 		subscription:  NewSubscriptionHandler(subService, erService),
 		admin:         NewAdminHandler(adminService, taskMonitor, reauthService, servicebackup.NewService(db)),
@@ -244,7 +247,7 @@ func (a *App) registrarList() []Registrar {
 		h.exchangeRate, h.currency, h.category, h.paymentMethod,
 		h.notification, h.template,
 		h.apiKey, h.audit, h.calendar, h.export, h.importer,
-		h.admin,
+		h.admin, h.jev,
 	}
 }
 

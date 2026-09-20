@@ -14,6 +14,8 @@ import type {
   UserCurrency,
 } from "@/types"
 
+import { useJevCategory } from "./use-jev-category"
+
 export type SubscriptionNotifySetting = "default" | "enabled" | "disabled"
 
 interface SubscriptionFormValues {
@@ -203,14 +205,23 @@ export function useSubscriptionFormState({
   const wasOpenRef = useRef(open)
   const uploadedRevisionRef = useRef<number | undefined>(undefined)
 
+  const applyCategorySuggestion = useCallback((categoryId: string) => {
+    setValues((previous) => ({ ...previous, categoryId }))
+  }, [])
+  const stopCategorySuggestion = useJevCategory({
+    open, isEditing, name: values.name, url: values.url, categories,
+    onSuggestion: applyCategorySuggestion,
+  })
+
   const setField = useCallback(
     <K extends keyof SubscriptionFormValues>(field: K, value: SubscriptionFormValues[K]) => {
+      if (field === "categoryId") stopCategorySuggestion()
       setValues((prev) => ({
         ...prev,
         [field]: value,
       }))
     },
-    []
+    [stopCategorySuggestion]
   )
 
   const handleIconChange = useCallback((value: string) => {
@@ -300,6 +311,7 @@ export function useSubscriptionFormState({
 
   const handleSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault()
+    stopCategorySuggestion()
     setError("")
     setLoading(true)
 
@@ -393,7 +405,7 @@ export function useSubscriptionFormState({
     } finally {
       setLoading(false)
     }
-  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription?.id, subscription?.revision, t, values])
+  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription?.id, subscription?.revision, t, values, stopCategorySuggestion])
 
   return {
     currencyOptions,

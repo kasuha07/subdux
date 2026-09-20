@@ -1,3 +1,4 @@
+import { JevSettingsSection } from "./jev-settings-section"
 import { type DragEvent, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { GripVertical, Trash2 } from "lucide-react"
@@ -272,6 +273,10 @@ export default function SettingsPaymentTab({
       <Separator />
 
       <CategoryManagement />
+
+      <Separator />
+
+      <JevSettingsSection />
     </TabsContent>
   )
 }

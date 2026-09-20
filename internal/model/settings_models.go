@@ -34,6 +34,16 @@ type UserPreference struct {
 	User              *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
 
+// UserJevSetting keeps provider credentials separate from exported preferences.
+type UserJevSetting struct {
+	UserID    uint      `gorm:"primaryKey" json:"-"`
+	Revision  uint64    `gorm:"not null;default:1" json:"-"`
+	Enabled   bool      `gorm:"not null;default:false" json:"-"`
+	APIKey    string    `gorm:"not null;default:''" json:"-"`
+	UpdatedAt time.Time `json:"-"`
+	User      *User     `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+}
+
 type UserCurrency struct {
 	Revision  uint64    `json:"revision" gorm:"not null;default:1"`
 	ID        uint      `gorm:"primaryKey" json:"id"`
