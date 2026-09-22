@@ -12,7 +12,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/mattn/go-isatty v0.0.24
 	github.com/minio/minio-go/v7 v7.3.0
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pquerna/otp v1.5.0
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
 	golang.org/x/crypto v0.57.0
