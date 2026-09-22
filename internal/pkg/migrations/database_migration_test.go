@@ -713,6 +713,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 		},
 		{Name: "20260908_01_row_revisions", Checksum: "d52005c5134c6e599bb60d82d85b77922f3f9f1cda0e923637b01ae8f34f0993"},
 		{Name: "20260920_01_user_jev_settings", Checksum: "f97f6d1d490a621eeeaf7bd6514715d5f51e3edcbb6358c27ab2d92ed80fc35f"},
+		{Name: "20260922_01_jev_diagnostics", Checksum: "2f708d59828ecb3b3e8da63a6a089c419dcbb5ac2176732a24cd2dae2535ab6c"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -731,7 +732,7 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260717_01_backup_run_state.go":                "9b5502c69d8f7a6ceed88e5c94cd5f43a503f64a0ba75118fb57b31cd9427680",
 		"migration_20260726_01_backup_per_destination_schedule.go": "306ab9126e7f75911faa6fbd7be4e09fd346eab20a15ae64d09af4a3d410c19e",
 		"migration_20260726_02_backup_run_records.go":              "85e679eb91c2530fcd0187d7c79c1373143c4a6ae5b62f040ad7aaf9ee002667",
-		"schema_migration_registry.go":                             "8859d1831490c095cc7dfe23ad391b3d1c9bffee81c156cfdd3295d2f89abd79",
+		"schema_migration_registry.go":                             "68fa609f8920be6ec0bebfba860992c985f550c13736eca6634a5d1f669ce33a",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

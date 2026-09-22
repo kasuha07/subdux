@@ -30,6 +30,9 @@ func TestSettingsIsolationEncryptionAndRevision(t *testing.T) {
 	if err != nil || initial.Enabled || initial.APIKeyConfigured || initial.Revision != 0 {
 		t.Fatalf("initial = %+v, %v", initial, err)
 	}
+	if initial.ConnectionStatus != ConnectionNotConfigured {
+		t.Fatalf("initial connection status = %q", initial.ConnectionStatus)
+	}
 	if _, err := s.UpdateSettings(ctx, userID, UpdateInput{Enabled: true}); err == nil {
 		t.Fatal("enabled without a key")
 	}
@@ -72,6 +75,56 @@ func TestSettingsIsolationEncryptionAndRevision(t *testing.T) {
 		if _, err := s.UpdateSettings(ctx, userID, input); err == nil {
 			t.Fatal("accepted invalid key")
 		}
+	}
+}
+
+func TestConnectionDiagnosticsAndClassificationMetrics(t *testing.T) {
+	s, userID := testService(t)
+	ctx := context.Background()
+	settings, err := s.UpdateSettings(ctx, userID, UpdateInput{Enabled: true, APIKey: "test-secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.ConnectionStatus != ConnectionNotTested {
+		t.Fatalf("new key status = %q", settings.ConnectionStatus)
+	}
+
+	s.check = func(_ context.Context, key string) ConnectionStatus {
+		if key != "test-secret" {
+			t.Fatal("connection test received wrong key")
+		}
+		return ConnectionRateLimited
+	}
+	settings, err = s.TestConnection(ctx, userID)
+	if err != nil || settings.ConnectionStatus != ConnectionRateLimited || settings.LastCheckedAt == nil || settings.LastSuccessAt != nil {
+		t.Fatalf("rate-limited diagnostics = %+v, %v", settings, err)
+	}
+	s.check = func(context.Context, string) ConnectionStatus { return ConnectionAvailable }
+	settings, err = s.TestConnection(ctx, userID)
+	if err != nil || settings.ConnectionStatus != ConnectionAvailable || settings.LastSuccessAt == nil {
+		t.Fatalf("available diagnostics = %+v, %v", settings, err)
+	}
+
+	category := model.Category{UserID: userID, Name: "Music"}
+	if err := s.db.Create(&category).Error; err != nil {
+		t.Fatal(err)
+	}
+	s.evaluate = func(context.Context, string, SuggestInput, []model.Category) (*uint, error) {
+		return &category.ID, nil
+	}
+	suggestion, err := s.Suggest(ctx, userID, SuggestInput{Name: "Spotify"})
+	if err != nil || suggestion.CategoryID == nil {
+		t.Fatalf("suggestion = %+v, %v", suggestion, err)
+	}
+	settings, err = s.GetSettings(ctx, userID)
+	if err != nil || settings.ClassificationRequests != 1 || settings.ClassificationSuggestions != 1 || settings.ConnectionStatus != ConnectionAvailable {
+		t.Fatalf("classification metrics = %+v, %v", settings, err)
+	}
+
+	settings, err = s.UpdateSettings(ctx, userID, UpdateInput{Revision: settings.Revision, Enabled: true, APIKey: "replacement-secret"})
+	if err != nil || settings.ClassificationRequests != 0 || settings.ClassificationSuggestions != 0 ||
+		settings.ConnectionStatus != ConnectionNotTested || settings.LastCheckedAt != nil || settings.LastSuccessAt != nil {
+		t.Fatalf("replacement key did not reset diagnostics: %+v, %v", settings, err)
 	}
 }
 
@@ -138,6 +191,10 @@ func TestSuggestionsRequireOptInAndOwnedCategories(t *testing.T) {
 	suggestion, err = s.Suggest(ctx, userID, input)
 	if err != nil || suggestion.CategoryID != nil {
 		t.Fatal("disabled in-flight suggestion accepted")
+	}
+	diagnostics, err := s.GetSettings(ctx, userID)
+	if err != nil || diagnostics.ClassificationRequests != 3 || diagnostics.ClassificationSuggestions != 1 {
+		t.Fatalf("stale in-flight call changed diagnostics: %+v, %v", diagnostics, err)
 	}
 }
 

@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,13 +11,18 @@ import { toast } from "@/lib/toast"
 import type { JevSettings } from "@/types/jev"
 
 export function JevSettingsSection() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [settings, setSettings] = useState<JevSettings | null>(null)
   const [enabled, setEnabled] = useState(false)
   const [apiKey, setAPIKey] = useState("")
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [reload, setReload] = useState(0)
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }),
+    [i18n.language]
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -57,6 +63,26 @@ export function JevSettingsSection() {
     void save()
   }
 
+  async function testConnection() {
+    if (!settings?.api_key_configured) return
+    setTesting(true)
+    try {
+      const value = await api.post<JevSettings>("/jev/test-connection", {})
+      setSettings(value)
+      toast.success(t("settings.jev.testCompleted"))
+    } catch (error) {
+      toast.error(getAPIErrorMessage(error))
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  function formatDate(value: string | null) {
+    if (!value) return t("settings.jev.never")
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : dateFormatter.format(date)
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -90,6 +116,38 @@ export function JevSettingsSection() {
                 {t("settings.jev.removeKey")}
               </Button>
             )}
+          </div>
+          <div className="space-y-3 rounded-lg border p-4" aria-live="polite">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{t("settings.jev.connectionStatus")}</span>
+                <Badge variant={settings.connection_status === "available" ? "default" : settings.connection_status === "not_configured" || settings.connection_status === "not_tested" ? "outline" : "secondary"}>
+                  {t(`settings.jev.status.${settings.connection_status}`)}
+                </Badge>
+              </div>
+              <Button type="button" variant="outline" size="sm" disabled={saving || testing || !settings.api_key_configured} onClick={() => void testConnection()}>
+                {t(testing ? "settings.jev.testing" : "settings.jev.testConnection")}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("settings.jev.diagnosticsDescription")}</p>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("settings.jev.lastChecked")}</dt>
+                <dd className="mt-1">{formatDate(settings.last_checked_at)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("settings.jev.lastSuccess")}</dt>
+                <dd className="mt-1">{formatDate(settings.last_success_at)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("settings.jev.requestCount")}</dt>
+                <dd className="mt-1 tabular-nums">{settings.classification_requests}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("settings.jev.suggestionCount")}</dt>
+                <dd className="mt-1 tabular-nums">{settings.classification_suggestions}</dd>
+              </div>
+            </dl>
           </div>
         </form>
       )}

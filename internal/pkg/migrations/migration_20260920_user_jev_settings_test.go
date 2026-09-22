@@ -27,15 +27,18 @@ func TestJevSettingsMigrationPreservesRowsAndCascades(t *testing.T) {
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatal(err)
 	}
-	row := model.UserJevSetting{UserID: user.ID, Enabled: true, APIKey: "ciphertext", Revision: 3}
-	if err := db.Create(&row).Error; err != nil {
+	if err := db.Exec(`INSERT INTO user_jev_settings (user_id, revision, enabled, api_key) VALUES (?, 3, true, 'ciphertext')`, user.ID).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := migrateUserJevSettings(db); err != nil {
 		t.Fatal(err)
 	}
-	var got model.UserJevSetting
-	if err := db.First(&got).Error; err != nil {
+	var got struct {
+		Revision uint64
+		Enabled  bool
+		APIKey   string
+	}
+	if err := db.Table("user_jev_settings").Select("revision", "enabled", "api_key").Where("user_id = ?", user.ID).Take(&got).Error; err != nil {
 		t.Fatal(err)
 	}
 	if !got.Enabled || got.APIKey != "ciphertext" || got.Revision != 3 {
@@ -45,7 +48,7 @@ func TestJevSettingsMigrationPreservesRowsAndCascades(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int64
-	if err := db.Model(&model.UserJevSetting{}).Count(&count).Error; err != nil || count != 0 {
+	if err := db.Table("user_jev_settings").Count(&count).Error; err != nil || count != 0 {
 		t.Fatal("user deletion left credentials behind")
 	}
 }

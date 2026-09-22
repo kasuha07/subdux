@@ -29,9 +29,9 @@ func TestJevSettingsHTTPContract(t *testing.T) {
 		e.ServeHTTP(rec, req)
 		return rec
 	}
-	for _, path := range []string{"/api/jev/settings", "/api/jev/category-suggestion"} {
+	for _, path := range []string{"/api/jev/settings", "/api/jev/test-connection", "/api/jev/category-suggestion"} {
 		method := http.MethodGet
-		if strings.Contains(path, "suggestion") {
+		if path != "/api/jev/settings" {
 			method = http.MethodPost
 		}
 		if rec := request(method, path, `{}`, false); rec.Code != 401 {
@@ -48,6 +48,13 @@ func TestJevSettingsHTTPContract(t *testing.T) {
 	}
 	if settings.Enabled || settings.APIKeyConfigured {
 		t.Fatal("unexpected default opt-in")
+	}
+	if settings.ConnectionStatus != jev.ConnectionNotConfigured {
+		t.Fatalf("default connection status = %q", settings.ConnectionStatus)
+	}
+	rec = request(http.MethodPost, "/api/jev/test-connection", "", true)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"connection_status":"not_configured"`) {
+		t.Fatalf("unconfigured connection test = %d %s", rec.Code, rec.Body.String())
 	}
 	rec = request(http.MethodPut, "/api/jev/settings", `{"enabled":true,"api_key":"http-test-secret","revision":0}`, true)
 	if rec.Code != 200 || strings.Contains(rec.Body.String(), "http-test-secret") || strings.Contains(rec.Body.String(), "enc:v1:") {

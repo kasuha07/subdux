@@ -12,7 +12,26 @@ const settings = {
     "loadFailed": "Unable to load Jev settings",
     "retry": "Retry",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "connectionStatus": "Connection status",
+    "testConnection": "Test connection",
+    "testing": "Testing…",
+    "testCompleted": "Jev connection test completed",
+    "diagnosticsDescription": "The connection test sends no subscription data. Classification counts cover the currently saved key.",
+    "lastChecked": "Last checked",
+    "lastSuccess": "Last successful connection",
+    "requestCount": "Classification requests",
+    "suggestionCount": "Suggestions returned",
+    "never": "Never",
+    "status": {
+      "not_configured": "Not configured",
+      "not_tested": "Not tested",
+      "available": "Available",
+      "invalid_credentials": "Invalid credentials",
+      "rate_limited": "Quota or rate limit",
+      "unavailable": "Service unavailable",
+      "incompatible": "API incompatible"
+    }
   },
   "title": "Settings",
   "back": "Back",

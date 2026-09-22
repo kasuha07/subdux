@@ -12,7 +12,26 @@ const settings = {
     "loadFailed": "无法加载 Jev 设置",
     "retry": "重试",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "connectionStatus": "连接状态",
+    "testConnection": "测试连接",
+    "testing": "测试中…",
+    "testCompleted": "Jev 连接测试已完成",
+    "diagnosticsDescription": "连接测试不会发送订阅数据。分类计数从当前密钥保存后开始统计。",
+    "lastChecked": "最近检测",
+    "lastSuccess": "最近成功连接",
+    "requestCount": "分类请求数",
+    "suggestionCount": "返回建议数",
+    "never": "从未",
+    "status": {
+      "not_configured": "未配置",
+      "not_tested": "尚未检测",
+      "available": "可用",
+      "invalid_credentials": "凭据无效",
+      "rate_limited": "额度不足或请求受限",
+      "unavailable": "服务不可用",
+      "incompatible": "接口不兼容"
+    }
   },
   "title": "设置",
   "back": "返回",

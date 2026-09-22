@@ -12,7 +12,26 @@ const settings = {
     "loadFailed": "Jev 設定を読み込めませんでした",
     "retry": "再試行",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "connectionStatus": "接続状態",
+    "testConnection": "接続をテスト",
+    "testing": "テスト中…",
+    "testCompleted": "Jev 接続テストが完了しました",
+    "diagnosticsDescription": "接続テストではサブスクリプションデータを送信しません。分類件数は現在のキーを保存してから集計されます。",
+    "lastChecked": "最終確認",
+    "lastSuccess": "最終接続成功",
+    "requestCount": "分類リクエスト数",
+    "suggestionCount": "提案取得数",
+    "never": "なし",
+    "status": {
+      "not_configured": "未設定",
+      "not_tested": "未テスト",
+      "available": "利用可能",
+      "invalid_credentials": "認証情報が無効",
+      "rate_limited": "クォータ不足またはレート制限",
+      "unavailable": "サービス利用不可",
+      "incompatible": "API 非互換"
+    }
   },
   "title": "設定",
   "back": "戻る",

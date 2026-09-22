@@ -215,6 +215,8 @@ In **Settings → Subscription → Jev automatic classification**, each user can
 
 Only the subscription name, website domain and category names are sent to TypeSafe. Notes, amounts, URL paths and query parameters are excluded. Keys are encrypted on the server, never returned by the API, and excluded from user JSON exports. Keep the server's settings encryption key with full database backups, as for other encrypted credentials. Removing a Jev key also disables the feature.
 
+The same settings section can test the saved credential without sending subscription data. It shows the latest connection state, last successful connection, and classification request and suggestion counts for the current key. Classification still fails silently while entering a subscription; credential, quota, availability and API compatibility details remain confined to settings.
+
 ## Configuration
 
 ### Key environment variables

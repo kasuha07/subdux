@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
@@ -17,14 +18,20 @@ type Service struct {
 	db *gorm.DB
 	// An internal transport seam; production always uses the fixed TypeSafe endpoint.
 	evaluate func(context.Context, string, SuggestInput, []model.Category) (*uint, error)
+	check    func(context.Context, string) ConnectionStatus
 }
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
 type Settings struct {
-	Revision         uint64 `json:"revision"`
-	Enabled          bool   `json:"enabled"`
-	APIKeyConfigured bool   `json:"api_key_configured"`
+	Revision                  uint64           `json:"revision"`
+	Enabled                   bool             `json:"enabled"`
+	APIKeyConfigured          bool             `json:"api_key_configured"`
+	ConnectionStatus          ConnectionStatus `json:"connection_status"`
+	LastCheckedAt             *time.Time       `json:"last_checked_at"`
+	LastSuccessAt             *time.Time       `json:"last_success_at"`
+	ClassificationRequests    uint64           `json:"classification_requests"`
+	ClassificationSuggestions uint64           `json:"classification_suggestions"`
 }
 
 type UpdateInput struct {
@@ -37,7 +44,23 @@ type UpdateInput struct {
 var errConflict = serviceerr.New(serviceerr.KindConflict, "jev_settings_conflict", "Jev settings changed; reload and try again")
 
 func settingsResponse(row model.UserJevSetting) Settings {
-	return Settings{Revision: row.Revision, Enabled: row.Enabled, APIKeyConfigured: row.APIKey != ""}
+	configured := row.APIKey != ""
+	status := ConnectionStatus(row.ConnectionStatus)
+	if !configured {
+		status = ConnectionNotConfigured
+	} else if status == "" {
+		status = ConnectionNotTested
+	}
+	return Settings{
+		Revision:                  row.Revision,
+		Enabled:                   row.Enabled,
+		APIKeyConfigured:          configured,
+		ConnectionStatus:          status,
+		LastCheckedAt:             row.LastCheckedAt,
+		LastSuccessAt:             row.LastSuccessAt,
+		ClassificationRequests:    row.ClassificationRequests,
+		ClassificationSuggestions: row.ClassificationSuggestions,
+	}
 }
 
 func (s *Service) load(ctx context.Context, userID uint) (model.UserJevSetting, error) {
@@ -69,6 +92,7 @@ func (s *Service) UpdateSettings(ctx context.Context, userID uint, input UpdateI
 	if input.RemoveAPIKey {
 		row.APIKey = ""
 	}
+	keyChanged := input.RemoveAPIKey || key != ""
 	if key != "" {
 		row.APIKey, err = pkg.EncryptSystemSettingValue(key)
 		if err != nil {
@@ -80,13 +104,27 @@ func (s *Service) UpdateSettings(ctx context.Context, userID uint, input UpdateI
 		return Settings{}, serviceerr.New(serviceerr.KindInvalid, "jev_api_key_required", "Configure a Jev API key before enabling classification")
 	}
 	row.Revision++
+	if keyChanged {
+		row.ConnectionStatus = string(ConnectionNotTested)
+		row.LastCheckedAt = nil
+		row.LastSuccessAt = nil
+		row.ClassificationRequests = 0
+		row.ClassificationSuggestions = 0
+	}
 	db := s.db.WithContext(ctx)
 	var result *gorm.DB
 	if input.Revision == 0 {
 		result = db.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
 	} else {
-		result = db.Model(&model.UserJevSetting{}).Where("user_id = ? AND revision = ?", userID, input.Revision).
-			Updates(map[string]any{"enabled": row.Enabled, "api_key": row.APIKey, "revision": row.Revision})
+		updates := map[string]any{"enabled": row.Enabled, "api_key": row.APIKey, "revision": row.Revision}
+		if keyChanged {
+			updates["connection_status"] = row.ConnectionStatus
+			updates["last_checked_at"] = nil
+			updates["last_success_at"] = nil
+			updates["classification_requests"] = 0
+			updates["classification_suggestions"] = 0
+		}
+		result = db.Model(&model.UserJevSetting{}).Where("user_id = ? AND revision = ?", userID, input.Revision).Updates(updates)
 	}
 	if result.Error != nil {
 		return Settings{}, result.Error
@@ -95,6 +133,42 @@ func (s *Service) UpdateSettings(ctx context.Context, userID uint, input UpdateI
 		return Settings{}, errConflict
 	}
 	return settingsResponse(row), nil
+}
+
+func (s *Service) TestConnection(ctx context.Context, userID uint) (Settings, error) {
+	row, err := s.load(ctx, userID)
+	if err != nil || row.APIKey == "" {
+		return settingsResponse(row), err
+	}
+	key, err := pkg.DecryptSystemSettingValue(row.APIKey)
+	if err != nil {
+		if recordErr := s.recordDiagnostic(ctx, userID, row.Revision, ConnectionUnavailable, false); recordErr != nil {
+			return Settings{}, recordErr
+		}
+	} else {
+		check := s.check
+		if check == nil {
+			check = s.checkConnection
+		}
+		if err := s.recordDiagnostic(ctx, userID, row.Revision, check(ctx, key), false); err != nil {
+			return Settings{}, err
+		}
+	}
+	row, err = s.load(ctx, userID)
+	return settingsResponse(row), err
+}
+
+func (s *Service) recordDiagnostic(ctx context.Context, userID uint, revision uint64, status ConnectionStatus, classificationRequest bool) error {
+	now := time.Now().UTC()
+	updates := map[string]any{"connection_status": status, "last_checked_at": now}
+	if status == ConnectionAvailable {
+		updates["last_success_at"] = now
+	}
+	if classificationRequest {
+		updates["classification_requests"] = gorm.Expr("classification_requests + 1")
+	}
+	return s.db.WithContext(ctx).Model(&model.UserJevSetting{}).
+		Where("user_id = ? AND revision = ?", userID, revision).Updates(updates).Error
 }
 
 type SuggestInput struct {
@@ -130,6 +204,7 @@ func (s *Service) Suggest(ctx context.Context, userID uint, input SuggestInput) 
 	}
 	key, err := pkg.DecryptSystemSettingValue(row.APIKey)
 	if err != nil {
+		_ = s.recordDiagnostic(ctx, userID, row.Revision, ConnectionUnavailable, false)
 		return Suggestion{}, nil
 	}
 	evaluate := s.evaluate
@@ -137,6 +212,12 @@ func (s *Service) Suggest(ctx context.Context, userID uint, input SuggestInput) 
 		evaluate = s.classify
 	}
 	categoryID, err := evaluate(ctx, key, input, categories)
+	status := ConnectionAvailable
+	if err != nil {
+		status = connectionStatusForError(err)
+	}
+	// Diagnostics are best-effort and must not make subscription entry fail.
+	_ = s.recordDiagnostic(ctx, userID, row.Revision, status, true)
 	// Suggestions are best-effort; neither upstream errors nor response bodies
 	// should leak credentials or interfere with subscription entry.
 	if err != nil || categoryID == nil {
@@ -159,5 +240,7 @@ func (s *Service) Suggest(ctx context.Context, userID uint, input SuggestInput) 
 	if count != 1 {
 		return Suggestion{}, nil
 	}
+	_ = s.db.WithContext(ctx).Model(&model.UserJevSetting{}).Where("user_id = ? AND revision = ?", userID, row.Revision).
+		UpdateColumn("classification_suggestions", gorm.Expr("classification_suggestions + 1")).Error
 	return Suggestion{CategoryID: categoryID}, nil
 }

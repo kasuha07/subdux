@@ -72,3 +72,36 @@ func TestProviderCancellation(t *testing.T) {
 		t.Fatal("cancellation ignored")
 	}
 }
+
+func TestConnectionCheckContractAndStatuses(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		statusCode int
+		body       string
+		want       ConnectionStatus
+	}{
+		{"available", 200, `{"models":[{"name":"jev-latest","description":"Jev","release_date":"2026-09-15"}]}`, ConnectionAvailable},
+		{"alias missing", 200, `{"models":[{"name":"other"}]}`, ConnectionIncompatible},
+		{"malformed", 200, `{`, ConnectionIncompatible},
+		{"oversized", 200, strings.Repeat("x", (64<<10)+1), ConnectionIncompatible},
+		{"invalid key", 401, `private provider response`, ConnectionInvalidCredentials},
+		{"forbidden", 403, `private provider response`, ConnectionInvalidCredentials},
+		{"quota", 402, `private provider response`, ConnectionRateLimited},
+		{"rate limited", 429, `private provider response`, ConnectionRateLimited},
+		{"incompatible", 404, `private provider response`, ConnectionIncompatible},
+		{"unavailable", 503, `private provider response`, ConnectionUnavailable},
+		{"redirect", 302, `private provider response`, ConnectionUnavailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.String() != modelsEndpoint || req.Method != http.MethodGet || req.Header.Get("Authorization") != "Bearer fake-key" {
+					t.Fatal("wrong models contract")
+				}
+				return &http.Response{StatusCode: tc.statusCode, Body: io.NopCloser(strings.NewReader(tc.body)), Header: make(http.Header)}, nil
+			})}
+			if got := checkConnectionWithClient(context.Background(), client, "fake-key"); got != tc.want {
+				t.Fatalf("status = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

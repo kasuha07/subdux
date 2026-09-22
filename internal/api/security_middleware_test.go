@@ -158,6 +158,7 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 	}{
 		{name: "read Jev credentials", method: http.MethodGet, target: "/api/jev/settings"},
 		{name: "write Jev credentials", method: http.MethodPut, target: "/api/jev/settings"},
+		{name: "test Jev credentials", method: http.MethodPost, target: "/api/jev/test-connection"},
 		{name: "Jev classification", method: http.MethodPost, target: "/api/jev/category-suggestion"},
 		{
 			name:   "change password",
