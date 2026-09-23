@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kasuha07/subdux/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -55,6 +56,12 @@ func Run(db *gorm.DB, codec SecretCodec) error {
 	activeSecretCodec = codec
 	defer func() { activeSecretCodec = SecretCodec{} }()
 
+	if db.Dialector.Name() == "postgres" {
+		if err := preparePostgresMigrationDependencies(db); err != nil {
+			return err
+		}
+	}
+
 	if err := ensureSchemaMigrationMetadata(db); err != nil {
 		return err
 	}
@@ -68,7 +75,18 @@ func Run(db *gorm.DB, codec SecretCodec) error {
 		}
 	}
 
-	return validateSQLiteForeignKeys(db)
+	return validateForeignKeys(db)
+}
+
+// preparePostgresMigrationDependencies creates the parent tables needed by
+// the historical bootstrap migration. PostgreSQL requires referenced tables
+// to exist when it creates a foreign key; the original SQLite bootstrap order
+// creates subscriptions before categories and payment methods.
+func preparePostgresMigrationDependencies(db *gorm.DB) error {
+	if err := db.AutoMigrate(&model.User{}, &model.Category{}, &model.PaymentMethod{}); err != nil {
+		return fmt.Errorf("prepare PostgreSQL migration dependencies: %w", err)
+	}
+	return nil
 }
 
 func ensureSchemaMigrationMetadata(db *gorm.DB) error {
@@ -104,10 +122,15 @@ func validateSchemaMigrationRecords(db *gorm.DB) error {
 }
 
 func runSchemaMigration(db *gorm.DB, migration schemaMigration) error {
+	if migration.DisableSQLiteForeignKeys && db.Dialector.Name() == "postgres" {
+		// The published migration rebuilds tables to add SQLite-only constraints;
+		// PostgreSQL gets those model constraints when the tables are created.
+		migration.Run = func(*gorm.DB) error { return nil }
+	}
 	run := func(session *gorm.DB) error {
 		return runSchemaMigrationTransaction(session, migration)
 	}
-	if migration.DisableSQLiteForeignKeys {
+	if migration.DisableSQLiteForeignKeys && db.Dialector.Name() == "sqlite" {
 		_, applied, err := loadSchemaMigrationRecord(db, migration.Name)
 		if err != nil {
 			return err
@@ -116,10 +139,39 @@ func runSchemaMigration(db *gorm.DB, migration schemaMigration) error {
 			return run(db)
 		}
 	}
-	if migration.DisableSQLiteForeignKeys {
+	if migration.DisableSQLiteForeignKeys && db.Dialector.Name() == "sqlite" {
 		return withSQLiteForeignKeysDisabled(db, run)
 	}
 	return run(db)
+}
+
+func validateForeignKeys(db *gorm.DB) error {
+	switch db.Dialector.Name() {
+	case "sqlite":
+		return validateSQLiteForeignKeys(db)
+	case "postgres":
+		var violation struct {
+			RelationName   string
+			ForeignKeyName string
+		}
+		result := db.Raw(`
+			SELECT conrelid::regclass::text AS relation_name, conname AS foreign_key_name
+			FROM pg_constraint
+			WHERE contype = 'f'
+			  AND NOT convalidated
+			  AND connamespace = (SELECT oid FROM pg_namespace WHERE nspname = current_schema())
+			LIMIT 1
+		`).Scan(&violation)
+		if result.Error != nil {
+			return fmt.Errorf("validate PostgreSQL foreign keys: %w", result.Error)
+		}
+		if result.RowsAffected > 0 {
+			return fmt.Errorf("PostgreSQL foreign key %s on %s is not validated", violation.ForeignKeyName, violation.RelationName)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported database dialect %q", db.Dialector.Name())
+	}
 }
 
 func runSchemaMigrationTransaction(db *gorm.DB, migration schemaMigration) error {

@@ -1,8 +1,15 @@
 package migrations
 
-import "gorm.io/gorm"
+import (
+	"github.com/kasuha07/subdux/internal/model"
+	"gorm.io/gorm"
+)
 
 func migrateJevDiagnostics(db *gorm.DB) error {
+	if db.Dialector.Name() == "postgres" {
+		return db.AutoMigrate(&model.UserJevSetting{})
+	}
+
 	for _, statement := range []string{
 		`ALTER TABLE user_jev_settings ADD COLUMN connection_status text NOT NULL DEFAULT 'not_tested'`,
 		`ALTER TABLE user_jev_settings ADD COLUMN last_checked_at datetime`,

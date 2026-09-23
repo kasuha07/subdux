@@ -41,7 +41,7 @@ func statusForServiceError(kind serviceerr.Kind) int {
 // the appropriate status:
 //
 //   - *serviceerr.Error   → Kind-derived status, stable error_code/error_params
-//   - transient SQLite busy → 503 with Retry-After, generic message
+//   - transient database contention/unavailability → 503 with Retry-After
 //   - echo.HTTPError       → delegated to Echo's default (jwt 401, 404, 405…)
 //   - anything else        → 500, message hidden, cause logged
 //
@@ -59,7 +59,7 @@ func APIErrorHandler(defaultHandler echo.HTTPErrorHandler) echo.HTTPErrorHandler
 			return
 		}
 
-		if httpx.IsTransientSQLiteBusyError(err) {
+		if httpx.IsTransientDatabaseError(err) {
 			logging.FromContext(c.Request().Context()).Warn("transient database busy error", slog.Any("error", err))
 			c.Response().Header().Set("Retry-After", "1")
 			_ = httpx.WriteError(c, http.StatusServiceUnavailable, "database_is_busy_retry_later")

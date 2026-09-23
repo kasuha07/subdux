@@ -7,16 +7,25 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/kasuha07/subdux/internal/pkg/logging"
 	"github.com/kasuha07/subdux/internal/pkg/migrations"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-const sqliteBusyTimeoutMilliseconds = 5000
+const (
+	sqliteBusyTimeoutMilliseconds = 5000
+	defaultPostgresMaxOpenConns   = 25
+	defaultPostgresMaxIdleConns   = 5
+)
+
+const DatabaseURLEnv = "DATABASE_URL"
 
 // GetDataPath returns the root data directory from the DATA_PATH environment
 // variable, falling back to "data" when unset. The database, assets, and any
@@ -39,12 +48,64 @@ func InitDB() *gorm.DB {
 			slog.String("data_path", dataPath), slog.Any("error", err))
 	}
 
-	dbPath := filepath.Join(dataPath, "subdux.db")
-	db, err := openSQLiteDatabase(dbPath)
+	db, err := openConfiguredDatabase()
 	if err != nil {
 		logging.Fatal("failed to initialize database", slog.Any("error", err))
 	}
 	return db
+}
+
+// IsPostgres reports whether db uses the PostgreSQL adapter.
+func IsPostgres(db *gorm.DB) bool {
+	return db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres"
+}
+
+// openConfiguredDatabase selects PostgreSQL when DATABASE_URL is configured
+// and otherwise keeps the existing SQLite database in DATA_PATH.
+func openConfiguredDatabase() (*gorm.DB, error) {
+	if databaseURL := strings.TrimSpace(os.Getenv(DatabaseURLEnv)); databaseURL != "" {
+		return openPostgresDatabase(databaseURL)
+	}
+	return openSQLiteDatabase(filepath.Join(GetDataPath(), "subdux.db"))
+}
+
+func openPostgresDatabase(databaseURL string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  databaseURL,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("connect to PostgreSQL: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("access PostgreSQL connection pool: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(postgresPoolLimit("DATABASE_MAX_OPEN_CONNS", defaultPostgresMaxOpenConns))
+	sqlDB.SetMaxIdleConns(postgresPoolLimit("DATABASE_MAX_IDLE_CONNS", defaultPostgresMaxIdleConns))
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+
+	if err := runApplicationMigrations(db); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	return db, nil
+}
+
+func postgresPoolLimit(envName string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(envName))
+	if value == "" {
+		return fallback
+	}
+	limit, err := strconv.Atoi(value)
+	if err != nil || limit < 1 {
+		return fallback
+	}
+	return limit
 }
 
 func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
@@ -66,10 +127,7 @@ func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
 	if err := configureSQLiteDatabase(db); err != nil {
 		return nil, err
 	}
-	if err := migrations.Run(db, migrations.SecretCodec{
-		Encrypt: EncryptSystemSettingValue,
-		Decrypt: DecryptSystemSettingValue,
-	}); err != nil {
+	if err := runApplicationMigrations(db); err != nil {
 		return nil, err
 	}
 
@@ -87,6 +145,16 @@ func openSQLiteDatabase(dbPath string) (*gorm.DB, error) {
 	db.Statement.ConnPool = pool
 
 	return db, nil
+}
+
+func runApplicationMigrations(db *gorm.DB) error {
+	if err := migrations.Run(db, migrations.SecretCodec{
+		Encrypt: EncryptSystemSettingValue,
+		Decrypt: DecryptSystemSettingValue,
+	}); err != nil {
+		return fmt.Errorf("run database migrations: %w", err)
+	}
+	return nil
 }
 
 func sqliteDatabaseDSN(dbPath string) (string, error) {

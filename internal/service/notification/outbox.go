@@ -293,6 +293,9 @@ func (s *Service) claimDueNotificationOutbox(ctx context.Context, batchSize int,
 	if batchSize <= 0 {
 		return nil, nil
 	}
+	if pkg.IsPostgres(s.DB) {
+		return s.claimDueNotificationOutboxPostgres(ctx, batchSize, leaseTTL)
+	}
 
 	now := pkg.NowUTC()
 	var candidates []model.NotificationOutbox
@@ -348,6 +351,61 @@ func (s *Service) claimDueNotificationOutbox(ctx context.Context, batchSize int,
 	if err := s.DB.Where("id IN ? AND locked_by = ? AND status = ?", claimedIDs, ownerID, notificationOutboxStatusProcessing).
 		Order("id ASC").
 		Find(&jobs).Error; err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
+
+// claimDueNotificationOutboxPostgres uses row locks with SKIP LOCKED to let
+// multiple application instances claim disjoint queue batches without making
+// workers wait on one another. The lease is persisted before the transaction
+// commits, so workers only hold row locks while claiming, never while sending.
+func (s *Service) claimDueNotificationOutboxPostgres(ctx context.Context, batchSize int, leaseTTL time.Duration) ([]model.NotificationOutbox, error) {
+	db := s.DB
+	if ctx != nil {
+		db = db.WithContext(ctx)
+	}
+
+	now := pkg.NowUTC()
+	ownerID := s.notificationOwnerID()
+	leaseUntil := now.Add(leaseTTL)
+	var jobs []model.NotificationOutbox
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var candidates []model.NotificationOutbox
+		if err := tx.Select("id").
+			Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("status IN ? AND next_attempt_at <= ? AND (expires_at IS NULL OR expires_at > ?) AND (locked_until IS NULL OR locked_until <= ?)",
+				[]string{notificationOutboxStatusPending, notificationOutboxStatusProcessing}, now, now, now).
+			Order("next_attempt_at ASC, id ASC").
+			Limit(batchSize).
+			Find(&candidates).Error; err != nil {
+			return err
+		}
+		if len(candidates) == 0 {
+			return nil
+		}
+
+		claimedIDs := make([]uint, 0, len(candidates))
+		for _, candidate := range candidates {
+			claimedIDs = append(claimedIDs, candidate.ID)
+		}
+		if err := tx.Model(&model.NotificationOutbox{}).
+			Where("id IN ?", claimedIDs).
+			Updates(map[string]interface{}{
+				"status":          notificationOutboxStatusProcessing,
+				"locked_by":       ownerID,
+				"locked_until":    leaseUntil,
+				"last_attempt_at": now,
+				"attempt_count":   gorm.Expr("attempt_count + ?", 1),
+				"updated_at":      now,
+			}).Error; err != nil {
+			return err
+		}
+
+		return tx.Where("id IN ? AND locked_by = ? AND status = ?", claimedIDs, ownerID, notificationOutboxStatusProcessing).
+			Order("id ASC").Find(&jobs).Error
+	})
+	if err != nil {
 		return nil, err
 	}
 	return jobs, nil

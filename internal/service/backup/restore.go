@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +28,7 @@ var (
 
 type restorePayload struct {
 	dbFilePath        string
+	dbFormat          string
 	assetsDirPath     string
 	replaceAssetsDir  bool
 	skippedAssetCount int
@@ -83,6 +85,36 @@ func (s *Service) RestoreBackup(uploadedBackupPath string, password string) (Res
 		defer os.RemoveAll(restorePayload.assetsDirPath)
 	}
 
+	if pkg.IsPostgres(s.DB) {
+		switch restorePayload.dbFormat {
+		case "postgres":
+			snapshot, err := os.Open(restorePayload.dbFilePath) // #nosec G304 -- preparedRestorePayload only returns an internally-created file path.
+			if err != nil {
+				return RestoreResult{}, err
+			}
+			restoreErr := pkg.RestorePostgresBackup(s.DB, snapshot)
+			closeErr := snapshot.Close()
+			if restoreErr != nil || closeErr != nil {
+				return RestoreResult{}, errors.Join(restoreErr, closeErr)
+			}
+		case "sqlite":
+			if err := pkg.ImportSQLiteBackupToPostgres(s.DB, restorePayload.dbFilePath); err != nil {
+				return RestoreResult{}, err
+			}
+		default:
+			return RestoreResult{}, invalidBackupError("unsupported database backup format")
+		}
+		if restorePayload.replaceAssetsDir {
+			if err := replaceAssetsDirectory(restorePayload.assetsDirPath); err != nil {
+				return RestoreResult{}, err
+			}
+		}
+		return RestoreResult{SkippedAssetCount: restorePayload.skippedAssetCount, Reopened: true}, nil
+	}
+	if restorePayload.dbFormat != "sqlite" {
+		return RestoreResult{}, invalidBackupError("a SQLite database requires a SQLite .db backup")
+	}
+
 	dbPath := filepath.Join(pkg.GetDataPath(), "subdux.db")
 
 	sqlDB, err := s.DB.DB()
@@ -136,6 +168,7 @@ func prepareRestorePayload(uploadedBackupPath string, password string) (*restore
 	if isSQLiteBackupFile(uploadedBackupPath) {
 		return &restorePayload{
 			dbFilePath: uploadedBackupPath,
+			dbFormat:   "sqlite",
 		}, nil
 	}
 
@@ -150,14 +183,14 @@ func prepareRestorePayloadFromZip(zipPath string, password string) (*restorePayl
 	return prepareRestorePayloadFromZipWithLimits(zipPath, password, defaultRestoreLimits)
 }
 
-func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, limits restoreLimits) (*restorePayload, error) {
+func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, limits restoreLimits) (payload *restorePayload, returnErr error) {
 	zipReader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return nil, invalidBackupError("invalid zip archive")
 	}
 	defer zipReader.Close()
 
-	dbEntry, err := findDatabaseBackupEntry(zipReader.File)
+	dbEntry, dbFormat, err := findDatabaseBackupEntry(zipReader.File)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +207,11 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, lim
 		}
 	}
 
-	tempDBFile, err := os.CreateTemp("", "subdux-restore-db-*.db")
+	databaseSuffix := ".db"
+	if dbFormat == "postgres" {
+		databaseSuffix = ".json"
+	}
+	tempDBFile, err := os.CreateTemp("", "subdux-restore-db-*"+databaseSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +220,7 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, lim
 		return nil, err
 	}
 	defer func() {
-		if err != nil {
+		if returnErr != nil {
 			_ = os.Remove(tempDBPath)
 		}
 	}()
@@ -197,8 +234,13 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, lim
 		}
 		return nil, invalidBackupError("failed to extract database from zip backup")
 	}
-	if !isSQLiteBackupFile(tempDBPath) {
+	if dbFormat == "sqlite" && !isSQLiteBackupFile(tempDBPath) {
 		return nil, invalidBackupError("zip backup database is invalid")
+	}
+	if dbFormat == "postgres" {
+		if err := validatePostgresBackupFile(tempDBPath); err != nil {
+			return nil, invalidBackupError("zip backup PostgreSQL data is invalid")
+		}
 	}
 
 	replaceAssetsDir, assetsDirPath, skippedAssetCount, err := extractAssetsFromZip(zipReader.File, limits)
@@ -208,15 +250,18 @@ func prepareRestorePayloadFromZipWithLimits(zipPath string, password string, lim
 
 	return &restorePayload{
 		dbFilePath:        tempDBPath,
+		dbFormat:          dbFormat,
 		assetsDirPath:     assetsDirPath,
 		replaceAssetsDir:  replaceAssetsDir,
 		skippedAssetCount: skippedAssetCount,
 	}, nil
 }
 
-func findDatabaseBackupEntry(entries []*zip.File) (*zip.File, error) {
+func findDatabaseBackupEntry(entries []*zip.File) (*zip.File, string, error) {
 	var fallback *zip.File
 	var preferred *zip.File
+	var preferredFormat string
+	var jsonFallback *zip.File
 
 	for _, entry := range entries {
 		cleanPath, ok := normalizeZipEntryPath(entry.Name)
@@ -232,25 +277,67 @@ func findDatabaseBackupEntry(entries []*zip.File) (*zip.File, error) {
 
 		lowerCleanPath := strings.ToLower(cleanPath)
 		if lowerCleanPath == "subdux.db" {
-			return entry, nil
+			return entry, "sqlite", nil
+		}
+		if lowerCleanPath == "subdux.json" {
+			return entry, "postgres", nil
 		}
 		if preferred == nil && strings.EqualFold(path.Base(cleanPath), "subdux.db") {
 			preferred = entry
+			preferredFormat = "sqlite"
+			continue
+		}
+		if preferred == nil && strings.EqualFold(path.Base(cleanPath), "subdux.json") {
+			preferred = entry
+			preferredFormat = "postgres"
 			continue
 		}
 		if fallback == nil && strings.EqualFold(path.Ext(cleanPath), ".db") {
 			fallback = entry
 		}
+		if jsonFallback == nil && strings.EqualFold(path.Ext(cleanPath), ".json") {
+			jsonFallback = entry
+		}
 	}
 
 	if preferred != nil {
-		return preferred, nil
+		return preferred, preferredFormat, nil
 	}
 	if fallback != nil {
-		return fallback, nil
+		return fallback, "sqlite", nil
+	}
+	if jsonFallback != nil {
+		return jsonFallback, "postgres", nil
 	}
 
-	return nil, invalidBackupError("zip backup does not contain a database file")
+	return nil, "", invalidBackupError("zip backup does not contain a database file")
+}
+
+func validatePostgresBackupFile(filePath string) error {
+	file, err := os.Open(filePath) // #nosec G304 -- filePath is an internally-created extraction temp file.
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	decoder := json.NewDecoder(file)
+	var header struct {
+		Format string                     `json:"format"`
+		Tables map[string]json.RawMessage `json:"tables"`
+	}
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&header); err != nil {
+		return err
+	}
+	if header.Format != "subdux-postgres-json-v1" || header.Tables == nil {
+		return errors.New("unsupported PostgreSQL backup format")
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		if err == nil {
+			return errors.New("PostgreSQL backup has trailing data")
+		}
+		return err
+	}
+	return nil
 }
 
 func extractAssetsFromZip(entries []*zip.File, limits restoreLimits) (bool, string, int, error) {

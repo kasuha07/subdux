@@ -94,13 +94,13 @@ func (s *Service) WithContext(ctx context.Context) *Service {
 	return &clone
 }
 
-// writeBackupZipFromDB writes a backup archive at archivePath containing the
-// SQLite database at dbPath (stored as "subdux.db") and, when includeAssets is
-// set, the assets tree. When encryptPassword is non-empty every entry is
-// encrypted with WinZip AES-256; otherwise entries are stored as plain deflate
-// entries with byte-identical internal structure. This single routine backs
-// both the download path (plain) and the scheduled local-backup path.
+// writeBackupZipFromDB keeps the SQLite archive entry name used by existing
+// backups and tests.
 func writeBackupZipFromDB(archivePath string, dbPath string, includeAssets bool, encryptPassword string) error {
+	return writeBackupZipFromFile(archivePath, dbPath, "subdux.db", includeAssets, encryptPassword)
+}
+
+func writeBackupZipFromFile(archivePath string, dbPath string, databaseEntry string, includeAssets bool, encryptPassword string) error {
 	file, err := os.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- archivePath is generated under a server-controlled backup directory.
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func writeBackupZipFromDB(archivePath string, dbPath string, includeAssets bool,
 
 	zipWriter := zip.NewWriter(file)
 
-	if err := addFileToBackupZip(zipWriter, dbPath, "subdux.db", encryptPassword); err != nil {
+	if err := addFileToBackupZip(zipWriter, dbPath, databaseEntry, encryptPassword); err != nil {
 		_ = zipWriter.Close()
 		return err
 	}
@@ -357,10 +357,10 @@ func (s *Service) cleanupBackupRunArchive(runID uint) error {
 // BackupDB produces an on-demand backup and returns the path of the file to
 // serve. When password is empty the historical behavior is preserved: a raw
 // SQLite .db file when includeAssets is false, or a plain .zip when true.
-// When password is non-empty encryption requires a zip container, so the DB is
-// always bundled into a WinZip AES-256 .zip (with assets honored) regardless of
-// includeAssets. The password is trimmed before deciding, so all-whitespace is
-// treated as empty.
+// PostgreSQL snapshots use a JSON logical dump inside a zip; SQLite keeps the
+// historical raw .db path when neither assets nor encryption are requested.
+// When password is non-empty encryption requires a zip container. The password
+// is trimmed before deciding, so all-whitespace is treated as empty.
 //
 // Every download is recorded as a backup run (source "download") so the admin
 // history lists it next to destination runs. The run is created before the
@@ -370,7 +370,7 @@ func (s *Service) cleanupBackupRunArchive(runID uint) error {
 func (s *Service) BackupDB(includeAssets bool, password string) (string, error) {
 	password = strings.TrimSpace(password)
 	encrypted := password != ""
-	zipArchive := includeAssets || encrypted
+	zipArchive := includeAssets || encrypted || pkg.IsPostgres(s.DB)
 
 	token, err := newBackupToken()
 	if err != nil {
@@ -412,9 +412,8 @@ func (s *Service) BackupDB(includeAssets bool, password string) (string, error) 
 }
 
 // buildDownloadArchive writes the download archive named archiveName into a
-// private temp directory. The caller owns the directory on success (the HTTP
-// handler removes it after serving the file); cleanup removes it on the error
-// paths where the caller never learns the path.
+// private temp directory. PostgreSQL uses a JSON table snapshot because its
+// database cannot be copied as a local file; SQLite continues using VACUUM INTO.
 func (s *Service) buildDownloadArchive(archiveName string, includeAssets bool, password string) (string, func(), error) {
 	tempDir, err := newPrivateBackupTempDir()
 	if err != nil {
@@ -424,7 +423,7 @@ func (s *Service) buildDownloadArchive(archiveName string, includeAssets bool, p
 		_ = os.RemoveAll(tempDir)
 	}
 
-	if !includeAssets && password == "" {
+	if !includeAssets && password == "" && !pkg.IsPostgres(s.DB) {
 		backupPath := filepath.Join(tempDir, archiveName)
 		if err := s.DB.Exec("VACUUM INTO ?", backupPath).Error; err != nil {
 			cleanup()
@@ -437,8 +436,14 @@ func (s *Service) buildDownloadArchive(archiveName string, includeAssets bool, p
 		return backupPath, cleanup, nil
 	}
 
-	dbTempPath := filepath.Join(tempDir, strings.TrimSuffix(archiveName, ".zip")+".db")
-	if err := s.DB.Exec("VACUUM INTO ?", dbTempPath).Error; err != nil {
+	databaseEntry := "subdux.db"
+	databaseSuffix := ".db"
+	if pkg.IsPostgres(s.DB) {
+		databaseEntry = "subdux.json"
+		databaseSuffix = ".json"
+	}
+	dbTempPath := filepath.Join(tempDir, strings.TrimSuffix(archiveName, ".zip")+databaseSuffix)
+	if err := s.writeDatabaseSnapshot(dbTempPath); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
@@ -448,13 +453,31 @@ func (s *Service) buildDownloadArchive(archiveName string, includeAssets bool, p
 	}
 
 	archivePath := filepath.Join(tempDir, archiveName)
-	if err := writeBackupZipFromDB(archivePath, dbTempPath, includeAssets, password); err != nil {
+	if err := writeBackupZipFromFile(archivePath, dbTempPath, databaseEntry, includeAssets, password); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
 	_ = os.Remove(dbTempPath)
 
 	return archivePath, cleanup, nil
+}
+
+func (s *Service) writeDatabaseSnapshot(path string) error {
+	if !pkg.IsPostgres(s.DB) {
+		return s.DB.Exec("VACUUM INTO ?", path).Error
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- path is generated inside a private backup directory.
+	if err != nil {
+		return err
+	}
+	writeErr := pkg.WritePostgresBackup(s.DB, file)
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		_ = os.Remove(path)
+		return errors.Join(writeErr, closeErr)
+	}
+	return nil
 }
 
 // downloadRunResult shapes the terminal record of a download-sourced run.
@@ -705,8 +728,14 @@ func (s *Service) buildBackupArchiveNamed(spec archiveSpec, archiveName string) 
 	}
 	timestamp := pkg.Now().Format("20060102-150405")
 
-	dbTempPath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s-%s.db", timestamp, token))
-	if err := s.DB.Exec("VACUUM INTO ?", dbTempPath).Error; err != nil {
+	databaseEntry := "subdux.db"
+	databaseSuffix := ".db"
+	if pkg.IsPostgres(s.DB) {
+		databaseEntry = "subdux.json"
+		databaseSuffix = ".json"
+	}
+	dbTempPath := filepath.Join(tempDir, fmt.Sprintf("subdux-backup-%s-%s%s", timestamp, token, databaseSuffix))
+	if err := s.writeDatabaseSnapshot(dbTempPath); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}
@@ -717,7 +746,7 @@ func (s *Service) buildBackupArchiveNamed(spec archiveSpec, archiveName string) 
 
 	archivePath := filepath.Join(tempDir, archiveName)
 
-	if err := writeBackupZipFromDB(archivePath, dbTempPath, spec.IncludeAssets, spec.Password); err != nil {
+	if err := writeBackupZipFromFile(archivePath, dbTempPath, databaseEntry, spec.IncludeAssets, spec.Password); err != nil {
 		cleanup()
 		return "", func() {}, err
 	}

@@ -1,8 +1,15 @@
 package migrations
 
-import "gorm.io/gorm"
+import (
+	"github.com/kasuha07/subdux/internal/model"
+	"gorm.io/gorm"
+)
 
 func migrateUserJevSettings(db *gorm.DB) error {
+	if db.Dialector.Name() == "postgres" {
+		return db.AutoMigrate(&model.UserJevSetting{})
+	}
+
 	return db.Exec(`CREATE TABLE IF NOT EXISTS user_jev_settings (
 		user_id integer PRIMARY KEY,
 		revision integer NOT NULL DEFAULT 1,

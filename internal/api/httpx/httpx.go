@@ -160,9 +160,9 @@ func IsRequestTooLargeError(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "request body too large")
 }
 
-// IsTransientSQLiteBusyError reports whether err is a retryable SQLite
-// busy/locked condition, which the caller maps to 503 with a Retry-After hint.
-func IsTransientSQLiteBusyError(err error) bool {
+// IsTransientDatabaseError reports database conditions that are expected to
+// clear on retry. The API maps them to 503 with a Retry-After hint.
+func IsTransientDatabaseError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -175,6 +175,36 @@ func IsTransientSQLiteBusyError(err error) bool {
 		}
 	}
 
+	var stateful interface{ SQLState() string }
+	if errors.As(err, &stateful) {
+		switch code := stateful.SQLState(); {
+		case code == "40001", code == "40P01", code == "55P03", code == "53300", code == "57P01", code == "57P02", code == "57P03":
+			return true
+		case strings.HasPrefix(code, "08"):
+			return true
+		}
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "sqlite_busy") ||
+		strings.Contains(message, "sqlite_locked") ||
+		strings.Contains(message, "database is locked") ||
+		strings.Contains(message, "database table is locked")
+}
+
+// IsTransientSQLiteBusyError is kept for callers that still need to identify
+// the narrower SQLite busy/locked class.
+func IsTransientSQLiteBusyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var coded sqliteErrorCode
+	if errors.As(err, &coded) {
+		switch coded.Code() & 0xff {
+		case sqliteBusyPrimaryCode, sqliteLockedPrimaryCode:
+			return true
+		}
+	}
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "sqlite_busy") ||
 		strings.Contains(message, "sqlite_locked") ||

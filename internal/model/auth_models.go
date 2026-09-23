@@ -42,7 +42,7 @@ type PasskeyCredential struct {
 	UserID       uint       `gorm:"index;not null" json:"user_id"`
 	Name         string     `gorm:"size:255;not null" json:"name"`
 	CredentialID string     `gorm:"size:1024;not null;uniqueIndex:idx_passkey_credential_id" json:"credential_id"`
-	Credential   []byte     `gorm:"type:blob;not null" json:"-"`
+	Credential   []byte     `gorm:"not null" json:"-"`
 	LastUsedAt   *time.Time `json:"last_used_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`

@@ -71,7 +71,7 @@ It ships as a single binary and deploys with one Docker command. Your subscripti
 
 ## Why Subdux
 
-- **Lightweight deployment.** The frontend, backend, and background jobs are integrated into a single Go binary with SQLite persistence, so no separate database or cache service is required.
+- **Lightweight deployment.** The frontend, backend, and background jobs are integrated into a single Go binary. SQLite is used by default; PostgreSQL is available for deployments that configure `DATABASE_URL`.
 - **Built around renewal decisions, not just subscription records.** The action center brings pending items together, while renewal and change history preserve what happened after each decision.
 - **A complete, configurable notification system.** Reminder policies, quiet hours, templates, previews, test sends, delivery logs, and 15 delivery channels form an end-to-end workflow.
 - **Portable data without platform lock-in.** Full import and export, Wallos migration, calendar feeds, and backup and restore make data easy to move and preserve over time.
@@ -224,7 +224,10 @@ The same settings section can test the saved credential without sending subscrip
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `8080` | HTTP listen port |
-| `DATA_PATH` | `data` | Directory for the SQLite database, uploaded assets, and generated local keys |
+| `DATABASE_URL` | unset | PostgreSQL connection URL. When set, PostgreSQL is used instead of the SQLite database in `DATA_PATH`. |
+| `DATABASE_MAX_OPEN_CONNS` | `25` | Maximum open PostgreSQL connections per process; ignored with SQLite. |
+| `DATABASE_MAX_IDLE_CONNS` | `5` | Maximum idle PostgreSQL connections per process; ignored with SQLite. |
+| `DATA_PATH` | `data` | Directory for uploaded assets and generated local keys; SQLite stores `subdux.db` here when PostgreSQL is not configured. |
 | `JWT_SECRET` | auto-generated on first run if unset | Recommended in production; must be at least 32 characters |
 | `SETTINGS_ENCRYPTION_KEY` | falls back to `JWT_SECRET`, then a generated local key file | Used to encrypt sensitive system settings and notification secrets |
 | `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access token lifetime |
@@ -241,6 +244,9 @@ The same settings section can test the saved credential without sending subscrip
 ### Production notes
 
 - Mount `DATA_PATH` to persistent storage.
+- To use PostgreSQL, create an empty database and set `DATABASE_URL`, for example `postgresql://subdux:password@db.example.com:5432/subdux?sslmode=require`. The application creates and migrates its tables on startup. Leave `DATABASE_URL` unset to keep using SQLite.
+- PostgreSQL runs the notification outbox as a multi-worker queue using row locks and `SKIP LOCKED`. Its connection pool is per application process; size the database connection limit for the number of replicas.
+- PostgreSQL backup downloads and scheduled backups contain a JSON snapshot of the application tables in the archive. SQLite backups keep their existing `.db` format. PostgreSQL restore accepts PostgreSQL JSON backups and can import an existing SQLite `.db` backup as an explicit migration; changing `DATABASE_URL` alone does not copy data.
 - Set stable `JWT_SECRET` and `SETTINGS_ENCRYPTION_KEY` values in production.
 - Configure `CORS_ALLOW_ORIGINS` and/or the in-app `site_url` when serving behind a public domain.
 - Configure SMTP before enabling email verification, password reset, or email notifications.
@@ -250,7 +256,7 @@ The same settings section can test the saved credential without sending subscrip
 
 ## Architecture
 
-- **Backend:** Go 1.26.4 + Echo + GORM + SQLite
+- **Backend:** Go 1.26.4 + Echo + GORM + SQLite (default) or PostgreSQL
 - **Frontend:** React 19 + Vite + TypeScript + Tailwind CSS v4 + Shadcn/UI
 - **Deployment model:** the frontend is built into `web/dist`, then embedded into the Go binary via `go:embed`
 
