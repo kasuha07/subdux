@@ -154,13 +154,15 @@ func mapSubscriptionDetailEvent(event model.SubscriptionEvent) SubscriptionDetai
 
 func (s *Service) subscriptionDetailPriceHistory(userID, subscriptionID uint) ([]SubscriptionDetailPriceHistoryItem, error) {
 	var events []model.SubscriptionEvent
-	if err := s.DB.Where("user_id = ? AND subscription_id = ?", userID, subscriptionID).
-		Where("type = ? OR changed_fields LIKE ? OR changed_fields LIKE ? OR changed_fields LIKE ?",
-			subscriptionEventCreated,
-			`%"amount"%`,
-			`%"currency"%`,
-			`%"monthly_amount"%`,
-		).
+	query := s.DB.Where("user_id = ? AND subscription_id = ?", userID, subscriptionID)
+	if pkg.IsPostgres(s.DB) {
+		query = query.Where("type = ? OR changed_fields::jsonb @> ?::jsonb OR changed_fields::jsonb @> ?::jsonb OR changed_fields::jsonb @> ?::jsonb",
+			subscriptionEventCreated, `["amount"]`, `["currency"]`, `["monthly_amount"]`)
+	} else {
+		query = query.Where("type = ? OR changed_fields LIKE ? OR changed_fields LIKE ? OR changed_fields LIKE ?",
+			subscriptionEventCreated, `%"amount"%`, `%"currency"%`, `%"monthly_amount"%`)
+	}
+	if err := query.
 		Order("created_at ASC").
 		Order("id ASC").
 		Find(&events).Error; err != nil {

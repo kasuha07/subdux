@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -14,6 +15,60 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// Inject a committed write after the backup has read users but before it reads
+// categories. A repeatable-read snapshot must exclude both new rows.
+type postgresBackupInterleavingWriter struct {
+	bytes.Buffer
+	db       *gorm.DB
+	injected bool
+}
+
+func (w *postgresBackupInterleavingWriter) Write(data []byte) (int, error) {
+	if bytes.Equal(data, []byte(`"categories"`)) && !w.injected {
+		w.injected = true
+		user := model.User{Username: "snapshot-" + uuid.NewString(), Email: uuid.NewString() + "@example.com", Password: "hash", Role: "user", Status: "active"}
+		if err := w.db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(&user).Error; err != nil {
+				return err
+			}
+			return tx.Create(&model.Category{UserID: user.ID, Name: "after snapshot"}).Error
+		}); err != nil {
+			return 0, err
+		}
+	}
+	return w.Buffer.Write(data)
+}
+
+func TestPostgresLogicalBackupUsesOneSnapshotAcrossTables(t *testing.T) {
+	db := openIsolatedPostgresTestDB(t)
+	writer := &postgresBackupInterleavingWriter{db: db}
+	if err := WritePostgresBackup(db, writer); err != nil {
+		t.Fatalf("WritePostgresBackup() error = %v", err)
+	}
+	if !writer.injected {
+		t.Fatal("concurrent write was not injected between table reads")
+	}
+	var snapshot struct {
+		Tables map[string][]json.RawMessage `json:"tables"`
+	}
+	if err := json.Unmarshal(writer.Bytes(), &snapshot); err != nil {
+		t.Fatalf("decode backup: %v", err)
+	}
+	if len(snapshot.Tables["users"]) != 0 || len(snapshot.Tables["categories"]) != 0 {
+		t.Fatalf("snapshot captured different committed states: users=%d categories=%d", len(snapshot.Tables["users"]), len(snapshot.Tables["categories"]))
+	}
+	var users, categories int64
+	if err := db.Model(&model.User{}).Count(&users).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.Category{}).Count(&categories).Error; err != nil {
+		t.Fatal(err)
+	}
+	if users != 1 || categories != 1 {
+		t.Fatalf("interleaved write did not commit: users=%d categories=%d", users, categories)
+	}
+}
 
 func TestOpenConfiguredDatabaseDefaultsToSQLite(t *testing.T) {
 	t.Setenv(DatabaseURLEnv, "")

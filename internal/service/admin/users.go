@@ -207,6 +207,12 @@ func (s *Service) CreateUser(input CreateUserInput) (*model.User, error) {
 		}
 		return serviceutil.SeedUserDefaults(tx, user.ID)
 	}); err != nil {
+		switch serviceauth.LoginIdentifierConflictField(err) {
+		case "email":
+			return nil, ErrAdminEmailAlreadyRegistered
+		case "username":
+			return nil, ErrAdminUsernameAlreadyTaken
+		}
 		return nil, err
 	}
 

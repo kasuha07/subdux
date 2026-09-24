@@ -236,7 +236,7 @@ func (s *Service) ConfirmEmailChange(userID uint, newEmail string, verificationC
 			Where("user_id = ? AND email = ? AND purpose = ? AND consumed_at IS NULL", userID, normalizedEmail, verificationPurposeChangeEmail).
 			Update("consumed_at", &now).Error
 	}); err != nil {
-		return nil, err
+		return nil, mapLoginIdentifierWriteError(err)
 	}
 
 	user.Email = normalizedEmail

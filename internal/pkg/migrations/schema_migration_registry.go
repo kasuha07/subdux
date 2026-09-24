@@ -61,6 +61,9 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260908_01_row_revisions", Checksum: "d52005c5134c6e599bb60d82d85b77922f3f9f1cda0e923637b01ae8f34f0993", Run: migrateRowRevisions},
 	{Name: "20260920_01_user_jev_settings", Checksum: "f97f6d1d490a621eeeaf7bd6514715d5f51e3edcbb6358c27ab2d92ed80fc35f", Run: migrateUserJevSettings},
 	{Name: "20260922_01_jev_diagnostics", Checksum: "2f708d59828ecb3b3e8da63a6a089c419dcbb5ac2176732a24cd2dae2535ab6c", Run: migrateJevDiagnostics},
+	{Name: "20260924_01_notification_outbox_claim_index", Checksum: "1eb426919466c175434fdbed23c49b444205ba7f142d31eb97ca80b136bfeb80", Run: migrateNotificationOutboxClaimIndex},
+	{Name: "20260924_02_postgres_login_identifiers", Checksum: "73df51fe1fcf571d5ef844db08f9083f2f0682f0278229d27fd3ad24f7059b52", Run: migratePostgresLoginIdentifiers},
+	{Name: "20260924_03_subscription_event_fields_index", Checksum: "b0fcb27af8a6c893d8e83a02088d2dfe5b5a52501c9ea8c52afc6eceb93a1bd3", Run: migrateSubscriptionEventFieldsIndex},
 }
 
 func autoMigrate20260512ApplicationSchema(db *gorm.DB) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
@@ -369,45 +370,42 @@ func (s *Service) claimDueNotificationOutboxPostgres(ctx context.Context, batchS
 	now := pkg.NowUTC()
 	ownerID := s.notificationOwnerID()
 	leaseUntil := now.Add(leaseTTL)
+	// A single statement keeps candidate selection, row locking, lease update,
+	// and row retrieval atomic while avoiding a second round trip to load jobs.
+	// Keep the status literals in the predicate: PostgreSQL can then prove that
+	// the query implies the partial-index predicate even with prepared plans.
 	var jobs []model.NotificationOutbox
-	err := db.Transaction(func(tx *gorm.DB) error {
-		var candidates []model.NotificationOutbox
-		if err := tx.Select("id").
-			Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("status IN ? AND next_attempt_at <= ? AND (expires_at IS NULL OR expires_at > ?) AND (locked_until IS NULL OR locked_until <= ?)",
-				[]string{notificationOutboxStatusPending, notificationOutboxStatusProcessing}, now, now, now).
-			Order("next_attempt_at ASC, id ASC").
-			Limit(batchSize).
-			Find(&candidates).Error; err != nil {
-			return err
-		}
-		if len(candidates) == 0 {
-			return nil
-		}
-
-		claimedIDs := make([]uint, 0, len(candidates))
-		for _, candidate := range candidates {
-			claimedIDs = append(claimedIDs, candidate.ID)
-		}
-		if err := tx.Model(&model.NotificationOutbox{}).
-			Where("id IN ?", claimedIDs).
-			Updates(map[string]interface{}{
-				"status":          notificationOutboxStatusProcessing,
-				"locked_by":       ownerID,
-				"locked_until":    leaseUntil,
-				"last_attempt_at": now,
-				"attempt_count":   gorm.Expr("attempt_count + ?", 1),
-				"updated_at":      now,
-			}).Error; err != nil {
-			return err
-		}
-
-		return tx.Where("id IN ? AND locked_by = ? AND status = ?", claimedIDs, ownerID, notificationOutboxStatusProcessing).
-			Order("id ASC").Find(&jobs).Error
-	})
+	err := db.Raw(`
+		WITH candidates AS (
+			SELECT id
+			FROM notification_outboxes
+			WHERE status IN ('pending', 'processing')
+			  AND next_attempt_at <= ?
+			  AND (expires_at IS NULL OR expires_at > ?)
+			  AND (locked_until IS NULL OR locked_until <= ?)
+			ORDER BY next_attempt_at ASC, id ASC
+			LIMIT ?
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE notification_outboxes AS outbox
+		SET status = ?,
+		    locked_by = ?,
+		    locked_until = ?,
+		    last_attempt_at = ?,
+		    attempt_count = outbox.attempt_count + 1,
+		    updated_at = ?
+		FROM candidates
+		WHERE outbox.id = candidates.id
+		RETURNING outbox.*`,
+		now, now, now, batchSize,
+		notificationOutboxStatusProcessing, ownerID, leaseUntil, now, now,
+	).Scan(&jobs).Error
 	if err != nil {
 		return nil, err
 	}
+	// UPDATE ... RETURNING does not promise row order; retain the previous
+	// method's stable ID ordering for callers.
+	sort.Slice(jobs, func(i, j int) bool { return jobs[i].ID < jobs[j].ID })
 	return jobs, nil
 }
 

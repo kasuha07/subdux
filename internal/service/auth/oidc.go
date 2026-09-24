@@ -868,7 +868,7 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, mapLoginIdentifierWriteError(err)
 	}
 
 	return &user, nil

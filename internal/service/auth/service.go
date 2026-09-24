@@ -173,7 +173,7 @@ func (s *Service) Register(input RegisterInput) (*AuthResponse, error) {
 		}
 		return seedUserDefaults(tx, user.ID)
 	}); err != nil {
-		return nil, err
+		return nil, mapLoginIdentifierWriteError(err)
 	}
 
 	if emailVerificationEnabled {
