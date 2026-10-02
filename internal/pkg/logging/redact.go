@@ -18,6 +18,7 @@ var sensitiveKeys = map[string]struct{}{
 	"api_key":       {},
 	"apikey":        {},
 	"authorization": {},
+	"code_verifier": {},
 	"id_token":      {},
 	"jwt":           {},
 	"otp":           {},
@@ -35,8 +36,10 @@ var sensitiveKeys = map[string]struct{}{
 // so structured fields legitimately named "code" (a country/status code) or
 // "key" (a cache or map key) are not silently masked.
 var queryOnlySensitiveKeys = map[string]struct{}{
-	"code": {},
-	"key":  {},
+	"code":    {},
+	"key":     {},
+	"request": {},
+	"next":    {},
 }
 
 // sensitiveSuffixes flags families of secret-bearing field names without
@@ -98,11 +101,14 @@ func redactAttr(_ []string, attr slog.Attr) slog.Attr {
 }
 
 // SanitizeURI returns the request path with its query string rewritten so that
-// sensitive parameters are masked. The path itself is preserved; only
-// parameter values are touched. An empty path is normalized to "/".
+// sensitive parameters and MCP OAuth interaction handles are masked.
+// An empty path is normalized to "/".
 func SanitizeURI(path string, query url.Values) string {
 	if path == "" {
 		path = "/"
+	}
+	if strings.HasPrefix(path, "/api/mcp/oauth/requests/") {
+		path = "/api/mcp/oauth/requests/" + redactedPlaceholder
 	}
 
 	sanitized := SanitizeQuery(query)

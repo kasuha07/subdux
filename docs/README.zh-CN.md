@@ -153,7 +153,9 @@ docker compose up -d
 
 ## 自动化与 MCP
 
-在 Subdux 设置中创建 API Key，然后连接 MCP 客户端：
+使用网页授权时，请管理员启用 MCP 并配置公开的 HTTPS 站点地址，然后在客户端添加 `/mcp` 地址，通过 OAuth 登录并确认权限。在设置页可查看和撤销已授权连接。详见 [MCP OAuth 接入说明](mcp-oauth.md)。
+
+也可以在 Subdux 设置中创建 MCP 客户端类型的 API Key，然后连接 MCP 客户端：
 
 ```json
 {

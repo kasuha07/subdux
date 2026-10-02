@@ -1,4 +1,27 @@
 const settings = {
+  "mcpOAuth": {
+    "title": "MCP OAuth connections",
+    "description": "Add the MCP URL to your client, sign in and approve access. API keys remain available below.",
+    "configureHint": "An administrator must enable MCP and configure the public HTTPS site URL.",
+    "empty": "No authorized MCP connections.",
+    "loadFailed": "Unable to load MCP connections.",
+    "retry": "Retry",
+    "lastUsed": "Last used: {{date}}",
+    "expires": "Expires: {{date}}",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke this connection? Its access and refresh tokens will stop working.",
+    "consentTitle": "Authorize MCP access",
+    "consentDescription": "Review the client and the access you want to grant.",
+    "signedInAs": "Signed in as {{name}}",
+    "readPermission": "Read your subscriptions and related reference data.",
+    "writePermission": "Also allow creating, editing, renewing and deleting subscriptions.",
+    "accessDescription": "This connection can refresh access for up to 30 days. You can revoke it in Settings at any time. Client names from registration are not proof of a verified publisher.",
+    "redirectTo": "Return to: {{uri}}",
+    "authorize": "Authorize",
+    "deny": "Deny",
+    "back": "Back to Subdux",
+    "invalidRequest": "This authorization request has expired, was already used, or is unavailable. Start again from your MCP client."
+},
   "jev": {
     "title": "Jev automatic classification",
     "description": "Automatically select a suggested category when adding a subscription. Your manual choices always take priority.",

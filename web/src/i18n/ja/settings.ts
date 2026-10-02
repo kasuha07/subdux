@@ -1,4 +1,27 @@
 const settings = {
+  "mcpOAuth": {
+    "title": "MCP OAuth 接続",
+    "description": "クライアントに MCP URL を追加し、ログインしてアクセスを承認します。下の API キーも引き続き利用できます。",
+    "configureHint": "管理者が MCP を有効にして公開 HTTPS サイト URL を設定する必要があります。",
+    "empty": "承認済みの MCP 接続はありません。",
+    "loadFailed": "MCP 接続を読み込めませんでした。",
+    "retry": "再試行",
+    "lastUsed": "最終使用：{{date}}",
+    "expires": "有効期限：{{date}}",
+    "revoke": "取り消す",
+    "revokeConfirm": "この接続を取り消しますか？アクセストークンと更新トークンは無効になります。",
+    "consentTitle": "MCP アクセスを承認",
+    "consentDescription": "クライアントと付与する権限を確認してください。",
+    "signedInAs": "ログイン中：{{name}}",
+    "readPermission": "サブスクリプションと関連する参照データを読み取ります。",
+    "writePermission": "サブスクリプションの作成、編集、更新、削除も許可します。",
+    "accessDescription": "この接続は最大 30 日間アクセスを更新できます。設定からいつでも取り消せます。登録されたクライアント名は発行元の検証を意味しません。",
+    "redirectTo": "承認後の戻り先：{{uri}}",
+    "authorize": "承認",
+    "deny": "拒否",
+    "back": "Subdux に戻る",
+    "invalidRequest": "この承認リクエストは期限切れ、使用済み、または無効です。MCP クライアントから再接続してください。"
+},
   "jev": {
     "title": "Jev 自動分類",
     "description": "サブスクリプションの追加時に、おすすめのカテゴリを自動選択します。手動で選択または解除した後は変更しません。",

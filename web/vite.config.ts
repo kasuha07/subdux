@@ -43,6 +43,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      "^/oauth/(authorize|token|register|revoke)(\\?|$)": { target: "http://localhost:8080", changeOrigin: true },
+      "/.well-known/oauth-": { target: "http://localhost:8080", changeOrigin: true },
       "/api": {
         target: "http://localhost:8080",
         changeOrigin: true,

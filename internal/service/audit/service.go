@@ -51,6 +51,8 @@ func (s *Service) WithContext(ctx context.Context) *Service {
 type CreateEventInput struct {
 	UserID              uint
 	KeyID               uint
+	OAuthGrantID        *uint
+	OAuthClientID       string
 	KeyKind             string
 	ScopeUsed           string
 	Transport           string
@@ -92,6 +94,8 @@ func (s *Service) Create(input CreateEventInput) (*model.AuditEvent, error) {
 		OccurredAt:          pkg.NowUTC(),
 		UserID:              input.UserID,
 		KeyID:               input.KeyID,
+		OAuthGrantID:        input.OAuthGrantID,
+		OAuthClientID:       input.OAuthClientID,
 		KeyKind:             strings.TrimSpace(input.KeyKind),
 		ScopeUsed:           strings.TrimSpace(input.ScopeUsed),
 		Transport:           strings.TrimSpace(input.Transport),

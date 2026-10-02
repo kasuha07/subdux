@@ -118,6 +118,7 @@ function AuditEventRow({ event }: { event: AuditEvent }) {
         <span>{t("settings.audit.action")}: {event.action}</span>
         <span>{t("settings.audit.resource")}: {event.resource_type} #{event.resource_id}</span>
         {event.client_name && <span>{t("settings.audit.client")}: {event.client_name}</span>}
+        {event.oauth_client_id && <span className="break-all">OAuth: {event.oauth_client_id}</span>}
         {event.error && <span className="text-destructive">{event.error}</span>}
       </div>
       <details className="mt-2">

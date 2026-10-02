@@ -155,7 +155,9 @@ docker compose up -d
 
 ## Automation and MCP
 
-Create an API key in Subdux and connect an MCP client:
+For browser sign-in, enable MCP, configure the public HTTPS Site URL, and add the `/mcp` URL to your client's OAuth connection flow. Review and revoke authorized connections in Settings. See [MCP OAuth setup](docs/mcp-oauth.md).
+
+Alternatively, create an MCP-client API key in Subdux and connect an MCP client:
 
 ```json
 {

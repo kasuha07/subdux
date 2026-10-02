@@ -10,6 +10,7 @@ import { api, setAuth } from "@/lib/api"
 import { getPasskeyCredential, isPasskeySupported, type CredentialAssertionJSON } from "@/lib/passkey"
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import { toast } from "@/lib/toast"
+import { getLoginReturnPath, rememberLoginReturnPath, clearLoginReturnPath } from "@/lib/mcp-login-return"
 import type {
   AuthResponse,
   LoginResponse,
@@ -58,7 +59,9 @@ export default function LoginPage() {
         if (accessToken && result.user) {
           setAuth(accessToken, result.user)
           toast.success(t("auth.login.success"))
-          navigate("/", { replace: true })
+          const destination = getLoginReturnPath()
+          clearLoginReturnPath()
+          navigate(destination, { replace: true })
           return
         }
 
@@ -92,7 +95,9 @@ export default function LoginPage() {
         const authData = data as AuthResponse
         setAuth(authData.access_token ?? authData.token, authData.user)
         toast.success(t("auth.login.success"))
-        navigate("/")
+        const destination = getLoginReturnPath()
+        clearLoginReturnPath()
+        navigate(destination)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.login.error"))
@@ -113,7 +118,9 @@ export default function LoginPage() {
       })
       setAuth(data.access_token ?? data.token, data.user)
       toast.success(t("auth.login.success"))
-      navigate("/")
+      const destination = getLoginReturnPath()
+      clearLoginReturnPath()
+      navigate(destination)
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.login.twoFactor.error"))
     } finally {
@@ -145,7 +152,9 @@ export default function LoginPage() {
       })
       setAuth(authData.access_token ?? authData.token, authData.user)
       toast.success(t("auth.login.success"))
-      navigate("/")
+      const destination = getLoginReturnPath()
+      clearLoginReturnPath()
+      navigate(destination)
     } catch (err) {
       setError(getPasskeyErrorMessage(err, t, "auth.login.passkeyError"))
     } finally {
@@ -154,6 +163,7 @@ export default function LoginPage() {
   }
 
   async function handleOIDCLogin() {
+    rememberLoginReturnPath()
     setError("")
     setOidcSubmitting(true)
     try {

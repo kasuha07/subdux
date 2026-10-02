@@ -28,6 +28,7 @@ import { TabsContent } from "@/components/ui/tabs"
 import ReauthDialog from "@/features/admin/reauth-dialog"
 import { api } from "@/lib/api"
 import type { APIKey, CreateAPIKeyResponse } from "@/types"
+import MCPOAuthConnections from "./mcp-oauth-connections"
 
 interface SettingsAPIKeyTabProps {
   active: boolean
@@ -174,6 +175,7 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   return (
     <TabsContent value="apikey" className="settings-tab-content">
       <div className="space-y-4">
+        <MCPOAuthConnections active={active} />
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-base font-semibold tracking-tight select-none">

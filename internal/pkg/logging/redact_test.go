@@ -28,6 +28,7 @@ func TestIsSensitiveKey(t *testing.T) {
 		{key: "totp_token", want: true},
 		{key: "authorization", want: true},
 		{key: "jwt", want: true},
+		{key: "code_verifier", want: true},
 		// Suffix families.
 		{key: "client_secret", want: true},
 		{key: "session_token", want: true},
@@ -63,6 +64,7 @@ func TestIsSensitiveQueryParamIncludesAmbiguousNames(t *testing.T) {
 	}{
 		{key: "code", want: true},
 		{key: "key", want: true},
+		{key: "request", want: true},
 		{key: "password", want: true}, // also covered by the global set
 		{key: "client_secret", want: true},
 		{key: "page", want: false},
@@ -110,6 +112,17 @@ func TestSanitizeURI(t *testing.T) {
 			name: "no query",
 			path: "/api/subscriptions",
 			want: "/api/subscriptions",
+		},
+		{
+			name: "OAuth interaction handle in path",
+			path: "/api/mcp/oauth/requests/private-interaction",
+			want: "/api/mcp/oauth/requests/[REDACTED]",
+		},
+		{
+			name:  "OAuth consent handle in query",
+			path:  "/connect/mcp",
+			query: url.Values{"request": {"private-interaction"}},
+			want:  "/connect/mcp?request=%5BREDACTED%5D",
 		},
 		{
 			name:  "empty path normalizes to slash",

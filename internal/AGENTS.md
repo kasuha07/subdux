@@ -37,7 +37,7 @@ internal/
 - Prefer focused service subpackages over adding more business logic to the parent `internal/service` package.
 - Use GORM APIs in request/business code. Raw SQL belongs only in narrowly justified migration/helper code.
 - API keys are machine principals. Human-only account, audit, export, calendar-token, and credential flows must stay behind human-session-only middleware.
-- MCP stays API-key based and narrower than REST. New MCP surfaces need schema, request limits, audit review, and trust-boundary review.
+- MCP accepts MCP-client API keys and dedicated OAuth grants and stays narrower than REST. OAuth tokens must never authenticate human REST sessions. New MCP surfaces need schema, request limits, audit review, and trust-boundary review.
 - Model shape changes usually imply matching service logic, API mappers, and often a migration under `internal/pkg/migrations/`.
 - Use typed service errors from `internal/service/serviceerr/` and let `internal/api/error_handler.go` own HTTP status mapping.
 

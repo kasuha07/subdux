@@ -16,6 +16,7 @@ type MCPIdempotencyKey struct {
 	UserID         uint      `gorm:"not null;uniqueIndex:idx_mcp_idempotency_user_key,priority:1" json:"user_id"`
 	IdempotencyKey string    `gorm:"not null;size:255;uniqueIndex:idx_mcp_idempotency_user_key,priority:2" json:"idempotency_key"`
 	KeyID          uint      `gorm:"not null;index" json:"key_id"`
+	OAuthGrantID   *uint     `gorm:"index" json:"oauth_grant_id,omitempty"`
 	ToolName       string    `gorm:"not null;size:100" json:"tool_name"`
 	RequestHash    string    `gorm:"not null;size:64" json:"request_hash"`
 	ResourceType   string    `gorm:"size:50" json:"resource_type"`

@@ -112,6 +112,8 @@ func (h *MCPHandler) runIdempotentWrite(
 			if _, err := auditservice.NewService(tx).Create(auditservice.CreateEventInput{
 				UserID:              principal.UserID,
 				KeyID:               principal.KeyID,
+				OAuthGrantID:        principal.OAuthGrantID,
+				OAuthClientID:       principal.OAuthClientID,
 				KeyKind:             principal.KeyKind,
 				ScopeUsed:           apikeyservice.APIKeyScopeWrite,
 				Transport:           auditservice.TransportMCP,
@@ -121,7 +123,7 @@ func (h *MCPHandler) runIdempotentWrite(
 				Action:              outcome.Action,
 				Status:              auditservice.StatusSuccess,
 				LatencyMS:           time.Since(start).Milliseconds(),
-				ClientName:          principal.Request.ClientName,
+				ClientName:          principal.auditClientName(),
 				ClientVersion:       principal.Request.ClientVersion,
 				RequestID:           principal.Request.RequestID,
 				RequestArgsRedacted: args,
@@ -140,6 +142,7 @@ func (h *MCPHandler) runIdempotentWrite(
 			UserID:         principal.UserID,
 			IdempotencyKey: key,
 			KeyID:          principal.KeyID,
+			OAuthGrantID:   principal.OAuthGrantID,
 			ToolName:       spec.ToolName,
 			RequestHash:    fingerprint,
 			ResourceType:   spec.ResourceType,
@@ -165,6 +168,13 @@ func (h *MCPHandler) runIdempotentWrite(
 		postCommit()
 	}
 	return result, nil
+}
+
+func (p *mcpPrincipal) auditClientName() string {
+	if p.OAuthGrantID != nil {
+		return p.OAuthClientName
+	}
+	return p.Request.ClientName
 }
 
 // mapMCPWriteError translates a rolled-back transaction error into the response

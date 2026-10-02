@@ -83,9 +83,10 @@ func main() {
 
 	allowedOrigins := loadCORSOrigins(db)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: allowedOrigins,
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-API-Key", "MCP-Protocol-Version"},
+		AllowOrigins:  allowedOrigins,
+		AllowMethods:  []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
+		AllowHeaders:  []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-API-Key", "MCP-Protocol-Version", "Mcp-Method", "Mcp-Name"},
+		ExposeHeaders: []string{"WWW-Authenticate", "MCP-Protocol-Version"},
 	}))
 
 	taskMonitor := serviceutil.NewBackgroundTaskMonitor()

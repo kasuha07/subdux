@@ -23,6 +23,7 @@ import (
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
 	importer "github.com/kasuha07/subdux/internal/service/importer"
 	"github.com/kasuha07/subdux/internal/service/jev"
+	"github.com/kasuha07/subdux/internal/service/mcpoauth"
 	notificationservice "github.com/kasuha07/subdux/internal/service/notification"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
@@ -45,10 +46,11 @@ type App struct {
 	exchangeRateService *exchangerate.Service
 	notificationService *notificationservice.Service
 
-	handlers    apiHandlers
-	registrars  []Registrar
-	mcpHandler  *mcpapi.MCPHandler
-	settingsSvc *systemsettings.Service
+	handlers     apiHandlers
+	registrars   []Registrar
+	mcpHandler   *mcpapi.MCPHandler
+	settingsSvc  *systemsettings.Service
+	oauthHandler *MCPOAuthHandler
 }
 
 // apiHandlers groups the constructed handlers. Handlers hold their own service
@@ -97,6 +99,8 @@ func NewApp(ctx context.Context, db *gorm.DB, taskMonitor *serviceutil.Backgroun
 	notificationService := notificationservice.NewService(db, templateService, renderer)
 	apiKeyService := apikeyservice.NewService(db)
 	auditService := auditservice.NewService(db)
+	oauthService := mcpoauth.NewService(db)
+	oauthService.StartCleanupLoop(ctx)
 	calendarService := calendarservice.NewService(db)
 	exportService := exporter.NewService(db)
 	importService := importer.NewService(db)
@@ -135,7 +139,8 @@ func NewApp(ctx context.Context, db *gorm.DB, taskMonitor *serviceutil.Backgroun
 		handlers:            h,
 		mcpHandler: mcpapi.NewMCPHandler(apiKeyService, auditService, subService, erService,
 			currencyService, categoryService, paymentMethodService),
-		settingsSvc: systemSettingsService,
+		settingsSvc:  systemSettingsService,
+		oauthHandler: &MCPOAuthHandler{Service: oauthService, Settings: systemSettingsService},
 	}
 }
 
@@ -161,7 +166,9 @@ func (a *App) Mount(e *echo.Echo) {
 	e.HTTPErrorHandler = APIErrorHandler(e.HTTPErrorHandler)
 
 	a.mountMCP(e)
+	a.oauthHandler.Mount(e, a.settingsSvc)
 	groups := a.buildRouteGroups(e)
+	a.oauthHandler.RegisterRoutes(groups)
 	for _, r := range a.registrarList() {
 		r.RegisterRoutes(groups)
 	}

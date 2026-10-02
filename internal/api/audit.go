@@ -27,6 +27,8 @@ type auditEventResponse struct {
 	OccurredAt          time.Time       `json:"occurred_at"`
 	UserID              uint            `json:"user_id"`
 	KeyID               uint            `json:"key_id"`
+	OAuthGrantID        *uint           `json:"oauth_grant_id,omitempty"`
+	OAuthClientID       string          `json:"oauth_client_id,omitempty"`
 	KeyKind             string          `json:"key_kind"`
 	ScopeUsed           string          `json:"scope_used"`
 	Transport           string          `json:"transport"`
@@ -93,6 +95,8 @@ func mapAuditEventResponse(event model.AuditEvent) auditEventResponse {
 		OccurredAt:          event.OccurredAt,
 		UserID:              event.UserID,
 		KeyID:               event.KeyID,
+		OAuthGrantID:        event.OAuthGrantID,
+		OAuthClientID:       event.OAuthClientID,
 		KeyKind:             event.KeyKind,
 		ScopeUsed:           event.ScopeUsed,
 		Transport:           event.Transport,

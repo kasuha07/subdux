@@ -8,6 +8,8 @@ type AuditEvent struct {
 	UserID              uint      `gorm:"not null;index:idx_audit_user_occurred,priority:1" json:"user_id"`
 	KeyID               uint      `gorm:"not null;index" json:"key_id"`
 	KeyKind             string    `gorm:"not null;size:30" json:"key_kind"`
+	OAuthGrantID        *uint     `gorm:"index" json:"oauth_grant_id,omitempty"`
+	OAuthClientID       string    `gorm:"size:2048" json:"oauth_client_id,omitempty"`
 	ScopeUsed           string    `gorm:"not null;size:20" json:"scope_used"`
 	Transport           string    `gorm:"not null;size:20;index" json:"transport"`
 	ToolName            string    `gorm:"not null;size:100" json:"tool_name"`

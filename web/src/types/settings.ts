@@ -122,6 +122,8 @@ export interface CreateAPIKeyInput {
 }
 
 export interface AuditEvent {
+	 oauth_grant_id?: number
+	 oauth_client_id?: string
   event_id: string
   occurred_at: string
   user_id: number

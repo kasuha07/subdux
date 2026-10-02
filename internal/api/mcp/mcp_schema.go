@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	apikeyservice "github.com/kasuha07/subdux/internal/service/apikey"
 	"github.com/kasuha07/subdux/internal/service/money"
@@ -172,7 +173,12 @@ func (d mcpToolDefinition) sdkTool() *mcpsdk.Tool {
 	if d.Write {
 		annotations = writeSDKToolAnnotation(d.Name == "delete_subscription")
 	}
+	scopes := []string{"read"}
+	if d.Write {
+		scopes = append(scopes, "write")
+	}
 	return &mcpsdk.Tool{
+		Meta:        mcpsdk.Meta{"securitySchemes": []map[string]interface{}{{"type": "oauth2", "scopes": scopes}}},
 		Name:        d.Name,
 		Title:       d.Title,
 		Description: d.Description,
@@ -199,7 +205,7 @@ func (h *MCPHandler) buildServer() *mcpsdk.Server {
 			Version: info.Version,
 		},
 		&mcpsdk.ServerOptions{
-			Instructions: "Use X-API-Key authentication. Read tools require the read scope; write tools require the write scope.",
+			Instructions: "Use OAuth Bearer authentication or an MCP-client X-API-Key. Read tools require the read scope; write tools require the write scope.",
 			Capabilities: &mcpsdk.ServerCapabilities{
 				Tools: &mcpsdk.ToolCapabilities{},
 			},
@@ -227,6 +233,15 @@ func (h *MCPHandler) buildServer() *mcpsdk.Server {
 				requiredScope = apikeyservice.APIKeyScopeWrite
 			}
 			if !mcpPrincipalHasScope(principal, requiredScope) {
+				if principal.OAuthGrantID != nil {
+					result := mcpToolExecutionError("MCP authorization does not have the required scope").sdkResult()
+					challenge := `Bearer error="insufficient_scope", error_description="Write authorization is required", scope="read write"`
+					if issuer, err := h.oauth.WithContext(ctx).Issuer(); err == nil {
+						challenge += fmt.Sprintf(", resource_metadata=%q", issuer+"/.well-known/oauth-protected-resource/mcp")
+					}
+					result.Meta = mcpsdk.Meta{"mcp/www_authenticate": []string{challenge}}
+					return result, nil
+				}
 				return mcpToolExecutionError("api key does not have required scope").sdkResult(), nil
 			}
 

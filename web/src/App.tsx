@@ -8,6 +8,7 @@ import { PageTransition } from "@/components/page-transition"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSiteTitle } from "@/hooks/useSiteSettings"
 import { scheduleNeighborRoutePreload, preloadRouteForPath } from "@/lib/route-preload"
+import { getLoginReturnPath, safeMCPReturnPath } from "@/lib/mcp-login-return"
 
 const LoginPage = lazy(() => import("@/features/auth/login-page"))
 const RegisterPage = lazy(() => import("@/features/auth/register-page"))
@@ -20,13 +21,16 @@ const AdminPage = lazy(() => import("@/features/admin/admin-page"))
 const CalendarPage = lazy(() => import("@/features/calendar/calendar-page"))
 const ReportsPage = lazy(() => import("@/features/reports/reports-page"))
 const OIDCReauthCallback = lazy(() => import("@/features/auth/oidc-reauth-callback"))
+const MCPConsentPage = lazy(() => import("@/features/auth/mcp-consent-page"))
 
 function ProtectedRoute({ children, authReady }: { children: ReactNode, authReady: boolean }) {
+  const location = useLocation()
   if (!authReady) {
     return <RouteLoading />
   }
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />
+    const next = safeMCPReturnPath(location.pathname + location.search)
+    return <Navigate to={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} replace />
   }
   return <>{children}</>
 }
@@ -36,7 +40,7 @@ function PublicRoute({ children, authReady }: { children: ReactNode, authReady: 
     return <RouteLoading />
   }
   if (isAuthenticated()) {
-    return <Navigate to="/" replace />
+    return <Navigate to={getLoginReturnPath()} replace />
   }
   return <>{children}</>
 }
@@ -128,6 +132,7 @@ export default function App() {
           <Route path="/calendar" element={<LazyRoute><ProtectedRoute authReady={authReady}><CalendarPage /></ProtectedRoute></LazyRoute>} />
           <Route path="/admin" element={<LazyRoute><AdminRoute authReady={authReady}><AdminPage /></AdminRoute></LazyRoute>} />
           <Route path="/oidc/reauth" element={<LazyRoute><OIDCReauthCallback /></LazyRoute>} />
+          <Route path="/connect/mcp" element={<LazyRoute><ProtectedRoute authReady={authReady}><MCPConsentPage /></ProtectedRoute></LazyRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </TooltipProvider>

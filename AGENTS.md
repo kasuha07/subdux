@@ -63,7 +63,7 @@ subdux/
 - Read the nearest child `AGENTS.md` before editing. Child guidance narrows local structure; root policy still applies.
 - Keep the layered flow: `internal/api` handlers and middleware -> `internal/service/*` business logic -> `internal/model` + `internal/pkg`.
 - API keys are machine principals. Human-only account, audit, export, calendar-token, credential, and API-key management flows must stay behind human-session boundaries.
-- Keep MCP narrower than REST. New MCP tools need explicit schema, bounded inputs, API-key auth, and trust-boundary review.
+- Keep MCP narrower than REST. New MCP tools need explicit schema, bounded inputs, MCP-client API-key or dedicated OAuth-grant auth, and trust-boundary review. MCP OAuth tokens must never authenticate human REST sessions.
 - Frontend feature code should stay under `web/src/features/{domain}` and authenticated network calls must go through `web/src/lib/api.ts`.
 - Keep user-facing text translated in `en`, `zh-CN`, and `ja`.
 

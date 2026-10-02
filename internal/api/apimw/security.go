@@ -374,6 +374,9 @@ func SecurityHeadersMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			"default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
 		)
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		if c.Request().URL.Path == "/connect/mcp" || strings.HasPrefix(c.Request().URL.Path, "/oauth/") {
+			h.Set("Referrer-Policy", "no-referrer")
+		}
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		if isHTTPSRequest(c) {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")

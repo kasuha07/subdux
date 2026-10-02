@@ -15,6 +15,7 @@ import (
 	catalogservice "github.com/kasuha07/subdux/internal/service/catalog"
 	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
+	"github.com/kasuha07/subdux/internal/service/mcpoauth"
 	subscriptionservice "github.com/kasuha07/subdux/internal/service/subscription"
 	"github.com/labstack/echo/v4"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -26,6 +27,7 @@ const (
 
 type MCPHandler struct {
 	apiKeys        *apikeyservice.Service
+	oauth          *mcpoauth.Service
 	audit          *auditservice.Service
 	idempotency    *idempotencyservice.Service
 	subscriptions  *subscriptionservice.Service
@@ -48,6 +50,7 @@ func NewMCPHandler(
 ) *MCPHandler {
 	handler := &MCPHandler{
 		apiKeys:        apiKeys,
+		oauth:          mcpoauth.NewService(subscriptions.DB),
 		audit:          audit,
 		idempotency:    idempotencyservice.NewService(subscriptions.DB),
 		subscriptions:  subscriptions,
@@ -75,11 +78,14 @@ type mcpError struct {
 }
 
 type mcpPrincipal struct {
-	UserID  uint
-	KeyID   uint
-	KeyKind string
-	Scopes  []string
-	Request mcpRequestMetadata
+	UserID          uint
+	KeyID           uint
+	KeyKind         string
+	Scopes          []string
+	Request         mcpRequestMetadata
+	OAuthGrantID    *uint
+	OAuthClientID   string
+	OAuthClientName string
 }
 
 type mcpPrincipalContextKey struct{}
@@ -95,7 +101,7 @@ func writeError(c echo.Context, status int, message string) error {
 }
 
 func (h *MCPHandler) HandlePost(c echo.Context) error {
-	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
+	c.Response().Header().Set("MCP-Protocol-Version", mcpResponseProtocolVersion(c))
 
 	principal, status, err := h.authenticate(c)
 	if err != nil {
@@ -130,7 +136,7 @@ func readMCPRequestMetadata(c echo.Context) mcpRequestMetadata {
 }
 
 func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
-	c.Response().Header().Set("MCP-Protocol-Version", mcpProtocolVersion)
+	c.Response().Header().Set("MCP-Protocol-Version", mcpResponseProtocolVersion(c))
 
 	if _, status, err := h.authenticate(c); err != nil {
 		return writeError(c, status, err.Error())
@@ -148,8 +154,23 @@ func (h *MCPHandler) MethodNotAllowed(c echo.Context) error {
 }
 
 func (h *MCPHandler) authenticate(c echo.Context) (*mcpPrincipal, int, error) {
+	if authorization := c.Request().Header.Get(echo.HeaderAuthorization); authorization != "" {
+		parts := strings.Fields(authorization)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			h.oauthChallenge(c, "invalid_token")
+			return nil, http.StatusUnauthorized, errors.New("invalid MCP bearer authorization")
+		}
+		p, err := h.oauth.WithContext(c.Request().Context()).ValidateToken(parts[1])
+		if err != nil {
+			h.oauthChallenge(c, "invalid_token")
+			return nil, http.StatusUnauthorized, errors.New("MCP access token expired or invalid")
+		}
+		return &mcpPrincipal{UserID: p.UserID, KeyKind: "mcp_oauth", Scopes: p.Scopes,
+			OAuthGrantID: &p.GrantID, OAuthClientID: p.ClientID, OAuthClientName: p.ClientName}, http.StatusOK, nil
+	}
 	key := strings.TrimSpace(c.Request().Header.Get("X-API-Key"))
 	if key == "" {
+		h.oauthChallenge(c, "")
 		return nil, http.StatusUnauthorized, errors.New("api key is required")
 	}
 
@@ -167,6 +188,17 @@ func (h *MCPHandler) authenticate(c echo.Context) (*mcpPrincipal, int, error) {
 		KeyKind: principal.KeyKind,
 		Scopes:  principal.Scopes,
 	}, http.StatusOK, nil
+}
+
+func (h *MCPHandler) oauthChallenge(c echo.Context, code string) {
+	value := `Bearer scope="read"`
+	if issuer, err := h.oauth.WithContext(c.Request().Context()).Issuer(); err == nil {
+		value += fmt.Sprintf(", resource_metadata=%q", issuer+"/.well-known/oauth-protected-resource/mcp")
+	}
+	if code != "" {
+		value += fmt.Sprintf(", error=%q, error_description=%q", code, "MCP authorization is required")
+	}
+	c.Response().Header().Set("WWW-Authenticate", value)
 }
 
 func validateMCPOrigin(c echo.Context) error {
@@ -189,11 +221,18 @@ func validateMCPOrigin(c echo.Context) error {
 func validateMCPProtocolHeader(c echo.Context) error {
 	protocolVersion := strings.TrimSpace(c.Request().Header.Get("MCP-Protocol-Version"))
 	switch protocolVersion {
-	case "", "2024-11-05", "2025-03-26", mcpProtocolVersion, "2025-11-25":
+	case "", "2024-11-05", "2025-03-26", mcpProtocolVersion, "2025-11-25", "2026-07-28":
 		return nil
 	default:
 		return fmt.Errorf("unsupported MCP protocol version: %s", protocolVersion)
 	}
+}
+
+func mcpResponseProtocolVersion(c echo.Context) string {
+	if requested := strings.TrimSpace(c.Request().Header.Get("MCP-Protocol-Version")); requested == "2026-07-28" || requested == "2025-11-25" {
+		return requested
+	}
+	return mcpProtocolVersion
 }
 
 func validateMCPContentTypeHeader(c echo.Context) error {

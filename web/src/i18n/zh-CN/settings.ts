@@ -1,4 +1,27 @@
 const settings = {
+  "mcpOAuth": {
+    "title": "MCP OAuth 连接",
+    "description": "在客户端添加 MCP 地址，登录并确认授权。也可继续使用下方的 API 密钥。",
+    "configureHint": "请管理员启用 MCP，并配置公开的 HTTPS 站点地址。",
+    "empty": "暂无已授权的 MCP 连接。",
+    "loadFailed": "无法加载 MCP 连接。",
+    "retry": "重试",
+    "lastUsed": "最近使用：{{date}}",
+    "expires": "到期时间：{{date}}",
+    "revoke": "撤销",
+    "revokeConfirm": "撤销此连接？其访问令牌和刷新令牌将失效。",
+    "consentTitle": "授权 MCP 访问",
+    "consentDescription": "确认客户端及你希望授予的权限。",
+    "signedInAs": "当前账号：{{name}}",
+    "readPermission": "读取你的订阅和相关参考数据。",
+    "writePermission": "同时允许创建、编辑、续费和删除订阅。",
+    "accessDescription": "此连接可在 30 天内刷新访问权限。你可以随时在设置中撤销授权。注册时提供的客户端名称不代表发布者已被验证。",
+    "redirectTo": "授权后返回：{{uri}}",
+    "authorize": "授权",
+    "deny": "拒绝",
+    "back": "返回 Subdux",
+    "invalidRequest": "授权请求已过期、已被使用或不可用。请从 MCP 客户端重新发起连接。"
+},
   "jev": {
     "title": "Jev 自动分类",
     "description": "新增订阅时自动选择建议的分类。你手动选择或清空分类后，将不再自动更改。",

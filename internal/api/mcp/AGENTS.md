@@ -35,7 +35,7 @@ mcp/
 
 ## CONVENTIONS
 
-- MCP remains API-key based and narrower than the REST API surface.
+- MCP accepts MCP-client API keys or dedicated OAuth Bearer tokens and remains narrower than REST. OAuth grant/client identity must be preserved in audit and idempotency records; human REST tokens are invalid at MCP.
 - Keep `X-API-Key`, `Origin`, `Content-Type`, `Accept`, and protocol-version checks in front of SDK tool execution.
 - Define schemas and implementations together. Unknown or stray write arguments should remain invalid so idempotency fingerprints stay stable.
 - Write tools must require `idempotency_key` and run through the shared idempotent write path.

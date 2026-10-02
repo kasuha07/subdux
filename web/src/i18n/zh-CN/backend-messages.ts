@@ -1,4 +1,6 @@
 const backendMessages = {
+  "mcp_oauth_request_invalid": "授权请求已过期、已被使用或不可用。请从 MCP 客户端重新发起连接。",
+  "mcp_oauth_failed": "无法加载 MCP 连接。",
   "jev_settings_conflict": "Jev 设置已发生变化，请刷新页面后重试。",
   "jev_invalid_api_key": "请输入有效的 Jev API key。",
   "jev_api_key_required": "请先配置 Jev API key，再启用自动分类。",

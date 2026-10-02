@@ -1,4 +1,6 @@
 const backendMessages = {
+  "mcp_oauth_request_invalid": "This authorization request has expired, was already used, or is unavailable. Start again from your MCP client.",
+  "mcp_oauth_failed": "Unable to load MCP connections.",
   "jev_settings_conflict": "Jev settings changed. Reload this page and try again.",
   "jev_invalid_api_key": "Enter a valid Jev API key.",
   "jev_api_key_required": "Configure a Jev API key before enabling automatic classification.",
