@@ -424,7 +424,7 @@ func RestorePostgresBackup(db *gorm.DB, src io.Reader) error {
 			insertSQL := "INSERT INTO " + quotePostgresIdentifier(table.name) +
 				" (" + strings.Join(quotedColumns, ", ") + ") SELECT " + strings.Join(quotedColumns, ", ") +
 				" FROM jsonb_populate_recordset(NULL::" + quotePostgresIdentifier(table.name) + ", ?::jsonb)"
-			if err := tx.Exec(insertSQL, string(rawRows)).Error; err != nil {
+			if err := insertPostgresBackupRows(tx, table.name, insertSQL, rawRows); err != nil {
 				return fmt.Errorf("restore PostgreSQL table %s: %w", table.name, err)
 			}
 
@@ -459,6 +459,40 @@ func RestorePostgresBackup(db *gorm.DB, src io.Reader) error {
 	}
 	if err := initJWTSecretLocked(db); err != nil {
 		return fmt.Errorf("reload JWT secret after PostgreSQL restore: %w", err)
+	}
+	return nil
+}
+
+// The restore transaction already holds the users table lock from TRUNCATE.
+// Suspend only the new-identifier trigger while restoring allowed legacy
+// cross-field collisions; foreign keys and unique indexes remain enforced.
+// A failed insert rolls back the trigger change with the rest of the restore.
+func insertPostgresBackupRows(tx *gorm.DB, tableName, insertSQL string, rawRows json.RawMessage) error {
+	var resumeTrigger string
+	if tableName == "users" {
+		var enabled string
+		if err := tx.Raw("SELECT tgenabled FROM pg_trigger WHERE tgrelid = 'users'::regclass AND tgname = 'trg_users_login_identifiers'").Scan(&enabled).Error; err != nil {
+			return err
+		}
+		switch enabled {
+		case "O":
+			resumeTrigger = "ALTER TABLE users ENABLE TRIGGER trg_users_login_identifiers"
+		case "A":
+			resumeTrigger = "ALTER TABLE users ENABLE ALWAYS TRIGGER trg_users_login_identifiers"
+		case "R":
+			resumeTrigger = "ALTER TABLE users ENABLE REPLICA TRIGGER trg_users_login_identifiers"
+		}
+		if resumeTrigger != "" {
+			if err := tx.Exec("ALTER TABLE users DISABLE TRIGGER trg_users_login_identifiers").Error; err != nil {
+				return err
+			}
+		}
+	}
+	if err := tx.Exec(insertSQL, string(rawRows)).Error; err != nil {
+		return err
+	}
+	if resumeTrigger != "" {
+		return tx.Exec(resumeTrigger).Error
 	}
 	return nil
 }

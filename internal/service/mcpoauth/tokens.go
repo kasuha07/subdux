@@ -77,14 +77,20 @@ func (s *Service) Exchange(params url.Values) (*TokenResponse, error) {
 			if request.ClientID != client.ID || request.Resource != resource || request.RedirectURI != params.Get("redirect_uri") || request.UserID == nil || !verifierValid(verifier) || subtle.ConstantTimeCompare([]byte(challenge), []byte(request.CodeChallenge)) != 1 {
 				return problem("invalid_grant", "authorization code binding or PKCE validation failed")
 			}
-			if request.ConsumedAt != nil {
-				if request.GrantID != nil {
-					if err := tx.Model(&model.MCPOAuthGrant{}).Where("id = ?", *request.GrantID).Update("revoked_at", time.Now()).Error; err != nil {
-						return err
-					}
+			// Conditional consumption serializes concurrent exchanges on SQLite
+			// and PostgreSQL without issuing two token families for one code.
+			// Claim before expiry/account/quota checks so a stale code read cannot
+			// bypass replay revocation. Rejected unused codes roll back the claim.
+			claim := tx.Model(&model.MCPOAuthRequest{}).Where("id = ? AND consumed_at IS NULL", request.ID).Update("consumed_at", time.Now())
+			if claim.Error != nil {
+				return claim.Error
+			}
+			if claim.RowsAffected != 1 {
+				if err := txService.revokeCodeGrant(request.ID); err != nil {
+					return err
 				}
 				protocolErr = problem("invalid_grant", "authorization code was already used")
-				return nil // Commit the replay revocation.
+				return nil // Commit the competing exchange's token-family revocation.
 			}
 			if time.Now().After(request.ExpiresAt) {
 				return problem("invalid_grant", "authorization code expired")
@@ -98,15 +104,6 @@ func (s *Service) Exchange(params url.Values) (*TokenResponse, error) {
 			}
 			if count >= 50 {
 				return problem("invalid_grant", "revoke an existing MCP connection before adding another")
-			}
-			// Conditional consumption serializes concurrent exchanges on SQLite
-			// and PostgreSQL without issuing two token families for one code.
-			claim := tx.Model(&model.MCPOAuthRequest{}).Where("id = ? AND consumed_at IS NULL", request.ID).Update("consumed_at", time.Now())
-			if claim.Error != nil {
-				return claim.Error
-			}
-			if claim.RowsAffected != 1 {
-				return problem("invalid_grant", "authorization code was already used")
 			}
 			grant = model.MCPOAuthGrant{UserID: *request.UserID, ClientID: client.ID, ClientName: request.ClientName, Scopes: request.Scopes, Resource: resource, ExpiresAt: time.Now().Add(GrantTTL)}
 			if err := tx.Create(&grant).Error; err != nil {
@@ -176,6 +173,13 @@ func (s *Service) Exchange(params url.Values) (*TokenResponse, error) {
 		return nil, protocolErr
 	}
 	return response, nil
+}
+
+func (s *Service) revokeCodeGrant(requestID string) error {
+	// Read the association afresh: a competing exchange can attach its grant
+	// after this transaction reads the code but before conditional consumption.
+	grantIDs := s.db.Model(&model.MCPOAuthRequest{}).Select("grant_id").Where("id = ? AND consumed_at IS NOT NULL", requestID)
+	return s.db.Model(&model.MCPOAuthGrant{}).Where("id IN (?)", grantIDs).Update("revoked_at", time.Now()).Error
 }
 
 func (s *Service) issue(grant model.MCPOAuthGrant) (*TokenResponse, error) {

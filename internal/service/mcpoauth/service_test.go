@@ -179,6 +179,60 @@ func TestTokenAndUserBoundaries(t *testing.T) {
 	}
 }
 
+func TestCodeReplayWithoutVerifierDoesNotRevokeGrant(t *testing.T) {
+	s, user, client := setup(t)
+	params, _ := authorize(t, s, user, client, true)
+	token, err := s.Exchange(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	params.Set("code_verifier", oauth2.GenerateVerifier())
+	if _, err := s.Exchange(params); err == nil {
+		t.Fatal("authorization code replay with an invalid verifier was accepted")
+	}
+	if _, err := s.ValidateToken(token.AccessToken); err != nil {
+		t.Fatalf("a caller without the verifier revoked the legitimate grant: %v", err)
+	}
+}
+
+func TestRejectedCodeExchangeDoesNotConsumeCode(t *testing.T) {
+	for _, reason := range []string{"expired", "connection-limit"} {
+		t.Run(reason, func(t *testing.T) {
+			s, user, client := setup(t)
+			params, handle := authorize(t, s, user, client, true)
+			if reason == "expired" {
+				if err := s.db.Model(&model.MCPOAuthRequest{}).Where("id = ?", hash(handle)).Update("expires_at", time.Now().Add(-time.Minute)).Error; err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				seedOAuthTestGrants(t, s.db, user.ID, client, 50)
+			}
+			if _, err := s.Exchange(params); err == nil {
+				t.Fatalf("code exchange ignored %s", reason)
+			}
+			var request model.MCPOAuthRequest
+			if err := s.db.Where("id = ?", hash(handle)).Take(&request).Error; err != nil {
+				t.Fatal(err)
+			}
+			if request.ConsumedAt != nil || request.GrantID != nil {
+				t.Fatal("rejected exchange consumed the code or created a grant")
+			}
+		})
+	}
+}
+
+func seedOAuthTestGrants(t *testing.T, db *gorm.DB, userID uint, client *ClientMetadata, count int) {
+	t.Helper()
+	grants := make([]model.MCPOAuthGrant, count)
+	for i := range grants {
+		grants[i] = model.MCPOAuthGrant{UserID: userID, ClientID: client.ClientID, ClientName: client.ClientName,
+			Scopes: "read", Resource: "https://subdux.example/mcp", ExpiresAt: time.Now().Add(time.Hour)}
+	}
+	if err := db.Create(&grants).Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestConsentOwnershipAndDenial(t *testing.T) {
 	s, user, client := setup(t)
 	verifier := oauth2.GenerateVerifier()

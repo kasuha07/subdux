@@ -20,3 +20,7 @@ SQLite continues to use the service-level checks.
 Existing cross-field collisions do not require a destructive migration: the email
 owner can sign in with that email, and the account whose username collides can
 sign in using its own email. No account is renamed or merged automatically.
+
+PostgreSQL backup restore and SQLite imports preserve these historical
+cross-field collisions. New or changed identifiers remain subject to the
+normal collision checks after restoring.
