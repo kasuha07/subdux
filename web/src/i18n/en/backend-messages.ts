@@ -240,6 +240,7 @@ const backendMessages = {
   "oidc_account_is_not_linked": "oidc account is not linked",
   "oidc_connection_deleted": "oidc connection deleted",
   "oidc_connection_not_found": "oidc connection not found",
+  "oidc_email_is_not_verified": "Your identity provider has not verified this email, so an account cannot be created automatically",
   "oidc_identity_is_not_linked_to_this_account": "oidc identity is not linked to this account",
   "oidc_issuer_url_is_required": "oidc issuer url is required",
   "oidc_login_is_not_available": "oidc login is not available",

@@ -128,16 +128,41 @@ func (s oidcSettings) isConfigured() bool {
 	return s.IssuerURL != "" && s.ClientID != "" && s.ClientSecret != "" && s.RedirectURL != ""
 }
 
+// ErrOIDCEmailNotVerified rejects auto-creating a local account from a provider
+// identity whose email the provider has not marked as verified.
+var ErrOIDCEmailNotVerified = serviceerr.New(serviceerr.KindForbidden, "oidc_email_is_not_verified", "oidc email is not verified")
+
 type oidcIdentityClaims struct {
-	Subject           string   `json:"sub"`
-	Email             string   `json:"email"`
-	EmailVerified     bool     `json:"email_verified"`
-	PreferredUsername string   `json:"preferred_username"`
-	Name              string   `json:"name"`
-	Nonce             string   `json:"nonce"`
-	AuthTime          int64    `json:"auth_time"`
-	ACR               string   `json:"acr"`
-	AMR               []string `json:"amr"`
+	Subject           string        `json:"sub"`
+	Email             string        `json:"email"`
+	EmailVerified     oidcBoolClaim `json:"email_verified"`
+	PreferredUsername string        `json:"preferred_username"`
+	Name              string        `json:"name"`
+	Nonce             string        `json:"nonce"`
+	AuthTime          int64         `json:"auth_time"`
+	ACR               string        `json:"acr"`
+	AMR               []string      `json:"amr"`
+}
+
+// oidcBoolClaim decodes a boolean claim that some providers (for example AWS
+// Cognito) emit as the string "true"/"false" instead of a JSON boolean. Any
+// other value decodes as false so a malformed claim never counts as asserted.
+type oidcBoolClaim bool
+
+func (c *oidcBoolClaim) UnmarshalJSON(data []byte) error {
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	switch v := value.(type) {
+	case bool:
+		*c = oidcBoolClaim(v)
+	case string:
+		*c = oidcBoolClaim(strings.EqualFold(strings.TrimSpace(v), "true"))
+	default:
+		*c = false
+	}
+	return nil
 }
 
 // OIDCReauthGrade is the assurance level a completed OIDC step-up proves, mapped
@@ -584,23 +609,35 @@ func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVe
 	if needsUserInfo {
 		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, client)
 		if userInfoErr == nil && userInfoClaims != nil {
-			if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
-				return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_subject_mismatch", "oidc subject mismatch")
-			}
-
-			if strings.TrimSpace(claims.Email) == "" {
-				claims.Email = strings.TrimSpace(userInfoClaims.Email)
-			}
-			if strings.TrimSpace(claims.PreferredUsername) == "" {
-				claims.PreferredUsername = strings.TrimSpace(userInfoClaims.PreferredUsername)
-			}
-			if strings.TrimSpace(claims.Name) == "" {
-				claims.Name = strings.TrimSpace(userInfoClaims.Name)
+			if err := mergeOIDCUserInfoClaims(&claims, userInfoClaims); err != nil {
+				return nil, err
 			}
 		}
 	}
 
 	return &claims, nil
+}
+
+// mergeOIDCUserInfoClaims fills identity fields the ID token left empty from the
+// userinfo response, rejecting a userinfo subject that names another identity.
+func mergeOIDCUserInfoClaims(claims *oidcIdentityClaims, userInfoClaims *oidcIdentityClaims) error {
+	if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_subject_mismatch", "oidc subject mismatch")
+	}
+
+	if strings.TrimSpace(claims.Email) == "" {
+		// Verification status belongs to the email it was asserted for, so take
+		// both from userinfo together.
+		claims.Email = strings.TrimSpace(userInfoClaims.Email)
+		claims.EmailVerified = userInfoClaims.EmailVerified
+	}
+	if strings.TrimSpace(claims.PreferredUsername) == "" {
+		claims.PreferredUsername = strings.TrimSpace(userInfoClaims.PreferredUsername)
+	}
+	if strings.TrimSpace(claims.Name) == "" {
+		claims.Name = strings.TrimSpace(userInfoClaims.Name)
+	}
+	return nil
 }
 
 func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
@@ -785,6 +822,15 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 	email := normalizeEmail(claims.Email)
 	if email == "" {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_provider_did_not_return_an_email", "oidc provider did not return an email")
+	}
+	// Auto-creation binds the provider identity to a local account keyed by this
+	// email. An unverified email would let anyone pre-register someone else's
+	// address and keep OIDC access after the real owner recovers the account.
+	if !claims.EmailVerified {
+		return nil, ErrOIDCEmailNotVerified
+	}
+	if err := s.enforceEmailDomainWhitelist(email); err != nil {
+		return nil, err
 	}
 
 	var existing model.User

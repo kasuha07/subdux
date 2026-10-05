@@ -213,7 +213,7 @@ const admin = {
     oidcReauthAcrPhishingResistantDescription:
       "每行一个 acr 值。当分级登录返回其中某个 acr 值（或 hwk/fido/webauthn 等抗钓鱼的 amr）时，将视为通行密钥级别。也支持逗号和空格分隔。",
     oidcAutoCreateUser: "自动创建用户",
-    oidcAutoCreateUserDescription: "当 OIDC 用户不存在时，自动创建本地账户",
+    oidcAutoCreateUserDescription: "当 OIDC 用户不存在时，自动创建本地账户。要求身份提供商已验证该邮箱，并且受邮箱域名白名单限制",
   },
   audit: {
     title: "审计事件",
