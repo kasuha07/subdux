@@ -208,6 +208,7 @@ func (h *ReauthHandler) BeginOIDC(c echo.Context) error {
 	if err != nil {
 		return apimw.WriteReauthError(c, err)
 	}
+	apimw.SetOIDCBindingCookie(c, result.BrowserBinding)
 	return c.JSON(http.StatusOK, result)
 }
 

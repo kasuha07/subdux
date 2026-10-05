@@ -23,6 +23,18 @@ const (
 	// callback for a step-up flow.
 	OIDCReauthSessionCookieName = "oidc_reauth_session"
 	oidcReauthSessionCookiePath = "/api/reauth/oidc"
+
+	// The OIDC browser-binding cookie ties a provider state to the browser that
+	// started the flow (login, connect, or reauth). It is set by the start
+	// endpoints, sent only to the callback, and must match the binding stored
+	// with the state; otherwise a callback URL lifted from another browser could
+	// log the victim into the attacker's account or link the victim's identity to
+	// the attacker's account. SameSite=Lax still delivers it on the provider's
+	// top-level GET redirect back to the callback. Its lifetime matches the
+	// server-side state session TTL.
+	OIDCBindingCookieName = "oidc_binding"
+	oidcBindingCookiePath = "/api/auth/oidc/callback"
+	oidcBindingCookieTTL  = 10 * time.Minute
 )
 
 func SetRefreshTokenCookie(c echo.Context, token string) {
@@ -93,6 +105,29 @@ func SetOIDCReauthSessionCookie(c echo.Context, sessionID string) {
 
 func ClearOIDCReauthSessionCookie(c echo.Context) {
 	clearCookie(c, OIDCReauthSessionCookieName, oidcReauthSessionCookiePath)
+}
+
+func SetOIDCBindingCookie(c echo.Context, binding string) {
+	binding = strings.TrimSpace(binding)
+	if binding == "" {
+		return
+	}
+
+	// #nosec G124 -- Secure is set for HTTPS/TLS and intentionally remains false on local HTTP development.
+	c.SetCookie(&http.Cookie{
+		Name:     OIDCBindingCookieName,
+		Value:    binding,
+		Path:     oidcBindingCookiePath,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   shouldUseSecureCookies(c),
+		Expires:  pkg.NowUTC().Add(oidcBindingCookieTTL),
+		MaxAge:   int(oidcBindingCookieTTL.Seconds()),
+	})
+}
+
+func ClearOIDCBindingCookie(c echo.Context) {
+	clearCookie(c, OIDCBindingCookieName, oidcBindingCookiePath)
 }
 
 func GetCookieValue(c echo.Context, name string) string {

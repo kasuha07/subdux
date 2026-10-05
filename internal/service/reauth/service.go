@@ -80,6 +80,9 @@ type PasskeyBeginResult struct {
 
 type OIDCStartResult struct {
 	AuthorizationURL string `json:"authorization_url"`
+	// BrowserBinding is the per-flow secret the API layer sets as the OIDC
+	// callback binding cookie; it is never serialized into the response.
+	BrowserBinding string `json:"-"`
 }
 
 type Authenticator interface {

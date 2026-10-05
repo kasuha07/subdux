@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,6 +45,12 @@ type OIDCPublicConfig struct {
 
 type OIDCStartResult struct {
 	AuthorizationURL string `json:"authorization_url"`
+	// BrowserBinding is a per-flow secret the API layer must hand to the
+	// initiating browser as an HttpOnly cookie. HandleOIDCCallback only accepts a
+	// callback that presents the same value, which ties the provider state to the
+	// browser that started the flow (login CSRF / connect-hijack defense). It is
+	// never serialized into the JSON response.
+	BrowserBinding string `json:"-"`
 }
 
 type OIDCConnectionInfo struct {
@@ -92,8 +99,10 @@ type oidcStateSession struct {
 	Operation    string
 	CodeVerifier string
 	Nonce        string
-	CreatedAt    time.Time
-	ExpiresAt    time.Time
+	// BrowserBinding must match the binding cookie presented on the callback.
+	BrowserBinding string
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
 }
 
 type oidcResultSession struct {
@@ -243,12 +252,7 @@ func (s *Service) BeginOIDCLogin() (*OIDCStartResult, error) {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0, "")
-	if err != nil {
-		return nil, err
-	}
-
-	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+	return s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0, "")
 }
 
 func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
@@ -257,12 +261,7 @@ func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID, "")
-	if err != nil {
-		return nil, err
-	}
-
-	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+	return s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID, "")
 }
 
 // BeginOIDCReauth starts an OIDC step-up ("reauth") for an already-authenticated
@@ -279,15 +278,14 @@ func (s *Service) BeginOIDCReauth(userID uint, operation string) (*OIDCStartResu
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeReauth, userID, operation)
-	if err != nil {
-		return nil, err
-	}
-
-	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+	return s.buildOIDCAuthorizationURL(settings, oidcPurposeReauth, userID, operation)
 }
 
-func (s *Service) HandleOIDCCallback(state string, code string, providerError string, providerErrorDescription string) (*OIDCCallbackResult, error) {
+// HandleOIDCCallback completes an OIDC flow. browserBinding is the value of the
+// binding cookie sent by the browser hitting the callback; it must match the
+// binding minted when the flow started, so a callback URL (state+code) lifted
+// from one browser cannot be replayed in another.
+func (s *Service) HandleOIDCCallback(state string, browserBinding string, code string, providerError string, providerErrorDescription string) (*OIDCCallbackResult, error) {
 	purpose := oidcPurposeLogin
 	trimmedState := strings.TrimSpace(state)
 	if trimmedState == "" {
@@ -300,6 +298,10 @@ func (s *Service) HandleOIDCCallback(state string, code string, providerError st
 	}
 
 	purpose = session.Purpose
+	if !oidcBrowserBindingMatches(session.BrowserBinding, browserBinding) {
+		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "oidc_browser_binding_mismatch", "oidc flow was not started in this browser"))
+	}
+
 	if providerError != "" {
 		message := strings.TrimSpace(providerErrorDescription)
 		if message == "" {
@@ -430,18 +432,26 @@ func (s *Service) DeleteOIDCConnection(userID uint, connectionID uint) error {
 	return nil
 }
 
-func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (string, error) {
+func oidcBrowserBindingMatches(expected string, presented string) bool {
+	presented = strings.TrimSpace(presented)
+	if expected == "" || presented == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(presented)) == 1
+}
+
+func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (*OIDCStartResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	client, err := buildOIDCOutboundHTTPClient(ctx, s.DB, 10*time.Second)
 	if err != nil {
-		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 	ctx = oidc.ClientContext(ctx, client)
 
 	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
-		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 
 	endpoint := provider.Endpoint()
@@ -463,17 +473,22 @@ func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose strin
 	state := uuid.NewString()
 	nonce, err := generateSecureToken(24)
 	if err != nil {
-		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
+	}
+	browserBinding, err := generateSecureToken(32)
+	if err != nil {
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
 	}
 
 	codeVerifier := oauth2.GenerateVerifier()
 	s.storeOIDCStateSession(state, oidcStateSession{
-		Purpose:      purpose,
-		UserID:       userID,
-		Operation:    operation,
-		CodeVerifier: codeVerifier,
-		Nonce:        nonce,
-		ExpiresAt:    pkg.NowUTC().Add(oidcStateSessionTTL),
+		Purpose:        purpose,
+		UserID:         userID,
+		Operation:      operation,
+		CodeVerifier:   codeVerifier,
+		Nonce:          nonce,
+		BrowserBinding: browserBinding,
+		ExpiresAt:      pkg.NowUTC().Add(oidcStateSessionTTL),
 	})
 
 	authOptions := []oauth2.AuthCodeOption{
@@ -502,7 +517,7 @@ func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose strin
 		authOptions...,
 	)
 
-	return authorizationURL, nil
+	return &OIDCStartResult{AuthorizationURL: authorizationURL, BrowserBinding: browserBinding}, nil
 }
 
 func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {

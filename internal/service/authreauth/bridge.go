@@ -58,7 +58,10 @@ func (a adapter) BeginOIDCReauth(userID uint, operation string) (*servicereauth.
 	if err != nil {
 		return nil, err
 	}
-	return &servicereauth.OIDCStartResult{AuthorizationURL: result.AuthorizationURL}, nil
+	return &servicereauth.OIDCStartResult{
+		AuthorizationURL: result.AuthorizationURL,
+		BrowserBinding:   result.BrowserBinding,
+	}, nil
 }
 
 func (a adapter) ConsumeOIDCReauthResult(sessionID string, userID uint, operation string) (servicereauth.OIDCReauthGrade, error) {

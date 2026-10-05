@@ -238,6 +238,7 @@ const backendMessages = {
   "ntfy_channel_requires_topic": "ntfy チャネルにはトピックが必要です",
   "oidc_access_token_is_missing": "oidc アクセス トークンがありません",
   "oidc_account_is_not_linked": "oidc アカウントがリンクされていません",
+  "oidc_browser_binding_mismatch": "この OIDC フローはこのブラウザーで開始されていません。もう一度サインインしてください",
   "oidc_connection_deleted": "oidc 接続が削除されました",
   "oidc_connection_not_found": "oidc 接続が見つかりません",
   "oidc_identity_is_not_linked_to_this_account": "oidc ID はこのアカウントにリンクされていません",
