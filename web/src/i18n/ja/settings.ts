@@ -20,7 +20,11 @@ const settings = {
     "authorize": "承認",
     "deny": "拒否",
     "back": "Subdux に戻る",
-    "invalidRequest": "この承認リクエストは期限切れ、使用済み、または無効です。MCP クライアントから再接続してください。"
+    "invalidRequest": "この承認リクエストは期限切れ、使用済み、または無効です。MCP クライアントから再接続してください。",
+    "reauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、この MCP クライアントを承認する前に再認証してください。"
+    }
 },
   "jev": {
     "title": "Jev 自動分類",

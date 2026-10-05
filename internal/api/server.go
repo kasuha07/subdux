@@ -140,7 +140,7 @@ func NewApp(ctx context.Context, db *gorm.DB, taskMonitor *serviceutil.Backgroun
 		mcpHandler: mcpapi.NewMCPHandler(apiKeyService, auditService, subService, erService,
 			currencyService, categoryService, paymentMethodService),
 		settingsSvc:  systemSettingsService,
-		oauthHandler: &MCPOAuthHandler{Service: oauthService, Settings: systemSettingsService},
+		oauthHandler: &MCPOAuthHandler{Service: oauthService, Settings: systemSettingsService, Reauth: reauthService},
 	}
 }
 

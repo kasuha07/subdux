@@ -16,6 +16,13 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: interaction.t }) }
 vi.mock("@/lib/api", () => ({
   api: { get: vi.fn(), post: vi.fn() },
   getUser: () => ({ username: "test-user" }),
+  isBackendAPIError: () => false,
+}))
+// Stand-in for the step-up dialog: when opened, it exposes a control that
+// completes verification with a fixed ticket.
+vi.mock("@/features/admin/reauth-dialog", () => ({
+  default: ({ open, operation, onVerified }: { open: boolean; operation: string; onVerified: (ticket: string) => void }) =>
+    open ? <button id="reauth-verify" data-operation={operation} onClick={() => void onVerified("test-ticket")}>verify</button> : null,
 }))
 
 function client(name: string) {
@@ -40,6 +47,9 @@ describe("MCP consent interactions", () => {
   const render = async () => {
     await act(async () => root.render(<MemoryRouter><MCPConsentPage /></MemoryRouter>))
   }
+  const clickButton = (label: string) => {
+    Array.from(container.querySelectorAll("button")).find((button) => button.textContent === label)?.click()
+  }
 
   it("clears displayed client and write approval while a new request loads", async () => {
     vi.mocked(api.get).mockResolvedValue(client("First client"))
@@ -59,10 +69,24 @@ describe("MCP consent interactions", () => {
     expect(container.querySelector("#mcp-write")?.getAttribute("data-state")).toBe("unchecked")
 
     vi.mocked(api.post).mockRejectedValue(new Error("fixture stops before redirect"))
-    await act(async () => {
-      Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "settings.mcpOAuth.authorize")?.click()
-    })
-    expect(api.post).toHaveBeenCalledWith(`/mcp/oauth/requests/${interaction.request}`, { approve: true, allow_write: false })
+    await act(async () => clickButton("settings.mcpOAuth.authorize"))
+    expect(api.post).not.toHaveBeenCalled()
+    expect(container.querySelector("#reauth-verify")?.getAttribute("data-operation")).toBe("authorize_mcp_client")
+    await act(async () => container.querySelector<HTMLButtonElement>("#reauth-verify")?.click())
+    expect(api.post).toHaveBeenCalledWith(
+      `/mcp/oauth/requests/${interaction.request}`,
+      { approve: true, allow_write: false },
+      { headers: { "X-Reauth-Ticket": "test-ticket" } },
+    )
+  })
+
+  it("denies without step-up", async () => {
+    vi.mocked(api.get).mockResolvedValue(client("Client"))
+    vi.mocked(api.post).mockRejectedValue(new Error("fixture stops before redirect"))
+    await render()
+    await act(async () => clickButton("settings.mcpOAuth.deny"))
+    expect(container.querySelector("#reauth-verify")).toBeNull()
+    expect(api.post).toHaveBeenCalledWith(`/mcp/oauth/requests/${interaction.request}`, { approve: false, allow_write: false }, undefined)
   })
 
   it("ignores a late response from the previous interaction", async () => {

@@ -51,6 +51,7 @@ type ReauthOperation =
   | "export_secrets"
   | "import_subdux"
   | "import_wallos"
+  | "authorize_mcp_client"
   | "backup_destination_create"
   | "backup_destination_update"
   | "backup_destination_delete";

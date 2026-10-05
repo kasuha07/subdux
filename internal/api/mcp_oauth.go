@@ -13,6 +13,7 @@ import (
 	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/api/httpx"
 	"github.com/kasuha07/subdux/internal/service/mcpoauth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	systemsettings "github.com/kasuha07/subdux/internal/service/settings"
 	"github.com/labstack/echo/v4"
 )
@@ -20,6 +21,7 @@ import (
 type MCPOAuthHandler struct {
 	Service  *mcpoauth.Service
 	Settings *systemsettings.Service
+	Reauth   *servicereauth.Service
 }
 
 func oauthHeaders(c echo.Context) {
@@ -224,7 +226,20 @@ func (h *MCPOAuthHandler) Decide(c echo.Context) error {
 	if err := decoder.Decode(new(interface{})); err != io.EOF {
 		return httpx.WriteError(c, http.StatusBadRequest, "mcp_oauth_request_invalid")
 	}
-	redirect, err := h.Service.WithContext(c.Request().Context()).Decide(c.Param("request"), apimw.From(c).UserID, *input.Approve, input.AllowWrite)
+	userID := apimw.From(c).UserID
+	// Approval mints a refreshable 30-day machine credential, so it carries the
+	// same step-up as creating an API key. Denying issues nothing and stays
+	// ticket-free so a user can always refuse an unexpected request.
+	if *input.Approve {
+		if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+			userID,
+			servicereauth.ReauthOperationAuthorizeMCPClient,
+			apimw.ReauthTicketFromRequest(c),
+		); err != nil {
+			return apimw.WriteReauthError(c, err)
+		}
+	}
+	redirect, err := h.Service.WithContext(c.Request().Context()).Decide(c.Param("request"), userID, *input.Approve, input.AllowWrite)
 	if err != nil {
 		return oauthHumanError(c, err)
 	}

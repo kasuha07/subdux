@@ -223,7 +223,7 @@ func (s *Service) ChangePassword(userID uint, input ChangePasswordInput) error {
 		if err := tx.Model(&user).Update("password", string(hash)).Error; err != nil {
 			return err
 		}
-		return revokeAllRefreshTokens(tx, userID)
+		return revokeAllSessions(tx, userID)
 	})
 }
 

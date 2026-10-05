@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { api, getUser } from "@/lib/api"
+import ReauthDialog from "@/features/admin/reauth-dialog"
+import { api, getUser, isBackendAPIError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -28,6 +29,7 @@ function MCPConsentRequest({ request }: { request: string }) {
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [allowWrite, setAllowWrite] = useState(false)
+  const [reauthOpen, setReauthOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -40,17 +42,24 @@ function MCPConsentRequest({ request }: { request: string }) {
     return () => { cancelled = true }
   }, [request, t])
 
-  async function decide(approve: boolean) {
+  async function decide(approve: boolean, reauthTicket?: string) {
     if (busy || !info) return
     setBusy(true)
     setError("")
     try {
-      const result = await api.post<{ redirect_uri: string }>(`/mcp/oauth/requests/${request}`, { approve, allow_write: allowWrite })
+      const result = await api.post<{ redirect_uri: string }>(
+        `/mcp/oauth/requests/${request}`,
+        { approve, allow_write: allowWrite },
+        reauthTicket ? { headers: { "X-Reauth-Ticket": reauthTicket } } : undefined,
+      )
       // The backend binds this URI to validated client metadata and the
       // displayed interaction. Tokens are exchanged by the client, not here.
       window.location.replace(result.redirect_uri)
-    } catch {
-      setError(t("settings.mcpOAuth.invalidRequest"))
+    } catch (err) {
+      // A rejected step-up ticket leaves the interaction undecided, so show
+      // that reason instead of claiming the request itself is unusable.
+      const reauthFailed = approve && isBackendAPIError(err) && err.status === 400 && err.code !== "mcp_oauth_request_invalid"
+      setError(reauthFailed ? err.message : t("settings.mcpOAuth.invalidRequest"))
       setBusy(false)
     }
   }
@@ -80,13 +89,23 @@ function MCPConsentRequest({ request }: { request: string }) {
             <p className="text-xs text-muted-foreground">{t("settings.mcpOAuth.accessDescription")}</p>
             <p className="break-all text-xs text-muted-foreground">{t("settings.mcpOAuth.redirectTo", { uri: info.redirect_uri })}</p>
             <div className="flex gap-2">
-              <Button className="flex-1" disabled={busy} onClick={() => void decide(true)}>{busy ? t("common.loading") : t("settings.mcpOAuth.authorize")}</Button>
+              <Button className="flex-1" disabled={busy} onClick={() => setReauthOpen(true)}>{busy ? t("common.loading") : t("settings.mcpOAuth.authorize")}</Button>
               <Button variant="outline" disabled={busy} onClick={() => void decide(false)}>{t("settings.mcpOAuth.deny")}</Button>
             </div>
           </>}
           <Button variant="ghost" asChild><Link to="/">{t("settings.mcpOAuth.back")}</Link></Button>
         </CardContent>
       </Card>
+      {/* Approval mints a refreshable machine credential, so it needs the
+          same step-up as creating an API key. Denying never does. */}
+      <ReauthDialog
+        operation="authorize_mcp_client"
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        onVerified={(ticket) => decide(true, ticket)}
+        title={t("settings.mcpOAuth.reauth.title")}
+        description={t("settings.mcpOAuth.reauth.description")}
+      />
     </div>
   )
 }

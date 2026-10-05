@@ -157,12 +157,29 @@ func (s *Service) Logout(rawRefreshToken string) error {
 }
 
 func (s *Service) LogoutAll(userID uint) error {
-	return revokeAllRefreshTokens(s.DB, userID)
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		return revokeAllSessions(tx, userID)
+	})
 }
 
-func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
+// revokeAllSessions ends every credential a human session can mint without
+// further step-up: browser refresh tokens and MCP OAuth authorizations, plus
+// any MCP authorization interaction whose code has not been exchanged yet.
+// Logging out everywhere or changing a login secret must not leave a
+// refreshable MCP grant behind for whoever held the old session.
+func revokeAllSessions(tx *gorm.DB, userID uint) error {
 	now := pkg.NowUTC()
-	return tx.Model(&model.RefreshToken{}).
+	if err := tx.Model(&model.RefreshToken{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
-		Updates(map[string]interface{}{"revoked_at": &now}).Error
+		Updates(map[string]interface{}{"revoked_at": &now}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&model.MCPOAuthGrant{}).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Update("revoked_at", now).Error; err != nil {
+		return err
+	}
+	return tx.Model(&model.MCPOAuthRequest{}).
+		Where("user_id = ? AND consumed_at IS NULL AND expires_at > ?", userID, now).
+		Update("expires_at", now).Error
 }

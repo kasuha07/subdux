@@ -20,7 +20,11 @@ const settings = {
     "authorize": "授权",
     "deny": "拒绝",
     "back": "返回 Subdux",
-    "invalidRequest": "授权请求已过期、已被使用或不可用。请从 MCP 客户端重新发起连接。"
+    "invalidRequest": "授权请求已过期、已被使用或不可用。请从 MCP 客户端重新发起连接。",
+    "reauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，在授权此 MCP 客户端前请重新验证身份。"
+    }
 },
   "jev": {
     "title": "Jev 自动分类",
