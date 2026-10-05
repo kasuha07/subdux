@@ -20,7 +20,11 @@ const settings = {
     "authorize": "Authorize",
     "deny": "Deny",
     "back": "Back to Subdux",
-    "invalidRequest": "This authorization request has expired, was already used, or is unavailable. Start again from your MCP client."
+    "invalidRequest": "This authorization request has expired, was already used, or is unavailable. Start again from your MCP client.",
+    "reauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before authorizing this MCP client."
+    }
 },
   "jev": {
     "title": "Jev automatic classification",

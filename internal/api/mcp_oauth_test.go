@@ -11,11 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
 	"github.com/kasuha07/subdux/internal/service/mcpoauth"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/kasuha07/subdux/internal/service/serviceutil"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 )
@@ -73,10 +76,20 @@ func oauthFixture(t *testing.T) (*echo.Echo, *gorm.DB, model.User, string) {
 	db := newMCPRouteTestDB(t)
 	sqlDB, _ := db.DB()
 	sqlDB.SetMaxOpenConns(1)
-	if err := db.AutoMigrate(&model.MCPOAuthClient{}, &model.MCPOAuthRequest{}, &model.MCPOAuthGrant{}, &model.MCPOAuthToken{}); err != nil {
+	if err := db.AutoMigrate(&model.MCPOAuthClient{}, &model.MCPOAuthRequest{}, &model.MCPOAuthGrant{}, &model.MCPOAuthToken{},
+		&model.RefreshToken{}, &model.PasskeyCredential{}, &model.OIDCConnection{}, &model.UserBackupCode{}); err != nil {
 		t.Fatal(err)
 	}
 	user := createMCPRouteTestUser(t, db)
+	// Approval requires a step-up ticket, which is minted through the real
+	// password reauth endpoint, so the fixture user needs a genuine hash.
+	hashed, err := bcrypt.GenerateFromPassword([]byte(reauthGateTestPassword), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&user).Update("password", string(hashed)).Error; err != nil {
+		t.Fatal(err)
+	}
 	enableMCPRoute(t, db)
 	if err := db.Create(&model.SystemSetting{Key: "site_url", Value: "https://subdux.example"}).Error; err != nil {
 		t.Fatal(err)
@@ -95,7 +108,16 @@ func oauthFixture(t *testing.T) (*echo.Echo, *gorm.DB, model.User, string) {
 	return e, db, user, token
 }
 
-func oauthRouteToken(t *testing.T, e *echo.Echo, human string, write bool) *mcpoauth.TokenResponse {
+type oauthInteraction struct {
+	client      mcpoauth.ClientMetadata
+	verifier    string
+	params      url.Values
+	requestPath string
+}
+
+// oauthBegin registers a client, starts an authorization request and binds it
+// to the human session, stopping at the consent decision.
+func oauthBegin(t *testing.T, e *echo.Echo, human string) oauthInteraction {
 	t.Helper()
 	rec := oauthRequest(t, e, "POST", "/oauth/register", "", "application/json", []byte(`{"client_name":"Verified test fixture","redirect_uris":["http://127.0.0.1/callback"],"token_endpoint_auth_method":"none"}`))
 	if rec.Code != http.StatusCreated {
@@ -117,23 +139,48 @@ func oauthRouteToken(t *testing.T, e *echo.Echo, human string, write bool) *mcpo
 	if rec.Code != http.StatusOK {
 		t.Fatalf("consent status %d", rec.Code)
 	}
-	decision, _ := json.Marshal(map[string]bool{"approve": true, "allow_write": write})
-	rec = oauthRequest(t, e, "POST", requestPath, human, "application/json", decision)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("decision status %d", rec.Code)
+	return oauthInteraction{client, verifier, params, requestPath}
+}
+
+func oauthDecide(t *testing.T, e *echo.Echo, human, requestPath string, approve, write bool, ticket string) *httptest.ResponseRecorder {
+	t.Helper()
+	decision, _ := json.Marshal(map[string]bool{"approve": approve, "allow_write": write})
+	req := httptest.NewRequest("POST", requestPath, bytes.NewReader(decision))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+human)
+	if ticket != "" {
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
 	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func oauthRouteToken(t *testing.T, e *echo.Echo, human string, write bool) *mcpoauth.TokenResponse {
+	t.Helper()
+	interaction := oauthBegin(t, e, human)
+	ticket := mintReauthTicket(t, e, human, servicereauth.ReauthOperationAuthorizeMCPClient)
+	rec := oauthDecide(t, e, human, interaction.requestPath, true, write, ticket)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("decision status %d: %s", rec.Code, rec.Body.String())
+	}
+	return oauthExchange(t, e, interaction, rec)
+}
+
+func oauthExchange(t *testing.T, e *echo.Echo, interaction oauthInteraction, decision *httptest.ResponseRecorder) *mcpoauth.TokenResponse {
+	t.Helper()
 	var response struct {
 		RedirectURI string `json:"redirect_uri"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+	if err := json.Unmarshal(decision.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
 	redirect, _ := url.Parse(response.RedirectURI)
 	if redirect.Query().Get("iss") != "https://subdux.example" || redirect.Query().Get("state") != "fixture-state" {
 		t.Fatal("issuer/state lost")
 	}
-	params = url.Values{"grant_type": {"authorization_code"}, "client_id": {client.ClientID}, "redirect_uri": {params.Get("redirect_uri")}, "resource": {params.Get("resource")}, "code": {redirect.Query().Get("code")}, "code_verifier": {verifier}}
-	rec = oauthRequest(t, e, "POST", "/oauth/token", "", "application/x-www-form-urlencoded", []byte(params.Encode()))
+	params := url.Values{"grant_type": {"authorization_code"}, "client_id": {interaction.client.ClientID}, "redirect_uri": {interaction.params.Get("redirect_uri")}, "resource": {interaction.params.Get("resource")}, "code": {redirect.Query().Get("code")}, "code_verifier": {interaction.verifier}}
+	rec := oauthRequest(t, e, "POST", "/oauth/token", "", "application/x-www-form-urlencoded", []byte(params.Encode()))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("token status %d", rec.Code)
 	}
@@ -240,5 +287,89 @@ func TestMCPOAuthMalformedRequestsAndDisabledBoundary(t *testing.T) {
 	rec = oauthRequest(t, e, "GET", "/.well-known/oauth-authorization-server", "", "", nil)
 	if rec.Code != 404 {
 		t.Fatal("disabled MCP advertised OAuth")
+	}
+}
+
+func TestMCPOAuthApprovalRequiresReauthTicket(t *testing.T) {
+	e, db, user, human := oauthFixture(t)
+
+	interaction := oauthBegin(t, e, human)
+	for name, ticket := range map[string]string{
+		"missing ticket":         "",
+		"wrong-operation ticket": mintReauthTicket(t, e, human, servicereauth.ReauthOperationCreateAPIKey),
+	} {
+		rec := oauthDecide(t, e, human, interaction.requestPath, true, true, ticket)
+		if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("%s: status %d, body %s; want re-authentication required", name, rec.Code, rec.Body.String())
+		}
+	}
+	var undecided int64
+	if err := db.Model(&model.MCPOAuthRequest{}).Where("user_id = ? AND decided_at IS NULL", user.ID).Count(&undecided).Error; err != nil || undecided != 1 {
+		t.Fatalf("refused approval decided the request: count %d, err %v", undecided, err)
+	}
+
+	ticket := mintReauthTicket(t, e, human, servicereauth.ReauthOperationAuthorizeMCPClient)
+	rec := oauthDecide(t, e, human, interaction.requestPath, true, true, ticket)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("approval with ticket status %d: %s", rec.Code, rec.Body.String())
+	}
+	if tokens := oauthExchange(t, e, interaction, rec); !strings.Contains(tokens.Scope, "write") {
+		t.Fatalf("approved scopes = %q, want write", tokens.Scope)
+	}
+
+	// The ticket is single-use: it cannot approve a second interaction.
+	second := oauthBegin(t, e, human)
+	rec = oauthDecide(t, e, human, second.requestPath, true, false, ticket)
+	if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+		t.Fatalf("reused ticket status %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Denying issues nothing, so it never needs step-up.
+	rec = oauthDecide(t, e, human, second.requestPath, false, false, "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "access_denied") {
+		t.Fatalf("deny status %d, body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMCPOAuthGrantsRevokedByLogoutAll(t *testing.T) {
+	e, db, user, human := oauthFixture(t)
+	tokens := oauthRouteToken(t, e, human, true)
+	pending := oauthBegin(t, e, human)
+	ticket := mintReauthTicket(t, e, human, servicereauth.ReauthOperationAuthorizeMCPClient)
+	approved := oauthDecide(t, e, human, pending.requestPath, true, false, ticket)
+	if approved.Code != http.StatusOK {
+		t.Fatalf("pending approval status %d", approved.Code)
+	}
+
+	rec := oauthRequest(t, e, "POST", "/api/auth/logout-all", human, "", nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("logout-all status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = oauthRequest(t, e, "POST", "/mcp", tokens.AccessToken, "application/json", []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("MCP access token survived logout-all: %d", rec.Code)
+	}
+	refresh := url.Values{"grant_type": {"refresh_token"}, "client_id": {pending.client.ClientID}, "refresh_token": {tokens.RefreshToken}, "resource": {"https://subdux.example/mcp"}}
+	rec = oauthRequest(t, e, "POST", "/oauth/token", "", "application/x-www-form-urlencoded", []byte(refresh.Encode()))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("MCP refresh token survived logout-all: %d", rec.Code)
+	}
+	// An authorization code issued before logout-all can no longer be exchanged.
+	var response struct {
+		RedirectURI string `json:"redirect_uri"`
+	}
+	if err := json.Unmarshal(approved.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	redirect, _ := url.Parse(response.RedirectURI)
+	exchange := url.Values{"grant_type": {"authorization_code"}, "client_id": {pending.client.ClientID}, "redirect_uri": {pending.params.Get("redirect_uri")}, "resource": {pending.params.Get("resource")}, "code": {redirect.Query().Get("code")}, "code_verifier": {pending.verifier}}
+	rec = oauthRequest(t, e, "POST", "/oauth/token", "", "application/x-www-form-urlencoded", []byte(exchange.Encode()))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("pending authorization code survived logout-all: %d", rec.Code)
+	}
+	var active int64
+	if err := db.Model(&model.MCPOAuthGrant{}).Where("user_id = ? AND revoked_at IS NULL", user.ID).Count(&active).Error; err != nil || active != 0 {
+		t.Fatalf("active grants after logout-all = %d, err %v", active, err)
 	}
 }

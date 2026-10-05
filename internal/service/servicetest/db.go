@@ -38,6 +38,9 @@ func NewDB(t *testing.T) *gorm.DB {
 		&model.BackupDestination{},
 		&model.BackupRun{},
 		&model.BackupRunDestination{},
+		&model.MCPOAuthClient{},
+		&model.MCPOAuthRequest{},
+		&model.MCPOAuthGrant{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}

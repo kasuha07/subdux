@@ -143,7 +143,7 @@ func (s *Service) ResetPassword(email string, verificationCode string, newPasswo
 		if err := tx.Model(&model.User{}).Where("id = ?", user.ID).Update("password", string(hash)).Error; err != nil {
 			return err
 		}
-		if err := revokeAllRefreshTokens(tx, user.ID); err != nil {
+		if err := revokeAllSessions(tx, user.ID); err != nil {
 			return err
 		}
 		return tx.Model(&model.EmailVerificationCode{}).
@@ -229,7 +229,7 @@ func (s *Service) ConfirmEmailChange(userID uint, newEmail string, verificationC
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("email", normalizedEmail).Error; err != nil {
 			return err
 		}
-		if err := revokeAllRefreshTokens(tx, user.ID); err != nil {
+		if err := revokeAllSessions(tx, user.ID); err != nil {
 			return err
 		}
 		return tx.Model(&model.EmailVerificationCode{}).

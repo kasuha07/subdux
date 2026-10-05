@@ -26,6 +26,7 @@ const (
 	ReauthOperationExportSecrets           = "export_secrets"
 	ReauthOperationImportSubdux            = "import_subdux"
 	ReauthOperationImportWallos            = "import_wallos"
+	ReauthOperationAuthorizeMCPClient      = "authorize_mcp_client"
 )
 
 // IsValidReauthOperation reports whether operation is a known reauth operation.
@@ -54,7 +55,8 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,
 		ReauthOperationImportSubdux,
-		ReauthOperationImportWallos:
+		ReauthOperationImportWallos,
+		ReauthOperationAuthorizeMCPClient:
 		return true
 	default:
 		return false
