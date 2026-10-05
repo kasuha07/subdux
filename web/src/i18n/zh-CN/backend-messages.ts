@@ -238,6 +238,7 @@ const backendMessages = {
   "ntfy_channel_requires_topic": "ntfy频道需要主题",
   "oidc_access_token_is_missing": "oidc 访问令牌丢失",
   "oidc_account_is_not_linked": "oidc 账户未关联",
+  "oidc_browser_binding_mismatch": "该 OIDC 流程不是在此浏览器中发起的，请重新登录",
   "oidc_connection_deleted": "oidc 连接已删除",
   "oidc_connection_not_found": "未找到 oidc 连接",
   "oidc_email_is_not_verified": "身份提供商未验证该邮箱，无法自动创建账户",

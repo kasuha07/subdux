@@ -238,6 +238,7 @@ const backendMessages = {
   "ntfy_channel_requires_topic": "ntfy channel requires topic",
   "oidc_access_token_is_missing": "oidc access token is missing",
   "oidc_account_is_not_linked": "oidc account is not linked",
+  "oidc_browser_binding_mismatch": "oidc flow was not started in this browser, please sign in again",
   "oidc_connection_deleted": "oidc connection deleted",
   "oidc_connection_not_found": "oidc connection not found",
   "oidc_email_is_not_verified": "Your identity provider has not verified this email, so an account cannot be created automatically",

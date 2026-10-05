@@ -65,6 +65,7 @@ func (h *AuthHandler) BeginOIDCLogin(c echo.Context) error {
 		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
+	apimw.SetOIDCBindingCookie(c, result.BrowserBinding)
 	return c.JSON(http.StatusOK, result)
 }
 
@@ -87,12 +88,19 @@ func (h *AuthHandler) BeginOIDCConnect(c echo.Context) error {
 		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}
 
+	apimw.SetOIDCBindingCookie(c, result.BrowserBinding)
 	return c.JSON(http.StatusOK, result)
 }
 
 func (h *AuthHandler) OIDCCallback(c echo.Context) error {
+	// The binding cookie is single-use: whatever the outcome, this callback spends
+	// the state it was minted for.
+	browserBinding := apimw.GetCookieValue(c, apimw.OIDCBindingCookieName)
+	apimw.ClearOIDCBindingCookie(c)
+
 	callbackResult, err := h.Service.WithContext(c.Request().Context()).HandleOIDCCallback(
 		c.QueryParam("state"),
+		browserBinding,
 		c.QueryParam("code"),
 		c.QueryParam("error"),
 		c.QueryParam("error_description"),

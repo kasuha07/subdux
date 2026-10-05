@@ -84,6 +84,9 @@ func assertOIDCConnectStartAccepted(t *testing.T, rec *httptest.ResponseRecorder
 	if resp.AuthorizationURL == "" {
 		t.Fatalf("authorization_url is empty; body = %s", rec.Body.String())
 	}
+	if binding := findResponseCookie(rec, apimw.OIDCBindingCookieName); binding == nil || binding.Value == "" {
+		t.Fatalf("connect start did not set %s cookie", apimw.OIDCBindingCookieName)
+	}
 }
 
 func TestOIDCConnectStartGateRequiresReauthWhenUnlinked(t *testing.T) {
