@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { updateSiteTitle } from "@/hooks/useSiteSettings"
-import { api, getAPIErrorMessage, getUser, localizeBackendMessage, localizeBackendMessageResponse } from "@/lib/api"
+import {
+  api,
+  getAPIErrorMessage,
+  getUser,
+  isBackendAPIError,
+  localizeBackendMessage,
+  localizeBackendMessageResponse,
+} from "@/lib/api"
 import {
   detectZipEncryption,
   verifyZipPassword,
@@ -25,6 +32,7 @@ import type {
 import { summarizeBackupRun } from "./backup-run"
 import { mutationSucceeded, type DestinationProbeRequest } from "./backup-destinations"
 import {
+  adminSettingsSaveRequiresReauth,
   buildAdminSettingsPayload,
   createAdminSettingsForm,
   mergeAdminSettingsFormScope,
@@ -40,6 +48,10 @@ interface RestoreBackupResponse {
   message_code?: string
   skipped_asset_count?: number
 }
+
+// Error code the backend returns when a request needs a step-up ticket it did not
+// carry (or carried an unusable one).
+const REAUTH_REQUIRED_CODE = "re_authentication_required"
 
 // The server now reopens the database in place after a restore. When it cannot,
 // it keeps the legacy message code and the admin still has to restart it.
@@ -81,6 +93,7 @@ interface UseAdminPageStateResult {
   handleSaveExchangeRateSettings: () => Promise<void>
   handleSaveGeneralSettings: () => Promise<void>
   handleSaveSMTPSettings: () => Promise<void>
+  handleConfirmSettingsReauth: (reauthTicket: string) => Promise<void>
   handleConfirmToggleRole: (reauthTicket: string) => Promise<void>
   handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
@@ -102,6 +115,7 @@ interface UseAdminPageStateResult {
   restorePassword: string
   runningDestinationId: number | null
   roleReauthUser: AdminUser | null
+  settingsReauthScope: AdminSettingsSaveScope | null
   setCreateDialogOpen: (open: boolean) => void
   setDownloadPassword: (value: string) => void
   setIncludeAssetsInBackup: (value: boolean) => void
@@ -110,6 +124,7 @@ interface UseAdminPageStateResult {
   setNewRole: (value: "user" | "admin") => void
   setNewUsername: (value: string) => void
   setRoleReauthUser: (user: AdminUser | null) => void
+  setSettingsReauthScope: (scope: AdminSettingsSaveScope | null) => void
   setRestoreConfirmOpen: (value: boolean) => void
   setRestoreFile: (file: File | null) => void
   setRestorePassword: (value: string) => void
@@ -209,6 +224,8 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [roleReauthUser, setRoleReauthUser] = useState<AdminUser | null>(null)
+  // Settings section whose save is waiting on a step-up, or null when none is.
+  const [settingsReauthScope, setSettingsReauthScope] = useState<AdminSettingsSaveScope | null>(null)
   const [newUsername, setNewUsername] = useState("")
   const [newEmail, setNewEmail] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -388,10 +405,27 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function saveSettingsScope(scope: AdminSettingsSaveScope) {
+  async function saveSettingsScope(scope: AdminSettingsSaveScope, reauthTicket?: string) {
+    if (!reauthTicket && adminSettingsSaveRequiresReauth(savedSettingsForm, settingsForm, scope)) {
+      setSettingsReauthScope(scope)
+      return
+    }
     try {
       const payload = buildAdminSettingsPayload(settingsForm, scope)
-      await api.put("/admin/settings", payload, { errorHandling: "toast" })
+      await api.put("/admin/settings", payload, {
+        headers: reauthTicket ? { "X-Reauth-Ticket": reauthTicket } : undefined,
+      })
+    } catch (error) {
+      // The backend decides what needs a step-up; if it asks for one the local
+      // check missed, prompt instead of failing the save.
+      if (!reauthTicket && isBackendAPIError(error) && error.code === REAUTH_REQUIRED_CODE) {
+        setSettingsReauthScope(scope)
+        return
+      }
+      toast.error(getAPIErrorMessage(error))
+      return
+    }
+    try {
       const fresh = await api.get<SystemSettings>("/admin/settings", { errorHandling: "toast" })
       setSavedSettingsForm(createAdminSettingsForm(fresh))
       setSettingsForm((current) => mergeAdminSettingsFormScope(current, fresh, scope))
@@ -418,6 +452,14 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
 
   function handleSaveExchangeRateSettings() {
     return saveSettingsScope("exchange-rates")
+  }
+
+  async function handleConfirmSettingsReauth(reauthTicket: string) {
+    const scope = settingsReauthScope
+    setSettingsReauthScope(null)
+    if (scope) {
+      await saveSettingsScope(scope, reauthTicket)
+    }
   }
 
   function handleRegistrationEmailVerificationChange(enabled: boolean) {
@@ -934,6 +976,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     handleSaveExchangeRateSettings,
     handleSaveGeneralSettings,
     handleSaveSMTPSettings,
+    handleConfirmSettingsReauth,
     handleConfirmToggleRole,
     handleTestSSRF,
     handleTestSMTP,
@@ -955,6 +998,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     restorePassword,
     runningDestinationId,
     roleReauthUser,
+    settingsReauthScope,
     setCreateDialogOpen,
     setDownloadPassword,
     setIncludeAssetsInBackup,
@@ -963,6 +1007,7 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     setNewRole,
     setNewUsername,
     setRoleReauthUser,
+    setSettingsReauthScope,
     setRestoreConfirmOpen,
     setRestoreFile: handleRestoreFileChange,
     setRestorePassword,

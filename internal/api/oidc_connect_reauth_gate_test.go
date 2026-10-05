@@ -150,6 +150,7 @@ func TestOIDCConnectStartAllowsExistingConnectionWithoutReauth(t *testing.T) {
 	if err := db.Create(&model.OIDCConnection{
 		UserID:   admin.ID,
 		Provider: "oidc",
+		Issuer:   provider.URL,
 		Subject:  "subject-1",
 		Email:    admin.Email,
 	}).Error; err != nil {
@@ -160,4 +161,31 @@ func TestOIDCConnectStartAllowsExistingConnectionWithoutReauth(t *testing.T) {
 	token := reauthGateTestToken(t, admin)
 
 	assertOIDCConnectStartAccepted(t, postOIDCConnectStart(t, e, token, ""))
+}
+
+// A link to a provider that is no longer configured cannot authenticate, so it
+// must not exempt the user from the first-link step-up for the current one.
+func TestOIDCConnectStartRequiresReauthWhenOnlyLinkedToPreviousIssuer(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	provider := seedOIDCConnectTestProvider(t, db)
+	defer provider.Close()
+
+	admin := createReauthGateTestAdmin(t, db)
+	if err := db.Create(&model.OIDCConnection{
+		UserID:   admin.ID,
+		Provider: "oidc",
+		Issuer:   "https://previous-idp.example.com",
+		Subject:  "subject-1",
+		Email:    admin.Email,
+	}).Error; err != nil {
+		t.Fatalf("failed to seed oidc connection: %v", err)
+	}
+
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+
+	rec := postOIDCConnectStart(t, e, token, "")
+	if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+		t.Fatalf("status = %d, body = %s; want re-authentication required", rec.Code, rec.Body.String())
+	}
 }

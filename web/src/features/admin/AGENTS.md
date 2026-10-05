@@ -67,6 +67,7 @@ admin/
 - `AdminRoute` in `App.tsx` checks authentication and `isAdmin()`.
 - The backend also enforces admin JWT routes; do not rely on UI hiding as authorization.
 - Sensitive admin mutations may require reauth. Keep UI prompts aligned with backend operation names and ticket flow.
+- Saving a change to OIDC trust settings (issuer, client, secret, endpoints, reauth acr lists), SSRF policy, or the system proxy needs an `admin_security_settings` ticket. `adminSettingsSaveRequiresReauth` in `hooks/admin-settings-form.ts` mirrors `securitySettingsChanged` in `internal/service/admin/settings_reauth.go`; change both together.
 
 ### State And Tabs
 

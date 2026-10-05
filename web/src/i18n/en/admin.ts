@@ -89,6 +89,9 @@ const admin = {
     save: "Save settings",
     saved: "Settings saved",
     saveSuccess: "Settings saved successfully",
+    securityReauthTitle: "Confirm security settings change",
+    securityReauthDescription:
+      "This change affects which identity provider is trusted, how its logins count for re-authentication, or how outbound requests are filtered. For security, re-authenticate before saving.",
     allowImageUpload: "Allow icon image uploads",
     allowImageUploadDescription:
       "When disabled, new subscription/payment method icon uploads are blocked (existing uploaded icons are unaffected)",

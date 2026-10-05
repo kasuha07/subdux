@@ -206,6 +206,46 @@ export function buildAdminSettingsPayload(
   }
 }
 
+// Settings the backend only changes with an "admin_security_settings" step-up
+// ticket: which OIDC provider is trusted and where its credentials are sent, how
+// strong an OIDC login counts for reauth, and how outbound requests are filtered
+// or routed. Keep in sync with securitySettingsChanged in the admin service.
+const securitySettingKeys = [
+  "oidc_issuer_url",
+  "oidc_client_id",
+  "oidc_client_secret",
+  "oidc_redirect_url",
+  "oidc_authorization_endpoint",
+  "oidc_token_endpoint",
+  "oidc_userinfo_endpoint",
+  "oidc_reauth_acr_mfa",
+  "oidc_reauth_acr_phishing_resistant",
+  "ssrf_protection_enabled",
+  "ssrf_allow_private_ip",
+  "ssrf_domain_filter_mode",
+  "ssrf_domain_filter_list",
+  "ssrf_ip_filter_mode",
+  "ssrf_ip_filter_list",
+  "ssrf_filter_resolved_ips",
+  "system_proxy_enabled",
+  "system_proxy_type",
+  "system_proxy_url",
+] as const satisfies readonly (keyof UpdateSettingsInput)[]
+
+// Reports whether saving scope would change a security-sensitive setting, so
+// the step-up prompt can open before the request instead of after a rejection.
+// Write-only secrets are never in the saved form, so typing a replacement
+// always counts. The backend makes the authoritative decision.
+export function adminSettingsSaveRequiresReauth(
+  saved: AdminSettingsFormState,
+  current: AdminSettingsFormState,
+  scope: AdminSettingsSaveScope
+): boolean {
+  const next = buildAdminSettingsPayload(current, scope)
+  const previous = buildAdminSettingsPayload(saved, scope)
+  return securitySettingKeys.some((key) => key in next && next[key] !== previous[key])
+}
+
 export function mergeAdminSettingsFormScope(
   current: AdminSettingsFormState,
   fresh: SystemSettings,

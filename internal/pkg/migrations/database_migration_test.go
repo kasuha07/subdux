@@ -718,6 +718,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 		{Name: "20260924_02_postgres_login_identifiers", Checksum: "73df51fe1fcf571d5ef844db08f9083f2f0682f0278229d27fd3ad24f7059b52"},
 		{Name: "20260924_03_subscription_event_fields_index", Checksum: "b0fcb27af8a6c893d8e83a02088d2dfe5b5a52501c9ea8c52afc6eceb93a1bd3"},
 		{Name: "20261002_01_mcp_oauth", Checksum: "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c"},
+		{Name: "20261005_01_oidc_connection_issuer", Checksum: "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -740,7 +741,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260924_02_postgres_login_identifiers.go":      "73df51fe1fcf571d5ef844db08f9083f2f0682f0278229d27fd3ad24f7059b52",
 		"migration_20260924_03_subscription_event_fields_index.go": "b0fcb27af8a6c893d8e83a02088d2dfe5b5a52501c9ea8c52afc6eceb93a1bd3",
 		"migration_20261002_01_mcp_oauth.go":                       "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c",
-		"schema_migration_registry.go":                             "f1f78ddba01425bbee9cd39bfd6ee74e037894a9f8271d2a95246558543c4b06",
+		"migration_20261005_01_oidc_connection_issuer.go":          "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34",
+		"schema_migration_registry.go":                             "d5456f8bae63cd917649beb1354ba1da5a837f962c7ed45ba97652be31c61ede",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

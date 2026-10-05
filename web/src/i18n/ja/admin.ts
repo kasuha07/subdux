@@ -87,6 +87,9 @@ const admin = {
     save: "設定を保存",
     saved: "設定を保存しました",
     saveSuccess: "設定を保存しました",
+    securityReauthTitle: "セキュリティ設定変更の確認",
+    securityReauthDescription:
+      "この変更は、信頼するIDプロバイダー、そのログインを再認証としてどう扱うか、または外部リクエストのフィルタリングに影響します。セキュリティのため、保存する前に再認証してください。",
     allowImageUpload: "アイコン画像アップロードを許可",
     allowImageUploadDescription:
       "無効化すると新しいサブスクリプション/支払い方法のアイコンアップロードを拒否します（既存のアップロード済みアイコンには影響しません）",

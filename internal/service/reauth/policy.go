@@ -118,7 +118,9 @@ func (s *Service) AvailableMethods(userID uint, operation string) (Methods, erro
 
 // ConsumeOIDCConnect consumes a connect_oidc ticket only when the current policy
 // requires it. Existing behavior is preserved: first-time OIDC linking requires
-// reauth, while already-linked users can reconnect without an extra ticket.
+// reauth, while already-linked users can reconnect without an extra ticket. A
+// link to a previously configured issuer does not count as linked, so replacing
+// it with an identity of the current issuer also requires reauth.
 func (s *Service) ConsumeOIDCConnect(userID uint, ticket string) error {
 	hasConnection, err := s.auth.HasOIDCConnection(userID)
 	if err != nil {

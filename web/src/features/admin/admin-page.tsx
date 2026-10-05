@@ -20,6 +20,7 @@ import { useAdminPageState } from "@/features/admin/hooks/use-admin-page-state"
 import { cn } from "@/lib/utils"
 
 import AdminLoadingSkeleton, { AdminTabLoading } from "./admin-loading-skeleton"
+import ReauthDialog from "./reauth-dialog"
 
 export { AdminTabLoading }
 
@@ -478,6 +479,19 @@ export default function AdminPage() {
           </Tabs>
         )}
       </main>
+
+      <ReauthDialog
+        operation="admin_security_settings"
+        open={admin.settingsReauthScope !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            admin.setSettingsReauthScope(null)
+          }
+        }}
+        onVerified={admin.handleConfirmSettingsReauth}
+        title={t("admin.settings.securityReauthTitle")}
+        description={t("admin.settings.securityReauthDescription")}
+      />
     </div>
   )
 }

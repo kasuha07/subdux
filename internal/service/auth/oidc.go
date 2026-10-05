@@ -142,6 +142,9 @@ func (s oidcSettings) isConfigured() bool {
 var ErrOIDCEmailNotVerified = serviceerr.New(serviceerr.KindForbidden, "oidc_email_is_not_verified", "oidc email is not verified")
 
 type oidcIdentityClaims struct {
+	// Issuer is copied from the verified ID token rather than decoded from
+	// claims, so it is always the issuer whose signature was checked.
+	Issuer            string        `json:"-"`
 	Subject           string        `json:"sub"`
 	Email             string        `json:"email"`
 	EmailVerified     oidcBoolClaim `json:"email_verified"`
@@ -425,14 +428,28 @@ func (s *Service) ListOIDCConnections(userID uint) ([]OIDCConnectionInfo, error)
 	return result, nil
 }
 
+// HasOIDCConnection reports whether the user is linked to an identity of the
+// currently configured issuer. A link left over from a previous provider cannot
+// authenticate anyone, so it does not count as a usable factor.
 func (s *Service) HasOIDCConnection(userID uint) (bool, error) {
+	issuer := s.getOIDCSettings().IssuerURL
+	if issuer == "" {
+		return false, nil
+	}
 	var count int64
 	if err := s.DB.Model(&model.OIDCConnection{}).
-		Where("provider = ? AND user_id = ?", oidcProviderKey, userID).
+		Where("provider = ? AND user_id = ? AND issuer = ?", oidcProviderKey, userID, issuer).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// whereOIDCIdentity scopes a connection lookup to one OIDC identity. A subject is
+// only unique within its issuer, so matching on subject alone would let another
+// provider log in as a linked user by asserting the same subject.
+func whereOIDCIdentity(db *gorm.DB, claims *oidcIdentityClaims) *gorm.DB {
+	return db.Where("provider = ? AND issuer = ? AND subject = ?", oidcProviderKey, claims.Issuer, claims.Subject)
 }
 
 // CanReauthWithOIDC reports whether the user can use OIDC as a step-up factor:
@@ -613,6 +630,10 @@ func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVe
 		}
 	}
 
+	claims.Issuer = strings.TrimSpace(idToken.Issuer)
+	if claims.Issuer == "" {
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_verify_oidc_identity", "failed to verify oidc identity")
+	}
 	claims.Subject = strings.TrimSpace(claims.Subject)
 	if claims.Subject == "" {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_subject_is_missing", "oidc subject is missing")
@@ -657,7 +678,7 @@ func mergeOIDCUserInfoClaims(claims *oidcIdentityClaims, userInfoClaims *oidcIde
 
 func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
 	var connection model.OIDCConnection
-	err := s.DB.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&connection).Error
+	err := whereOIDCIdentity(s.DB, claims).First(&connection).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "failed_to_load_oidc_connection", "failed to load oidc connection")
 	}
@@ -718,7 +739,7 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 	var connection model.OIDCConnection
 	err = s.DB.Transaction(func(tx *gorm.DB) error {
 		var existingBySubject model.OIDCConnection
-		if err := tx.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&existingBySubject).Error; err == nil {
+		if err := whereOIDCIdentity(tx, claims).First(&existingBySubject).Error; err == nil {
 			if existingBySubject.UserID != userID {
 				return serviceerr.New(serviceerr.KindInvalid, "this_oidc_account_is_already_linked_to_another_user", "this oidc account is already linked to another user")
 			}
@@ -737,7 +758,24 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 
 		var existingForUser model.OIDCConnection
 		if err := tx.Where("provider = ? AND user_id = ?", oidcProviderKey, userID).First(&existingForUser).Error; err == nil {
-			return serviceerr.New(serviceerr.KindInvalid, "you_have_already_connected_another_oidc_account", "you have already connected another oidc account")
+			if existingForUser.Issuer == claims.Issuer {
+				return serviceerr.New(serviceerr.KindInvalid, "you_have_already_connected_another_oidc_account", "you have already connected another oidc account")
+			}
+			// The existing link belongs to a provider that is no longer
+			// configured and can never authenticate again. Linking an identity
+			// of the current provider replaces it.
+			if err := tx.Model(&existingForUser).Updates(map[string]interface{}{
+				"issuer":  claims.Issuer,
+				"subject": claims.Subject,
+				"email":   email,
+			}).Error; err != nil {
+				return err
+			}
+			existingForUser.Issuer = claims.Issuer
+			existingForUser.Subject = claims.Subject
+			existingForUser.Email = email
+			connection = existingForUser
+			return nil
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -745,6 +783,7 @@ func (s *Service) finishOIDCConnect(userID uint, claims *oidcIdentityClaims) (OI
 		connection = model.OIDCConnection{
 			UserID:   userID,
 			Provider: oidcProviderKey,
+			Issuer:   claims.Issuer,
 			Subject:  claims.Subject,
 			Email:    email,
 		}
@@ -790,7 +829,7 @@ func (s *Service) finishOIDCReauth(userID uint, operation string, claims *oidcId
 	}
 
 	var connection model.OIDCConnection
-	err = s.DB.Where("provider = ? AND subject = ?", oidcProviderKey, claims.Subject).First(&connection).Error
+	err = whereOIDCIdentity(s.DB, claims).First(&connection).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return OIDCSessionResult{}, serviceerr.New(serviceerr.KindInvalid, "oidc_identity_is_not_linked_to_this_account", "oidc identity is not linked to this account")
 	} else if err != nil {
@@ -919,6 +958,7 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 		connection := model.OIDCConnection{
 			UserID:   user.ID,
 			Provider: oidcProviderKey,
+			Issuer:   claims.Issuer,
 			Subject:  claims.Subject,
 			Email:    email,
 		}

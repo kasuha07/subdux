@@ -7,6 +7,8 @@ import (
 	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/api/httpx"
 	adminservice "github.com/kasuha07/subdux/internal/service/admin"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
+	"github.com/kasuha07/subdux/internal/service/serviceerr"
 	"github.com/labstack/echo/v4"
 )
 
@@ -31,10 +33,24 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return serviceutil.ErrRevisionRequired
 	}
 
-	// No admin setting requires step-up re-authentication any more: the backup
-	// schedule moved onto individual destinations, whose own endpoints carry the
-	// destination-bound reauth tickets.
-	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input); err != nil {
+	// Settings that decide which identity provider is trusted, how strong its
+	// logins count, where OIDC credentials are sent, or how outbound requests
+	// are filtered need step-up: a stolen session alone must not be able to
+	// point OIDC at an attacker-controlled issuer and sign in as linked users.
+	// The service decides whether the update changes one of them and calls back
+	// only then, after validation, so re-sent saved values and invalid input
+	// never spend a ticket.
+	authorizeSecurityChange := func() error {
+		if h.Reauth == nil {
+			return serviceerr.New(serviceerr.KindInternal, "reauthentication_service_is_not_configured", "reauthentication service is not configured")
+		}
+		return h.Reauth.WithContext(c.Request().Context()).Consume(
+			apimw.From(c).UserID,
+			servicereauth.ReauthOperationAdminSecuritySettings,
+			apimw.ReauthTicketFromRequest(c),
+		)
+	}
+	if err := h.Service.WithContext(c.Request().Context()).UpdateSettings(input, authorizeSecurityChange); err != nil {
 		return err
 	}
 

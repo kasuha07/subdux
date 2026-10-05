@@ -54,7 +54,8 @@ type ReauthOperation =
   | "authorize_mcp_client"
   | "backup_destination_create"
   | "backup_destination_update"
-  | "backup_destination_delete";
+  | "backup_destination_delete"
+  | "admin_security_settings";
 
 export interface ReauthScope {
   destination_id: number;

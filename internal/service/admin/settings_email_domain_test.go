@@ -18,7 +18,7 @@ func TestUpdateSettingsEmailDomainWhitelistNormalization(t *testing.T) {
 	input := " @Example.com.;foo.com\nexample.com;sub.example.com "
 	if err := svc.UpdateSettings(UpdateSettingsInput{
 		EmailDomainWhitelist: &input,
-	}); err != nil {
+	}, nil); err != nil {
 		t.Fatalf("UpdateSettings() error = %v", err)
 	}
 
@@ -43,7 +43,7 @@ func TestUpdateSettingsEmailDomainWhitelistValidationError(t *testing.T) {
 	input := "http://example.com"
 	err := svc.UpdateSettings(UpdateSettingsInput{
 		EmailDomainWhitelist: &input,
-	})
+	}, nil)
 	if !errors.Is(err, serviceauth.ErrInvalidEmailDomainWhitelist) {
 		t.Fatalf("UpdateSettings() error = %v, want %v", err, serviceauth.ErrInvalidEmailDomainWhitelist)
 	}
