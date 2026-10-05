@@ -47,7 +47,7 @@ func TestFinishOIDCLoginRequiresMatchingIssuer(t *testing.T) {
 	admin := createOIDCBindingTestUser(t, svc, "victim-admin", "admin")
 	linkOIDCBindingTestUser(t, svc, admin, testOIDCIssuer, "shared-subject")
 
-	forged := &oidcIdentityClaims{Issuer: testOtherOIDCIssuer, Subject: "shared-subject", Email: "attacker@example.com"}
+	forged := &oidcIdentityClaims{Issuer: testOtherOIDCIssuer, Subject: "shared-subject", Email: "attacker@example.com", EmailVerified: true}
 
 	t.Run("without auto-create the foreign identity is not linked", func(t *testing.T) {
 		_, err := svc.finishOIDCLogin(oidcSettings{AutoCreateUser: false}, forged)
