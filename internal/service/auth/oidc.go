@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,6 +45,12 @@ type OIDCPublicConfig struct {
 
 type OIDCStartResult struct {
 	AuthorizationURL string `json:"authorization_url"`
+	// BrowserBinding is a per-flow secret the API layer must hand to the
+	// initiating browser as an HttpOnly cookie. HandleOIDCCallback only accepts a
+	// callback that presents the same value, which ties the provider state to the
+	// browser that started the flow (login CSRF / connect-hijack defense). It is
+	// never serialized into the JSON response.
+	BrowserBinding string `json:"-"`
 }
 
 type OIDCConnectionInfo struct {
@@ -92,8 +99,10 @@ type oidcStateSession struct {
 	Operation    string
 	CodeVerifier string
 	Nonce        string
-	CreatedAt    time.Time
-	ExpiresAt    time.Time
+	// BrowserBinding must match the binding cookie presented on the callback.
+	BrowserBinding string
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
 }
 
 type oidcResultSession struct {
@@ -128,19 +137,44 @@ func (s oidcSettings) isConfigured() bool {
 	return s.IssuerURL != "" && s.ClientID != "" && s.ClientSecret != "" && s.RedirectURL != ""
 }
 
+// ErrOIDCEmailNotVerified rejects auto-creating a local account from a provider
+// identity whose email the provider has not marked as verified.
+var ErrOIDCEmailNotVerified = serviceerr.New(serviceerr.KindForbidden, "oidc_email_is_not_verified", "oidc email is not verified")
+
 type oidcIdentityClaims struct {
 	// Issuer is copied from the verified ID token rather than decoded from
 	// claims, so it is always the issuer whose signature was checked.
-	Issuer            string   `json:"-"`
-	Subject           string   `json:"sub"`
-	Email             string   `json:"email"`
-	EmailVerified     bool     `json:"email_verified"`
-	PreferredUsername string   `json:"preferred_username"`
-	Name              string   `json:"name"`
-	Nonce             string   `json:"nonce"`
-	AuthTime          int64    `json:"auth_time"`
-	ACR               string   `json:"acr"`
-	AMR               []string `json:"amr"`
+	Issuer            string        `json:"-"`
+	Subject           string        `json:"sub"`
+	Email             string        `json:"email"`
+	EmailVerified     oidcBoolClaim `json:"email_verified"`
+	PreferredUsername string        `json:"preferred_username"`
+	Name              string        `json:"name"`
+	Nonce             string        `json:"nonce"`
+	AuthTime          int64         `json:"auth_time"`
+	ACR               string        `json:"acr"`
+	AMR               []string      `json:"amr"`
+}
+
+// oidcBoolClaim decodes a boolean claim that some providers (for example AWS
+// Cognito) emit as the string "true"/"false" instead of a JSON boolean. Any
+// other value decodes as false so a malformed claim never counts as asserted.
+type oidcBoolClaim bool
+
+func (c *oidcBoolClaim) UnmarshalJSON(data []byte) error {
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	switch v := value.(type) {
+	case bool:
+		*c = oidcBoolClaim(v)
+	case string:
+		*c = oidcBoolClaim(strings.EqualFold(strings.TrimSpace(v), "true"))
+	default:
+		*c = false
+	}
+	return nil
 }
 
 // OIDCReauthGrade is the assurance level a completed OIDC step-up proves, mapped
@@ -246,12 +280,7 @@ func (s *Service) BeginOIDCLogin() (*OIDCStartResult, error) {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0, "")
-	if err != nil {
-		return nil, err
-	}
-
-	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+	return s.buildOIDCAuthorizationURL(settings, oidcPurposeLogin, 0, "")
 }
 
 func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
@@ -260,12 +289,7 @@ func (s *Service) BeginOIDCConnect(userID uint) (*OIDCStartResult, error) {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID, "")
-	if err != nil {
-		return nil, err
-	}
-
-	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+	return s.buildOIDCAuthorizationURL(settings, oidcPurposeConnect, userID, "")
 }
 
 // BeginOIDCReauth starts an OIDC step-up ("reauth") for an already-authenticated
@@ -282,15 +306,14 @@ func (s *Service) BeginOIDCReauth(userID uint, operation string) (*OIDCStartResu
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_login_is_not_available", "oidc login is not available")
 	}
 
-	authorizationURL, err := s.buildOIDCAuthorizationURL(settings, oidcPurposeReauth, userID, operation)
-	if err != nil {
-		return nil, err
-	}
-
-	return &OIDCStartResult{AuthorizationURL: authorizationURL}, nil
+	return s.buildOIDCAuthorizationURL(settings, oidcPurposeReauth, userID, operation)
 }
 
-func (s *Service) HandleOIDCCallback(state string, code string, providerError string, providerErrorDescription string) (*OIDCCallbackResult, error) {
+// HandleOIDCCallback completes an OIDC flow. browserBinding is the value of the
+// binding cookie sent by the browser hitting the callback; it must match the
+// binding minted when the flow started, so a callback URL (state+code) lifted
+// from one browser cannot be replayed in another.
+func (s *Service) HandleOIDCCallback(state string, browserBinding string, code string, providerError string, providerErrorDescription string) (*OIDCCallbackResult, error) {
 	purpose := oidcPurposeLogin
 	trimmedState := strings.TrimSpace(state)
 	if trimmedState == "" {
@@ -303,6 +326,10 @@ func (s *Service) HandleOIDCCallback(state string, code string, providerError st
 	}
 
 	purpose = session.Purpose
+	if !oidcBrowserBindingMatches(session.BrowserBinding, browserBinding) {
+		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "oidc_browser_binding_mismatch", "oidc flow was not started in this browser"))
+	}
+
 	if providerError != "" {
 		message := strings.TrimSpace(providerErrorDescription)
 		if message == "" {
@@ -447,18 +474,26 @@ func (s *Service) DeleteOIDCConnection(userID uint, connectionID uint) error {
 	return nil
 }
 
-func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (string, error) {
+func oidcBrowserBindingMatches(expected string, presented string) bool {
+	presented = strings.TrimSpace(presented)
+	if expected == "" || presented == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(presented)) == 1
+}
+
+func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose string, userID uint, operation string) (*OIDCStartResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	client, err := buildOIDCOutboundHTTPClient(ctx, s.DB, 10*time.Second)
 	if err != nil {
-		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 	ctx = oidc.ClientContext(ctx, client)
 
 	provider, err := s.getOIDCProvider(ctx, settings.IssuerURL)
 	if err != nil {
-		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_initialize_oidc_provider", "failed to initialize oidc provider")
 	}
 
 	endpoint := provider.Endpoint()
@@ -480,17 +515,22 @@ func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose strin
 	state := uuid.NewString()
 	nonce, err := generateSecureToken(24)
 	if err != nil {
-		return "", serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
+	}
+	browserBinding, err := generateSecureToken(32)
+	if err != nil {
+		return nil, serviceerr.New(serviceerr.KindInvalid, "failed_to_create_oidc_session", "failed to create oidc session")
 	}
 
 	codeVerifier := oauth2.GenerateVerifier()
 	s.storeOIDCStateSession(state, oidcStateSession{
-		Purpose:      purpose,
-		UserID:       userID,
-		Operation:    operation,
-		CodeVerifier: codeVerifier,
-		Nonce:        nonce,
-		ExpiresAt:    pkg.NowUTC().Add(oidcStateSessionTTL),
+		Purpose:        purpose,
+		UserID:         userID,
+		Operation:      operation,
+		CodeVerifier:   codeVerifier,
+		Nonce:          nonce,
+		BrowserBinding: browserBinding,
+		ExpiresAt:      pkg.NowUTC().Add(oidcStateSessionTTL),
 	})
 
 	authOptions := []oauth2.AuthCodeOption{
@@ -519,7 +559,7 @@ func (s *Service) buildOIDCAuthorizationURL(settings oidcSettings, purpose strin
 		authOptions...,
 	)
 
-	return authorizationURL, nil
+	return &OIDCStartResult{AuthorizationURL: authorizationURL, BrowserBinding: browserBinding}, nil
 }
 
 func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVerifier string, expectedNonce string) (*oidcIdentityClaims, error) {
@@ -605,23 +645,35 @@ func (s *Service) resolveOIDCIdentity(settings oidcSettings, code string, codeVe
 	if needsUserInfo {
 		userInfoClaims, userInfoErr := fetchOIDCUserInfoClaims(ctx, provider, oauthToken, settings.UserinfoURL, client)
 		if userInfoErr == nil && userInfoClaims != nil {
-			if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
-				return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_subject_mismatch", "oidc subject mismatch")
-			}
-
-			if strings.TrimSpace(claims.Email) == "" {
-				claims.Email = strings.TrimSpace(userInfoClaims.Email)
-			}
-			if strings.TrimSpace(claims.PreferredUsername) == "" {
-				claims.PreferredUsername = strings.TrimSpace(userInfoClaims.PreferredUsername)
-			}
-			if strings.TrimSpace(claims.Name) == "" {
-				claims.Name = strings.TrimSpace(userInfoClaims.Name)
+			if err := mergeOIDCUserInfoClaims(&claims, userInfoClaims); err != nil {
+				return nil, err
 			}
 		}
 	}
 
 	return &claims, nil
+}
+
+// mergeOIDCUserInfoClaims fills identity fields the ID token left empty from the
+// userinfo response, rejecting a userinfo subject that names another identity.
+func mergeOIDCUserInfoClaims(claims *oidcIdentityClaims, userInfoClaims *oidcIdentityClaims) error {
+	if userInfoClaims.Subject != "" && userInfoClaims.Subject != claims.Subject {
+		return serviceerr.New(serviceerr.KindInvalid, "oidc_subject_mismatch", "oidc subject mismatch")
+	}
+
+	if strings.TrimSpace(claims.Email) == "" {
+		// Verification status belongs to the email it was asserted for, so take
+		// both from userinfo together.
+		claims.Email = strings.TrimSpace(userInfoClaims.Email)
+		claims.EmailVerified = userInfoClaims.EmailVerified
+	}
+	if strings.TrimSpace(claims.PreferredUsername) == "" {
+		claims.PreferredUsername = strings.TrimSpace(userInfoClaims.PreferredUsername)
+	}
+	if strings.TrimSpace(claims.Name) == "" {
+		claims.Name = strings.TrimSpace(userInfoClaims.Name)
+	}
+	return nil
 }
 
 func (s *Service) finishOIDCLogin(settings oidcSettings, claims *oidcIdentityClaims) (OIDCSessionResult, error) {
@@ -824,6 +876,15 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 	email := normalizeEmail(claims.Email)
 	if email == "" {
 		return nil, serviceerr.New(serviceerr.KindInvalid, "oidc_provider_did_not_return_an_email", "oidc provider did not return an email")
+	}
+	// Auto-creation binds the provider identity to a local account keyed by this
+	// email. An unverified email would let anyone pre-register someone else's
+	// address and keep OIDC access after the real owner recovers the account.
+	if !claims.EmailVerified {
+		return nil, ErrOIDCEmailNotVerified
+	}
+	if err := s.enforceEmailDomainWhitelist(email); err != nil {
+		return nil, err
 	}
 
 	var existing model.User

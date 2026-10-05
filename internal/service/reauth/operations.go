@@ -26,6 +26,7 @@ const (
 	ReauthOperationExportSecrets           = "export_secrets"
 	ReauthOperationImportSubdux            = "import_subdux"
 	ReauthOperationImportWallos            = "import_wallos"
+	ReauthOperationAuthorizeMCPClient      = "authorize_mcp_client"
 	// ReauthOperationAdminSecuritySettings covers admin settings that decide
 	// which identity provider is trusted and how outbound requests are
 	// filtered. See admin.Service.SettingsUpdateRequiresReauth.
@@ -59,6 +60,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationExportSecrets,
 		ReauthOperationImportSubdux,
 		ReauthOperationImportWallos,
+		ReauthOperationAuthorizeMCPClient,
 		ReauthOperationAdminSecuritySettings:
 		return true
 	default:
