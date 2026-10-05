@@ -37,7 +37,7 @@ func TestUpdateSettingsEncryptsSMTPPasswordAndDecryptsOnRead(t *testing.T) {
 		SMTPUsername:  &username,
 		SMTPPassword:  &password,
 		SMTPFromEmail: &fromEmail,
-	}); err != nil {
+	}, nil); err != nil {
 		t.Fatalf("UpdateSettings() failed: %v", err)
 	}
 
@@ -71,7 +71,7 @@ func TestUpdateSettingsEncryptsCurrencyAPIKey(t *testing.T) {
 
 	service := NewService(db)
 	apiKey := "currency-api-secret"
-	if err := service.UpdateSettings(UpdateSettingsInput{CurrencyAPIKey: &apiKey}); err != nil {
+	if err := service.UpdateSettings(UpdateSettingsInput{CurrencyAPIKey: &apiKey}, nil); err != nil {
 		t.Fatalf("UpdateSettings() failed: %v", err)
 	}
 
@@ -222,7 +222,7 @@ func TestUpdateSettingsPersistsSMTPRateLimit(t *testing.T) {
 
 	svc := NewService(db)
 	rateLimitSeconds := int64(30)
-	if err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds}); err != nil {
+	if err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds}, nil); err != nil {
 		t.Fatalf("UpdateSettings() failed: %v", err)
 	}
 
@@ -243,7 +243,7 @@ func TestUpdateSettingsRejectsInvalidSMTPRateLimit(t *testing.T) {
 
 	svc := NewService(db)
 	rateLimitSeconds := int64(-1)
-	err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds})
+	err := svc.UpdateSettings(UpdateSettingsInput{SMTPRateLimitSeconds: &rateLimitSeconds}, nil)
 	if !errors.Is(err, servicesmtp.ErrInvalidSMTPRateLimit) {
 		t.Fatalf("UpdateSettings() error = %v, want %v", err, servicesmtp.ErrInvalidSMTPRateLimit)
 	}
@@ -258,7 +258,7 @@ func TestUpdateSettingsClearsSSRFIPFilterList(t *testing.T) {
 	svc := NewService(db)
 
 	ipList := "10.0.0.0/8\n192.168.0.0/16"
-	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &ipList}); err != nil {
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &ipList}, approveSecurityChange); err != nil {
 		t.Fatalf("UpdateSettings() failed to set list: %v", err)
 	}
 
@@ -271,7 +271,7 @@ func TestUpdateSettingsClearsSSRFIPFilterList(t *testing.T) {
 	}
 
 	empty := ""
-	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &empty}); err != nil {
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFIPFilterList: &empty}, approveSecurityChange); err != nil {
 		t.Fatalf("UpdateSettings() failed to clear list: %v", err)
 	}
 
@@ -301,7 +301,7 @@ func TestUpdateSettingsClearsSSRFDomainFilterList(t *testing.T) {
 	svc := NewService(db)
 
 	domainList := "example.com\ninternal.test"
-	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &domainList}); err != nil {
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &domainList}, approveSecurityChange); err != nil {
 		t.Fatalf("UpdateSettings() failed to set list: %v", err)
 	}
 
@@ -314,7 +314,7 @@ func TestUpdateSettingsClearsSSRFDomainFilterList(t *testing.T) {
 	}
 
 	empty := ""
-	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &empty}); err != nil {
+	if err := svc.UpdateSettings(UpdateSettingsInput{SSRFDomainFilterList: &empty}, approveSecurityChange); err != nil {
 		t.Fatalf("UpdateSettings() failed to clear list: %v", err)
 	}
 

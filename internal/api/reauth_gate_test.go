@@ -1140,7 +1140,84 @@ func TestDeleteAPIKeyRequiresValidReauthTicket(t *testing.T) {
 // The retired operation itself must be rejected end to end: leaving it mintable
 // would hand clients a ticket that unlocks nothing while looking like a
 // successful step-up.
-func TestUpdateSettingsNoLongerRequiresReauthTicket(t *testing.T) {
+func TestUpdateSettingsSecurityChangesRequireValidReauthTicket(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	e := newHumanOnlyRouteTestServer(t, db)
+	token := reauthGateTestToken(t, admin)
+	issuerBody := `{"oidc_issuer_url":"https://attacker-idp.example.com","site_name":"Changed"}`
+
+	assertIssuer := func(t *testing.T, want string) {
+		t.Helper()
+		settings, err := adminservice.NewService(db).GetSettings()
+		if err != nil {
+			t.Fatalf("GetSettings() error = %v", err)
+		}
+		if settings.OIDCIssuerURL != want {
+			t.Fatalf("OIDCIssuerURL = %q, want %q", settings.OIDCIssuerURL, want)
+		}
+	}
+
+	t.Run("missing ticket is refused and nothing is saved", func(t *testing.T) {
+		rec := putAdminSettings(t, e, token, issuerBody, "")
+		if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("status = %d, body = %s; want re-authentication required", rec.Code, rec.Body.String())
+		}
+		assertIssuer(t, "")
+		settings, err := adminservice.NewService(db).GetSettings()
+		if err != nil {
+			t.Fatalf("GetSettings() error = %v", err)
+		}
+		if settings.SiteName == "Changed" {
+			t.Fatal("harmless field in a refused request was saved")
+		}
+	})
+
+	t.Run("wrong-operation ticket is refused", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackup)
+		rec := putAdminSettings(t, e, token, issuerBody, ticket)
+		if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("status = %d, body = %s; want re-authentication required", rec.Code, rec.Body.String())
+		}
+		assertIssuer(t, "")
+	})
+
+	t.Run("invalid input is rejected without spending the ticket", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationAdminSecuritySettings)
+		rec := putAdminSettings(t, e, token, `{"ssrf_ip_filter_list":"10.0.0.0/99"}`, ticket)
+		if rec.Code != http.StatusBadRequest || hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("status = %d, body = %s; want a validation error", rec.Code, rec.Body.String())
+		}
+		rec = putAdminSettings(t, e, token, `{"ssrf_ip_filter_list":"10.0.0.0/8"}`, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s; want the unspent ticket to be accepted", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("valid ticket is accepted and is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationAdminSecuritySettings)
+		rec := putAdminSettings(t, e, token, issuerBody, ticket)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		assertIssuer(t, "https://attacker-idp.example.com")
+
+		rec = putAdminSettings(t, e, token, `{"oidc_issuer_url":"https://idp.example.com"}`, ticket)
+		if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("reused ticket status = %d, body = %s; want re-authentication required", rec.Code, rec.Body.String())
+		}
+		assertIssuer(t, "https://attacker-idp.example.com")
+	})
+
+	t.Run("re-sending the saved issuer needs no ticket", func(t *testing.T) {
+		rec := putAdminSettings(t, e, token, `{"oidc_issuer_url":"https://attacker-idp.example.com","oidc_provider_name":"SSO"}`, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	})
+}
+
+func TestUpdateSettingsWithoutSecurityChangesDoesNotRequireReauthTicket(t *testing.T) {
 	db := newHumanOnlyRouteTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)
 	e := newHumanOnlyRouteTestServer(t, db)

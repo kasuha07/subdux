@@ -74,10 +74,14 @@ func defaultAdminSystemSettings() *SystemSettings {
 }
 
 func (s *Service) GetSettings() (*SystemSettings, error) {
+	return loadSystemSettings(s.DB)
+}
+
+func loadSystemSettings(db *gorm.DB) (*SystemSettings, error) {
 	settings := defaultAdminSystemSettings()
 
 	var items []model.SystemSetting
-	if err := s.DB.Find(&items).Error; err != nil {
+	if err := db.Find(&items).Error; err != nil {
 		return nil, err
 	}
 	settings.Revisions = make(map[string]uint64, len(items))
@@ -219,7 +223,15 @@ func (s *Service) GetSettings() (*SystemSettings, error) {
 	return settings, nil
 }
 
-func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
+// UpdateSettings saves the non-nil fields of input in one transaction.
+//
+// When input changes a security-sensitive setting (see securitySettingsChanged),
+// authorizeSecurityChange must approve it; a nil authorizer rejects such
+// changes. It runs inside the transaction after every value has been validated,
+// so a rejected or invalid update leaves nothing saved, the decision is made
+// against the same rows the update writes, and a step-up ticket is spent only
+// on an update that would otherwise succeed.
+func (s *Service) UpdateSettings(input UpdateSettingsInput, authorizeSecurityChange func() error) error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if input.Revisions != nil {
 			var rows []model.SystemSetting
@@ -235,6 +247,12 @@ func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 				}
 			}
 		}
+		current, err := loadSystemSettings(tx)
+		if err != nil {
+			return err
+		}
+		securityChanged := securitySettingsChanged(current, input)
+
 		if input.RegistrationEnabled != nil {
 			if err := saveBoolSystemSetting(tx, "registration_enabled", *input.RegistrationEnabled); err != nil {
 				return err
@@ -625,6 +643,15 @@ func (s *Service) UpdateSettings(input UpdateSettingsInput) error {
 		if registrationEmailVerificationEnabled {
 			if _, err := servicesmtp.LoadRuntimeConfig(tx); err != nil {
 				return serviceerr.New(serviceerr.KindInvalid, "smtp_settings_must_be_valid_when_registration_email_verification_is_enabled", "smtp settings must be valid when registration email verification is enabled")
+			}
+		}
+
+		if securityChanged {
+			if authorizeSecurityChange == nil {
+				return ErrSecuritySettingsChangeRequiresReauth
+			}
+			if err := authorizeSecurityChange(); err != nil {
+				return err
 			}
 		}
 

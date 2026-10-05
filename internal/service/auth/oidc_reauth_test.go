@@ -12,6 +12,8 @@ import (
 
 const testReauthOperationBackup = "backup"
 
+const testOIDCIssuer = "https://idp.example.com"
+
 func TestFinishOIDCReauthOwnership(t *testing.T) {
 	db := newTestDB(t)
 	svc := NewService(db)
@@ -30,22 +32,22 @@ func TestFinishOIDCReauthOwnership(t *testing.T) {
 		t.Fatalf("failed to create other user: %v", err)
 	}
 	if err := db.Create(&model.OIDCConnection{
-		UserID: other.ID, Provider: oidcProviderKey, Subject: "shared-subject", Email: other.Email,
+		UserID: other.ID, Provider: oidcProviderKey, Issuer: testOIDCIssuer, Subject: "shared-subject", Email: other.Email,
 	}).Error; err != nil {
 		t.Fatalf("failed to create connection: %v", err)
 	}
 
-	claims := &oidcIdentityClaims{Subject: "shared-subject", Email: other.Email, AuthTime: now.Unix()}
+	claims := &oidcIdentityClaims{Issuer: testOIDCIssuer, Subject: "shared-subject", Email: other.Email, AuthTime: now.Unix()}
 	if _, err := svc.finishOIDCReauth(user.ID, testReauthOperationBackup, claims, startedAt); err == nil {
 		t.Fatal("finishOIDCReauth() error = nil for another user's identity, want non-nil")
 	}
 
 	if err := db.Create(&model.OIDCConnection{
-		UserID: user.ID, Provider: oidcProviderKey, Subject: "own-subject", Email: user.Email,
+		UserID: user.ID, Provider: oidcProviderKey, Issuer: testOIDCIssuer, Subject: "own-subject", Email: user.Email,
 	}).Error; err != nil {
 		t.Fatalf("failed to create own connection: %v", err)
 	}
-	ownClaims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email, AuthTime: now.Unix()}
+	ownClaims := &oidcIdentityClaims{Issuer: testOIDCIssuer, Subject: "own-subject", Email: user.Email, AuthTime: now.Unix()}
 	result, err := svc.finishOIDCReauth(user.ID, testReauthOperationBackup, ownClaims, startedAt)
 	if err != nil {
 		t.Fatalf("finishOIDCReauth() error = %v, want nil", err)
@@ -94,7 +96,7 @@ func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
 		t.Fatalf("failed to create user: %v", err)
 	}
 	if err := db.Create(&model.OIDCConnection{
-		UserID: user.ID, Provider: oidcProviderKey, Subject: "own-subject", Email: user.Email,
+		UserID: user.ID, Provider: oidcProviderKey, Issuer: testOIDCIssuer, Subject: "own-subject", Email: user.Email,
 	}).Error; err != nil {
 		t.Fatalf("failed to create own connection: %v", err)
 	}
@@ -105,7 +107,7 @@ func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
 	startedAt := now.Add(-30 * time.Second)
 
 	t.Run("missing auth_time is rejected", func(t *testing.T) {
-		claims := &oidcIdentityClaims{Subject: "own-subject", Email: user.Email}
+		claims := &oidcIdentityClaims{Issuer: testOIDCIssuer, Subject: "own-subject", Email: user.Email}
 		if _, err := svc.finishOIDCReauth(user.ID, testReauthOperationBackup, claims, startedAt); err == nil {
 			t.Fatal("finishOIDCReauth() error = nil, want missing auth_time rejection")
 		}
@@ -113,6 +115,7 @@ func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
 
 	t.Run("stale auth_time is rejected", func(t *testing.T) {
 		claims := &oidcIdentityClaims{
+			Issuer:   testOIDCIssuer,
 			Subject:  "own-subject",
 			Email:    user.Email,
 			AuthTime: startedAt.Add(-oidcReauthAuthSkew - time.Second).Unix(),
@@ -124,6 +127,7 @@ func TestFinishOIDCReauthRequiresFreshLogin(t *testing.T) {
 
 	t.Run("fresh auth_time is accepted", func(t *testing.T) {
 		claims := &oidcIdentityClaims{
+			Issuer:   testOIDCIssuer,
 			Subject:  "own-subject",
 			Email:    user.Email,
 			AuthTime: now.Unix(),

@@ -26,6 +26,10 @@ const (
 	ReauthOperationExportSecrets           = "export_secrets"
 	ReauthOperationImportSubdux            = "import_subdux"
 	ReauthOperationImportWallos            = "import_wallos"
+	// ReauthOperationAdminSecuritySettings covers admin settings that decide
+	// which identity provider is trusted and how outbound requests are
+	// filtered. See admin.Service.SettingsUpdateRequiresReauth.
+	ReauthOperationAdminSecuritySettings = "admin_security_settings"
 )
 
 // IsValidReauthOperation reports whether operation is a known reauth operation.
@@ -54,7 +58,8 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationExportRedacted,
 		ReauthOperationExportSecrets,
 		ReauthOperationImportSubdux,
-		ReauthOperationImportWallos:
+		ReauthOperationImportWallos,
+		ReauthOperationAdminSecuritySettings:
 		return true
 	default:
 		return false

@@ -292,11 +292,11 @@ func (h *AdminHandler) RestoreBackupDestination(c echo.Context) error {
 // above. Be precise about what that costs, because it is easy to overstate the
 // precedent: POST /admin/settings/ssrf/test does NOT reach out — it resolves DNS
 // and evaluates policy (see outbound.TestSSRF) — so it is not the thing that
-// makes this safe. What does hold is that UpdateSettings carries no step-up
-// ticket either, and the OIDC issuer and exchange-rate endpoint it writes are
-// themselves exempt from the SSRF filter, so a session-only admin already has
-// SSRF-exempt outbound reach. This endpoint makes that reach more direct rather
-// than newly possible.
+// makes this safe. Nor does UpdateSettings provide that reach any more: the
+// SSRF-exempt OIDC issuer and endpoints it writes, and the SSRF policy itself,
+// now require a step-up ticket. This probe therefore remains an unticketed
+// outbound request available to a session-only admin; it stays unticketed so the
+// add/edit dialog can validate a destination before the ticketed save.
 //
 // What it must not become is a way around the step-up gate on where credentials
 // are sent, so the service refuses to pair a stored secret with an endpoint

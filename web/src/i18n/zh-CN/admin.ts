@@ -78,6 +78,9 @@ const admin = {
     save: "保存设置",
     saved: "设置已保存",
     saveSuccess: "设置保存成功",
+    securityReauthTitle: "确认修改安全设置",
+    securityReauthDescription:
+      "此更改会影响所信任的身份提供方、其登录在重新认证中的强度认定，或出站请求的过滤方式。出于安全考虑，保存前请重新验证身份。",
     allowImageUpload: "允许上传图标图片",
     allowImageUploadDescription:
       "关闭后将阻止新订阅/支付方式图标上传，已上传图片不受影响",

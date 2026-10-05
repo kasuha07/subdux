@@ -234,10 +234,10 @@ func TestSystemSettingsRevisionSnapshotIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.UpdateSettings(admin.UpdateSettingsInput{Revisions: snapshot.Revisions, SiteName: revisionPtr("new")}); err != nil {
+	if err := svc.UpdateSettings(admin.UpdateSettingsInput{Revisions: snapshot.Revisions, SiteName: revisionPtr("new")}, nil); err != nil {
 		t.Fatal(err)
 	}
-	requireRevisionConflict(t, svc.UpdateSettings(admin.UpdateSettingsInput{Revisions: snapshot.Revisions, SiteName: revisionPtr("stale"), SMTPHost: revisionPtr("should-not-save")}))
+	requireRevisionConflict(t, svc.UpdateSettings(admin.UpdateSettingsInput{Revisions: snapshot.Revisions, SiteName: revisionPtr("stale"), SMTPHost: revisionPtr("should-not-save")}, nil))
 	fresh, err := svc.GetSettings()
 	if err != nil {
 		t.Fatal(err)
@@ -245,7 +245,7 @@ func TestSystemSettingsRevisionSnapshotIsAtomic(t *testing.T) {
 	if fresh.SiteName != "new" || fresh.SMTPHost != "" || fresh.Revisions["site_name"] != snapshot.Revisions["site_name"]+1 {
 		t.Fatalf("unexpected persisted settings")
 	}
-	if err := svc.UpdateSettings(admin.UpdateSettingsInput{Revisions: fresh.Revisions, SiteName: revisionPtr("rollback"), SystemProxyType: revisionPtr("http"), SystemProxyURL: revisionPtr("socks5://proxy.example.com:1080")}); err == nil {
+	if err := svc.UpdateSettings(admin.UpdateSettingsInput{Revisions: fresh.Revisions, SiteName: revisionPtr("rollback"), SystemProxyType: revisionPtr("http"), SystemProxyURL: revisionPtr("socks5://proxy.example.com:1080")}, func() error { return nil }); err == nil {
 		t.Fatal("invalid settings accepted")
 	}
 	after, err := svc.GetSettings()

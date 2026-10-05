@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { SystemSettings } from "@/types"
 
 import {
+  adminSettingsSaveRequiresReauth,
   buildAdminSettingsPayload,
   createAdminSettingsForm,
   mergeAdminSettingsFormScope,
@@ -229,5 +230,62 @@ describe("mergeAdminSettingsFormScope", () => {
     expect(merged.currencyApiKey).toBe("")
     expect(merged.currencyApiKeyConfigured).toBe(true)
     expect(merged.smtpPassword).toBe("smtp draft")
+  })
+})
+
+describe("adminSettingsSaveRequiresReauth", () => {
+  const saved = createAdminSettingsForm(
+    settings({
+      oidc_issuer_url: "https://idp.example.com",
+      oidc_client_id: "client",
+      ssrf_domain_filter_list: "example.com",
+    })
+  )
+
+  it("does not require reauth when only harmless fields change", () => {
+    const current = {
+      ...saved,
+      oidcEnabled: true,
+      oidcProviderName: "Company SSO",
+      oidcAutoCreateUser: true,
+      oidcScopes: "openid email",
+      siteName: "Renamed",
+    }
+    expect(adminSettingsSaveRequiresReauth(saved, current, "auth")).toBe(false)
+    expect(adminSettingsSaveRequiresReauth(saved, current, "general")).toBe(false)
+  })
+
+  it.each([
+    ["auth", { oidcIssuerURL: "https://attacker.example.com" }],
+    ["auth", { oidcClientID: "other" }],
+    ["auth", { oidcClientSecret: "new-secret" }],
+    ["auth", { oidcRedirectURL: "https://attacker.example.com/callback" }],
+    ["auth", { oidcAuthorizationEndpoint: "https://attacker.example.com/authorize" }],
+    ["auth", { oidcTokenEndpoint: "https://attacker.example.com/token" }],
+    ["auth", { oidcUserinfoEndpoint: "https://attacker.example.com/userinfo" }],
+    ["auth", { oidcReauthACRMFA: "level0" }],
+    ["auth", { oidcReauthACRPhishingResistant: "level0" }],
+    ["general", { ssrfProtectionEnabled: false }],
+    ["general", { ssrfAllowPrivateIP: true }],
+    ["general", { ssrfDomainFilterMode: "whitelist" }],
+    ["general", { ssrfDomainFilterList: "" }],
+    ["general", { ssrfIPFilterMode: "whitelist" }],
+    ["general", { ssrfIPFilterList: "10.0.0.0/8" }],
+    ["general", { ssrfFilterResolvedIPs: false }],
+    ["general", { systemProxyEnabled: true }],
+    ["general", { systemProxyType: "socks5" }],
+    ["general", { systemProxyUrl: "http://proxy.example.com:8080" }],
+  ] as const)("requires reauth when saving %s changes %o", (scope, change) => {
+    expect(adminSettingsSaveRequiresReauth(saved, { ...saved, ...change }, scope)).toBe(true)
+  })
+
+  it("ignores a blank write-only secret", () => {
+    expect(adminSettingsSaveRequiresReauth(saved, { ...saved, oidcClientSecret: "   " }, "auth")).toBe(false)
+  })
+
+  it("only considers fields saved by the scope", () => {
+    const current = { ...saved, oidcIssuerURL: "https://attacker.example.com" }
+    expect(adminSettingsSaveRequiresReauth(saved, current, "general")).toBe(false)
+    expect(adminSettingsSaveRequiresReauth(saved, current, "smtp")).toBe(false)
   })
 })

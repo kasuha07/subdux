@@ -49,11 +49,15 @@ type PasskeyCredential struct {
 	User         *User      `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }
 
+// OIDCConnection links a local user to one OIDC identity. An identity is the
+// (issuer, subject) pair: OIDC only guarantees a subject is unique within its
+// issuer, so a link must never match a subject asserted by a different issuer.
 type OIDCConnection struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"index;not null;uniqueIndex:idx_oidc_user_provider" json:"user_id"`
-	Provider  string    `gorm:"size:100;not null;uniqueIndex:idx_oidc_user_provider;uniqueIndex:idx_oidc_provider_subject" json:"provider"`
-	Subject   string    `gorm:"size:255;not null;uniqueIndex:idx_oidc_provider_subject" json:"subject"`
+	Provider  string    `gorm:"size:100;not null;uniqueIndex:idx_oidc_user_provider;uniqueIndex:idx_oidc_provider_issuer_subject" json:"provider"`
+	Issuer    string    `gorm:"size:2048;not null;default:'';uniqueIndex:idx_oidc_provider_issuer_subject" json:"issuer"`
+	Subject   string    `gorm:"size:255;not null;uniqueIndex:idx_oidc_provider_issuer_subject" json:"subject"`
 	Email     string    `gorm:"size:255" json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
