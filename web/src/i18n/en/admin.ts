@@ -234,7 +234,7 @@ const admin = {
       "One acr value per line. When a step-up sign-in returns one of these acr values (or a phishing-resistant amr such as hwk/fido/webauthn), it counts as passkey-level for accounts that require it. Commas and spaces are also supported.",
     oidcAutoCreateUser: "Auto-create users",
     oidcAutoCreateUserDescription:
-      "Automatically create a local user if OIDC user does not exist",
+      "Automatically create a local user if OIDC user does not exist. The provider must mark the email as verified, and the email domain whitelist applies",
   },
   audit: {
     title: "Audit Events",
