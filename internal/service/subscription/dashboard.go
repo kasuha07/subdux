@@ -102,14 +102,17 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 	for _, sub := range subs {
 		factor := subscriptionMonthlyFactor(sub)
 		contributesOngoingSpend := factor > 0 && subscriptionContributesToOngoingSpend(sub)
-		occurrences := len(subscriptionChargeDatesInRange(sub, today, startOfNextMonth))
+		occurrenceDates := subscriptionChargeDatesInRange(sub, today, startOfNextMonth)
+		occurrences := len(occurrenceDates)
 		amount := 0.0
+		var chargeAmounts convertedChargeAmounts
 		if contributesOngoingSpend || occurrences > 0 {
 			var err error
-			amount, err = convertSubscriptionAmount(sub, targetCurrency, converter)
+			chargeAmounts, err = convertSubscriptionChargeAmounts(sub, targetCurrency, converter)
 			if err != nil {
 				return nil, err
 			}
+			amount = chargeAmounts.current
 		}
 
 		if contributesOngoingSpend {
@@ -130,7 +133,7 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 		}
 
 		if occurrences > 0 {
-			due, err := multiplyAggregateAmount(amount, int64(occurrences), targetCurrency)
+			due, err := chargeAmounts.total(occurrenceDates, targetCurrency)
 			if err != nil {
 				return nil, err
 			}

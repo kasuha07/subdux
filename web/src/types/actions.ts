@@ -7,6 +7,7 @@ export type SubscriptionActionType =
   | "notification_failed"
   | "missing_next_billing"
   | "price_increase"
+  | "pending_price"
 
 export type SubscriptionActionSeverity = "critical" | "high" | "medium" | "low"
 
@@ -21,6 +22,7 @@ export interface SubscriptionAction {
   subscription_name: string
   subscription_icon: string
   amount: number
+  previous_amount: number | null
   currency: string
   renewal_mode: SubscriptionRenewalMode
   status: SubscriptionStatus

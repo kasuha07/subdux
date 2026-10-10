@@ -12,6 +12,8 @@ type SubscriptionResponse struct {
 	Name             string    `json:"name"`
 	Amount           float64   `json:"amount"`
 	Currency         string    `json:"currency"`
+	PendingAmount    *float64  `json:"pending_amount"`
+	PendingFrom      *string   `json:"pending_from"`
 	Status           string    `json:"status"`
 	RenewalMode      string    `json:"renewal_mode"`
 	EndsAt           *string   `json:"ends_at"`
@@ -61,6 +63,8 @@ func MapSubscriptionResponse(sub model.Subscription) SubscriptionResponse {
 		Name:             sub.Name,
 		Amount:           sub.Amount,
 		Currency:         sub.Currency,
+		PendingAmount:    sub.PendingAmount,
+		PendingFrom:      FormatDateOnly(sub.PendingFrom),
 		Status:           sub.Status,
 		RenewalMode:      sub.RenewalMode,
 		EndsAt:           FormatDateOnly(sub.EndsAt),

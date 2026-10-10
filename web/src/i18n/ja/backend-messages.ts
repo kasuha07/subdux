@@ -164,6 +164,8 @@ const backendMessages = {
   "invalid_credential_payload": "無効な認証情報ペイロード",
   "invalid_credentials": "無効な資格情報",
   "invalid_date_format_expected_yyyy_mm_dd": "無効な日付形式です。YYYY-MM-DD が必要です",
+  "pending_amount_and_pending_from_must_be_set_together": "予定価格と適用日は同時に設定する必要があります",
+  "pending_from_must_be_after_today": "通常価格に戻る日は今日より後である必要があります",
   "invalid_dingtalk_config_format": "無効な dingtalk 設定形式です",
   "invalid_email": "無効な電子メール",
   "invalid_email_domain_whitelist": "無効な電子メールドメインのホワイトリスト",

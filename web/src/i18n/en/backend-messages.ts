@@ -164,6 +164,8 @@ const backendMessages = {
   "invalid_credential_payload": "invalid credential payload",
   "invalid_credentials": "invalid credentials",
   "invalid_date_format_expected_yyyy_mm_dd": "invalid date format, expected YYYY-MM-DD",
+  "pending_amount_and_pending_from_must_be_set_together": "pending_amount and pending_from must be set together",
+  "pending_from_must_be_after_today": "The regular price must start after today",
   "invalid_dingtalk_config_format": "invalid dingtalk config format",
   "invalid_email": "invalid email",
   "invalid_email_domain_whitelist": "invalid email domain whitelist",

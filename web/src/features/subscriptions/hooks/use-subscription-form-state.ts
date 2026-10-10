@@ -14,12 +14,26 @@ import type {
   UserCurrency,
 } from "@/types"
 
+import {
+  addDaysToDateKey,
+  chargeDatesFrom,
+  daysBetweenDateKeys,
+  getIntroKind,
+  regularAmount,
+  remainingIntroCharges,
+} from "../subscription-pending-price"
 import { useJevCategory } from "./use-jev-category"
 
 export type SubscriptionNotifySetting = "default" | "enabled" | "disabled"
+export type SubscriptionIntroMode = "none" | "trial" | "intro"
 
-interface SubscriptionFormValues {
+export interface SubscriptionFormValues {
   amount: string
+  introMode: SubscriptionIntroMode
+  introAmount: string
+  introCycles: string
+  trialDays: string
+  trialStart: string
   nextBillingDate: string
   endsAt: string
   categoryId: string
@@ -72,6 +86,65 @@ interface UseSubscriptionFormStateResult {
 }
 
 const MAX_NOTIFICATION_DAYS_BEFORE = 10
+const MAX_INTRO_CYCLES = 120
+const MAX_TRIAL_DAYS = 3660
+
+export interface SubscriptionIntroPlan {
+  // The first charge billed at the regular price.
+  regularFrom: string
+  // Upcoming charges still billed at the introductory price (empty for a trial).
+  introDates: string[]
+  // The next billing date the subscription is saved with.
+  nextBillingDate: string
+}
+
+// Derives the dates an introductory offer implies from the user's intent
+// ("7-day trial", "first 3 charges at 1"). Returns null while the inputs are
+// incomplete or invalid; the form summary and payload share this result.
+export function computeIntroPlan(values: SubscriptionFormValues): SubscriptionIntroPlan | null {
+  if (values.introMode === "trial") {
+    const days = parseInt(values.trialDays, 10)
+    if (!values.trialStart || Number.isNaN(days) || days < 1 || days > MAX_TRIAL_DAYS) {
+      return null
+    }
+    const firstCharge = addDaysToDateKey(values.trialStart, days)
+    return { regularFrom: firstCharge, introDates: [], nextBillingDate: firstCharge }
+  }
+
+  if (values.introMode === "intro") {
+    const cycles = parseInt(values.introCycles, 10)
+    const introAmount = parseFloat(values.introAmount)
+    if (
+      !values.nextBillingDate ||
+      Number.isNaN(cycles) || cycles < 1 || cycles > MAX_INTRO_CYCLES ||
+      Number.isNaN(introAmount) || introAmount < 0
+    ) {
+      return null
+    }
+    const dates = chargeDatesFrom(
+      values.nextBillingDate,
+      {
+        recurrenceType: values.recurrenceType,
+        intervalCount: parseInt(values.intervalCount, 10),
+        intervalUnit: values.intervalUnit,
+        monthlyDay: parseInt(values.monthlyDay, 10),
+        yearlyMonth: parseInt(values.yearlyMonth, 10),
+        yearlyDay: parseInt(values.yearlyDay, 10),
+      },
+      cycles + 1
+    )
+    if (dates.length !== cycles + 1) {
+      return null
+    }
+    return {
+      regularFrom: dates[cycles],
+      introDates: dates.slice(0, cycles),
+      nextBillingDate: values.nextBillingDate,
+    }
+  }
+
+  return null
+}
 
 function formatDateInput(value: string | null | undefined): string {
   if (!value) {
@@ -112,8 +185,18 @@ function buildInitialValues(
         ? rawPmId
         : ""
 
+    const introKind = subscription.status === "ended" ? null : getIntroKind(subscription)
+    const remainingTrialDays = subscription.pending_from
+      ? daysBetweenDateKeys(todayDate, subscription.pending_from)
+      : 0
+
     return {
-      amount: subscription.amount.toString(),
+      amount: regularAmount(subscription).toString(),
+      introMode: introKind ?? "none",
+      introAmount: introKind === "intro" ? subscription.amount.toString() : "",
+      introCycles: introKind === "intro" ? Math.max(1, remainingIntroCharges(subscription)).toString() : "3",
+      trialDays: introKind === "trial" ? Math.max(1, remainingTrialDays).toString() : "7",
+      trialStart: todayDate,
       nextBillingDate: formatDateInput(subscription.next_billing_date),
       endsAt: formatDateInput(subscription.ends_at || subscription.next_billing_date),
       categoryId,
@@ -144,6 +227,11 @@ function buildInitialValues(
 
   return {
     amount: "",
+    introMode: "none",
+    introAmount: "",
+    introCycles: "3",
+    trialDays: "7",
+    trialStart: todayDate,
     nextBillingDate: todayDate,
     endsAt: todayDate,
     categoryId: "",
@@ -334,10 +422,24 @@ export function useSubscriptionFormState({
       }
 
       const parsedNotifyDaysBefore = parseInt(values.notifyDaysBefore, 10)
+      const regularPrice = parseFloat(values.amount)
+      const introActive = values.status === "active" && values.introMode !== "none"
+      const introPlan = introActive ? computeIntroPlan(values) : null
+      if (introActive && !introPlan) {
+        setError(t("subscription.form.intro.invalid"))
+        return
+      }
+      const nextBillingDate = introPlan ? introPlan.nextBillingDate : values.nextBillingDate
       const payload: CreateSubscriptionInput = {
         revision,
         name: values.name,
-        amount: parseFloat(values.amount),
+        amount: !introPlan
+          ? regularPrice
+          : values.introMode === "trial"
+            ? 0
+            : parseFloat(values.introAmount),
+        pending_amount: introPlan ? regularPrice : null,
+        pending_from: introPlan ? introPlan.regularFrom : null,
         currency: values.currency,
         status: values.status,
         renewal_mode: values.renewalMode,
@@ -345,7 +447,7 @@ export function useSubscriptionFormState({
           values.status === "ended"
             ? values.endsAt
             : values.renewalMode === "cancel_at_period_end"
-              ? values.nextBillingDate
+              ? nextBillingDate
               : null,
         billing_type: "recurring",
         recurrence_type: values.recurrenceType,
@@ -357,7 +459,7 @@ export function useSubscriptionFormState({
           values.recurrenceType === "interval"
             ? values.intervalUnit
             : "",
-        next_billing_date: values.nextBillingDate,
+        next_billing_date: nextBillingDate,
         monthly_day:
           values.recurrenceType === "monthly_date"
             ? parseInt(values.monthlyDay, 10)

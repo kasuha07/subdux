@@ -164,6 +164,8 @@ const backendMessages = {
   "invalid_credential_payload": "凭证有效负载无效",
   "invalid_credentials": "无效凭证",
   "invalid_date_format_expected_yyyy_mm_dd": "日期格式无效，应为 YYYY-MM-DD",
+  "pending_amount_and_pending_from_must_be_set_together": "预定价格与生效日期必须同时设置",
+  "pending_from_must_be_after_today": "恢复正常价格的日期必须晚于今天",
   "invalid_dingtalk_config_format": "钉钉配置格式无效",
   "invalid_email": "无效的电子邮件",
   "invalid_email_domain_whitelist": "无效的电子邮件域白名单",

@@ -7,6 +7,8 @@ export interface Subscription {
   name: string
   amount: number
   currency: string
+  pending_amount: number | null
+  pending_from: string | null
   status: SubscriptionStatus
   renewal_mode: SubscriptionRenewalMode
   ends_at: string | null
@@ -30,7 +32,13 @@ export interface Subscription {
   updated_at: string
 }
 
-export type SubscriptionEventType = "created" | "updated" | "manual_renewed" | "deleted" | "system_change"
+export type SubscriptionEventType =
+  | "created"
+  | "updated"
+  | "manual_renewed"
+  | "deleted"
+  | "system_change"
+  | "pending_price_applied"
 
 export interface SubscriptionDetailEvent {
   id: number
@@ -103,6 +111,8 @@ export interface CreateSubscriptionInput {
   revision?: number
   name: string
   amount: number
+  pending_amount?: number | null
+  pending_from?: string | null
   currency: string
   status: SubscriptionStatus
   renewal_mode: SubscriptionRenewalMode

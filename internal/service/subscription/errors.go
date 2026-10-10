@@ -39,6 +39,10 @@ var (
 	ErrBillingTypeMustBeRecurring       = serviceerr.New(serviceerr.KindInvalid, "billing_type_must_be_recurring", "billing_type must be recurring")
 	ErrInvalidDateFormat                = serviceerr.New(serviceerr.KindInvalid, "invalid_date_format_expected_yyyy_mm_dd", "invalid date format, expected YYYY-MM-DD")
 
+	// Scheduled price change validation.
+	ErrPendingPriceIncomplete  = serviceerr.New(serviceerr.KindInvalid, "pending_amount_and_pending_from_must_be_set_together", "pending_amount and pending_from must be set together")
+	ErrPendingFromMustBeFuture = serviceerr.New(serviceerr.KindInvalid, "pending_from_must_be_after_today", "pending_from must be after today")
+
 	// Lifecycle validation.
 	ErrStatusInvalid                      = serviceerr.New(serviceerr.KindInvalid, "status_must_be_one_of_active_ended", "status must be one of: active, ended")
 	ErrRenewalModeInvalid                 = serviceerr.New(serviceerr.KindInvalid, "renewal_mode_must_be_one_of_auto_renew_manual_renew_cancel_at_period_end", "renewal_mode must be one of: auto_renew, manual_renew, cancel_at_period_end")
