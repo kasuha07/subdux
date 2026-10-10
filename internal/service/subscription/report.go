@@ -655,6 +655,16 @@ func (s *Service) annualGrowthBaselineMonthlyAmounts(
 		if _, eligible := eligibleSubscriptionIDs[subscriptionID]; !eligible {
 			continue
 		}
+		if event.Type == subscriptionEventPendingPriceApplied && event.NewMonthlyAmount != nil {
+			// A scheduled price taking effect ends an introductory or trial
+			// price the user entered up front. That switch is not growth, so
+			// growth is measured from the regular price onward.
+			candidates[subscriptionID] = baselineCandidate{
+				amount:   *event.NewMonthlyAmount,
+				currency: event.NewCurrency,
+			}
+			continue
+		}
 		if _, sameCurrency := priceChangeEventCurrency(event); !sameCurrency {
 			// A currency switch starts a new comparison epoch. Discard any
 			// baseline from the abandoned currency and keep scanning for the first

@@ -1,6 +1,7 @@
 package subscription
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -293,5 +294,95 @@ func TestUpdateSetsAndClearsPendingPrice(t *testing.T) {
 		PendingPriceSet: true,
 	}); !errors.Is(err, ErrPendingFromMustBeFuture) {
 		t.Fatalf("pending from today error = %v", err)
+	}
+}
+
+func TestBillingReminderAnnouncesScheduledPrice(t *testing.T) {
+	db := newSubscriptionReminderCandidateTestDB(t)
+	user := createSubscriptionReminderCandidateTestUser(t, db)
+	now := time.Date(2026, 3, 10, 8, 0, 0, 0, time.UTC)
+	restoreClock := pkg.SetNowForTest(now)
+	t.Cleanup(restoreClock)
+
+	firstCharge := normalizeDateUTC(now).AddDate(0, 0, 3)
+	pendingAmount := 20.0
+	createSubscriptionReminderCandidateTestSubscription(t, db, model.Subscription{
+		UserID:          user.ID,
+		Name:            "Trial ending",
+		Amount:          0,
+		NextBillingDate: &firstCharge,
+		PendingAmount:   &pendingAmount,
+		PendingFrom:     &firstCharge,
+	})
+
+	candidates, err := listSubscriptionReminderCandidates(context.Background(), db, user.ID, now, subscriptionReminderPolicy{DaysBefore: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidates) != 1 || candidates[0].Template.Amount != 20 {
+		t.Fatalf("candidates = %#v, want one reminder for the 20 charge", candidates)
+	}
+}
+
+func TestAnnualGrowthIgnoresScheduledPriceTakingEffect(t *testing.T) {
+	db := newSubscriptionRolloverTestDB(t)
+	user := createSubscriptionRolloverTestUser(t, db)
+	svc := NewService(db)
+	setSubscriptionRolloverTestNow(t) // 2026-03-15
+
+	intervalCount := 1
+	regular := 10.0
+	created, err := svc.Create(user.ID, CreateSubscriptionInput{
+		Name:            "Intro",
+		Amount:          1,
+		Currency:        "USD",
+		BillingType:     billingTypeRecurring,
+		RecurrenceType:  recurrenceTypeInterval,
+		IntervalCount:   &intervalCount,
+		IntervalUnit:    intervalUnitMonth,
+		NextBillingDate: "2026-04-01",
+		PendingAmount:   &regular,
+		PendingFrom:     "2026-06-01",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An edit during the introduction records an event whose previous
+	// monthly amount is the introductory price.
+	introEdit := 2.0
+	if _, err := svc.Update(user.ID, created.ID, UpdateSubscriptionInput{Revision: created.Revision, Amount: &introEdit}); err != nil {
+		t.Fatal(err)
+	}
+
+	restore := pkg.SetNowForTest(mustDate(t, "2026-06-02"))
+	defer restore()
+	if err := svc.ReconcileUserLifecycle(user.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := svc.reportAnnualGrowth(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("annual growth = %+v, want none for an introductory price ending", items)
+	}
+
+	// A real increase after the switch is still growth, measured from the
+	// regular price.
+	var current model.Subscription
+	if err := db.First(&current, created.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	increased := 12.0
+	if _, err := svc.Update(user.ID, created.ID, UpdateSubscriptionInput{Revision: current.Revision, Amount: &increased}); err != nil {
+		t.Fatal(err)
+	}
+	items, err = svc.reportAnnualGrowth(user.ID, "USD", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].BaselineMonthlyAmount != 10 || items[0].CurrentMonthlyAmount != 12 {
+		t.Fatalf("annual growth = %+v, want one item 10 -> 12", items)
 	}
 }
