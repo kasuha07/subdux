@@ -37,7 +37,8 @@ const actions = {
     "ending_soon": "まもなく終了",
     "notification_failed": "通知失敗",
     "missing_next_billing": "請求日未設定",
-    "price_increase": "値上げ"
+    "price_increase": "値上げ",
+    "pending_price": "価格変更"
   },
   "severity": {
     "critical": "緊急",
@@ -51,7 +52,8 @@ const actions = {
     "ending_soon": "このサブスクリプションは近日終了予定です。",
     "notification_failed": "最近のリマインダーを配信できませんでした。",
     "missing_next_billing": "次回請求日を追加して通知、レポート、カレンダーを復旧してください。",
-    "price_increase": "新しい価格でも継続する価値があるか確認してください。"
+    "price_increase": "新しい価格でも継続する価値があるか確認してください。",
+    "pending_price": "トライアルまたは割引がまもなく終了します。新しい価格で続けるか、請求前に解約するか決めてください。"
   },
   "priceDelta": "+{{amount}}/月",
   "group": {

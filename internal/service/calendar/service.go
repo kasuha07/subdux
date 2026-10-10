@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
@@ -153,39 +154,65 @@ func (s *Service) GenerateICalFeed(userID uint) (string, error) {
 			continue
 		}
 
-		dateStr := sub.NextBillingDate.UTC().Format("20060102")
-		// Format with the currency's own minor unit rather than a hardcoded two
-		// decimals: JPY reads "1235", KWD reads "1.200".
-		formattedAmount, err := money.FormatChecked(sub.Amount, sub.Currency)
-		if err != nil {
-			return "", fmt.Errorf("format subscription %d amount: %w", sub.ID, err)
-		}
-		summary := fmt.Sprintf("%s - %s %s", sub.Name, formattedAmount, sub.Currency)
-
-		sb.WriteString("BEGIN:VEVENT" + crlf)
-		sb.WriteString(icalFold(fmt.Sprintf("UID:subdux-sub-%d@subdux", sub.ID)) + crlf)
-		sb.WriteString(icalFold("DTSTART;VALUE=DATE:"+dateStr) + crlf)
-		sb.WriteString(icalFold("DTEND;VALUE=DATE:"+dateStr) + crlf)
-		sb.WriteString(icalFold("SUMMARY:"+icalEscape(summary)) + crlf)
-
-		if sub.Notes != "" {
-			sb.WriteString(icalFold("DESCRIPTION:"+icalEscape(sub.Notes)) + crlf)
-		}
-
+		rrule := ""
 		if sub.BillingType == subscriptionservice.BillingTypeRecurring &&
 			subscriptionservice.NormalizeRenewalMode(sub.RenewalMode) == subscriptionservice.RenewalModeAutoRenew &&
 			subscriptionservice.IsRecurringScheduleValid(sub) {
-			rrule := buildRRule(sub)
-			if rrule != "" {
-				sb.WriteString(icalFold("RRULE:"+rrule) + crlf)
-			}
+			rrule = buildRRule(sub)
 		}
 
-		sb.WriteString("END:VEVENT" + crlf)
+		start := sub.NextBillingDate.UTC()
+		// A scheduled price change after the next charge splits the series:
+		// charges before it keep the current price, and a second series
+		// starting on the effective date carries the scheduled price.
+		if rrule != "" && sub.PendingAmount != nil && sub.PendingFrom != nil && sub.PendingFrom.UTC().After(start) {
+			pendingFrom := sub.PendingFrom.UTC()
+			until := pendingFrom.AddDate(0, 0, -1).Format("20060102")
+			if err := writeICalEvent(&sb, sub, fmt.Sprintf("subdux-sub-%d@subdux", sub.ID), start, sub.Amount, rrule+";UNTIL="+until); err != nil {
+				return "", err
+			}
+			if err := writeICalEvent(&sb, sub, fmt.Sprintf("subdux-sub-%d-pending@subdux", sub.ID), pendingFrom, *sub.PendingAmount, rrule); err != nil {
+				return "", err
+			}
+			continue
+		}
+
+		amount := subscriptionservice.SubscriptionChargeAmountOn(sub, start)
+		if err := writeICalEvent(&sb, sub, fmt.Sprintf("subdux-sub-%d@subdux", sub.ID), start, amount, rrule); err != nil {
+			return "", err
+		}
 	}
 
 	sb.WriteString("END:VCALENDAR" + crlf)
 	return sb.String(), nil
+}
+
+func writeICalEvent(sb *strings.Builder, sub model.Subscription, uid string, date time.Time, amount float64, rrule string) error {
+	const crlf = "\r\n"
+	dateStr := date.Format("20060102")
+	// Format with the currency's own minor unit rather than a hardcoded two
+	// decimals: JPY reads "1235", KWD reads "1.200".
+	formattedAmount, err := money.FormatChecked(amount, sub.Currency)
+	if err != nil {
+		return fmt.Errorf("format subscription %d amount: %w", sub.ID, err)
+	}
+	summary := fmt.Sprintf("%s - %s %s", sub.Name, formattedAmount, sub.Currency)
+
+	sb.WriteString("BEGIN:VEVENT" + crlf)
+	sb.WriteString(icalFold("UID:"+uid) + crlf)
+	sb.WriteString(icalFold("DTSTART;VALUE=DATE:"+dateStr) + crlf)
+	sb.WriteString(icalFold("DTEND;VALUE=DATE:"+dateStr) + crlf)
+	sb.WriteString(icalFold("SUMMARY:"+icalEscape(summary)) + crlf)
+
+	if sub.Notes != "" {
+		sb.WriteString(icalFold("DESCRIPTION:"+icalEscape(sub.Notes)) + crlf)
+	}
+	if rrule != "" {
+		sb.WriteString(icalFold("RRULE:"+rrule) + crlf)
+	}
+
+	sb.WriteString("END:VEVENT" + crlf)
+	return nil
 }
 
 func buildRRule(sub model.Subscription) string {

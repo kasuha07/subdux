@@ -37,7 +37,8 @@ const actions = {
     "ending_soon": "Ending soon",
     "notification_failed": "Notification failed",
     "missing_next_billing": "Missing billing date",
-    "price_increase": "Price increase"
+    "price_increase": "Price increase",
+    "pending_price": "Price change"
   },
   "severity": {
     "critical": "Critical",
@@ -51,7 +52,8 @@ const actions = {
     "ending_soon": "This subscription is scheduled to end soon.",
     "notification_failed": "A recent reminder could not be delivered.",
     "missing_next_billing": "Add a next billing date to restore reminders and reports.",
-    "price_increase": "Review whether the new price is still worth keeping."
+    "price_increase": "Review whether the new price is still worth keeping.",
+    "pending_price": "A trial or intro price ends soon. Keep it at the new price or cancel before the charge."
   },
   "priceDelta": "+{{amount}}/mo",
   "group": {

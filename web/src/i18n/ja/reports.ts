@@ -81,7 +81,8 @@ const reports = {
       "updated": "更新",
       "manual_renewed": "手動更新",
       "deleted": "削除",
-      "system_change": "システム変更"
+      "system_change": "システム変更",
+      "pending_price_applied": "予定価格を適用"
     },
     "fields": {
       "created": "作成",

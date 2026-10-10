@@ -109,7 +109,7 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
-	if err := db.Omit("Revision").Create(&subscription).Error; err != nil {
+	if err := db.Omit("Revision", "PendingAmount", "PendingFrom").Create(&subscription).Error; err != nil {
 		t.Fatalf("create legacy subscription error = %v", err)
 	}
 
@@ -371,7 +371,7 @@ func TestRunSchemaMigrationsClearsSubscriptionEventOrphans(t *testing.T) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := db.Omit("Revision").Create(&subscription).Error; err != nil {
+	if err := db.Omit("Revision", "PendingAmount", "PendingFrom").Create(&subscription).Error; err != nil {
 		t.Fatalf("create subscription error = %v", err)
 	}
 	otherSubscription := model.Subscription{
@@ -386,7 +386,7 @@ func TestRunSchemaMigrationsClearsSubscriptionEventOrphans(t *testing.T) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := db.Omit("Revision").Create(&otherSubscription).Error; err != nil {
+	if err := db.Omit("Revision", "PendingAmount", "PendingFrom").Create(&otherSubscription).Error; err != nil {
 		t.Fatalf("create other subscription error = %v", err)
 	}
 
@@ -719,6 +719,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 		{Name: "20260924_03_subscription_event_fields_index", Checksum: "b0fcb27af8a6c893d8e83a02088d2dfe5b5a52501c9ea8c52afc6eceb93a1bd3"},
 		{Name: "20261002_01_mcp_oauth", Checksum: "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c"},
 		{Name: "20261005_01_oidc_connection_issuer", Checksum: "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34"},
+		{Name: "20261010_01_subscription_pending_price", Checksum: "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -742,7 +743,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20260924_03_subscription_event_fields_index.go": "b0fcb27af8a6c893d8e83a02088d2dfe5b5a52501c9ea8c52afc6eceb93a1bd3",
 		"migration_20261002_01_mcp_oauth.go":                       "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c",
 		"migration_20261005_01_oidc_connection_issuer.go":          "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34",
-		"schema_migration_registry.go":                             "d5456f8bae63cd917649beb1354ba1da5a837f962c7ed45ba97652be31c61ede",
+		"migration_20261010_01_subscription_pending_price.go":      "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0",
+		"schema_migration_registry.go":                             "1e5d2faf7773ae7ec99c3c1e75082db86e8b07544ffd7cd1c144cb4170e08de2",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

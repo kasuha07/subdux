@@ -22,9 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  computeIntroPlan,
   useSubscriptionFormState,
 } from "@/features/subscriptions/hooks/use-subscription-form-state"
 import { currencyExponent } from "@/lib/money"
+import { formatDate } from "@/lib/utils"
 import type {
   Category,
   CreateSubscriptionInput,
@@ -35,6 +37,7 @@ import type {
 
 import IconPicker from "./icon-picker"
 import SubscriptionMetadataFields from "./subscription-metadata-fields"
+import SubscriptionIntroFields from "./subscription-intro-fields"
 import SubscriptionNotificationFields from "./subscription-notification-fields"
 import SubscriptionRecurrenceFields from "./subscription-recurrence-fields"
 
@@ -88,6 +91,10 @@ export default function SubscriptionForm({
     ? t("subscription.form.periodEndDateLabel")
     : t("subscription.form.nextBillingDateLabel")
   const amountStep = 10 ** -currencyExponent(values.currency)
+  const showIntroFields = values.status === "active"
+  const introActive = showIntroFields && values.introMode !== "none"
+  const trialActive = showIntroFields && values.introMode === "trial"
+  const trialFirstCharge = trialActive ? computeIntroPlan(values)?.nextBillingDate ?? null : null
 
   const iconPickerNode = useMemo(
     () => (
@@ -167,7 +174,9 @@ export default function SubscriptionForm({
 
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,0.9fr)] gap-3 sm:grid-cols-2">
                 <div className="min-w-0 space-y-2">
-                  <Label htmlFor="amount">{t("subscription.form.amountLabel")}</Label>
+                  <Label htmlFor="amount">
+                    {introActive ? t("subscription.form.intro.regularAmountLabel") : t("subscription.form.amountLabel")}
+                  </Label>
                   <Input
                     id="amount"
                     type="number"
@@ -231,15 +240,25 @@ export default function SubscriptionForm({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="next-billing-date">{nextDateLabel}</Label>
-              <DatePicker
-                id="next-billing-date"
-                value={values.nextBillingDate}
-                onChange={(date) => setField("nextBillingDate", date)}
-                required
-              />
-            </div>
+            {trialActive ? (
+              <div className="space-y-2">
+                <Label>{t("subscription.form.intro.firstChargeLabel")}</Label>
+                <p className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+                  {trialFirstCharge ? formatDate(trialFirstCharge, i18n.language) : "—"}
+                  <span className="ml-2 text-xs">{t("subscription.form.intro.firstChargeHint")}</span>
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="next-billing-date">{nextDateLabel}</Label>
+                <DatePicker
+                  id="next-billing-date"
+                  value={values.nextBillingDate}
+                  onChange={(date) => setField("nextBillingDate", date)}
+                  required
+                />
+              </div>
+            )}
 
             {values.status === "ended" ? (
               <div className="space-y-2">
@@ -267,6 +286,15 @@ export default function SubscriptionForm({
               yearlyDay={values.yearlyDay}
               onYearlyDayChange={(value) => setField("yearlyDay", value)}
             />
+
+            {showIntroFields ? (
+              <SubscriptionIntroFields
+                amountStep={amountStep}
+                isEditing={isEditing}
+                onChange={setField}
+                values={values}
+              />
+            ) : null}
 
             <SubscriptionMetadataFields
               categories={categories}

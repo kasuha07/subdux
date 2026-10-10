@@ -81,7 +81,8 @@ const reports = {
       "updated": "Updated",
       "manual_renewed": "Manual renewal",
       "deleted": "Deleted",
-      "system_change": "System change"
+      "system_change": "System change",
+      "pending_price_applied": "Scheduled price applied"
     },
     "fields": {
       "created": "Created",

@@ -1,5 +1,10 @@
 const subscription = {
   "card": {
+    "intro": {
+      "trial": "トライアル中 · 残り {{count}} 日",
+      "intro": "割引中 · 残り {{count}} 回",
+      "after": "{{date}} から {{amount}}"
+    },
     "recurrence": {
       "interval": {
         "day": "{{count}}日ごと",
@@ -58,6 +63,7 @@ const subscription = {
     "info": {
       "title": "サブスク情報",
       "amount": "金額",
+      "intro": "初回特典",
       "recurrence": "繰り返し",
       "nextBillingDate": "次回請求日",
       "periodEndDate": "期間終了日",
@@ -145,6 +151,29 @@ const subscription = {
     "partial": "成功 {{succeeded}} 件、失敗 {{failed}} 件"
   },
   "form": {
+    "intro": {
+      "label": "初回特典",
+      "mode": {
+        "none": "なし",
+        "trial": "無料トライアル",
+        "intro": "割引価格"
+      },
+      "trialDaysLabel": "トライアル日数",
+      "trialDaysLeftLabel": "残りトライアル日数",
+      "trialStartLabel": "トライアル開始日",
+      "introCyclesLabel": "割引回数",
+      "introCyclesLeftLabel": "残り割引回数",
+      "introAmountLabel": "1回あたりの割引価格",
+      "regularAmountLabel": "通常価格",
+      "firstChargeLabel": "初回請求日",
+      "firstChargeHint": "トライアルから自動計算",
+      "trialSummary": "{{end}} まで無料、{{start}} から {{amount}} で請求",
+      "introSummary": "{{dates}} は各 {{introAmount}}、{{start}} から {{amount}} で請求",
+      "introSummaryMore": "{{dates}} ほか計 {{count}} 回は各 {{introAmount}}、{{start}} から {{amount}} で請求",
+      "dateSeparator": "、",
+      "incomplete": "入力すると通常価格に戻る日が表示されます。",
+      "invalid": "初回特典を確認してください：トライアル日数または割引回数が未入力です。"
+    },
     "editTitle": "サブスクリプションを編集",
     "addTitle": "サブスクリプションを追加",
     "editDescription": "以下のサブスクリプション情報を確認し、変更内容を保存してください。",

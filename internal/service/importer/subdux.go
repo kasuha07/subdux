@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kasuha07/subdux/internal/model"
 	"github.com/kasuha07/subdux/internal/pkg"
@@ -848,11 +849,23 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 				result.Errors = append(result.Errors, fmt.Sprintf("invalid subscription icon for %q", incoming.Name))
 				continue
 			}
+			// A scheduled price change is optional metadata: keep it only when
+			// it is complete and its amount passes the regular amount rules.
+			var pendingAmount *float64
+			var pendingFrom *time.Time
+			if incoming.PendingAmount != nil && incoming.PendingFrom != nil &&
+				subscriptionservice.ValidateBillingAmount(*incoming.PendingAmount, incoming.Currency, normalizedDraft) == nil {
+				amount := *incoming.PendingAmount
+				pendingAmount = &amount
+				pendingFrom = normalizeImportedDate(incoming.PendingFrom)
+			}
 			created := model.Subscription{
 				UserID:           userID,
 				Name:             incoming.Name,
 				Amount:           incoming.Amount,
 				Currency:         incoming.Currency,
+				PendingAmount:    pendingAmount,
+				PendingFrom:      pendingFrom,
 				Status:           normalizedLifecycle.Status,
 				RenewalMode:      normalizedLifecycle.RenewalMode,
 				EndsAt:           normalizeImportedDate(normalizedLifecycle.EndsAt),

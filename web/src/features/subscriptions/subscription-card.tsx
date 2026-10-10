@@ -22,6 +22,7 @@ import {
 } from "@/features/subscriptions/subscription-lifecycle"
 import { useHoverCapablePointer } from "@/features/subscriptions/hooks/use-hover-capable-pointer"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
+import SubscriptionIntroBadge from "./subscription-intro-badge"
 import { SubscriptionIcon } from "./subscription-icon"
 
 interface SubscriptionCardProps {
@@ -371,6 +372,7 @@ export default function SubscriptionCard({
             </Badge>
           </div>
           <div className="flex max-w-[14rem] flex-wrap justify-end gap-1">
+            <SubscriptionIntroBadge subscription={subscription} />
             <Badge variant="outline" className={statusStyles[status] || ""}>
               {t(`subscription.card.status.${status}`)}
             </Badge>

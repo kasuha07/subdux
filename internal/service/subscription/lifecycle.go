@@ -149,8 +149,9 @@ func SyncLegacyEnabledForLifecycle(sub *model.Subscription) {
 // advanceSubscriptionLifecycle applies, in memory, the lifecycle transition a
 // subscription is due as of referenceDate: an auto-renew subscription rolls its
 // next billing date forward, while manual-renew and cancel-at-period-end
-// subscriptions end once their boundary has passed. It mutates sub and reports
-// whether anything changed.
+// subscriptions end once their boundary has passed. A scheduled price change
+// whose effective date has arrived becomes the subscription amount. It mutates
+// sub and reports whether anything changed.
 //
 // This is the single source of truth for lifecycle progression. Read paths call
 // it to present the correct state without writing; the write path and the
@@ -158,6 +159,14 @@ func SyncLegacyEnabledForLifecycle(sub *model.Subscription) {
 // persist that state. A user therefore sees the same lifecycle whether or not
 // the database row has caught up yet.
 func advanceSubscriptionLifecycle(sub *model.Subscription, referenceDate time.Time) bool {
+	renewed := advanceRenewalLifecycle(sub, referenceDate)
+	priced := applyDuePendingPrice(sub, referenceDate)
+	return renewed || priced
+}
+
+// advanceRenewalLifecycle applies the renewal half of
+// advanceSubscriptionLifecycle: rolling, or ending, at billing boundaries.
+func advanceRenewalLifecycle(sub *model.Subscription, referenceDate time.Time) bool {
 	if sub == nil || !subscriptionIsActive(*sub) || sub.BillingType != billingTypeRecurring {
 		return false
 	}
@@ -225,25 +234,43 @@ func persistAdvancedSubscriptionLifecycle(db *gorm.DB, userID uint, sub *model.S
 	// advanceSubscriptionLifecycle mutates sub in memory.
 	snapshotRevision := sub.Revision
 
-	if !advanceSubscriptionLifecycle(sub, referenceDate) {
+	// Mirror advanceSubscriptionLifecycle in two steps so a scheduled price
+	// change is recorded against the already-renewed state: its event then
+	// carries only the price change, not the routine billing-date roll.
+	renewed := advanceRenewalLifecycle(sub, referenceDate)
+	beforePrice := *sub
+	priced := applyDuePendingPrice(sub, referenceDate)
+	if !renewed && !priced {
 		return nil
 	}
 
-	result := db.Model(&model.Subscription{}).
-		Where("id = ? AND user_id = ? AND revision = ?", sub.ID, userID, snapshotRevision).
-		Updates(map[string]interface{}{
-			"revision":          gorm.Expr("revision + 1"),
-			"next_billing_date": sub.NextBillingDate,
-			"ends_at":           sub.EndsAt,
-			"status":            sub.Status,
-			"enabled":           sub.Enabled,
-		})
-	if result.Error != nil {
-		return result.Error
+	persist := func(tx *gorm.DB) error {
+		result := tx.Model(&model.Subscription{}).
+			Where("id = ? AND user_id = ? AND revision = ?", sub.ID, userID, snapshotRevision).
+			Updates(map[string]interface{}{
+				"revision":          gorm.Expr("revision + 1"),
+				"next_billing_date": sub.NextBillingDate,
+				"ends_at":           sub.EndsAt,
+				"status":            sub.Status,
+				"enabled":           sub.Enabled,
+				"amount":            sub.Amount,
+				"pending_amount":    sub.PendingAmount,
+				"pending_from":      sub.PendingFrom,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		// RowsAffected == 0 means the row changed since it was loaded; the
+		// concurrent writer's state stands and no error is raised.
+		if result.RowsAffected == 0 || !priced {
+			return nil
+		}
+		return (&Service{DB: tx}).recordSubscriptionChangedBy(userID, nil, beforePrice, *sub, subscriptionEventPendingPriceApplied)
 	}
-	// RowsAffected == 0 means the row changed since it was loaded; the
-	// concurrent writer's state stands and no error is raised.
-	return nil
+	if !priced {
+		return persist(db)
+	}
+	return db.Transaction(persist)
 }
 
 // reconcileSubscriptionLifecycleForUser persists any due lifecycle transitions

@@ -20,6 +20,10 @@ const (
 	subscriptionEventManualRenewed = "manual_renewed"
 	subscriptionEventDeleted       = "deleted"
 	subscriptionEventSystemChange  = "system_change"
+	// subscriptionEventPendingPriceApplied records the system switching a
+	// subscription to its scheduled price (an introductory or trial price
+	// ending). It is expected, so it is not surfaced as a price increase.
+	subscriptionEventPendingPriceApplied = "pending_price_applied"
 )
 
 type subscriptionEventSnapshot struct {
@@ -94,6 +98,13 @@ func (s *Service) recordSubscriptionDeleted(userID uint, sub model.Subscription)
 }
 
 func (s *Service) recordSubscriptionChanged(userID uint, before, after model.Subscription, eventType string) error {
+	actorUserID := userID
+	return s.recordSubscriptionChangedBy(userID, &actorUserID, before, after, eventType)
+}
+
+// recordSubscriptionChangedBy records a change made by actorUserID, or by the
+// system when actorUserID is nil.
+func (s *Service) recordSubscriptionChangedBy(userID uint, actorUserID *uint, before, after model.Subscription, eventType string) error {
 	beforeSnapshot, err := s.buildSubscriptionEventSnapshot(userID, before)
 	if err != nil {
 		return err
@@ -112,10 +123,9 @@ func (s *Service) recordSubscriptionChanged(userID uint, before, after model.Sub
 	}
 
 	subscriptionID := after.ID
-	actorUserID := userID
 	return s.DB.Create(&model.SubscriptionEvent{
 		UserID:                    userID,
-		ActorUserID:               &actorUserID,
+		ActorUserID:               copyUintPointer(actorUserID),
 		SubscriptionID:            &subscriptionID,
 		SubscriptionName:          after.Name,
 		Type:                      eventType,

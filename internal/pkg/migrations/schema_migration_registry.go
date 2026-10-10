@@ -66,6 +66,7 @@ var schemaMigrations = []schemaMigration{
 	{Name: "20260924_03_subscription_event_fields_index", Checksum: "b0fcb27af8a6c893d8e83a02088d2dfe5b5a52501c9ea8c52afc6eceb93a1bd3", Run: migrateSubscriptionEventFieldsIndex},
 	{Name: "20261002_01_mcp_oauth", Checksum: "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c", Run: migrateMCPOAuth},
 	{Name: "20261005_01_oidc_connection_issuer", Checksum: "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34", Run: migrateOIDCConnectionIssuer},
+	{Name: "20261010_01_subscription_pending_price", Checksum: "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0", Run: migrateSubscriptionPendingPrice},
 }
 
 func autoMigrate20260512ApplicationSchema(db *gorm.DB) error {

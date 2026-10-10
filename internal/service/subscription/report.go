@@ -191,12 +191,14 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 		forecastEnd := startOfThisMonth.AddDate(0, len(report.MonthlyForecast), 0)
 		hasForecastCharge := len(subscriptionChargeDatesInRange(sub, today, forecastEnd)) > 0
 		amount := 0.0
+		var chargeAmounts convertedChargeAmounts
 		if contributesOngoingSpend || hasForecastCharge {
 			var err error
-			amount, err = convertSubscriptionAmount(sub, targetCurrency, converter)
+			chargeAmounts, err = convertSubscriptionChargeAmounts(sub, targetCurrency, converter)
 			if err != nil {
 				return nil, err
 			}
+			amount = chargeAmounts.current
 		}
 		monthlyAmount := 0.0
 		if contributesOngoingSpend {
@@ -228,7 +230,7 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 
 		thisMonthRenewalDates := subscriptionChargeDatesInRange(sub, today, startOfNextMonth)
 		if len(thisMonthRenewalDates) > 0 {
-			due, dueErr := multiplyAggregateAmount(amount, int64(len(thisMonthRenewalDates)), targetCurrency)
+			due, dueErr := chargeAmounts.total(thisMonthRenewalDates, targetCurrency)
 			if dueErr != nil {
 				return nil, dueErr
 			}
@@ -241,7 +243,7 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 		renewalDates := subscriptionChargeDatesInRange(sub, today, next30DaysExclusive)
 		report.KPIs.UpcomingRenewalCount += int64(len(renewalDates))
 		if len(renewalDates) > 0 {
-			due, dueErr := multiplyAggregateAmount(amount, int64(len(renewalDates)), targetCurrency)
+			due, dueErr := chargeAmounts.total(renewalDates, targetCurrency)
 			if dueErr != nil {
 				return nil, dueErr
 			}
@@ -257,7 +259,7 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 				Icon:          sub.Icon,
 				BillingDate:   renewalDate.Format("2006-01-02"),
 				DaysUntil:     int(renewalDate.Sub(today).Hours() / 24),
-				Amount:        amount,
+				Amount:        chargeAmounts.on(renewalDate),
 				Category:      reportSubscriptionCategory(sub, categoryLabels),
 				PaymentMethod: reportSubscriptionPaymentMethod(sub, paymentMethodLabels),
 				RenewalMode:   renewalMode,
@@ -272,7 +274,7 @@ func (s *Service) GetAnalyticsReport(userID uint, targetCurrency string, convert
 			periodEnd := startOfThisMonth.AddDate(0, i+1, 0)
 			occurrences := subscriptionChargeDatesInRange(sub, periodStart, periodEnd)
 			if len(occurrences) > 0 {
-				due, dueErr := multiplyAggregateAmount(amount, int64(len(occurrences)), targetCurrency)
+				due, dueErr := chargeAmounts.total(occurrences, targetCurrency)
 				if dueErr != nil {
 					return nil, dueErr
 				}
@@ -427,8 +429,9 @@ func (s *Service) addSubscriptionHistoryInsights(
 func (s *Service) reportPriceIncreases(userID uint, targetCurrency string, converter CurrencyConverter) ([]ReportPriceIncrease, error) {
 	var events []model.SubscriptionEvent
 	if err := s.DB.Where(
-		"user_id = ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL",
+		"user_id = ? AND type != ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL",
 		userID,
+		subscriptionEventPendingPriceApplied,
 	).Order("created_at DESC, id DESC").Limit(100).Find(&events).Error; err != nil {
 		return nil, err
 	}

@@ -1,5 +1,10 @@
 const subscription = {
   "card": {
+    "intro": {
+      "trial": "试用中 · 剩 {{count}} 天",
+      "intro": "优惠中 · 剩 {{count}} 期",
+      "after": "{{date}} 起 {{amount}}"
+    },
     "recurrence": {
       "interval": {
         "day": "每 {{count}} 天",
@@ -58,6 +63,7 @@ const subscription = {
     "info": {
       "title": "订阅信息",
       "amount": "金额",
+      "intro": "首期优惠",
       "recurrence": "重复规则",
       "nextBillingDate": "下次计费日期",
       "periodEndDate": "本期结束日期",
@@ -145,6 +151,29 @@ const subscription = {
     "partial": "成功 {{succeeded}} 项，失败 {{failed}} 项"
   },
   "form": {
+    "intro": {
+      "label": "首期优惠",
+      "mode": {
+        "none": "无",
+        "trial": "免费试用",
+        "intro": "优惠价"
+      },
+      "trialDaysLabel": "试用天数",
+      "trialDaysLeftLabel": "剩余试用天数",
+      "trialStartLabel": "试用开始",
+      "introCyclesLabel": "优惠期数",
+      "introCyclesLeftLabel": "剩余优惠期数",
+      "introAmountLabel": "每期优惠价",
+      "regularAmountLabel": "正常价格",
+      "firstChargeLabel": "首次扣费",
+      "firstChargeHint": "由试用期自动计算",
+      "trialSummary": "试用至 {{end}}，{{start}} 起按 {{amount}} 扣费",
+      "introSummary": "{{dates}} 各 {{introAmount}}，{{start}} 起按 {{amount}} 扣费",
+      "introSummaryMore": "{{dates}} 等共 {{count}} 期各 {{introAmount}}，{{start}} 起按 {{amount}} 扣费",
+      "dateSeparator": "、",
+      "incomplete": "填写完整后会显示何时恢复正常价格。",
+      "invalid": "请检查首期优惠：试用天数或优惠期数不完整。"
+    },
     "editTitle": "编辑订阅",
     "addTitle": "添加订阅",
     "editDescription": "请检查下方订阅信息，并保存你的修改。",

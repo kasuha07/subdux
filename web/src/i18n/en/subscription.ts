@@ -1,5 +1,10 @@
 const subscription = {
   "card": {
+    "intro": {
+      "trial": "Trial · {{count}}d left",
+      "intro": "Intro · {{count}} left",
+      "after": "{{amount}} from {{date}}"
+    },
     "recurrence": {
       "interval": {
         "day": "Every {{count}} day(s)",
@@ -58,6 +63,7 @@ const subscription = {
     "info": {
       "title": "Subscription information",
       "amount": "Amount",
+      "intro": "Intro offer",
       "recurrence": "Recurrence",
       "nextBillingDate": "Next billing date",
       "periodEndDate": "Period end date",
@@ -145,6 +151,29 @@ const subscription = {
     "partial": "{{succeeded}} succeeded, {{failed}} failed"
   },
   "form": {
+    "intro": {
+      "label": "Intro offer",
+      "mode": {
+        "none": "None",
+        "trial": "Free trial",
+        "intro": "Intro price"
+      },
+      "trialDaysLabel": "Trial length (days)",
+      "trialDaysLeftLabel": "Trial days left",
+      "trialStartLabel": "Trial starts",
+      "introCyclesLabel": "Discounted charges",
+      "introCyclesLeftLabel": "Discounted charges left",
+      "introAmountLabel": "Intro price per charge",
+      "regularAmountLabel": "Regular price",
+      "firstChargeLabel": "First charge",
+      "firstChargeHint": "set by the trial",
+      "trialSummary": "Free until {{end}}, then {{amount}} from {{start}}",
+      "introSummary": "{{introAmount}} on {{dates}}, then {{amount}} from {{start}}",
+      "introSummaryMore": "{{introAmount}} on {{dates}} and more ({{count}} charges), then {{amount}} from {{start}}",
+      "dateSeparator": ", ",
+      "incomplete": "Fill in the offer to see when the regular price starts.",
+      "invalid": "Check the intro offer: the trial length or discounted charges are incomplete."
+    },
     "editTitle": "Edit subscription",
     "addTitle": "Add subscription",
     "editDescription": "Review the subscription details below and save your changes.",

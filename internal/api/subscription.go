@@ -63,12 +63,19 @@ func (r *updateSubscriptionRequest) UnmarshalJSON(data []byte) error {
 	}
 	*r = updateSubscriptionRequest(decoded)
 
-	return markFieldsPresent(data, map[string]*bool{
+	var pendingAmountSet, pendingFromSet bool
+	if err := markFieldsPresent(data, map[string]*bool{
 		"category_id":        &r.CategoryIDSet,
 		"payment_method_id":  &r.PaymentMethodIDSet,
 		"notify_enabled":     &r.NotifyEnabledSet,
 		"notify_days_before": &r.NotifyDaysBeforeSet,
-	})
+		"pending_amount":     &pendingAmountSet,
+		"pending_from":       &pendingFromSet,
+	}); err != nil {
+		return err
+	}
+	r.PendingPriceSet = pendingAmountSet || pendingFromSet
+	return nil
 }
 
 // batchSubscriptionRequest is the HTTP request shape for a bulk subscription
@@ -175,6 +182,11 @@ func (h *SubscriptionHandler) Create(c echo.Context) error {
 	if validation := contract.ValidateSubscriptionAmount(input.Amount); validation != contract.AmountValid {
 		return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
 	}
+	if input.PendingAmount != nil {
+		if validation := contract.ValidateSubscriptionAmount(*input.PendingAmount); validation != contract.AmountValid {
+			return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
+		}
+	}
 	if !validateSubscriptionIcon(input.Icon) {
 		return httpx.WriteError(c, http.StatusBadRequest, "invalid_icon_value")
 	}
@@ -200,6 +212,11 @@ func (h *SubscriptionHandler) Update(c echo.Context) error {
 	}
 	if request.Amount != nil {
 		if validation := contract.ValidateSubscriptionAmount(*request.Amount); validation != contract.AmountValid {
+			return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
+		}
+	}
+	if request.PendingAmount != nil {
+		if validation := contract.ValidateSubscriptionAmount(*request.PendingAmount); validation != contract.AmountValid {
 			return httpx.WriteError(c, http.StatusBadRequest, contract.SubscriptionAmountErrorCode(validation))
 		}
 	}

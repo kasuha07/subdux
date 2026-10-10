@@ -292,7 +292,7 @@ func subscriptionDetailSingleUpcomingCharge(sub model.Subscription, current, tod
 func mapSubscriptionDetailUpcomingCharge(sub model.Subscription, date time.Time) SubscriptionDetailUpcomingCharge {
 	return SubscriptionDetailUpcomingCharge{
 		Date:        normalizeDateUTC(date).Format("2006-01-02"),
-		Amount:      sub.Amount,
+		Amount:      subscriptionChargeAmountOn(sub, date),
 		Currency:    strings.ToUpper(strings.TrimSpace(sub.Currency)),
 		RenewalMode: normalizeRenewalMode(sub.RenewalMode),
 	}

@@ -76,28 +76,30 @@ func (s *Service) WithContext(ctx context.Context) *Service {
 }
 
 type CreateSubscriptionInput struct {
-	Name             string  `json:"name"`
-	Amount           float64 `json:"amount"`
-	Currency         string  `json:"currency"`
-	Status           string  `json:"status"`
-	RenewalMode      string  `json:"renewal_mode"`
-	EndsAt           string  `json:"ends_at"`
-	BillingType      string  `json:"billing_type"`
-	RecurrenceType   string  `json:"recurrence_type"`
-	IntervalCount    *int    `json:"interval_count"`
-	IntervalUnit     string  `json:"interval_unit"`
-	NextBillingDate  string  `json:"next_billing_date"`
-	MonthlyDay       *int    `json:"monthly_day"`
-	YearlyMonth      *int    `json:"yearly_month"`
-	YearlyDay        *int    `json:"yearly_day"`
-	Category         string  `json:"category"`
-	CategoryID       *uint   `json:"category_id"`
-	PaymentMethodID  *uint   `json:"payment_method_id"`
-	NotifyEnabled    *bool   `json:"notify_enabled"`
-	NotifyDaysBefore *int    `json:"notify_days_before"`
-	Icon             string  `json:"icon"`
-	URL              string  `json:"url"`
-	Notes            string  `json:"notes"`
+	Name             string   `json:"name"`
+	Amount           float64  `json:"amount"`
+	Currency         string   `json:"currency"`
+	PendingAmount    *float64 `json:"pending_amount"`
+	PendingFrom      string   `json:"pending_from"`
+	Status           string   `json:"status"`
+	RenewalMode      string   `json:"renewal_mode"`
+	EndsAt           string   `json:"ends_at"`
+	BillingType      string   `json:"billing_type"`
+	RecurrenceType   string   `json:"recurrence_type"`
+	IntervalCount    *int     `json:"interval_count"`
+	IntervalUnit     string   `json:"interval_unit"`
+	NextBillingDate  string   `json:"next_billing_date"`
+	MonthlyDay       *int     `json:"monthly_day"`
+	YearlyMonth      *int     `json:"yearly_month"`
+	YearlyDay        *int     `json:"yearly_day"`
+	Category         string   `json:"category"`
+	CategoryID       *uint    `json:"category_id"`
+	PaymentMethodID  *uint    `json:"payment_method_id"`
+	NotifyEnabled    *bool    `json:"notify_enabled"`
+	NotifyDaysBefore *int     `json:"notify_days_before"`
+	Icon             string   `json:"icon"`
+	URL              string   `json:"url"`
+	Notes            string   `json:"notes"`
 }
 
 type UpdateSubscriptionInput struct {
@@ -105,6 +107,8 @@ type UpdateSubscriptionInput struct {
 	Name             *string  `json:"name"`
 	Amount           *float64 `json:"amount"`
 	Currency         *string  `json:"currency"`
+	PendingAmount    *float64 `json:"pending_amount"`
+	PendingFrom      *string  `json:"pending_from"`
 	Status           *string  `json:"status"`
 	RenewalMode      *string  `json:"renewal_mode"`
 	EndsAt           *string  `json:"ends_at"`
@@ -129,6 +133,9 @@ type UpdateSubscriptionInput struct {
 	PaymentMethodIDSet  bool `json:"-"`
 	NotifyEnabledSet    bool `json:"-"`
 	NotifyDaysBeforeSet bool `json:"-"`
+	// PendingPriceSet marks that pending_amount or pending_from appeared in
+	// the request. The pair is then replaced as a whole; both null clears it.
+	PendingPriceSet bool `json:"-"`
 }
 
 type DashboardSummary struct {
