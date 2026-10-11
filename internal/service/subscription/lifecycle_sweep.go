@@ -44,8 +44,8 @@ func (s *Service) reconcileDueLifecyclesPostgres(now time.Time) error {
 		var subs []model.Subscription
 		err := s.DB.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-				Where("id > ? AND status = ? AND billing_type = ? AND (next_billing_date < ? OR ends_at < ?)",
-					lastID, subscriptionStatusActive, billingTypeRecurring, today, today).
+				Where("id > ? AND status = ? AND billing_type = ? AND (next_billing_date < ? OR ends_at < ? OR pending_from <= ?)",
+					lastID, subscriptionStatusActive, billingTypeRecurring, today, today, today).
 				Order("id ASC").Limit(postgresLifecycleSweepBatchSize).Find(&subs).Error; err != nil {
 				return err
 			}

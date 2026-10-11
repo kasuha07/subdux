@@ -23,7 +23,7 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { CopyButton } from "@/components/copy-button"
 import { SubscriptionIcon } from "@/features/subscriptions/subscription-icon"
 import { api } from "@/lib/api"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, formatDateKey } from "@/lib/utils"
 import { getCategoryLabel, getPaymentMethodLabel } from "@/lib/preset-labels"
 import type { Category, CreateSubscriptionInput, PaymentMethod, Subscription, UserCurrency } from "@/types"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
@@ -38,6 +38,7 @@ import {
   hasFutureRecurringSchedule,
   isSubscriptionActive,
 } from "@/features/subscriptions/subscription-lifecycle"
+import { chargeAmountOn } from "@/features/subscriptions/subscription-pending-price"
 
 interface CalendarToken {
   id: number
@@ -356,6 +357,7 @@ export default function CalendarPage() {
   }
 
   const selectedSubs = selectedDay !== null ? (billingMap.get(selectedDay) ?? []) : []
+  const selectedDateKey = selectedDay !== null ? formatDateKey(new Date(viewYear, viewMonth, selectedDay)) : ""
 
   return (
     <div className="min-h-screen bg-background">
@@ -554,7 +556,7 @@ export default function CalendarPage() {
                         <p className="text-sm font-medium truncate">{sub.name}</p>
                       </div>
                       <span className="text-sm font-semibold shrink-0">
-                        {formatCurrency(sub.amount, sub.currency, i18n.language)}
+                        {formatCurrency(chargeAmountOn(sub, selectedDateKey), sub.currency, i18n.language)}
                       </span>
                     </div>
                   ))}

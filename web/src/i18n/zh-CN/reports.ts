@@ -81,7 +81,8 @@ const reports = {
       "updated": "已更新",
       "manual_renewed": "手动续费",
       "deleted": "已删除",
-      "system_change": "系统变更"
+      "system_change": "系统变更",
+      "pending_price_applied": "预定价格生效"
     },
     "fields": {
       "created": "创建",

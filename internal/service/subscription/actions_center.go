@@ -21,6 +21,7 @@ const (
 	actionTypeNotificationFailed = "notification_failed"
 	actionTypeMissingNextBilling = "missing_next_billing"
 	actionTypePriceIncrease      = "price_increase"
+	actionTypePendingPrice       = "pending_price"
 	actionSeverityCritical       = "critical"
 	actionSeverityHigh           = "high"
 	actionSeverityMedium         = "medium"
@@ -68,6 +69,7 @@ type SubscriptionAction struct {
 	SubscriptionName      string     `json:"subscription_name"`
 	SubscriptionIcon      string     `json:"subscription_icon"`
 	Amount                float64    `json:"amount"`
+	PreviousAmount        *float64   `json:"previous_amount"`
 	Currency              string     `json:"currency"`
 	RenewalMode           string     `json:"renewal_mode"`
 	Status                string     `json:"status"`
@@ -172,7 +174,7 @@ func (s *Service) GetActionCenter(userID uint) (*ActionCenter, error) {
 		UrgentDays:     actionCenterUrgentDays,
 		Items:          visible,
 		Counts:         buildActionCenterCounts(visible, snoozedCount),
-		AvailableTypes: []string{actionTypeManualRenewalDue, actionTypeNotificationFailed, actionTypeMissingNextBilling, actionTypePriceIncrease, actionTypeEndingSoon, actionTypeUpcomingRenewal},
+		AvailableTypes: []string{actionTypeManualRenewalDue, actionTypeNotificationFailed, actionTypeMissingNextBilling, actionTypePendingPrice, actionTypePriceIncrease, actionTypeEndingSoon, actionTypeUpcomingRenewal},
 	}, nil
 }
 
@@ -322,6 +324,9 @@ func subscriptionScheduleActions(sub model.Subscription, today, windowEnd time.T
 		if dueDate.After(windowEnd) {
 			return nil
 		}
+		if pendingPriceAppliesOn(sub, dueDate) {
+			return []SubscriptionAction{pendingPriceAction(sub, dueDate, daysUntil)}
+		}
 		severity := actionSeverityLow
 		if daysUntil <= actionCenterUrgentDays {
 			severity = actionSeverityMedium
@@ -342,6 +347,31 @@ func subscriptionScheduleActions(sub model.Subscription, today, windowEnd time.T
 			[]string{"cancel_at_period_end", "edit", "open_detail", "snooze"},
 		)}
 	}
+}
+
+// pendingPriceAction asks for a decision before the first charge billed at a
+// scheduled price, such as a free trial or introductory price ending. It
+// replaces the routine upcoming-renewal reminder for that charge.
+func pendingPriceAction(sub model.Subscription, dueDate time.Time, daysUntil int) SubscriptionAction {
+	severity := actionSeverityMedium
+	if daysUntil <= actionCenterUrgentDays {
+		severity = actionSeverityHigh
+	}
+	action := newScheduleAction(
+		sub,
+		actionTypePendingPrice,
+		severity,
+		true,
+		true,
+		dueDate,
+		daysUntil,
+		"scheduled price takes effect",
+		"keep the subscription at the new price or cancel before the charge",
+		[]string{"cancel_at_period_end", "edit", "open_detail", "snooze"},
+	)
+	previousAmount := sub.Amount
+	action.PreviousAmount = &previousAmount
+	return action
 }
 
 func newScheduleAction(
@@ -366,7 +396,7 @@ func newScheduleAction(
 		SubscriptionID:   sub.ID,
 		SubscriptionName: sub.Name,
 		SubscriptionIcon: sub.Icon,
-		Amount:           sub.Amount,
+		Amount:           subscriptionChargeAmountOn(sub, dueDate),
 		Currency:         strings.ToUpper(strings.TrimSpace(sub.Currency)),
 		RenewalMode:      normalizeRenewalMode(sub.RenewalMode),
 		Status:           normalizeStatus(sub.Status),
@@ -500,9 +530,12 @@ func (s *Service) priceIncreaseActions(userID uint, today time.Time) ([]Subscrip
 func (s *Service) priceIncreaseActionsForSubscription(userID uint, today time.Time, subscriptionID uint) ([]SubscriptionAction, error) {
 	since := today.AddDate(0, 0, -actionCenterRecentChangeDays)
 	var events []model.SubscriptionEvent
+	// A scheduled price taking effect was announced ahead of time by the
+	// pending-price action, so it is not reported again as a price increase.
 	query := s.DB.Where(
-		"user_id = ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL AND created_at >= ?",
+		"user_id = ? AND type != ? AND previous_monthly_amount IS NOT NULL AND new_monthly_amount IS NOT NULL AND created_at >= ?",
 		userID,
+		subscriptionEventPendingPriceApplied,
 		since,
 	)
 	if subscriptionID != 0 {

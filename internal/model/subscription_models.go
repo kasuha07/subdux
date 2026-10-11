@@ -9,6 +9,8 @@ type Subscription struct {
 	Name             string         `gorm:"not null;size:255" json:"name"`
 	Amount           float64        `gorm:"not null;check:chk_subscriptions_amount_non_negative,amount >= 0" json:"amount"`
 	Currency         string         `gorm:"not null;size:10;default:'USD'" json:"currency"`
+	PendingAmount    *float64       `json:"pending_amount"`
+	PendingFrom      *time.Time     `json:"pending_from"`
 	Enabled          bool           `gorm:"default:true" json:"enabled"`
 	Status           string         `gorm:"not null;size:30;default:'active';check:chk_subscriptions_status,status IN ('active','ended');index:idx_subscriptions_user_status_billing,priority:2" json:"status"`
 	RenewalMode      string         `gorm:"not null;size:30;default:'auto_renew';check:chk_subscriptions_renewal_mode,renewal_mode IN ('auto_renew','manual_renew','cancel_at_period_end')" json:"renewal_mode"`

@@ -37,7 +37,8 @@ const actions = {
     "ending_soon": "即将结束",
     "notification_failed": "通知失败",
     "missing_next_billing": "缺少扣费日",
-    "price_increase": "价格上涨"
+    "price_increase": "价格上涨",
+    "pending_price": "价格变化"
   },
   "severity": {
     "critical": "紧急",
@@ -51,7 +52,8 @@ const actions = {
     "ending_soon": "该订阅已设置为近期结束。",
     "notification_failed": "最近一次提醒没有成功送达。",
     "missing_next_billing": "补上下次扣费日以恢复提醒、报表和日历。",
-    "price_increase": "检查涨价后是否仍值得继续保留。"
+    "price_increase": "检查涨价后是否仍值得继续保留。",
+    "pending_price": "试用或优惠即将结束，决定按新价格保留，还是在扣费前取消。"
   },
   "priceDelta": "每月 +{{amount}}",
   "group": {

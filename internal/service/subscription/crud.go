@@ -91,6 +91,14 @@ func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Sub
 	if err != nil {
 		return nil, err
 	}
+	pendingFrom, err := parseOptionalDateString(input.PendingFrom)
+	if err != nil {
+		return nil, err
+	}
+	pendingAmount, pendingFrom, err := normalizePendingPrice(input.PendingAmount, pendingFrom, currency, normalizedDraft, pkg.NowInSystemTimezone())
+	if err != nil {
+		return nil, err
+	}
 
 	var categoryID *uint
 	if input.CategoryID != nil && *input.CategoryID != 0 {
@@ -118,6 +126,8 @@ func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Sub
 		Name:             input.Name,
 		Amount:           input.Amount,
 		Currency:         currency,
+		PendingAmount:    pendingAmount,
+		PendingFrom:      pendingFrom,
 		Status:           lifecycle.Status,
 		RenewalMode:      lifecycle.RenewalMode,
 		EndsAt:           copyTimePointer(lifecycle.EndsAt),
@@ -327,6 +337,27 @@ func (s *Service) update(userID, id uint, input UpdateSubscriptionInput) (*model
 		// newly derived monetary result without retroactively applying MaxAmount
 		// to the unchanged stored value.
 		if err := validateBillingDerivedAmount(amount, currency, normalizedSchedule); err != nil {
+			return nil, err
+		}
+	}
+
+	if input.PendingPriceSet {
+		var pendingFrom *time.Time
+		if input.PendingFrom != nil {
+			parsed, err := parseOptionalDateString(*input.PendingFrom)
+			if err != nil {
+				return nil, err
+			}
+			pendingFrom = parsed
+		}
+		pendingAmount, pendingFrom, err := normalizePendingPrice(input.PendingAmount, pendingFrom, currency, normalizedSchedule, pkg.NowInSystemTimezone())
+		if err != nil {
+			return nil, err
+		}
+		updates["pending_amount"] = pendingAmount
+		updates["pending_from"] = pendingFrom
+	} else if subscriptionHasPendingPrice(*sub) && (currencyChanged || derivedScheduleChanged) {
+		if err := validateBillingDerivedAmount(*sub.PendingAmount, currency, normalizedSchedule); err != nil {
 			return nil, err
 		}
 	}

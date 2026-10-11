@@ -281,14 +281,18 @@ func subscriptionBillingReminderCandidates(
 			dedupeDate = scanDate
 		}
 
-		candidates = append(candidates, subscriptionReminderCandidateFromSubscription(
+		candidate := subscriptionReminderCandidateFromSubscription(
 			sub,
 			billingDate,
 			dedupeDate,
 			daysUntilBilling,
 			triggerType,
 			subscriptionNotificationEventType(sub),
-		))
+		)
+		// A billing reminder announces the upcoming charge, which may already
+		// be billed at a scheduled price (a trial or introductory price ending).
+		candidate.Template.Amount = subscriptionChargeAmountOn(sub, *sub.NextBillingDate)
+		candidates = append(candidates, candidate)
 	}
 	return candidates
 }

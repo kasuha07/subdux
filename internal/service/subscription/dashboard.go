@@ -102,14 +102,17 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 	for _, sub := range subs {
 		factor := subscriptionMonthlyFactor(sub)
 		contributesOngoingSpend := factor > 0 && subscriptionContributesToOngoingSpend(sub)
-		occurrences := len(subscriptionChargeDatesInRange(sub, today, startOfNextMonth))
+		occurrenceDates := subscriptionChargeDatesInRange(sub, today, startOfNextMonth)
+		occurrences := len(occurrenceDates)
 		amount := 0.0
+		var chargeAmounts convertedChargeAmounts
 		if contributesOngoingSpend || occurrences > 0 {
 			var err error
-			amount, err = convertSubscriptionAmount(sub, targetCurrency, converter)
+			chargeAmounts, err = convertSubscriptionChargeAmounts(sub, targetCurrency, converter)
 			if err != nil {
 				return nil, err
 			}
+			amount = chargeAmounts.current
 		}
 
 		if contributesOngoingSpend {
@@ -130,7 +133,7 @@ func computeDashboardSummary(subs []model.Subscription, targetCurrency string, c
 		}
 
 		if occurrences > 0 {
-			due, err := multiplyAggregateAmount(amount, int64(occurrences), targetCurrency)
+			due, err := chargeAmounts.total(occurrenceDates, targetCurrency)
 			if err != nil {
 				return nil, err
 			}
@@ -292,6 +295,18 @@ func nextRecurringOccurrenceOnOrAfter(sub model.Subscription, anchor, from time.
 	default:
 		return time.Time{}, false
 	}
+}
+
+// NextRecurringOccurrenceOnOrAfter finds a charge on the existing schedule,
+// using anchor as the billing sequence's starting date.
+func NextRecurringOccurrenceOnOrAfter(sub model.Subscription, anchor, from time.Time) (time.Time, bool) {
+	if !isRecurringScheduleValid(sub) {
+		return time.Time{}, false
+	}
+	if !normalizeDateUTC(from).After(normalizeDateUTC(anchor)) {
+		return normalizeDateUTC(anchor), true
+	}
+	return nextRecurringOccurrenceOnOrAfter(sub, anchor, from)
 }
 
 func isRecurringScheduleValid(sub model.Subscription) bool {

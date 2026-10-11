@@ -5,6 +5,7 @@ import type { TFunction } from "i18next"
 import {
   AlertTriangle,
   ArrowLeft,
+  BadgePercent,
   BellOff,
   CalendarClock,
   CheckCircle2,
@@ -35,6 +36,7 @@ import {
 import SubscriptionDetailDrawer from "@/features/subscriptions/subscription-detail-drawer"
 import SubscriptionForm from "@/features/subscriptions/subscription-form"
 import SubscriptionScrollWrapper from "@/features/subscriptions/subscription-scroll-wrapper"
+import { addDaysToDateKey } from "@/features/subscriptions/subscription-pending-price"
 import type {
   ActionCenter,
   Category,
@@ -54,6 +56,7 @@ const actionIconMap: Record<SubscriptionActionType, LucideIcon> = {
   notification_failed: BellOff,
   missing_next_billing: AlertTriangle,
   price_increase: TrendingUp,
+  pending_price: BadgePercent,
 }
 
 const severityStyles: Record<SubscriptionActionSeverity, string> = {
@@ -396,6 +399,20 @@ export default function ActionsPage() {
     )
   }
 
+  async function handleKeepPendingPrice(action: SubscriptionAction, groupKey: string) {
+    if (!action.due_date) {
+      return
+    }
+    await performActionWithExit(
+      groupKey,
+      action.key,
+      async () => {
+        await api.post("/actions/snooze", { key: action.key, until_date: addDaysToDateKey(action.due_date ?? "", 1) })
+        toast.success(t("actions.toast.keepSubscription"))
+      }
+    )
+  }
+
   async function handleSnooze(group: SubscriptionActionGroup) {
     await performActionWithExit(
       group.key,
@@ -547,7 +564,10 @@ export default function ActionsPage() {
                           language={i18n.language}
                           onMarkRenewed={(action) => handleMarkRenewed(action, group.key)}
                           onCancelAtPeriodEnd={(action) => handleCancelAtPeriodEnd(action, group.key)}
-                          onKeepSubscription={(action) => handleKeepSubscription(action, group.key)}
+                          onKeepSubscription={(action) =>
+                            action.type === "pending_price"
+                              ? handleKeepPendingPrice(action, group.key)
+                              : handleKeepSubscription(action, group.key)}
                           onSnooze={handleSnooze}
                           onOpenDetail={openDetail}
                         />
@@ -680,7 +700,8 @@ function ActionGroupItem({
   const primary = group.primary
   const amount = formatCurrencyWithSymbol(primary.amount, primary.currency, currencySymbol, language)
   const markRenewedAction = findAllowedAction(group.actions, "mark_renewed")
-  const keepSubscriptionAction = findActionByType(group.actions, "ending_soon")
+  const keepSubscriptionAction = findActionByType(group.actions, "ending_soon") ??
+    findActionByType(group.actions, "pending_price")
   const priceIncreaseAction = findActionByType(group.actions, "price_increase")
   const cancelAtPeriodEndAction = primary.renewal_mode === "cancel_at_period_end"
     ? null
@@ -819,6 +840,9 @@ function ActionSummaryLine({
 }) {
   const { t } = useTranslation()
   const dueText = formatActionDate(action, t, language)
+  const amountText = action.type === "pending_price" && action.previous_amount != null
+    ? `${formatCurrencyWithSymbol(action.previous_amount, action.currency, currencySymbol, language)} → ${amount}`
+    : amount
   const priceDelta = action.delta_monthly_amount != null
     ? formatCurrencyWithSymbol(action.delta_monthly_amount, action.currency, currencySymbol, language)
     : ""
@@ -829,7 +853,7 @@ function ActionSummaryLine({
         {t(`actions.message.${action.type}`)}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span>{amount}</span>
+        <span>{amountText}</span>
         <span>{dueText}</span>
         {action.notification_channel ? <span>{action.notification_channel}</span> : null}
         {priceDelta ? <span>{t("actions.priceDelta", { amount: priceDelta })}</span> : null}

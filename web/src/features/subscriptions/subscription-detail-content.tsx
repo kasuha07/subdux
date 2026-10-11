@@ -34,6 +34,7 @@ import {
   getSubscriptionEndsAt,
   getSubscriptionRenewalMode,
 } from "@/features/subscriptions/subscription-lifecycle"
+import { useSubscriptionIntroText } from "@/features/subscriptions/hooks/use-subscription-intro-text"
 
 export interface SubscriptionDetailContentProps {
   subscription: Subscription
@@ -51,6 +52,7 @@ const eventBadgeStyles: Record<string, string> = {
   manual_renewed: "bg-amber-500/10 text-amber-700 border-amber-200",
   deleted: "bg-destructive/10 text-destructive border-destructive/30",
   system_change: "bg-violet-500/10 text-violet-700 border-violet-200",
+  pending_price_applied: "bg-rose-500/10 text-rose-700 border-rose-200",
 }
 
 const logStatusStyles: Record<string, string> = {
@@ -294,6 +296,7 @@ function DetailInfoPanel({
 }) {
   const { t } = useTranslation()
   const sub = detail.subscription
+  const introText = useSubscriptionIntroText(sub)
   const empty = t("subscription.detail.empty.none")
   const resolvedCategory = categoryName?.trim() || sub.category?.trim() || empty
   const resolvedPaymentMethod = paymentMethodName?.trim() || empty
@@ -309,6 +312,9 @@ function DetailInfoPanel({
       label: t("subscription.detail.info.amount"),
       value: formatAmount(sub.amount, sub.currency),
     },
+    ...(introText
+      ? [{ label: t("subscription.detail.info.intro"), value: `${introText.label} · ${introText.after}` }]
+      : []),
     {
       label: t("subscription.detail.info.recurrence"),
       value: formatRecurrenceRule(sub, t),

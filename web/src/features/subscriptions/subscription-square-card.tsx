@@ -16,6 +16,7 @@ import { safeHref } from "@/lib/safe-href"
 import { cn, daysUntil, formatCurrencyWithSymbol, formatDate } from "@/lib/utils"
 import type { Subscription } from "@/types"
 import SubscriptionCycleProgressBar from "./subscription-cycle-progress-bar"
+import SubscriptionIntroBadge from "./subscription-intro-badge"
 import { SubscriptionIcon } from "./subscription-icon"
 
 interface SubscriptionSquareCardProps {
@@ -212,6 +213,7 @@ export default function SubscriptionSquareCard({
               {formatCurrencyWithSymbol(amountToDisplay, currencyToDisplay, symbolToDisplay, i18n.language)}
             </p>
             <p className="mt-1 truncate text-[11px] text-muted-foreground">{renderBillingLabel()}</p>
+            <SubscriptionIntroBadge subscription={subscription} className="mt-1 max-w-[9rem]" />
           </div>
 
           <div className="flex shrink-0 flex-col items-end gap-1">
