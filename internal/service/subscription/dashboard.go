@@ -297,6 +297,18 @@ func nextRecurringOccurrenceOnOrAfter(sub model.Subscription, anchor, from time.
 	}
 }
 
+// NextRecurringOccurrenceOnOrAfter finds a charge on the existing schedule,
+// using anchor as the billing sequence's starting date.
+func NextRecurringOccurrenceOnOrAfter(sub model.Subscription, anchor, from time.Time) (time.Time, bool) {
+	if !isRecurringScheduleValid(sub) {
+		return time.Time{}, false
+	}
+	if !normalizeDateUTC(from).After(normalizeDateUTC(anchor)) {
+		return normalizeDateUTC(anchor), true
+	}
+	return nextRecurringOccurrenceOnOrAfter(sub, anchor, from)
+}
+
 func isRecurringScheduleValid(sub model.Subscription) bool {
 	switch sub.RecurrenceType {
 	case recurrenceTypeInterval:

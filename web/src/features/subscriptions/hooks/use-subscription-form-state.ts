@@ -17,6 +17,7 @@ import type {
 import {
   addDaysToDateKey,
   chargeDatesFrom,
+  chargeScheduleFromSubscription,
   daysBetweenDateKeys,
   getIntroKind,
   regularAmount,
@@ -28,6 +29,7 @@ export type SubscriptionNotifySetting = "default" | "enabled" | "disabled"
 export type SubscriptionIntroMode = "none" | "trial" | "intro"
 
 export interface SubscriptionFormValues {
+  existingIntroPlan?: SubscriptionIntroPlan
   amount: string
   introMode: SubscriptionIntroMode
   introAmount: string
@@ -88,6 +90,10 @@ interface UseSubscriptionFormStateResult {
 const MAX_NOTIFICATION_DAYS_BEFORE = 10
 const MAX_INTRO_CYCLES = 120
 const MAX_TRIAL_DAYS = 3660
+const INTRO_SCHEDULE_FIELDS = new Set<keyof SubscriptionFormValues>([
+  "introMode", "introCycles", "trialDays", "trialStart", "nextBillingDate",
+  "recurrenceType", "intervalCount", "intervalUnit", "monthlyDay", "yearlyMonth", "yearlyDay",
+])
 
 export interface SubscriptionIntroPlan {
   // The first charge billed at the regular price.
@@ -102,6 +108,10 @@ export interface SubscriptionIntroPlan {
 // ("7-day trial", "first 3 charges at 1"). Returns null while the inputs are
 // incomplete or invalid; the form summary and payload share this result.
 export function computeIntroPlan(values: SubscriptionFormValues): SubscriptionIntroPlan | null {
+  if (values.introMode !== "none" && values.existingIntroPlan) {
+    return values.existingIntroPlan
+  }
+
   if (values.introMode === "trial") {
     const days = parseInt(values.trialDays, 10)
     if (!values.trialStart || Number.isNaN(days) || days < 1 || days > MAX_TRIAL_DAYS) {
@@ -185,19 +195,26 @@ function buildInitialValues(
         ? rawPmId
         : ""
 
-    const introKind = subscription.status === "ended" ? null : getIntroKind(subscription)
+    const introKind = getIntroKind(subscription)
+    const introCharges = introKind === "intro" ? remainingIntroCharges(subscription) : 0
+    const nextBillingDate = formatDateInput(subscription.next_billing_date)
     const remainingTrialDays = subscription.pending_from
       ? daysBetweenDateKeys(todayDate, subscription.pending_from)
       : 0
 
     return {
+      existingIntroPlan: introKind ? {
+        regularFrom: subscription.pending_from ?? "",
+        introDates: chargeDatesFrom(nextBillingDate, chargeScheduleFromSubscription(subscription), introCharges),
+        nextBillingDate,
+      } : undefined,
       amount: regularAmount(subscription).toString(),
       introMode: introKind ?? "none",
       introAmount: introKind === "intro" ? subscription.amount.toString() : "",
-      introCycles: introKind === "intro" ? Math.max(1, remainingIntroCharges(subscription)).toString() : "3",
+      introCycles: introKind === "intro" ? introCharges.toString() : "3",
       trialDays: introKind === "trial" ? Math.max(1, remainingTrialDays).toString() : "7",
       trialStart: todayDate,
-      nextBillingDate: formatDateInput(subscription.next_billing_date),
+      nextBillingDate,
       endsAt: formatDateInput(subscription.ends_at || subscription.next_billing_date),
       categoryId,
       currency: subscription.currency || fallbackCurrencyCode,
@@ -306,6 +323,9 @@ export function useSubscriptionFormState({
       if (field === "categoryId") stopCategorySuggestion()
       setValues((prev) => ({
         ...prev,
+        existingIntroPlan: prev[field] !== value && INTRO_SCHEDULE_FIELDS.has(field)
+          ? undefined
+          : prev.existingIntroPlan,
         [field]: value,
       }))
     },
@@ -423,7 +443,7 @@ export function useSubscriptionFormState({
 
       const parsedNotifyDaysBefore = parseInt(values.notifyDaysBefore, 10)
       const regularPrice = parseFloat(values.amount)
-      const introActive = values.status === "active" && values.introMode !== "none"
+      const introActive = values.introMode !== "none"
       const introPlan = introActive ? computeIntroPlan(values) : null
       if (introActive && !introPlan) {
         setError(t("subscription.form.intro.invalid"))
@@ -438,8 +458,14 @@ export function useSubscriptionFormState({
           : values.introMode === "trial"
             ? 0
             : parseFloat(values.introAmount),
-        pending_amount: introPlan ? regularPrice : null,
-        pending_from: introPlan ? introPlan.regularFrom : null,
+        // Omit an unchanged pair so ended/canceling offers with a past
+        // effective date are preserved without revalidating them as new offers.
+        ...(values.existingIntroPlan && regularPrice === subscription?.pending_amount
+          ? {}
+          : {
+            pending_amount: introPlan ? regularPrice : null,
+            pending_from: introPlan ? introPlan.regularFrom : null,
+          }),
         currency: values.currency,
         status: values.status,
         renewal_mode: values.renewalMode,
@@ -507,7 +533,7 @@ export function useSubscriptionFormState({
     } finally {
       setLoading(false)
     }
-  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription?.id, subscription?.revision, t, values, stopCategorySuggestion])
+  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription?.id, subscription?.revision, subscription?.pending_amount, t, values, stopCategorySuggestion])
 
   return {
     currencyOptions,

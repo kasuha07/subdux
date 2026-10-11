@@ -128,7 +128,7 @@ export default function SubscriptionIntroFields({
             <Input
               id="intro-cycles"
               type="number"
-              min="1"
+              min={values.existingIntroPlan ? "0" : "1"}
               step="1"
               value={values.introCycles}
               onChange={(event) => onChange("introCycles", event.target.value)}

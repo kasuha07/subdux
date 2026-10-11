@@ -164,14 +164,19 @@ func (s *Service) GenerateICalFeed(userID uint) (string, error) {
 		start := sub.NextBillingDate.UTC()
 		// A scheduled price change after the next charge splits the series:
 		// charges before it keep the current price, and a second series
-		// starting on the effective date carries the scheduled price.
+		// starting on the first scheduled charge on or after the effective
+		// date carries the scheduled price without changing the billing cycle.
 		if rrule != "" && sub.PendingAmount != nil && sub.PendingFrom != nil && sub.PendingFrom.UTC().After(start) {
 			pendingFrom := sub.PendingFrom.UTC()
+			pendingCharge, ok := subscriptionservice.NextRecurringOccurrenceOnOrAfter(sub, start, pendingFrom)
+			if !ok {
+				return "", fmt.Errorf("find subscription %d charge at scheduled price", sub.ID)
+			}
 			until := pendingFrom.AddDate(0, 0, -1).Format("20060102")
 			if err := writeICalEvent(&sb, sub, fmt.Sprintf("subdux-sub-%d@subdux", sub.ID), start, sub.Amount, rrule+";UNTIL="+until); err != nil {
 				return "", err
 			}
-			if err := writeICalEvent(&sb, sub, fmt.Sprintf("subdux-sub-%d-pending@subdux", sub.ID), pendingFrom, *sub.PendingAmount, rrule); err != nil {
+			if err := writeICalEvent(&sb, sub, fmt.Sprintf("subdux-sub-%d-pending@subdux", sub.ID), pendingCharge, *sub.PendingAmount, rrule); err != nil {
 				return "", err
 			}
 			continue

@@ -79,3 +79,44 @@ func TestGenerateICalFeedTrialStartsAtScheduledPrice(t *testing.T) {
 		t.Fatalf("trial feed should not split the series; feed = %q", feed)
 	}
 }
+
+func TestGenerateICalFeedKeepsBillingScheduleAfterPriceSwitch(t *testing.T) {
+	restoreClock := pkg.SetNowForTest(mustDate(t, "2026-03-01"))
+	t.Cleanup(restoreClock)
+	for _, tt := range []struct {
+		name        string
+		unit        string
+		count       int
+		pendingFrom string
+		wantStart   string
+	}{
+		{"daily", subscriptionservice.IntervalUnitDay, 3, "2026-03-14", "20260316"},
+		{"weekly", subscriptionservice.IntervalUnitWeek, 2, "2026-03-20", "20260324"},
+		{"monthly", subscriptionservice.IntervalUnitMonth, 1, "2026-06-15", "20260710"},
+		{"every_two_months", subscriptionservice.IntervalUnitMonth, 2, "2026-06-15", "20260710"},
+		{"yearly", subscriptionservice.IntervalUnitYear, 1, "2026-06-15", "20270310"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newTestDB(t)
+			user := createTestUser(t, db)
+			pendingAmount := 12.0
+			_, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{
+				Name: "Intro Plan", Amount: 1, Currency: "USD",
+				BillingType: subscriptionservice.BillingTypeRecurring, RecurrenceType: subscriptionservice.RecurrenceTypeInterval,
+				IntervalCount: &tt.count, IntervalUnit: tt.unit, NextBillingDate: "2026-03-10",
+				PendingAmount: &pendingAmount, PendingFrom: tt.pendingFrom,
+			})
+			if err != nil {
+				t.Fatalf("create subscription: %v", err)
+			}
+			feed, err := NewService(db).GenerateICalFeed(user.ID)
+			if err != nil {
+				t.Fatalf("generate feed: %v", err)
+			}
+			pendingEvent := strings.Split(feed, "UID:subdux-sub-1-pending@subdux\r\n")
+			if len(pendingEvent) != 2 || !strings.HasPrefix(pendingEvent[1], "DTSTART;VALUE=DATE:"+tt.wantStart+"\r\n") {
+				t.Fatalf("scheduled-price series should start on %s; feed = %q", tt.wantStart, feed)
+			}
+		})
+	}
+}

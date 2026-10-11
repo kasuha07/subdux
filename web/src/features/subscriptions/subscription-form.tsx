@@ -92,7 +92,6 @@ export default function SubscriptionForm({
     : t("subscription.form.nextBillingDateLabel")
   const amountStep = 10 ** -currencyExponent(values.currency)
   const showIntroFields = values.status === "active"
-  const introActive = showIntroFields && values.introMode !== "none"
   const trialActive = showIntroFields && values.introMode === "trial"
   const trialFirstCharge = trialActive ? computeIntroPlan(values)?.nextBillingDate ?? null : null
 
@@ -175,7 +174,7 @@ export default function SubscriptionForm({
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(7rem,0.9fr)] gap-3 sm:grid-cols-2">
                 <div className="min-w-0 space-y-2">
                   <Label htmlFor="amount">
-                    {introActive ? t("subscription.form.intro.regularAmountLabel") : t("subscription.form.amountLabel")}
+                    {values.introMode !== "none" ? t("subscription.form.intro.regularAmountLabel") : t("subscription.form.amountLabel")}
                   </Label>
                   <Input
                     id="amount"
