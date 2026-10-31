@@ -28,7 +28,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.10.0 // indirect
-	github.com/glebarez/go-sqlite v1.21.2 // indirect
+	github.com/glebarez/go-sqlite v1.23.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.7 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/go-webauthn/x v0.3.1 // indirect
@@ -46,6 +46,7 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rs/xid v1.6.0 // indirect
@@ -63,8 +64,8 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
-	modernc.org/libc v1.22.5 // indirect
-	modernc.org/mathutil v1.5.0 // indirect
-	modernc.org/memory v1.5.0 // indirect
-	modernc.org/sqlite v1.23.1 // indirect
+	modernc.org/libc v1.74.1 // indirect
+	modernc.org/mathutil v1.7.1 // indirect
+	modernc.org/memory v1.11.0 // indirect
+	modernc.org/sqlite v1.55.0 // indirect
 )
