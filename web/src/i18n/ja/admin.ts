@@ -328,6 +328,8 @@ const admin = {
         "セキュリティのため、このバックアップから復元するには再認証してください。",
       destinationCreateDescription:
         "セキュリティのため、バックアップ先を追加するには再認証してください。",
+      destinationTestDescription:
+        "セキュリティのため、未保存のバックアップ先をテストするには再認証してください。",
       destinationUpdateDescription:
         "セキュリティのため、このバックアップ先を更新するには再認証してください。",
       destinationDeleteDescription:

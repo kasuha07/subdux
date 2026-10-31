@@ -302,6 +302,7 @@ const admin = {
       runNowDescription: "出于安全考虑，请重新验证身份以立即创建并发送备份。",
       restoreDescription: "出于安全考虑，请重新验证身份以从该备份恢复。",
       destinationCreateDescription: "出于安全考虑，请重新验证身份以添加备份目标。",
+      destinationTestDescription: "出于安全考虑，请重新验证身份以测试此未保存的备份目标。",
       destinationUpdateDescription: "出于安全考虑，请重新验证身份以更新此备份目标。",
       destinationDeleteDescription: "出于安全考虑，请重新验证身份以删除此备份目标。",
       destinationRestoreDescription: "出于安全考虑，请重新验证身份以从该备份目标恢复。",

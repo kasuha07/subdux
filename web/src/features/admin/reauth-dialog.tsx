@@ -56,6 +56,7 @@ type ReauthOperation =
   | "backup_destination_create"
   | "backup_destination_update"
   | "backup_destination_delete"
+  | "backup_destination_test"
   | "admin_security_settings";
 
 export interface ReauthScope {

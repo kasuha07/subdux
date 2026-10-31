@@ -58,7 +58,7 @@ admin/
 | Exchange rates | `admin-exchange-rates-tab.tsx` | Source/API key/status/refresh |
 | Background tasks | `admin-background-tasks-tab.tsx` | Task monitor display and manual refresh |
 | Audit events | `admin-audit-tab.tsx` | Admin audit endpoint |
-| Backup/restore | `admin-backup-tab.tsx`, `hooks/backup-destinations.ts`, `hooks/backup-run.ts` | Destination CRUD and run are reauth-gated; the read-only connectivity probes are not. Include-assets option, local backups, restore confirmation |
+| Backup/restore | `admin-backup-tab.tsx`, `hooks/backup-destinations.ts`, `hooks/backup-run.ts` | Destination CRUD, run, and the unsaved-config probe (`backup_destination_test`) are reauth-gated; the saved-destination probe and archive listing are not. Include-assets option, local backups, restore confirmation |
 
 ## CONVENTIONS
 

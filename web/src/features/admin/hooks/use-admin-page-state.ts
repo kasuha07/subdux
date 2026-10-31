@@ -73,7 +73,7 @@ interface UseAdminPageStateResult {
   handleDeleteDestination: (id: number, revision: number, reauthTicket: string) => Promise<boolean>
   handleTestDestination: (id: number) => Promise<void>
   handleListDestinationBackups: (id: number) => Promise<DestinationBackup[]>
-  handleTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
+  handleTestDestinationConfig: (body: DestinationProbeRequest, reauthTicket: string) => Promise<void>
   handleRunDestinationBackup: (id: number, reauthTicket: string) => Promise<void>
   handleDeleteUser: (id: number, reauthTicket: string) => Promise<void>
   handleDisableUserPasskeys: (user: AdminUser, reauthTicket: string) => Promise<void>
@@ -820,17 +820,20 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
   }
 
   // handleTestDestinationConfig probes a destination the admin is still editing,
-  // so it takes the form's own config instead of a saved id. It carries no
-  // reauth ticket for the same reason the saved-destination probe does not: it
-  // only reads. The server refuses to pair a stored secret with an endpoint
-  // changed in the same request, and that refusal surfaces here as an ordinary
-  // toast telling the admin to re-enter the secret.
-  async function handleTestDestinationConfig(body: DestinationProbeRequest) {
+  // so it takes the form's own config instead of a saved id. Because that config
+  // can name any host or absolute directory, the probe carries its own
+  // backup_destination_test reauth ticket. The server also refuses to pair a
+  // stored secret with an endpoint changed in the same request, and that refusal
+  // surfaces here as an ordinary toast telling the admin to re-enter the secret.
+  async function handleTestDestinationConfig(body: DestinationProbeRequest, reauthTicket: string) {
     try {
       const result = await api.post<{
         message_code?: string
         message_params?: Record<string, unknown>
-      }>("/admin/backup/destinations/test", body, { errorHandling: "toast" })
+      }>("/admin/backup/destinations/test", body, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+        errorHandling: "toast",
+      })
       toast.success(localizeBackendMessage(result?.message_code, result?.message_params, "admin.backup.destinations.testSuccess"))
     } catch {
       void 0

@@ -8,6 +8,9 @@ const (
 	ReauthOperationBackupDestinationCreate = "backup_destination_create"
 	ReauthOperationBackupDestinationUpdate = "backup_destination_update"
 	ReauthOperationBackupDestinationDelete = "backup_destination_delete"
+	// ReauthOperationBackupDestinationTest covers probing an unsaved backup
+	// destination: the request names an arbitrary host or absolute directory.
+	ReauthOperationBackupDestinationTest = "backup_destination_test"
 	ReauthOperationRestore                 = "restore"
 	ReauthOperationChangeEmail             = "change_email"
 	ReauthOperationAddPasskey              = "add_passkey"
@@ -43,6 +46,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationBackupDestinationCreate,
 		ReauthOperationBackupDestinationUpdate,
 		ReauthOperationBackupDestinationDelete,
+		ReauthOperationBackupDestinationTest,
 		ReauthOperationRestore,
 		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,

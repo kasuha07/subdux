@@ -331,6 +331,8 @@ const admin = {
         "For security, re-authenticate to restore from this backup.",
       destinationCreateDescription:
         "For security, re-authenticate to add a backup destination.",
+      destinationTestDescription:
+        "For security, re-authenticate to test this unsaved backup destination.",
       destinationUpdateDescription:
         "For security, re-authenticate to update this backup destination.",
       destinationDeleteDescription:
