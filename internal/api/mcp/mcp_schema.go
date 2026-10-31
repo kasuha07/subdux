@@ -105,7 +105,7 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{
 					"idempotency_key": idempotencyKeySchema(),
-					"revision":        idSchema("Revision returned when reading the subscription."),
+					"revision":        revisionSchema("Revision returned when reading the subscription."),
 					"id":              idSchema("Subscription ID."),
 				}, []string{"idempotency_key", "id", "revision"})
 			},
@@ -121,7 +121,7 @@ func mcpToolDefinitions() []mcpToolDefinition {
 			InputSchema: func() map[string]interface{} {
 				return objectSchema(map[string]interface{}{
 					"idempotency_key": idempotencyKeySchema(),
-					"revision":        idSchema("Revision returned when reading the subscription."),
+					"revision":        revisionSchema("Revision returned when reading the subscription."),
 					"id":              idSchema("Subscription ID."),
 				}, []string{"idempotency_key", "id", "revision"})
 			},
@@ -277,7 +277,7 @@ func isMCPWriteTool(name string) bool {
 func subscriptionWriteInputSchema(required []string) map[string]interface{} {
 	properties := map[string]interface{}{
 		"idempotency_key":    idempotencyKeySchema(),
-		"revision":           idSchema("Revision returned when reading the subscription."),
+		"revision":           revisionSchema("Revision returned when reading the subscription."),
 		"id":                 idSchema("Subscription ID. Required for updates."),
 		"name":               stringSchema("Subscription name."),
 		"amount":             numberSchema("Subscription amount."),
@@ -344,6 +344,12 @@ func integerRangeSchema(description string, minimum, maximum int) map[string]int
 
 func idSchema(description string) map[string]interface{} {
 	return map[string]interface{}{"type": "integer", "description": description}
+}
+
+// revisionSchema describes an optimistic-concurrency revision. Revisions start
+// at 1; zero is reserved as an internal sentinel and is never valid input.
+func revisionSchema(description string) map[string]interface{} {
+	return map[string]interface{}{"type": "integer", "description": description, "minimum": 1}
 }
 
 func nullableIntegerSchema(description string) map[string]interface{} {
