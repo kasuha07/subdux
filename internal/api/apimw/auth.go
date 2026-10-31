@@ -16,7 +16,9 @@ import (
 )
 
 // CurrentUserMiddleware refreshes authorization on every human request so
-// disabling, deleting or demoting an account takes effect for existing JWTs.
+// disabling, deleting or demoting an account takes effect for existing JWTs,
+// and rejects access tokens issued before the user's last global session
+// revocation (logout-all, password or email change, admin disable).
 func CurrentUserMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -34,7 +36,7 @@ func CurrentUserMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				}
 				return err
 			}
-			if !user.IsActive() {
+			if !user.IsActive() || user.SessionEpoch != p.SessionEpoch {
 				return httpx.WriteError(c, http.StatusUnauthorized, "unauthorized")
 			}
 			p.Role = user.Role

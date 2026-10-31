@@ -220,11 +220,36 @@ func (s *Service) ChangePassword(userID uint, input ChangePasswordInput) error {
 		return err
 	}
 	return s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&user).Update("password", string(hash)).Error; err != nil {
+		if err := tx.Model(&user).Updates(map[string]interface{}{
+			"password":           string(hash),
+			"password_generated": false,
+		}).Error; err != nil {
 			return err
 		}
 		return revokeAllSessions(tx, userID)
 	})
+}
+
+var (
+	loginDummyHashOnce sync.Once
+	loginDummyHash     []byte
+)
+
+// loginDummyPasswordHash returns a bcrypt hash at the default cost that no
+// user password matches. It is compared against for unknown identifiers so the
+// login path costs the same whether or not the account exists.
+func loginDummyPasswordHash() []byte {
+	loginDummyHashOnce.Do(func() {
+		hash, err := bcrypt.GenerateFromPassword([]byte("subdux-login-timing-equalizer"), bcrypt.DefaultCost)
+		if err == nil {
+			loginDummyHash = hash
+		}
+	})
+	return loginDummyHash
+}
+
+func errInvalidLoginCredentials() error {
+	return serviceerr.New(serviceerr.KindUnauthorized, "invalid_credentials", "invalid credentials")
 }
 
 func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
@@ -239,19 +264,25 @@ func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 		err = s.DB.Where("username = ?", identifier).First(&user).Error
 	}
 	if err != nil {
-		return nil, serviceerr.New(serviceerr.KindUnauthorized, "invalid_credentials", "invalid credentials")
+		// Spend the same bcrypt work as a real account so response timing does
+		// not reveal whether the identifier exists.
+		_ = bcrypt.CompareHashAndPassword(loginDummyPasswordHash(), []byte(input.Password))
+		return nil, errInvalidLoginCredentials()
+	}
+
+	// Verify the password before looking at account status: a disabled account
+	// must be indistinguishable from an unknown one unless the caller already
+	// proved knowledge of its password.
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+		return nil, errInvalidLoginCredentials()
 	}
 
 	if user.Status == "disabled" {
 		return nil, ErrAccountDisabled
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return nil, serviceerr.New(serviceerr.KindUnauthorized, "invalid_credentials", "invalid credentials")
-	}
-
 	if user.TotpEnabled {
-		pendingToken, err := pkg.GenerateTOTPPendingToken(user.ID)
+		pendingToken, err := pkg.GenerateTOTPPendingTokenForEpoch(user.ID, user.SessionEpoch)
 		if err != nil {
 			return nil, err
 		}

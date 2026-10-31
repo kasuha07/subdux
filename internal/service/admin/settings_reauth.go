@@ -21,7 +21,12 @@ var ErrSecuritySettingsChangeRequiresReauth = serviceerr.New(serviceerr.KindInva
 //   - where the authorization code, client secret, and identity claims are sent
 //     (redirect, authorization, token, and userinfo endpoints);
 //   - how strong an OIDC login counts for step-up (the reauth acr allowlists);
-//   - how outbound requests are filtered or routed (SSRF policy, system proxy).
+//   - how outbound requests are filtered or routed (SSRF policy, system proxy);
+//   - where and how the stored SMTP password is sent (host, port, encryption,
+//     auth method, username, TLS verification), but only while a stored
+//     password would be reused: an empty password field keeps the saved one,
+//     so pointing SMTP at another server would hand it the old credential.
+//     Re-entering the password alongside the change needs no step-up.
 //
 // Only actual changes count: the admin UI submits whole sections, so a field
 // re-sent with its saved value must not demand a ticket. Write-only secrets
@@ -55,5 +60,29 @@ func securitySettingsChanged(current *SystemSettings, input UpdateSettingsInput)
 		boolChanged(input.SSRFFilterResolvedIPs, current.SSRFFilterResolvedIPs) ||
 		boolChanged(input.SystemProxyEnabled, current.SystemProxyEnabled) ||
 		stringChanged(input.SystemProxyType, current.SystemProxyType) ||
-		secretReplaced(input.SystemProxyURL)
+		secretReplaced(input.SystemProxyURL) ||
+		smtpCredentialDestinationChanged(current, input)
+}
+
+// smtpCredentialDestinationChanged reports whether input changes where or how
+// the saved SMTP password is presented while that saved password is retained.
+func smtpCredentialDestinationChanged(current *SystemSettings, input UpdateSettingsInput) bool {
+	if !current.SMTPPasswordSet {
+		return false
+	}
+	if input.SMTPPassword != nil && strings.TrimSpace(*input.SMTPPassword) != "" {
+		return false
+	}
+	trimmedChanged := func(next *string, saved string) bool {
+		return next != nil && strings.TrimSpace(*next) != strings.TrimSpace(saved)
+	}
+	foldedChanged := func(next *string, saved string) bool {
+		return next != nil && !strings.EqualFold(strings.TrimSpace(*next), strings.TrimSpace(saved))
+	}
+	return foldedChanged(input.SMTPHost, current.SMTPHost) ||
+		(input.SMTPPort != nil && *input.SMTPPort != current.SMTPPort) ||
+		foldedChanged(input.SMTPEncryption, current.SMTPEncryption) ||
+		foldedChanged(input.SMTPAuthMethod, current.SMTPAuthMethod) ||
+		trimmedChanged(input.SMTPUsername, current.SMTPUsername) ||
+		(input.SMTPSkipTLSVerify != nil && *input.SMTPSkipTLSVerify != current.SMTPSkipTLSVerify)
 }

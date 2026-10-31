@@ -243,7 +243,35 @@ export function adminSettingsSaveRequiresReauth(
 ): boolean {
   const next = buildAdminSettingsPayload(current, scope)
   const previous = buildAdminSettingsPayload(saved, scope)
-  return securitySettingKeys.some((key) => key in next && next[key] !== previous[key])
+  if (securitySettingKeys.some((key) => key in next && next[key] !== previous[key])) {
+    return true
+  }
+  return scope === "smtp" && smtpCredentialDestinationChanged(saved, next, previous)
+}
+
+// SMTP settings that decide where and how the stored password is presented.
+// Changing one while the saved password is kept (blank password field) needs
+// a step-up; re-entering the password does not. Keep in sync with
+// smtpCredentialDestinationChanged in the admin service.
+const smtpCredentialDestinationKeys = [
+  "smtp_host",
+  "smtp_port",
+  "smtp_encryption",
+  "smtp_auth_method",
+  "smtp_username",
+  "smtp_skip_tls_verify",
+] as const satisfies readonly (keyof UpdateSettingsInput)[]
+
+function smtpCredentialDestinationChanged(
+  saved: AdminSettingsFormState,
+  next: UpdateSettingsInput,
+  previous: UpdateSettingsInput
+): boolean {
+  if (!saved.smtpPasswordConfigured || next.smtp_password) {
+    return false
+  }
+  const normalize = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : value)
+  return smtpCredentialDestinationKeys.some((key) => normalize(next[key]) !== normalize(previous[key]))
 }
 
 export function mergeAdminSettingsFormScope(

@@ -59,7 +59,7 @@ interface AdminUsersTabProps {
   onNewUsernameChange: (value: string) => void
   onRoleReauthUserChange: (user: AdminUser | null) => void
   onToggleRole: (user: AdminUser) => void | Promise<void>
-  onToggleStatus: (user: AdminUser) => void | Promise<void>
+  onToggleStatus: (user: AdminUser, reauthTicket: string) => void | Promise<void>
   roleReauthUser: AdminUser | null
   users: AdminUser[]
 }
@@ -91,6 +91,7 @@ export default function AdminUsersTab({
   const [deleteReauthUser, setDeleteReauthUser] = useState<AdminUser | null>(null)
   const [disableTOTPReauthUser, setDisableTOTPReauthUser] = useState<AdminUser | null>(null)
   const [disablePasskeysReauthUser, setDisablePasskeysReauthUser] = useState<AdminUser | null>(null)
+  const [statusReauthUser, setStatusReauthUser] = useState<AdminUser | null>(null)
 
   function handleCreateClick() {
     if (newRole === "admin") {
@@ -260,7 +261,7 @@ export default function AdminUsersTab({
                           ? t("admin.users.makeUser")
                           : t("admin.users.makeAdmin")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => void onToggleStatus(user)}>
+                      <DropdownMenuItem onClick={() => setStatusReauthUser(user)}>
                         {user.status === "active"
                           ? t("admin.users.disable")
                           : t("admin.users.enable")}
@@ -311,6 +312,29 @@ export default function AdminUsersTab({
         }}
         title={t("admin.users.roleReauthTitle")}
         description={t("admin.users.roleReauthDescription")}
+      />
+
+      <ReauthDialog
+        operation="change_user_status"
+        open={statusReauthUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStatusReauthUser(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          if (!statusReauthUser) {
+            return
+          }
+          try {
+            await onToggleStatus(statusReauthUser, ticket)
+          } finally {
+            setStatusReauthUser(null)
+          }
+        }}
+        title={t("admin.users.statusReauthTitle")}
+        description={t("admin.users.statusReauthDescription")}
+        confirmVariant={statusReauthUser?.status === "active" ? "destructive" : "default"}
       />
 
       <ReauthDialog

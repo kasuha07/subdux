@@ -11,8 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/model"
 	servicebackup "github.com/kasuha07/subdux/internal/service/backup"
+	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
+	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
@@ -30,18 +33,67 @@ func newDestinationProbeTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// postDestinationProbe calls the unsaved-config probe with no reauth ticket,
-// which is the whole point of the endpoint: it reads and writes nothing, so the
-// admin token alone is enough.
-func postDestinationProbe(t *testing.T, e http.Handler, token, body string) *httptest.ResponseRecorder {
+// postDestinationProbe calls the unsaved-config probe with a freshly minted
+// backup_destination_test ticket, so the tests below exercise probe behaviour
+// past the step-up gate. postDestinationProbeWithTicket covers the gate itself.
+func postDestinationProbe(t *testing.T, e *echo.Echo, token, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupDestinationTest)
+	return postDestinationProbeWithTicket(t, e, token, body, ticket)
+}
+
+func postDestinationProbeWithTicket(t *testing.T, e http.Handler, token, body, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/backup/destinations/test", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
+	if ticket != "" {
+		req.Header.Set(apimw.ReauthTicketHeader, ticket)
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
+}
+
+// TestTestBackupDestinationConfigRequiresReauthTicket proves an admin session
+// alone cannot point the unsaved probe at an arbitrary host or directory.
+func TestTestBackupDestinationConfigRequiresReauthTicket(t *testing.T) {
+	db := newDestinationProbeTestDB(t)
+	admin := createReauthGateTestAdmin(t, db)
+	token := reauthGateTestToken(t, admin)
+	e := newHumanOnlyRouteTestServer(t, db)
+
+	config, err := json.Marshal(fmt.Sprintf(`{"dir":%q}`, t.TempDir()))
+	if err != nil {
+		t.Fatalf("encode config: %v", err)
+	}
+	body := fmt.Sprintf(`{"type":"local","config":%s}`, config)
+
+	assertRefused := func(t *testing.T, rec *httptest.ResponseRecorder) {
+		t.Helper()
+		if rec.Code != http.StatusBadRequest || !hasErrorCodeForMessage(rec.Body.String(), "re-authentication required") {
+			t.Fatalf("status = %d, body = %s; want re-authentication required", rec.Code, rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), "backup_count") {
+			t.Fatalf("refused probe leaked a result: %s", rec.Body.String())
+		}
+	}
+
+	t.Run("missing ticket", func(t *testing.T) {
+		assertRefused(t, postDestinationProbeWithTicket(t, e, token, body, ""))
+	})
+	t.Run("save ticket cannot authorize a probe", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupDestinationCreate)
+		assertRefused(t, postDestinationProbeWithTicket(t, e, token, body, ticket))
+	})
+	t.Run("valid ticket is single-use", func(t *testing.T) {
+		ticket := mintReauthTicket(t, e, token, servicereauth.ReauthOperationBackupDestinationTest)
+		if rec := postDestinationProbeWithTicket(t, e, token, body, ticket); rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s; want 200", rec.Code, rec.Body.String())
+		}
+		assertRefused(t, postDestinationProbeWithTicket(t, e, token, body, ticket))
+	})
 }
 
 // TestTestBackupDestinationConfigProbesUnsavedConfig covers the create flow the
@@ -98,8 +150,8 @@ func TestTestBackupDestinationConfigProbesUnsavedConfig(t *testing.T) {
 }
 
 // TestTestBackupDestinationConfigRefusesStoredSecretForChangedEndpoint asserts
-// the step-up gate on destination writes is not routable around: an unticketed
-// probe cannot pair a stored credential with an endpoint it just supplied.
+// the step-up gate on destination writes is not routable around: a probe cannot
+// pair a stored credential with an endpoint it just supplied.
 func TestTestBackupDestinationConfigRefusesStoredSecretForChangedEndpoint(t *testing.T) {
 	db := newDestinationProbeTestDB(t)
 	admin := createReauthGateTestAdmin(t, db)

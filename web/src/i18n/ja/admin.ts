@@ -55,6 +55,9 @@ const admin = {
     createAdminReauthTitle: "管理者作成の確認",
     createAdminReauthDescription:
       "セキュリティのため、管理者権限を持つユーザーを作成する前に再認証してください。",
+    statusReauthTitle: "アカウント状態変更の確認",
+    statusReauthDescription:
+      "セキュリティのため、ユーザーアカウントを無効化または再有効化する前に再認証してください。",
     roleReauthTitle: "ロール変更の確認",
     roleReauthDescription:
       "セキュリティのため、ユーザーのロールを変更する前に再認証してください。",
@@ -89,7 +92,7 @@ const admin = {
     saveSuccess: "設定を保存しました",
     securityReauthTitle: "セキュリティ設定変更の確認",
     securityReauthDescription:
-      "この変更は、信頼するIDプロバイダー、そのログインを再認証としてどう扱うか、または外部リクエストのフィルタリングに影響します。セキュリティのため、保存する前に再認証してください。",
+      "この変更は、信頼するIDプロバイダー、そのログインを再認証としてどう扱うか、外部リクエストのフィルタリング、または保存済みSMTPパスワードの送信先に影響します。セキュリティのため、保存する前に再認証してください。",
     allowImageUpload: "アイコン画像アップロードを許可",
     allowImageUploadDescription:
       "無効化すると新しいサブスクリプション/支払い方法のアイコンアップロードを拒否します（既存のアップロード済みアイコンには影響しません）",
@@ -325,6 +328,8 @@ const admin = {
         "セキュリティのため、このバックアップから復元するには再認証してください。",
       destinationCreateDescription:
         "セキュリティのため、バックアップ先を追加するには再認証してください。",
+      destinationTestDescription:
+        "セキュリティのため、未保存のバックアップ先をテストするには再認証してください。",
       destinationUpdateDescription:
         "セキュリティのため、このバックアップ先を更新するには再認証してください。",
       destinationDeleteDescription:

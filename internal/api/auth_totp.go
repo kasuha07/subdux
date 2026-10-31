@@ -6,7 +6,6 @@ import (
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/api/httpx"
-	"github.com/kasuha07/subdux/internal/pkg"
 	serviceauth "github.com/kasuha07/subdux/internal/service/auth"
 	servicereauth "github.com/kasuha07/subdux/internal/service/reauth"
 	"github.com/labstack/echo/v4"
@@ -83,13 +82,16 @@ func (h *AuthHandler) VerifyTOTPLogin(c echo.Context) error {
 		return httpx.WriteError(c, http.StatusBadRequest, "token_and_code_are_required")
 	}
 
-	userID, err := pkg.ValidateTOTPPendingToken(input.TotpToken)
+	ctx := c.Request().Context()
+	userID, err := h.Service.WithContext(ctx).ValidatePendingTOTPLogin(input.TotpToken)
 	if err != nil {
 		apimw.ClearRefreshTokenCookie(c)
-		return httpx.WriteError(c, http.StatusUnauthorized, "invalid_or_expired_session")
+		if errors.Is(err, serviceauth.ErrPendingTOTPLoginInvalid) {
+			return httpx.WriteError(c, http.StatusUnauthorized, "invalid_or_expired_session")
+		}
+		return err
 	}
 
-	ctx := c.Request().Context()
 	totpSvc := h.TOTPService.WithContext(ctx)
 	if !totpSvc.VerifyLogin(userID, input.Code) && !totpSvc.VerifyBackupCode(userID, input.Code) {
 		apimw.ClearRefreshTokenCookie(c)

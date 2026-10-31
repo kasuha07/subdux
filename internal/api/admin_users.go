@@ -130,6 +130,20 @@ func (h *AdminHandler) ChangeUserStatus(c echo.Context) error {
 		return nil
 	}
 
+	if input.Status != "active" && input.Status != "disabled" {
+		return httpx.WriteError(c, http.StatusBadRequest, "invalid_status")
+	}
+
+	// Disabling or reactivating an account is a cross-user access decision, so
+	// it needs the same fresh step-up as role changes and credential resets.
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		apimw.From(c).UserID,
+		servicereauth.ReauthOperationChangeUserStatus,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).ChangeUserStatus(uint(userID), input.Status); err != nil {
 		return err
 	}

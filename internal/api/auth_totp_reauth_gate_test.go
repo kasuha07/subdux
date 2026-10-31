@@ -86,6 +86,7 @@ func TestTOTPDisableRequiresDisableTOTPReauthTicket(t *testing.T) {
 
 	currentCode := func() string {
 		t.Helper()
+		resetTOTPReplayGuard(t, db, user.ID)
 		code, err := totp.GenerateCode(secret, time.Now().UTC())
 		if err != nil {
 			t.Fatalf("GenerateCode() error = %v", err)

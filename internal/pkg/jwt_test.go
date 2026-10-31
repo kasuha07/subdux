@@ -166,3 +166,29 @@ func TestJWTSecretConcurrentReloadAndRead(t *testing.T) {
 	default:
 	}
 }
+
+func TestAccessTokenTTLIsCapped(t *testing.T) {
+	t.Setenv("ACCESS_TOKEN_TTL_MINUTES", "100000")
+	if got := getAccessTokenTTL(); got != maxAccessTokenTTL {
+		t.Fatalf("getAccessTokenTTL() = %v, want cap %v", got, maxAccessTokenTTL)
+	}
+	t.Setenv("ACCESS_TOKEN_TTL_MINUTES", "60")
+	if got := getAccessTokenTTL(); got != time.Hour {
+		t.Fatalf("getAccessTokenTTL() = %v, want 1h", got)
+	}
+}
+
+func TestAccessTokenCarriesSessionEpoch(t *testing.T) {
+	t.Setenv("JWT_SECRET", "session-epoch-test-secret-at-least-32-characters")
+	token, err := GenerateAccessTokenForEpoch(7, "u", "u@example.com", "user", 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims := &JWTClaims{}
+	if _, err := jwt.ParseWithClaims(token, claims, func(*jwt.Token) (interface{}, error) { return GetJWTSecret(), nil }); err != nil {
+		t.Fatal(err)
+	}
+	if claims.SessionEpoch != 42 || claims.UserID != 7 {
+		t.Fatalf("claims = %+v, want user 7 epoch 42", claims)
+	}
+}

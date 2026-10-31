@@ -140,7 +140,10 @@ func (s *Service) ResetPassword(email string, verificationCode string, newPasswo
 
 	now := pkg.NowUTC()
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.User{}).Where("id = ?", user.ID).Update("password", string(hash)).Error; err != nil {
+		if err := tx.Model(&model.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
+			"password":           string(hash),
+			"password_generated": false,
+		}).Error; err != nil {
 			return err
 		}
 		if err := revokeAllSessions(tx, user.ID); err != nil {

@@ -288,30 +288,32 @@ func (h *AdminHandler) RestoreBackupDestination(c echo.Context) error {
 // TestBackupDestination against a config the admin has not saved yet, so a
 // destination can be validated from the add/edit dialog before it is committed.
 //
-// It writes nothing and carries no reauth ticket, matching the saved-config probe
-// above. Be precise about what that costs, because it is easy to overstate the
-// precedent: POST /admin/settings/ssrf/test does NOT reach out — it resolves DNS
-// and evaluates policy (see outbound.TestSSRF) — so it is not the thing that
-// makes this safe. Nor does UpdateSettings provide that reach any more: the
-// SSRF-exempt OIDC issuer and endpoints it writes, and the SSRF policy itself,
-// now require a step-up ticket. This probe therefore remains an unticketed
-// outbound request available to a session-only admin; it stays unticketed so the
-// add/edit dialog can validate a destination before the ticketed save.
+// Unlike the saved-config probe, the request itself names the target: backup
+// destinations are exempt from the user SSRF policy, so a remote config can
+// address any host and port (including private and loopback services), and a
+// local config can name any absolute directory, revealing whether it is
+// readable and how many backup archives it holds. That is the same authority
+// the ticketed create/update endpoints grant, so this probe consumes its own
+// single-use backup_destination_test ticket: a session-only admin (for example
+// a stolen bearer token) cannot use it for network or filesystem
+// reconnaissance. The ticket is separate from the save ticket so a successful
+// probe does not authorize the save, and vice versa.
 //
-// What it must not become is a way around the step-up gate on where credentials
-// are sent, so the service refuses to pair a stored secret with an endpoint
-// changed in the same request.
-//
-// For a local destination the exposure is a filesystem rather than a network one:
-// an unticketed probe reveals whether an arbitrary absolute path is readable and
-// how many backup archives sit in it. The yield is a count of subdux-backup-*.zip
-// files. It is deliberately not confined to the data directory, because the save
-// path accepts any absolute path (resolveBackupDir) and a probe that rejected
-// configs which save fine would be worse than the disclosure it prevents.
+// The service additionally refuses to pair a stored secret with an endpoint
+// changed in the same request, so the probe never sends a saved credential to
+// a new authority.
 func (h *AdminHandler) TestBackupDestinationConfig(c echo.Context) error {
 	var input testDestinationConfigRequest
 	if !httpx.BindJSON(c, &input, "invalid_request_body") {
 		return nil
+	}
+
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		apimw.From(c).UserID,
+		servicereauth.ReauthOperationBackupDestinationTest,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
 	}
 
 	count, err := h.Backup.WithContext(c.Request().Context()).TestDestinationConfig(

@@ -362,15 +362,29 @@ func (s *Service) HasPasskeys(userID uint) (bool, error) {
 	return count > 0, nil
 }
 
+// DeletePasskey removes one of the user's passkeys. Like OIDC unlinking, it
+// refuses to remove the account's last usable sign-in method.
 func (s *Service) DeletePasskey(userID uint, passkeyID uint) error {
-	result := s.DB.Where("id = ? AND user_id = ?", passkeyID, userID).Delete(&model.PasskeyCredential{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return serviceerr.New(serviceerr.KindInvalid, "passkey_not_found", "passkey not found")
-	}
-	return nil
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&model.PasskeyCredential{}).Where("id = ? AND user_id = ?", passkeyID, userID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			return serviceerr.New(serviceerr.KindInvalid, "passkey_not_found", "passkey not found")
+		}
+		if err := ensureLoginMethodRemains(tx, userID, 0, passkeyID); err != nil {
+			return err
+		}
+		result := tx.Where("id = ? AND user_id = ?", passkeyID, userID).Delete(&model.PasskeyCredential{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return serviceerr.New(serviceerr.KindInvalid, "passkey_not_found", "passkey not found")
+		}
+		return nil
+	})
 }
 
 func (s *Service) getWebAuthnUser(user model.User) (*webAuthnUser, error) {

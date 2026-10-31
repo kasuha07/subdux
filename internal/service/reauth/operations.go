@@ -8,25 +8,30 @@ const (
 	ReauthOperationBackupDestinationCreate = "backup_destination_create"
 	ReauthOperationBackupDestinationUpdate = "backup_destination_update"
 	ReauthOperationBackupDestinationDelete = "backup_destination_delete"
-	ReauthOperationRestore                 = "restore"
-	ReauthOperationChangeEmail             = "change_email"
-	ReauthOperationAddPasskey              = "add_passkey"
-	ReauthOperationDeletePasskey           = "delete_passkey"
-	ReauthOperationEnableTOTP              = "enable_totp"
-	ReauthOperationDisableTOTP             = "disable_totp"
-	ReauthOperationConnectOIDC             = "connect_oidc"
-	ReauthOperationCreateAPIKey            = "create_api_key"
-	ReauthOperationDeleteAPIKey            = "delete_api_key"
-	ReauthOperationCreateAdminUser         = "create_admin_user"
-	ReauthOperationChangeUserRole          = "change_user_role"
-	ReauthOperationAdminDisableTOTP        = "admin_disable_user_totp"
-	ReauthOperationAdminDisablePasskeys    = "admin_disable_user_passkeys"
-	ReauthOperationDeleteUser              = "delete_user"
-	ReauthOperationExportRedacted          = "export_redacted"
-	ReauthOperationExportSecrets           = "export_secrets"
-	ReauthOperationImportSubdux            = "import_subdux"
-	ReauthOperationImportWallos            = "import_wallos"
-	ReauthOperationAuthorizeMCPClient      = "authorize_mcp_client"
+	// ReauthOperationBackupDestinationTest covers probing an unsaved backup
+	// destination: the request names an arbitrary host or absolute directory.
+	ReauthOperationBackupDestinationTest = "backup_destination_test"
+	ReauthOperationRestore               = "restore"
+	ReauthOperationChangeEmail           = "change_email"
+	ReauthOperationAddPasskey            = "add_passkey"
+	ReauthOperationDeletePasskey         = "delete_passkey"
+	ReauthOperationEnableTOTP            = "enable_totp"
+	ReauthOperationDisableTOTP           = "disable_totp"
+	ReauthOperationConnectOIDC           = "connect_oidc"
+	ReauthOperationDeleteOIDCConnection  = "delete_oidc_connection"
+	ReauthOperationCreateAPIKey          = "create_api_key"
+	ReauthOperationDeleteAPIKey          = "delete_api_key"
+	ReauthOperationCreateAdminUser       = "create_admin_user"
+	ReauthOperationChangeUserRole        = "change_user_role"
+	ReauthOperationChangeUserStatus      = "change_user_status"
+	ReauthOperationAdminDisableTOTP      = "admin_disable_user_totp"
+	ReauthOperationAdminDisablePasskeys  = "admin_disable_user_passkeys"
+	ReauthOperationDeleteUser            = "delete_user"
+	ReauthOperationExportRedacted        = "export_redacted"
+	ReauthOperationExportSecrets         = "export_secrets"
+	ReauthOperationImportSubdux          = "import_subdux"
+	ReauthOperationImportWallos          = "import_wallos"
+	ReauthOperationAuthorizeMCPClient    = "authorize_mcp_client"
 	// ReauthOperationAdminSecuritySettings covers admin settings that decide
 	// which identity provider is trusted and how outbound requests are
 	// filtered. See admin.Service.SettingsUpdateRequiresReauth.
@@ -42,6 +47,7 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationBackupDestinationCreate,
 		ReauthOperationBackupDestinationUpdate,
 		ReauthOperationBackupDestinationDelete,
+		ReauthOperationBackupDestinationTest,
 		ReauthOperationRestore,
 		ReauthOperationChangeEmail,
 		ReauthOperationAddPasskey,
@@ -49,10 +55,12 @@ func IsValidReauthOperation(operation string) bool {
 		ReauthOperationEnableTOTP,
 		ReauthOperationDisableTOTP,
 		ReauthOperationConnectOIDC,
+		ReauthOperationDeleteOIDCConnection,
 		ReauthOperationCreateAPIKey,
 		ReauthOperationDeleteAPIKey,
 		ReauthOperationCreateAdminUser,
 		ReauthOperationChangeUserRole,
+		ReauthOperationChangeUserStatus,
 		ReauthOperationAdminDisableTOTP,
 		ReauthOperationAdminDisablePasskeys,
 		ReauthOperationDeleteUser,

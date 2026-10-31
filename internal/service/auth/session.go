@@ -31,7 +31,15 @@ func (s *Service) CreateSession(userID uint) (*AuthResponse, error) {
 }
 
 func (s *Service) issueAuthResponse(user model.User) (*AuthResponse, error) {
-	accessToken, err := pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
+	// Read the epoch fresh: callers often hold a user loaded before a
+	// revocation in the same flow (password or email change) advanced it.
+	var current model.User
+	if err := s.DB.Select("id", "session_epoch").First(&current, user.ID).Error; err != nil {
+		return nil, err
+	}
+	user.SessionEpoch = current.SessionEpoch
+
+	accessToken, err := pkg.GenerateAccessTokenForEpoch(user.ID, user.Username, user.Email, user.Role, user.SessionEpoch)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +107,7 @@ func (s *Service) RefreshSession(rawRefreshToken string) (*AuthResponse, error) 
 		}
 
 		var err error
-		accessToken, err = pkg.GenerateAccessToken(user.ID, user.Username, user.Email, user.Role)
+		accessToken, err = pkg.GenerateAccessTokenForEpoch(user.ID, user.Username, user.Email, user.Role, user.SessionEpoch)
 		if err != nil {
 			return err
 		}
@@ -167,7 +175,13 @@ func (s *Service) LogoutAll(userID uint) error {
 // any MCP authorization interaction whose code has not been exchanged yet.
 // Logging out everywhere or changing a login secret must not leave a
 // refreshable MCP grant behind for whoever held the old session.
+// revokeAllSessions ends every session the user holds: refresh tokens, MCP
+// OAuth grants and pending requests, and (by advancing the session epoch) every
+// access JWT already issued, which CurrentUserMiddleware then rejects.
 func revokeAllSessions(tx *gorm.DB, userID uint) error {
+	if err := AdvanceSessionEpoch(tx, userID); err != nil {
+		return err
+	}
 	now := pkg.NowUTC()
 	if err := tx.Model(&model.RefreshToken{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
@@ -182,4 +196,37 @@ func revokeAllSessions(tx *gorm.DB, userID uint) error {
 	return tx.Model(&model.MCPOAuthRequest{}).
 		Where("user_id = ? AND consumed_at IS NULL AND expires_at > ?", userID, now).
 		Update("expires_at", now).Error
+}
+
+// AdvanceSessionEpoch invalidates every access token (and pending TOTP login
+// token) issued to the user so far.
+func AdvanceSessionEpoch(tx *gorm.DB, userID uint) error {
+	return tx.Model(&model.User{}).Where("id = ?", userID).
+		UpdateColumn("session_epoch", gorm.Expr("session_epoch + ?", 1)).Error
+}
+
+// ErrPendingTOTPLoginInvalid rejects a pending-TOTP token that is malformed,
+// expired, or was issued before the user's last global session revocation.
+var ErrPendingTOTPLoginInvalid = serviceerr.New(serviceerr.KindUnauthorized, "invalid_or_expired_session", "invalid or expired session")
+
+// ValidatePendingTOTPLogin verifies a pending-TOTP token and checks that the
+// user's session epoch has not advanced since it was issued, so logout-all or
+// a credential change also cancels password-stage logins still awaiting a
+// second factor.
+func (s *Service) ValidatePendingTOTPLogin(token string) (uint, error) {
+	claims, err := pkg.ParseTOTPPendingToken(token)
+	if err != nil || claims.UserID == 0 {
+		return 0, ErrPendingTOTPLoginInvalid
+	}
+	var user model.User
+	if err := s.DB.Select("id", "session_epoch").First(&user, claims.UserID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, ErrPendingTOTPLoginInvalid
+		}
+		return 0, err
+	}
+	if user.SessionEpoch != claims.SessionEpoch {
+		return 0, ErrPendingTOTPLoginInvalid
+	}
+	return claims.UserID, nil
 }

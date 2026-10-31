@@ -145,8 +145,22 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 	if err := serviceauth.ValidateBcryptPasswordLength(input.NewPassword); err != nil {
 		return httpx.WriteError(c, http.StatusBadRequest, "new_password_must_not_exceed_72_bytes")
 	}
-	if err := h.Service.WithContext(c.Request().Context()).ChangePassword(userID, input); err != nil {
+	service := h.Service.WithContext(c.Request().Context())
+	if err := service.ChangePassword(userID, input); err != nil {
 		return err
 	}
-	return httpx.WriteMessage(c, http.StatusOK, "password_changed_successfully")
+	// Changing the password signs out every session, including this one's
+	// access token. Hand the caller a fresh session so this device stays
+	// signed in while every other device (and any copied token) is cut off.
+	resp, err := service.CreateSession(userID)
+	if err != nil {
+		return err
+	}
+	apimw.SetRefreshTokenCookie(c, resp.RefreshToken)
+	session := mapAuthResponse(resp)
+	return httpx.WriteMessageFields(c, http.StatusOK, "password_changed_successfully", map[string]any{
+		"token":        session.Token,
+		"access_token": session.AccessToken,
+		"user":         session.User,
+	})
 }

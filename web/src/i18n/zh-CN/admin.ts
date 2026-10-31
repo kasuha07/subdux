@@ -50,6 +50,8 @@ const admin = {
     createSuccess: "用户已创建",
     createAdminReauthTitle: "确认创建管理员",
     createAdminReauthDescription: "出于安全考虑，创建管理员用户前请重新验证身份。",
+    statusReauthTitle: "确认账户状态修改",
+    statusReauthDescription: "出于安全考虑，禁用或重新启用用户账户前请重新验证身份。",
     roleReauthTitle: "确认角色修改",
     roleReauthDescription: "出于安全考虑，修改用户角色前请重新验证身份。",
     deleteReauthTitle: "确认删除用户",
@@ -80,7 +82,7 @@ const admin = {
     saveSuccess: "设置保存成功",
     securityReauthTitle: "确认修改安全设置",
     securityReauthDescription:
-      "此更改会影响所信任的身份提供方、其登录在重新认证中的强度认定，或出站请求的过滤方式。出于安全考虑，保存前请重新验证身份。",
+      "此更改会影响所信任的身份提供方、其登录在重新认证中的强度认定，出站请求的过滤方式，或已保存 SMTP 密码的发送目标。出于安全考虑，保存前请重新验证身份。",
     allowImageUpload: "允许上传图标图片",
     allowImageUploadDescription:
       "关闭后将阻止新订阅/支付方式图标上传，已上传图片不受影响",
@@ -300,6 +302,7 @@ const admin = {
       runNowDescription: "出于安全考虑，请重新验证身份以立即创建并发送备份。",
       restoreDescription: "出于安全考虑，请重新验证身份以从该备份恢复。",
       destinationCreateDescription: "出于安全考虑，请重新验证身份以添加备份目标。",
+      destinationTestDescription: "出于安全考虑，请重新验证身份以测试此未保存的备份目标。",
       destinationUpdateDescription: "出于安全考虑，请重新验证身份以更新此备份目标。",
       destinationDeleteDescription: "出于安全考虑，请重新验证身份以删除此备份目标。",
       destinationRestoreDescription: "出于安全考虑，请重新验证身份以从该备份目标恢复。",

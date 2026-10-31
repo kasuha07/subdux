@@ -46,6 +46,9 @@ func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Sub
 	if err := validateSubscriptionAmount(input.Amount); err != nil {
 		return nil, err
 	}
+	if err := ValidateSubscriptionText(input.Name, input.Category, input.Notes, input.URL); err != nil {
+		return nil, err
+	}
 
 	currency := strings.TrimSpace(input.Currency)
 	if currency == "" {
@@ -151,6 +154,13 @@ func (s *Service) Create(userID uint, input CreateSubscriptionInput) (*model.Sub
 	syncLegacyEnabledForLifecycle(&sub)
 
 	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		capacity, err := NewCapacityTracker(tx, userID)
+		if err != nil {
+			return err
+		}
+		if err := capacity.Reserve(); err != nil {
+			return err
+		}
 		if err := tx.Create(&sub).Error; err != nil {
 			return err
 		}
@@ -183,6 +193,9 @@ func (s *Service) update(userID, id uint, input UpdateSubscriptionInput) (*model
 	}
 	before := *sub
 	amountChanged := input.Amount != nil && *input.Amount != sub.Amount
+	if err := validateOptionalSubscriptionText(input.Name, input.Category, input.Notes, input.URL); err != nil {
+		return nil, err
+	}
 
 	updates := make(map[string]interface{})
 	if input.Name != nil {

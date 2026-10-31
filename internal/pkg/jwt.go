@@ -28,6 +28,11 @@ type JWTClaims struct {
 	KeyID    uint     `json:"key_id,omitempty"`
 	KeyKind  string   `json:"key_kind,omitempty"`
 	Scopes   []string `json:"scopes,omitempty"`
+	// SessionEpoch is the user's session epoch when the token was issued.
+	// CurrentUserMiddleware rejects it once logout-all or a credential change
+	// advances the stored epoch. Absent in tokens issued before epochs existed,
+	// which matches the migrated default of 0.
+	SessionEpoch uint64 `json:"sep,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -44,8 +49,11 @@ const (
 	jwtSecretKey       = "jwt_secret"
 	minJWTSecretLength = 32
 
-	defaultAccessTokenTTL  = 15 * time.Minute
-	minAccessTokenTTL      = 1 * time.Minute
+	defaultAccessTokenTTL = 15 * time.Minute
+	minAccessTokenTTL     = 1 * time.Minute
+	// maxAccessTokenTTL bounds how long a copied access token stays usable even
+	// without an epoch-advancing revocation.
+	maxAccessTokenTTL      = 24 * time.Hour
 	defaultRefreshTokenTTL = 30 * 24 * time.Hour
 	minRefreshTokenTTL     = 1 * time.Hour
 )
@@ -144,13 +152,20 @@ func GenerateToken(userID uint, username string, email string, role string) (str
 }
 
 func GenerateAccessToken(userID uint, username string, email string, role string) (string, error) {
+	return GenerateAccessTokenForEpoch(userID, username, email, role, 0)
+}
+
+// GenerateAccessTokenForEpoch issues a human access token bound to the user's
+// current session epoch.
+func GenerateAccessTokenForEpoch(userID uint, username string, email string, role string, sessionEpoch uint64) (string, error) {
 	now := NowUTC()
 	claims := &JWTClaims{
-		UserID:   userID,
-		Username: username,
-		Email:    email,
-		Role:     role,
-		AuthType: AuthTypeUser,
+		UserID:       userID,
+		Username:     username,
+		Email:        email,
+		Role:         role,
+		AuthType:     AuthTypeUser,
+		SessionEpoch: sessionEpoch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(getAccessTokenTTL())),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -178,6 +193,13 @@ func getAccessTokenTTL() time.Duration {
 	ttl := time.Duration(minutes) * time.Minute
 	if ttl < minAccessTokenTTL {
 		return minAccessTokenTTL
+	}
+	if ttl > maxAccessTokenTTL {
+		logging.Warn("ACCESS_TOKEN_TTL_MINUTES exceeds the maximum, capping",
+			slog.String("value", raw),
+			slog.Duration("max", maxAccessTokenTTL),
+		)
+		return maxAccessTokenTTL
 	}
 	return ttl
 }
@@ -228,13 +250,23 @@ func GenerateRefreshToken() (string, string, time.Time, error) {
 type TOTPPendingClaims struct {
 	UserID      uint `json:"user_id"`
 	PendingTOTP bool `json:"pending_totp"`
+	// SessionEpoch binds the pending login to the user's session epoch, so a
+	// logout-all or credential change invalidates outstanding pending logins.
+	SessionEpoch uint64 `json:"sep,omitempty"`
 	jwt.RegisteredClaims
 }
 
 func GenerateTOTPPendingToken(userID uint) (string, error) {
+	return GenerateTOTPPendingTokenForEpoch(userID, 0)
+}
+
+// GenerateTOTPPendingTokenForEpoch issues a pending-TOTP token bound to the
+// user's current session epoch.
+func GenerateTOTPPendingTokenForEpoch(userID uint, sessionEpoch uint64) (string, error) {
 	claims := &TOTPPendingClaims{
-		UserID:      userID,
-		PendingTOTP: true,
+		UserID:       userID,
+		PendingTOTP:  true,
+		SessionEpoch: sessionEpoch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(Now().Add(5 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(Now()),
@@ -245,6 +277,16 @@ func GenerateTOTPPendingToken(userID uint) (string, error) {
 }
 
 func ValidateTOTPPendingToken(tokenStr string) (uint, error) {
+	claims, err := ParseTOTPPendingToken(tokenStr)
+	if err != nil {
+		return 0, err
+	}
+	return claims.UserID, nil
+}
+
+// ParseTOTPPendingToken verifies a pending-TOTP token and returns its claims,
+// including the session epoch it was issued for.
+func ParseTOTPPendingToken(tokenStr string) (*TOTPPendingClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &TOTPPendingClaims{}, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -252,14 +294,14 @@ func ValidateTOTPPendingToken(tokenStr string) (uint, error) {
 		return GetJWTSecret(), nil
 	})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	claims, ok := token.Claims.(*TOTPPendingClaims)
 	if !ok || !token.Valid {
-		return 0, errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 	if !claims.PendingTOTP {
-		return 0, errors.New("not a pending TOTP token")
+		return nil, errors.New("not a pending TOTP token")
 	}
-	return claims.UserID, nil
+	return claims, nil
 }

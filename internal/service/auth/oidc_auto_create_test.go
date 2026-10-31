@@ -77,6 +77,13 @@ func TestFinishOIDCLoginAutoCreatesVerifiedAllowedEmail(t *testing.T) {
 	if connection.UserID != result.User.ID {
 		t.Fatalf("connection.UserID = %d, want %d", connection.UserID, result.User.ID)
 	}
+	var created model.User
+	if err := db.Select("id", "password_generated").First(&created, result.User.ID).Error; err != nil {
+		t.Fatalf("failed to load created user: %v", err)
+	}
+	if !created.PasswordGenerated {
+		t.Fatal("auto-created OIDC user must be marked password_generated")
+	}
 }
 
 func TestFinishOIDCLoginExistingConnectionDoesNotRequireVerifiedEmail(t *testing.T) {

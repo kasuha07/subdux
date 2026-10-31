@@ -166,12 +166,11 @@ func TestHandleOIDCCallbackRequiresMatchingBrowserBinding(t *testing.T) {
 			if err != nil {
 				t.Fatalf("retry HandleOIDCCallback() error = %v", err)
 			}
-			retryResult, err := authService.ConsumeOIDCSessionResult(retry.SessionID)
-			if err != nil {
-				t.Fatalf("retry ConsumeOIDCSessionResult() error = %v", err)
+			if retry.SessionID != "" {
+				t.Fatalf("retry allocated result session %q, want none for a spent state", retry.SessionID)
 			}
-			if retryResult.ErrorCode != "invalid_or_expired_oidc_session" {
-				t.Fatalf("retry error code = %q, want invalid_or_expired_oidc_session", retryResult.ErrorCode)
+			if retry.ErrorCode != "invalid_or_expired_oidc_session" {
+				t.Fatalf("retry error code = %q, want invalid_or_expired_oidc_session", retry.ErrorCode)
 			}
 		})
 	}

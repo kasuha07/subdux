@@ -56,6 +56,9 @@ const admin = {
     createAdminReauthTitle: "Confirm admin creation",
     createAdminReauthDescription:
       "For security, re-authenticate before creating a user with admin privileges.",
+    statusReauthTitle: "Confirm account status change",
+    statusReauthDescription:
+      "For security, please re-authenticate before disabling or re-enabling a user account.",
     roleReauthTitle: "Confirm role change",
     roleReauthDescription:
       "For security, re-authenticate before changing this user's role.",
@@ -91,7 +94,7 @@ const admin = {
     saveSuccess: "Settings saved successfully",
     securityReauthTitle: "Confirm security settings change",
     securityReauthDescription:
-      "This change affects which identity provider is trusted, how its logins count for re-authentication, or how outbound requests are filtered. For security, re-authenticate before saving.",
+      "This change affects which identity provider is trusted, how its logins count for re-authentication, how outbound requests are filtered, or where the saved SMTP password is sent. For security, re-authenticate before saving.",
     allowImageUpload: "Allow icon image uploads",
     allowImageUploadDescription:
       "When disabled, new subscription/payment method icon uploads are blocked (existing uploaded icons are unaffected)",
@@ -328,6 +331,8 @@ const admin = {
         "For security, re-authenticate to restore from this backup.",
       destinationCreateDescription:
         "For security, re-authenticate to add a backup destination.",
+      destinationTestDescription:
+        "For security, re-authenticate to test this unsaved backup destination.",
       destinationUpdateDescription:
         "For security, re-authenticate to update this backup destination.",
       destinationDeleteDescription:

@@ -39,3 +39,41 @@ func TestMCPRevisionRequiredAndConflictRollsBackIdempotency(t *testing.T) {
 		t.Fatalf("saved=%+v", saved)
 	}
 }
+
+func TestMCPWriteToolsRejectNonpositiveRevision(t *testing.T) {
+	db := newMCPTestDB(t)
+	user := createMCPTestUser(t, db)
+	apiKey := createMCPAPIKey(t, db, user, nil)
+	handler := newMCPTestHandler(db)
+	sub, err := subscriptionservice.NewService(db).Create(user.ID, subscriptionservice.CreateSubscriptionInput{Name: "original", Amount: 10, Currency: "USD", RecurrenceType: "interval", IntervalCount: intPtr(1), IntervalUnit: "month", NextBillingDate: "2099-01-01"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tool := range []string{"update_subscription", "delete_subscription", "mark_subscription_renewed"} {
+		for _, revision := range []interface{}{0, -1, "0"} {
+			key := "nonpositive-" + tool
+			args := map[string]interface{}{"id": sub.ID, "revision": revision, "idempotency_key": key, "name": "stale"}
+			_, response := performMCPToolCall(t, handler, apiKey, tool, args)
+			if response["error"] == nil {
+				t.Fatalf("%s accepted revision %v: %#v", tool, revision, response)
+			}
+			assertNoMCPIdempotencyRecord(t, db, user.ID, key)
+		}
+	}
+
+	var saved model.Subscription
+	if err := db.First(&saved, sub.ID).Error; err != nil {
+		t.Fatalf("subscription was deleted or unreadable: %v", err)
+	}
+	if saved.Name != "original" || saved.Revision != sub.Revision || !saved.NextBillingDate.Equal(*sub.NextBillingDate) {
+		t.Fatalf("subscription mutated by nonpositive revision: %+v", saved)
+	}
+	var auditCount int64
+	if err := db.Model(&model.AuditEvent{}).Where("user_id = ?", user.ID).Count(&auditCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if auditCount != 0 {
+		t.Fatalf("audit events = %d, want 0 for rejected writes", auditCount)
+	}
+}

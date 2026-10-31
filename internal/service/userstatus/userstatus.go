@@ -15,8 +15,9 @@ const (
 var ErrUserNotActive = errors.New("user is not active")
 
 type State struct {
-	Status string
-	Role   string
+	Status       string
+	Role         string
+	SessionEpoch uint64
 }
 
 func (s State) IsActive() bool {
@@ -35,10 +36,10 @@ func Load(db *gorm.DB, userID uint) (State, error) {
 	if userID == 0 {
 		return State{}, ErrUserNotActive
 	}
-	if err := db.Select("id", "status", "role").First(&user, userID).Error; err != nil {
+	if err := db.Select("id", "status", "role", "session_epoch").First(&user, userID).Error; err != nil {
 		return State{}, err
 	}
-	return State{Status: user.Status, Role: user.Role}, nil
+	return State{Status: user.Status, Role: user.Role, SessionEpoch: user.SessionEpoch}, nil
 }
 
 func EnsureActive(db *gorm.DB, userID uint) error {

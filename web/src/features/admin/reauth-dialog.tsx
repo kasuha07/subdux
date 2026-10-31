@@ -40,10 +40,12 @@ type ReauthOperation =
   | "enable_totp"
   | "disable_totp"
   | "connect_oidc"
+  | "delete_oidc_connection"
   | "create_api_key"
   | "delete_api_key"
   | "create_admin_user"
   | "change_user_role"
+  | "change_user_status"
   | "admin_disable_user_totp"
   | "admin_disable_user_passkeys"
   | "delete_user"
@@ -55,6 +57,7 @@ type ReauthOperation =
   | "backup_destination_create"
   | "backup_destination_update"
   | "backup_destination_delete"
+  | "backup_destination_test"
   | "admin_security_settings";
 
 export interface ReauthScope {

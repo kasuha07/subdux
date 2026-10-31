@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/api/httpx"
@@ -109,6 +110,14 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 		apimw.ClearOIDCSessionCookie(c)
 		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_process_oidc_callback")
 	}
+	if callbackResult.SessionID == "" && callbackResult.ErrorCode != "" {
+		// The callback named no state this server issued, so there is no flow
+		// (and no result session) to resume. Report the error to the login page
+		// directly instead of allocating shared result-pool state.
+		apimw.ClearOIDCSessionCookie(c)
+		query := url.Values{"oidc_action": {"login"}, "oidc_error": {callbackResult.ErrorCode}}
+		return c.Redirect(http.StatusFound, "/login?"+query.Encode())
+	}
 	if callbackResult.SessionID == "" {
 		apimw.ClearOIDCSessionCookie(c)
 		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_finalize_oidc_callback")
@@ -164,6 +173,16 @@ func (h *AuthHandler) DeleteOIDCConnection(c echo.Context) error {
 	connectionID, ok := httpx.ParseUintParam(c, "id", "invalid_oidc_connection_id")
 	if !ok {
 		return nil
+	}
+
+	// Unlinking an identity removes a sign-in factor, so it needs the same
+	// fresh step-up as deleting a passkey or disabling TOTP.
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		servicereauth.ReauthOperationDeleteOIDCConnection,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
 	}
 
 	if err := h.Service.WithContext(c.Request().Context()).DeleteOIDCConnection(userID, uint(connectionID)); err != nil {

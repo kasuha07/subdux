@@ -173,7 +173,7 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 		return nil, invalidMCPParams(err)
 	}
 
-	revision, err := readRequiredIDArg(args, "revision")
+	revision, err := readRequiredRevisionArg(args, "revision")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -187,7 +187,7 @@ func (h *MCPHandler) callDeleteSubscription(ctx context.Context, principal *mcpP
 				return nil, err
 			}
 			before := *existing
-			deleted, err := txService.DeleteRecord(userID, id, uint64(revision))
+			deleted, err := txService.DeleteRecord(userID, id, revision)
 			if err != nil {
 				return nil, err
 			}
@@ -215,7 +215,7 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 		return nil, invalidMCPParams(err)
 	}
 
-	revision, err := readRequiredIDArg(args, "revision")
+	revision, err := readRequiredRevisionArg(args, "revision")
 	if err != nil {
 		return nil, invalidMCPParams(err)
 	}
@@ -229,7 +229,7 @@ func (h *MCPHandler) callMarkSubscriptionRenewed(ctx context.Context, principal 
 				return nil, err
 			}
 			before := *existing
-			updated, err := txService.MarkManualRenewed(userID, id, uint64(revision))
+			updated, err := txService.MarkManualRenewed(userID, id, revision)
 			if err != nil {
 				return nil, err
 			}

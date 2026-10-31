@@ -173,7 +173,7 @@ docker compose up -d
 }
 ```
 
-端点保持无状态：每个 `POST /mcp` 请求都会独立认证。写操作工具必须提供 `idempotency_key`，客户端在超时后可以安全重试而不会重复执行；同一个 Key 携带不同参数会被拒绝，且 Key 按用户隔离。
+端点保持无状态：每个 `POST /mcp` 请求都会独立认证。写操作工具必须提供 `idempotency_key`，客户端在超时后可以安全重试而不会重复执行；同一个 Key 携带不同参数会被拒绝，且 Key 按用户隔离。结果可在 24 小时内重放；超过 24 小时后该 Key 会被视为新请求。
 
 Subdux 为 `initialize`、`ping`、`tools/list` 和 `tools/call` 返回 JSON-RPC 响应，不维护 MCP 传输会话，也不提供 SSE 或服务端主动流式推送。
 
@@ -227,7 +227,7 @@ Subdux 原生 JSON 可用于迁移订阅、分类、支付方式、币种偏好�
 | `DATA_PATH` | `data` | SQLite 数据库、上传资源和本地生成密钥的存储目录 |
 | `JWT_SECRET` | 未设置时首次启动自动生成 | 生产环境建议显式配置，且长度至少 32 字符 |
 | `SETTINGS_ENCRYPTION_KEY` | 依次回退到 `JWT_SECRET` 与本地生成密钥文件 | 用于加密系统设置和通知渠道中的敏感信息 |
-| `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access Token 有效期 |
+| `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access Token 有效期（分钟，1–1440；超过 24 小时会被截断） |
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh Token 有效期 |
 | `CORS_ALLOW_ORIGINS` | 未设置 | 逗号分隔的允许来源列表 |
 | `TZ` | 系统时区 | IANA 时区名称，例如 `UTC`、`Asia/Shanghai` |

@@ -68,6 +68,11 @@ type OIDCCallbackResult struct {
 	// operation the step-up was started for so the callback handler can redirect
 	// back to the originating page. Empty for login/connect.
 	Operation string `json:"operation,omitempty"`
+	// ErrorCode is set, with no SessionID, when the callback carried no state
+	// this server issued. Such callbacks are not tied to any started flow, so
+	// they never allocate a result session: an unauthenticated caller must not
+	// be able to fill (and evict entries from) the shared result pool.
+	ErrorCode string `json:"error_code,omitempty"`
 }
 
 type OIDCSessionResult struct {
@@ -317,12 +322,17 @@ func (s *Service) HandleOIDCCallback(state string, browserBinding string, code s
 	purpose := oidcPurposeLogin
 	trimmedState := strings.TrimSpace(state)
 	if trimmedState == "" {
-		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "missing_oidc_state", "missing OIDC state"))
+		return &OIDCCallbackResult{Purpose: purpose, ErrorCode: "missing_oidc_state"}, nil
 	}
 
 	session, err := s.takeOIDCStateSession(trimmedState)
 	if err != nil {
-		return s.createOIDCCallbackErrorResult(purpose, err)
+		code := "invalid_or_expired_oidc_session"
+		var typed *serviceerr.Error
+		if errors.As(err, &typed) && typed != nil && typed.Code != "" {
+			code = typed.Code
+		}
+		return &OIDCCallbackResult{Purpose: purpose, ErrorCode: code}, nil
 	}
 
 	purpose = session.Purpose
@@ -463,15 +473,31 @@ func (s *Service) CanReauthWithOIDC(userID uint) (bool, error) {
 	return s.HasOIDCConnection(userID)
 }
 
+// DeleteOIDCConnection unlinks one of the user's OIDC identities. It refuses to
+// remove the account's last usable sign-in method (see
+// ensureLoginMethodRemains); the caller must have consumed a
+// delete_oidc_connection step-up ticket.
 func (s *Service) DeleteOIDCConnection(userID uint, connectionID uint) error {
-	result := s.DB.Where("id = ? AND user_id = ?", connectionID, userID).Delete(&model.OIDCConnection{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
-	}
-	return nil
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		var connection model.OIDCConnection
+		if err := tx.Select("id").Where("id = ? AND user_id = ?", connectionID, userID).First(&connection).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
+			}
+			return err
+		}
+		if err := ensureLoginMethodRemains(tx, userID, connectionID, 0); err != nil {
+			return err
+		}
+		result := tx.Where("id = ? AND user_id = ?", connectionID, userID).Delete(&model.OIDCConnection{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
+		}
+		return nil
+	})
 }
 
 func oidcBrowserBindingMatches(expected string, presented string) bool {
@@ -930,6 +956,9 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 		Password: string(hash),
 		Role:     "user",
 		Status:   "active",
+		// The random password above is discarded, so it is not a usable
+		// sign-in method until the user sets one (e.g. via password reset).
+		PasswordGenerated: true,
 	}
 
 	err = s.DB.Transaction(func(tx *gorm.DB) error {

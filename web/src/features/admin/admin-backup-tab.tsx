@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
@@ -43,7 +43,7 @@ interface AdminBackupTabProps {
     password: string,
     reauthTicket: string
   ) => Promise<boolean>
-  onTestDestinationConfig: (body: DestinationProbeRequest) => Promise<void>
+  onTestDestinationConfig: (body: DestinationProbeRequest, reauthTicket: string) => Promise<void>
   onDownloadBackup: (reauthTicket: string) => Promise<boolean>
   onDownloadPasswordChange: (value: string) => void
   onIncludeAssetsInBackupChange: (value: boolean) => void
@@ -93,7 +93,7 @@ export default function AdminBackupTab({
 }: AdminBackupTabProps) {
   const { t, i18n } = useTranslation()
   // Which flow, if any, is awaiting step-up re-authentication.
-  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "dest-create" | "dest-update" | "dest-delete" | "dest-run" | "dest-restore" | null>(null)
+  const [reauthPrompt, setReauthPrompt] = useState<"download" | "restore" | "dest-create" | "dest-update" | "dest-delete" | "dest-run" | "dest-restore" | "dest-probe" | null>(null)
 
   function destinationTypeLabel(type: string) {
     if (type === "s3") return t("admin.backup.destinations.typeS3")
@@ -124,6 +124,27 @@ export default function AdminBackupTab({
   const [destDeleteTarget, setDestDeleteTarget] = useState<BackupDestination | null>(null)
   const [destRunTarget, setDestRunTarget] = useState<BackupDestination | null>(null)
   const [pendingDestRestore, setPendingDestRestore] = useState<{ id: number; archiveName: string; password: string } | null>(null)
+  // The unsaved-config probe names an arbitrary host or directory, so it needs
+  // its own step-up. The destination form awaits the returned promise to clear
+  // its "testing" state, so it settles once the probe finishes or the prompt is
+  // dismissed.
+  const [pendingDestProbe, setPendingDestProbe] = useState<DestinationProbeRequest | null>(null)
+  const destProbeSettle = useRef<(() => void) | null>(null)
+
+  function settleDestProbe() {
+    destProbeSettle.current?.()
+    destProbeSettle.current = null
+    setPendingDestProbe(null)
+  }
+
+  function requestDestProbe(body: DestinationProbeRequest): Promise<void> {
+    destProbeSettle.current?.()
+    return new Promise<void>((resolve) => {
+      destProbeSettle.current = resolve
+      setPendingDestProbe(body)
+      setReauthPrompt("dest-probe")
+    })
+  }
 
   const reauthOperation =
     reauthPrompt === "dest-create"
@@ -136,7 +157,9 @@ export default function AdminBackupTab({
             ? "restore"
             : reauthPrompt === "dest-run"
               ? "backup_run"
-              : "backup"
+              : reauthPrompt === "dest-probe"
+                ? "backup_destination_test"
+                : "backup"
 
   // Only update/delete may carry a resource binding: the backend's
   // ValidateTicketBinding rejects a bound create ticket, so create sends no
@@ -268,7 +291,7 @@ export default function AdminBackupTab({
         runningDestinationId={runningDestinationId}
         onRefreshDestinations={onRefreshDestinations}
         onTestDestination={onTestDestination}
-        onTestDestinationConfig={onTestDestinationConfig}
+        onTestDestinationConfig={requestDestProbe}
         onRequestCreate={(body) => {
           setPendingDestCreate(body)
           setReauthPrompt("dest-create")
@@ -373,6 +396,7 @@ export default function AdminBackupTab({
           if (!open) {
             setReauthPrompt(null)
             setPendingDestRestore(null)
+            settleDestProbe()
           }
         }}
         onVerified={async (ticket) => {
@@ -398,6 +422,12 @@ export default function AdminBackupTab({
             closePrompt = await onDeleteDestination(destDeleteTarget.id, destDeleteTarget.revision, ticket)
             if (closePrompt) {
               setDestDeleteTarget(null)
+            }
+          } else if (reauthPrompt === "dest-probe" && pendingDestProbe) {
+            try {
+              await onTestDestinationConfig(pendingDestProbe, ticket)
+            } finally {
+              settleDestProbe()
             }
           } else if (reauthPrompt === "dest-restore" && pendingDestRestore) {
             closePrompt = await onRestoreFromDestination(
@@ -428,8 +458,11 @@ export default function AdminBackupTab({
                     ? t("admin.backup.reauth.destinationDeleteDescription")
                     : reauthPrompt === "dest-restore"
                       ? t("admin.backup.reauth.destinationRestoreDescription")
-                      : t("admin.backup.reauth.downloadDescription")
+                      : reauthPrompt === "dest-probe"
+                        ? t("admin.backup.reauth.destinationTestDescription")
+                        : t("admin.backup.reauth.downloadDescription")
         }
+        layer={reauthPrompt === "dest-probe" ? "stacked" : "base"}
         confirmVariant={
           reauthPrompt === "restore" || reauthPrompt === "dest-delete" || reauthPrompt === "dest-restore"
             ? "destructive"

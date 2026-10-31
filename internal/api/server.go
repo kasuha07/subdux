@@ -21,6 +21,7 @@ import (
 	exchangerate "github.com/kasuha07/subdux/internal/service/exchangerate"
 	exporter "github.com/kasuha07/subdux/internal/service/exporter"
 	iconproxy "github.com/kasuha07/subdux/internal/service/iconproxy"
+	idempotencyservice "github.com/kasuha07/subdux/internal/service/idempotency"
 	importer "github.com/kasuha07/subdux/internal/service/importer"
 	"github.com/kasuha07/subdux/internal/service/jev"
 	"github.com/kasuha07/subdux/internal/service/mcpoauth"
@@ -101,6 +102,7 @@ func NewApp(ctx context.Context, db *gorm.DB, taskMonitor *serviceutil.Backgroun
 	auditService := auditservice.NewService(db)
 	oauthService := mcpoauth.NewService(db)
 	oauthService.StartCleanupLoop(ctx)
+	idempotencyservice.NewService(db).StartCleanupLoop(ctx)
 	calendarService := calendarservice.NewService(db)
 	exportService := exporter.NewService(db)
 	importService := importer.NewService(db)

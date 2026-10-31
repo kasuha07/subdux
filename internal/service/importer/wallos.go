@@ -314,6 +314,7 @@ func (s *Service) ImportFromWallos(userID uint, data []WallosSubscription, confi
 			preferredCurrency = pref.PreferredCurrency
 		}
 
+		var capacity *subscriptionservice.CapacityTracker
 		for _, item := range data {
 			name := strings.TrimSpace(item.Name)
 			if name == "" {
@@ -567,6 +568,20 @@ func (s *Service) ImportFromWallos(userID uint, data []WallosSubscription, confi
 			}
 			subscriptionservice.SyncLegacyEnabledForLifecycle(&subscription)
 
+			if err := subscriptionservice.ValidateSubscriptionText(subscription.Name, subscription.Category, subscription.Notes, subscription.URL); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to import %q: %v", name, err))
+				continue
+			}
+			if capacity == nil {
+				var capacityErr error
+				if capacity, capacityErr = subscriptionservice.NewCapacityTracker(tx, userID); capacityErr != nil {
+					return capacityErr
+				}
+			}
+			if err := capacity.Reserve(); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to import %q: %v", name, err))
+				continue
+			}
 			if err := tx.Create(&subscription).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to import %q: %v", name, err))
 				continue

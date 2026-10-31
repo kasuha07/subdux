@@ -111,6 +111,16 @@ func enableReauthGateTestTOTP(t *testing.T, db *gorm.DB, userID uint, secret str
 	}
 }
 
+// resetTOTPReplayGuard clears the user's last accepted TOTP step. Gate tests
+// that mint several tickets within one 30-second window use it so each mint
+// may present the current code; TOTP replay itself is covered separately.
+func resetTOTPReplayGuard(t *testing.T, db *gorm.DB, userID uint) {
+	t.Helper()
+	if err := db.Model(&model.User{}).Where("id = ?", userID).Update("totp_last_counter", 0).Error; err != nil {
+		t.Fatalf("failed to reset totp replay guard: %v", err)
+	}
+}
+
 func postBackup(t *testing.T, e *echo.Echo, token, ticket string) *httptest.ResponseRecorder {
 	t.Helper()
 

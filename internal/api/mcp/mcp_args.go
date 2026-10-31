@@ -75,11 +75,11 @@ func createSubscriptionInputFromMCPArgs(args map[string]interface{}) subscriptio
 
 func updateSubscriptionInputFromMCPArgs(args map[string]interface{}) (subscriptionservice.UpdateSubscriptionInput, error) {
 	var input subscriptionservice.UpdateSubscriptionInput
-	revision, err := readRequiredIDArg(args, "revision")
+	revision, err := readRequiredRevisionArg(args, "revision")
 	if err != nil {
 		return input, err
 	}
-	input.Revision = uint64(revision)
+	input.Revision = revision
 	if err := validateSubscriptionWriteArgTypes(args); err != nil {
 		return input, err
 	}
@@ -267,6 +267,21 @@ func readRequiredIDArg(args map[string]interface{}, key string) (uint, error) {
 		return 0, nil
 	}
 	return uint(value), nil
+}
+
+// readRequiredRevisionArg reads a required optimistic-concurrency revision.
+// Unlike identifiers, nonpositive revisions are rejected outright: the service
+// layer treats revision 0 as an internal "skip the freshness check" sentinel,
+// so protocol input must never be able to produce it.
+func readRequiredRevisionArg(args map[string]interface{}, key string) (uint64, error) {
+	value, ok := readIntArg(args, key)
+	if !ok {
+		return 0, fmt.Errorf("%s is required", key)
+	}
+	if value < 1 {
+		return 0, fmt.Errorf("%s must be a positive integer", key)
+	}
+	return uint64(value), nil
 }
 
 func readStringArgOrDefault(args map[string]interface{}, key, fallback string) string {
