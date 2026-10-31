@@ -175,6 +175,16 @@ func (h *AuthHandler) DeleteOIDCConnection(c echo.Context) error {
 		return nil
 	}
 
+	// Unlinking an identity removes a sign-in factor, so it needs the same
+	// fresh step-up as deleting a passkey or disabling TOTP.
+	if err := h.Reauth.WithContext(c.Request().Context()).Consume(
+		userID,
+		servicereauth.ReauthOperationDeleteOIDCConnection,
+		apimw.ReauthTicketFromRequest(c),
+	); err != nil {
+		return apimw.WriteReauthError(c, err)
+	}
+
 	if err := h.Service.WithContext(c.Request().Context()).DeleteOIDCConnection(userID, uint(connectionID)); err != nil {
 		return httpx.WriteErrorFrom(c, http.StatusBadRequest, err)
 	}

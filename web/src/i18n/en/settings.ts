@@ -363,6 +363,10 @@ const settings = {
     "reauth": {
       "title": "Confirm it's you",
       "description": "For security, re-authenticate before connecting {{provider}}."
+    },
+    "disconnectReauth": {
+      "title": "Confirm it's you",
+      "description": "For security, re-authenticate before disconnecting {{provider}}."
     }
   },
   "about": {

@@ -72,6 +72,7 @@ const backendMessages = {
   "cannot_change_the_first_user_s_role_to_regular_user": "cannot change the first user's role to regular user",
   "cannot_delete_the_first_user": "cannot delete the first user",
   "cannot_delete_your_preferred_currency": "cannot delete your preferred currency",
+  "cannot_remove_last_login_method": "cannot remove the last sign-in method; set a password or add a passkey first",
   "cannot_delete_yourself": "cannot delete yourself",
   "cannot_disable_credentials_for_an_admin_user": "cannot disable credentials for an admin user",
   "cannot_disable_the_first_user": "cannot disable the first user",

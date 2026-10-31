@@ -363,6 +363,10 @@ const settings = {
     "reauth": {
       "title": "确认是你本人",
       "description": "出于安全考虑，连接 {{provider}} 前请重新验证身份。"
+    },
+    "disconnectReauth": {
+      "title": "确认是你本人",
+      "description": "出于安全考虑，断开 {{provider}} 前请重新验证身份。"
     }
   },
   "about": {

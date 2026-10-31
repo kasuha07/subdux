@@ -220,7 +220,10 @@ func (s *Service) ChangePassword(userID uint, input ChangePasswordInput) error {
 		return err
 	}
 	return s.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&user).Update("password", string(hash)).Error; err != nil {
+		if err := tx.Model(&user).Updates(map[string]interface{}{
+			"password":           string(hash),
+			"password_generated": false,
+		}).Error; err != nil {
 			return err
 		}
 		return revokeAllSessions(tx, userID)

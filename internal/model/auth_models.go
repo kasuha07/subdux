@@ -3,17 +3,20 @@ package model
 import "time"
 
 type User struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	Username       string    `gorm:"uniqueIndex;not null;size:255" json:"username"`
-	Email          string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
-	Password       string    `gorm:"not null" json:"-"`
-	Role           string    `gorm:"size:20;default:'user';check:chk_users_role,role IN ('admin','user')" json:"role"`
-	Status         string    `gorm:"size:20;default:'active';check:chk_users_status,status IN ('active','disabled')" json:"status"`
-	TotpSecret     *string   `gorm:"size:64" json:"-"`
-	TotpEnabled    bool      `gorm:"default:false" json:"totp_enabled"`
-	TotpTempSecret *string   `gorm:"size:64" json:"-"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             uint    `gorm:"primaryKey" json:"id"`
+	Username       string  `gorm:"uniqueIndex;not null;size:255" json:"username"`
+	Email          string  `gorm:"uniqueIndex;not null;size:255" json:"email"`
+	Password       string  `gorm:"not null" json:"-"`
+	Role           string  `gorm:"size:20;default:'user';check:chk_users_role,role IN ('admin','user')" json:"role"`
+	Status         string  `gorm:"size:20;default:'active';check:chk_users_status,status IN ('active','disabled')" json:"status"`
+	TotpSecret     *string `gorm:"size:64" json:"-"`
+	TotpEnabled    bool    `gorm:"default:false" json:"totp_enabled"`
+	TotpTempSecret *string `gorm:"size:64" json:"-"`
+	// PasswordGenerated marks a server-generated password the user never knew
+	// (OIDC auto-provisioning). It is cleared when the user sets a password.
+	PasswordGenerated bool      `gorm:"not null;default:false" json:"-"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type EmailVerificationCode struct {

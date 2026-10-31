@@ -473,15 +473,31 @@ func (s *Service) CanReauthWithOIDC(userID uint) (bool, error) {
 	return s.HasOIDCConnection(userID)
 }
 
+// DeleteOIDCConnection unlinks one of the user's OIDC identities. It refuses to
+// remove the account's last usable sign-in method (see
+// ensureLoginMethodRemains); the caller must have consumed a
+// delete_oidc_connection step-up ticket.
 func (s *Service) DeleteOIDCConnection(userID uint, connectionID uint) error {
-	result := s.DB.Where("id = ? AND user_id = ?", connectionID, userID).Delete(&model.OIDCConnection{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
-	}
-	return nil
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		var connection model.OIDCConnection
+		if err := tx.Select("id").Where("id = ? AND user_id = ?", connectionID, userID).First(&connection).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
+			}
+			return err
+		}
+		if err := ensureLoginMethodRemains(tx, userID, connectionID, 0); err != nil {
+			return err
+		}
+		result := tx.Where("id = ? AND user_id = ?", connectionID, userID).Delete(&model.OIDCConnection{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return serviceerr.New(serviceerr.KindInvalid, "oidc_connection_not_found", "oidc connection not found")
+		}
+		return nil
+	})
 }
 
 func oidcBrowserBindingMatches(expected string, presented string) bool {
@@ -940,6 +956,9 @@ func (s *Service) createOIDCUser(claims *oidcIdentityClaims) (*model.User, error
 		Password: string(hash),
 		Role:     "user",
 		Status:   "active",
+		// The random password above is discarded, so it is not a usable
+		// sign-in method until the user sets one (e.g. via password reset).
+		PasswordGenerated: true,
 	}
 
 	err = s.DB.Transaction(func(tx *gorm.DB) error {

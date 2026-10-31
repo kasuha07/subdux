@@ -60,6 +60,11 @@ func configureSQLiteDatabase(db *gorm.DB) error {
 	return nil
 }
 
+// usersColumnsAddedAfterLegacySchema lists users columns that later migrations
+// add. Legacy fixtures insert through the current model before migrating, so
+// they must omit columns their hand-written legacy schema does not have.
+var usersColumnsAddedAfterLegacySchema = []string{"password_generated"}
+
 func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 	db := openRawSQLiteTestDB(t)
 	if err := configureSQLiteDatabase(db); err != nil {
@@ -82,10 +87,10 @@ func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 	now := time.Date(2026, time.May, 12, 0, 0, 0, 0, time.UTC)
 	primaryUser := model.User{Username: "legacy-user", Email: "legacy@example.com", Password: "hash", Role: "ADMIN", Status: "ACTIVE", CreatedAt: now, UpdatedAt: now}
 	otherUser := model.User{Username: "other-user", Email: "other@example.com", Password: "hash", Role: "user", Status: "active", CreatedAt: now, UpdatedAt: now}
-	if err := db.Create(&primaryUser).Error; err != nil {
+	if err := db.Omit(usersColumnsAddedAfterLegacySchema...).Create(&primaryUser).Error; err != nil {
 		t.Fatalf("create primary user error = %v", err)
 	}
-	if err := db.Create(&otherUser).Error; err != nil {
+	if err := db.Omit(usersColumnsAddedAfterLegacySchema...).Create(&otherUser).Error; err != nil {
 		t.Fatalf("create other user error = %v", err)
 	}
 
@@ -352,10 +357,10 @@ func TestRunSchemaMigrationsClearsSubscriptionEventOrphans(t *testing.T) {
 	now := time.Date(2026, time.July, 3, 0, 0, 0, 0, time.UTC)
 	primaryUser := model.User{Username: "primary", Email: "primary@example.com", Password: "hash", Role: "user", Status: "active", CreatedAt: now, UpdatedAt: now}
 	otherUser := model.User{Username: "other", Email: "other@example.com", Password: "hash", Role: "user", Status: "active", CreatedAt: now, UpdatedAt: now}
-	if err := db.Create(&primaryUser).Error; err != nil {
+	if err := db.Omit(usersColumnsAddedAfterLegacySchema...).Create(&primaryUser).Error; err != nil {
 		t.Fatalf("create primary user error = %v", err)
 	}
-	if err := db.Create(&otherUser).Error; err != nil {
+	if err := db.Omit(usersColumnsAddedAfterLegacySchema...).Create(&otherUser).Error; err != nil {
 		t.Fatalf("create other user error = %v", err)
 	}
 
@@ -720,6 +725,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 		{Name: "20261002_01_mcp_oauth", Checksum: "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c"},
 		{Name: "20261005_01_oidc_connection_issuer", Checksum: "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34"},
 		{Name: "20261010_01_subscription_pending_price", Checksum: "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0"},
+		{Name: "20261031_01_user_password_generated", Checksum: "5302f9525a339bcc462835ba2b554b9d92057a1da1ee454d47632d1c57b9fff2"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -744,7 +750,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20261002_01_mcp_oauth.go":                       "6d98758622b5d4f4a43f24a2bb87f7e9fccb3fcd1c8d269f03f20e77f2433d1c",
 		"migration_20261005_01_oidc_connection_issuer.go":          "fbe0b2a427a6c2be843ac5740bcbf72191bf2c99ca84b1c6570c8750daef9b34",
 		"migration_20261010_01_subscription_pending_price.go":      "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0",
-		"schema_migration_registry.go":                             "1e5d2faf7773ae7ec99c3c1e75082db86e8b07544ffd7cd1c144cb4170e08de2",
+		"migration_20261031_01_user_password_generated.go":         "5302f9525a339bcc462835ba2b554b9d92057a1da1ee454d47632d1c57b9fff2",
+		"schema_migration_registry.go":                             "4aaa4104f9ad13eb14f3ca48946b4c782a2324c25d78a99a02b2db829df2b5bf",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

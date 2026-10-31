@@ -363,6 +363,10 @@ const settings = {
     "reauth": {
       "title": "本人確認",
       "description": "セキュリティのため、{{provider}}を連携する前に再認証してください。"
+    },
+    "disconnectReauth": {
+      "title": "本人確認",
+      "description": "セキュリティのため、{{provider}} の連携を解除する前に再認証してください。"
     }
   },
   "about": {

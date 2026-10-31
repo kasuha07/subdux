@@ -72,6 +72,7 @@ const backendMessages = {
   "cannot_change_the_first_user_s_role_to_regular_user": "最初のユーザーの役割を通常のユーザーに変更することはできません",
   "cannot_delete_the_first_user": "最初のユーザーを削除できません",
   "cannot_delete_your_preferred_currency": "優先通貨を削除できません",
+  "cannot_remove_last_login_method": "最後のサインイン方法は削除できません。先にパスワードを設定するかパスキーを追加してください",
   "cannot_delete_yourself": "自分自身を削除できません",
   "cannot_disable_credentials_for_an_admin_user": "管理者ユーザーの資格情報を無効にできません",
   "cannot_disable_the_first_user": "最初のユーザーを無効にすることはできません",

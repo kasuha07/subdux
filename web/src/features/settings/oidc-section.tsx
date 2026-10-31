@@ -22,6 +22,7 @@ export default function OIDCSection() {
   const [deletingID, setDeletingID] = useState<number | null>(null)
   const [error, setError] = useState("")
   const [reauthOpen, setReauthOpen] = useState(false)
+  const [disconnectTarget, setDisconnectTarget] = useState<OIDCConnection | null>(null)
 
   const providerName = useMemo(() => config?.provider_name || "OIDC", [config?.provider_name])
 
@@ -92,15 +93,21 @@ export default function OIDCSection() {
     }
   }
 
-  async function handleDisconnect(connection: OIDCConnection) {
+  function handleDisconnect(connection: OIDCConnection) {
     if (!window.confirm(t("settings.oidc.disconnectConfirm"))) {
       return
     }
+    setError("")
+    setDisconnectTarget(connection)
+  }
 
+  async function disconnectWithTicket(connection: OIDCConnection, reauthTicket: string) {
     setError("")
     setDeletingID(connection.id)
     try {
-      await api.delete(`/auth/oidc/connections/${connection.id}`)
+      await api.delete(`/auth/oidc/connections/${connection.id}`, {
+        headers: { "X-Reauth-Ticket": reauthTicket },
+      })
       await refreshConnections()
       toast.success(t("settings.oidc.disconnectSuccess"))
     } catch (err) {
@@ -177,6 +184,29 @@ export default function OIDCSection() {
         description={t("settings.oidc.reauth.description", { provider: providerName })}
       />
 
+      <ReauthDialog
+        operation="delete_oidc_connection"
+        open={disconnectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDisconnectTarget(null)
+          }
+        }}
+        onVerified={async (ticket) => {
+          if (!disconnectTarget) {
+            return
+          }
+          try {
+            await disconnectWithTicket(disconnectTarget, ticket)
+          } finally {
+            setDisconnectTarget(null)
+          }
+        }}
+        title={t("settings.oidc.disconnectReauth.title")}
+        description={t("settings.oidc.disconnectReauth.description", { provider: providerName })}
+        confirmVariant="destructive"
+      />
+
       <div className="space-y-2">
         {!loading && connections.length === 0 && (
           <p className="text-sm text-muted-foreground">{t("settings.oidc.empty")}</p>
@@ -192,7 +222,7 @@ export default function OIDCSection() {
               variant="ghost"
               className="text-destructive hover:text-destructive"
               disabled={deletingID === connection.id}
-              onClick={() => void handleDisconnect(connection)}
+              onClick={() => handleDisconnect(connection)}
             >
               {deletingID === connection.id ? t("settings.oidc.disconnecting") : t("settings.oidc.disconnect")}
             </Button>
