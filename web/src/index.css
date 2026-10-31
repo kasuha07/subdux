@@ -638,12 +638,13 @@ html[dir='rtl'] .ulw-toast-close {
   }
 }
 
+/* No persistent will-change on long-lived content: it keeps the element on its
+   own GPU layer after the animation ends, which blurs text on Windows. */
 .admin-tabs [data-slot="tabs-content"][data-state="active"],
 .admin-tab-content[data-state="active"],
 .settings-tabs [data-slot="tabs-content"][data-state="active"],
 .settings-tab-content[data-state="active"] {
   animation: admin-tab-content-enter var(--motion-normal) var(--motion-ease) both;
-  will-change: opacity, translate;
 }
 
 .admin-tabs-list [data-slot="tabs-trigger"],
@@ -909,7 +910,6 @@ html[dir='rtl'] .ulw-toast-close {
 
 .page-transition {
   animation: page-enter var(--motion-normal) var(--motion-ease) both;
-  will-change: opacity, translate;
 }
 
 @keyframes page-stage-enter {
@@ -926,7 +926,6 @@ html[dir='rtl'] .ulw-toast-close {
 .page-stage-enter {
   animation: page-stage-enter 240ms var(--motion-ease) backwards;
   animation-delay: 40ms;
-  will-change: opacity, translate;
 }
 
 @keyframes page-content-fade-in {
