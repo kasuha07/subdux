@@ -675,7 +675,6 @@ html[dir='rtl'] .ulw-toast-close {
 
 .icon-picker-tab-content[data-state="active"] {
   animation: icon-picker-tab-enter var(--motion-fast) var(--motion-ease) both;
-  will-change: opacity, transform;
 }
 
 @keyframes icon-picker-grid-enter {
@@ -691,7 +690,6 @@ html[dir='rtl'] .ulw-toast-close {
 
 .icon-picker-grid-enter {
   animation: icon-picker-grid-enter 160ms var(--motion-ease) both;
-  will-change: opacity, transform;
 }
 
 [data-slot="button"],
@@ -750,7 +748,6 @@ html[dir='rtl'] .ulw-toast-close {
     transition: opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
       translate 280ms cubic-bezier(0.22, 1, 0.36, 1),
       scale 280ms cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: opacity, translate, scale;
   }
 
   .subscription-scroll-wrap[data-scroll-state="in-view"] {
@@ -823,7 +820,6 @@ html[dir='rtl'] .ulw-toast-close {
     opacity 220ms ease-out,
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
     margin-bottom 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: grid-template-rows, opacity, transform;
 }
 
 .action-item-inner {
@@ -860,7 +856,6 @@ html[dir='rtl'] .ulw-toast-close {
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
     margin-bottom 260ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 260ms;
-  will-change: grid-template-rows, opacity, transform;
 }
 
 .batch-bar-wrap.batch-bar-open {
@@ -894,7 +889,6 @@ html[dir='rtl'] .ulw-toast-close {
   justify-content: center;
   animation: batch-checkbox-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: min(calc(var(--card-delay, 0ms) * 0.4), 120ms);
-  will-change: transform, opacity;
 }
 
 @keyframes page-enter {
