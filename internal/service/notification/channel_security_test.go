@@ -19,7 +19,7 @@ func TestMergeNotificationConfigWithExistingSecretsPreservesBlankSecret(t *testi
 		t.Fatalf("EncryptNotificationChannelConfig() error = %v", err)
 	}
 
-	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://example.com/new-hook","secret":""}`, nil, nil)
+	merged, err := mergeNotificationConfigWithExistingSecrets("webhook", existingEncrypted, `{"url":"https://EXAMPLE.com/hook/","secret":""}`, nil, nil)
 	if err != nil {
 		t.Fatalf("mergeNotificationConfigWithExistingSecrets() error = %v", err)
 	}
@@ -28,8 +28,8 @@ func TestMergeNotificationConfigWithExistingSecretsPreservesBlankSecret(t *testi
 	if err := json.Unmarshal([]byte(merged), &parsed); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	if parsed["url"] != "https://example.com/new-hook" {
-		t.Fatalf("merged url = %q, want %q", parsed["url"], "https://example.com/new-hook")
+	if parsed["url"] != "https://EXAMPLE.com/hook/" {
+		t.Fatalf("merged url = %q, want %q", parsed["url"], "https://EXAMPLE.com/hook/")
 	}
 	if parsed["secret"] != "keep-me" {
 		t.Fatalf("merged secret = %q, want %q", parsed["secret"], "keep-me")
@@ -166,7 +166,7 @@ func TestUpdateChannelPreservesExistingSecretWhenInputBlank(t *testing.T) {
 		t.Fatalf("db.Create() error = %v", err)
 	}
 
-	updateConfig := `{"url":"https://example.com/new-hook","secret":""}`
+	updateConfig := `{"url":"https://EXAMPLE.com/hook/","secret":""}`
 	updated, err := svc.UpdateChannel(user.ID, channel.ID, UpdateChannelInput{Config: &updateConfig})
 	if err != nil {
 		t.Fatalf("UpdateChannel() error = %v", err)
@@ -184,8 +184,8 @@ func TestUpdateChannelPreservesExistingSecretWhenInputBlank(t *testing.T) {
 	if parsed["secret"] != "keep-me" {
 		t.Fatalf("secret = %q, want %q", parsed["secret"], "keep-me")
 	}
-	if parsed["url"] != "https://example.com/new-hook" {
-		t.Fatalf("url = %q, want %q", parsed["url"], "https://example.com/new-hook")
+	if parsed["url"] != "https://EXAMPLE.com/hook/" {
+		t.Fatalf("url = %q, want %q", parsed["url"], "https://EXAMPLE.com/hook/")
 	}
 }
 
@@ -212,7 +212,7 @@ func TestUpdateChannelPreservesExistingWebhookHeaderValuesWhenInputBlank(t *test
 		t.Fatalf("db.Create() error = %v", err)
 	}
 
-	updateConfig := `{"url":"https://example.com/new-hook","headers":{"X-Token":"","X-Env":""}}`
+	updateConfig := `{"url":"https://EXAMPLE.com/hook/","headers":{"X-Token":"","X-Env":""}}`
 	updated, err := svc.UpdateChannel(user.ID, channel.ID, UpdateChannelInput{Config: &updateConfig})
 	if err != nil {
 		t.Fatalf("UpdateChannel() error = %v", err)
@@ -230,8 +230,8 @@ func TestUpdateChannelPreservesExistingWebhookHeaderValuesWhenInputBlank(t *test
 	if err := json.Unmarshal([]byte(decrypted), &parsed); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	if parsed.URL != "https://example.com/new-hook" {
-		t.Fatalf("url = %q, want %q", parsed.URL, "https://example.com/new-hook")
+	if parsed.URL != "https://EXAMPLE.com/hook/" {
+		t.Fatalf("url = %q, want %q", parsed.URL, "https://EXAMPLE.com/hook/")
 	}
 	if parsed.Headers["X-Token"] != "keep-me" {
 		t.Fatalf("headers.X-Token = %q, want %q", parsed.Headers["X-Token"], "keep-me")

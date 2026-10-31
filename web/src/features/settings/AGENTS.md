@@ -78,7 +78,8 @@ settings/
 
 ### Account Security And API Keys
 
-- Email change, password change, passkeys, OIDC connections, API keys, audit, and export are human-session-only backend surfaces.
+- Email change, password change, passkeys, OIDC connections, API keys, audit, export, and notification channel create/update/delete/test are human-session-only backend surfaces.
+- Editing a channel's destination (URL, server URL, endpoint, or SMTP host/port/encryption/TLS verification) requires re-entering or clearing its saved secrets; the backend rejects the update with `notification_secrets_must_be_reentered_when_destination_changes` otherwise.
 - Preserve REST vs MCP key-kind/scoping semantics.
 - MCP snippets must include `X-API-Key`, `Content-Type: application/json`, and `Accept: application/json`.
 - Do not store or redisplay secrets beyond the one-time API-key reveal contract already established.
