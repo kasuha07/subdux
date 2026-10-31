@@ -321,6 +321,8 @@ const backendMessages = {
   "status_must_be_one_of_active_ended": "status must be one of: active, ended",
   "status_updated": "status updated",
   "subdux_export_file_is_too_large": "subdux export file is too large",
+  "subscription_field_too_long": "{{field}} must be at most {{max}} characters",
+  "subscription_limit_reached": "subscription limit reached ({{limit}} per account)",
   "subscription_not_found": "subscription not found",
   "subscription_recurrence_settings_are_invalid": "subscription recurrence settings are invalid",
   "subscription_url_must_be_a_valid_http_or_https_url": "subscription url must be a valid http or https URL",

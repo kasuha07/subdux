@@ -175,7 +175,7 @@ Alternatively, create an MCP-client API key in Subdux and connect an MCP client:
 }
 ```
 
-The endpoint is stateless: every `POST /mcp` request is authenticated independently. Write tools require an `idempotency_key`, so a client can safely retry after a timeout without repeating an operation. Reusing a key with different arguments is rejected, and keys are isolated per user.
+The endpoint is stateless: every `POST /mcp` request is authenticated independently. Write tools require an `idempotency_key`, so a client can safely retry after a timeout without repeating an operation. Reusing a key with different arguments is rejected, and keys are isolated per user. Results are replayable for 24 hours; after that the key may be reused as a new request.
 
 Subdux supports JSON-RPC requests for `initialize`, `ping`, `tools/list`, and `tools/call`. It does not keep MCP transport sessions or provide SSE/server-initiated streaming.
 

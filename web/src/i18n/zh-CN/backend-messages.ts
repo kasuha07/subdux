@@ -321,6 +321,8 @@ const backendMessages = {
   "status_must_be_one_of_active_ended": "状态必须是以下之一：活动、结束",
   "status_updated": "状态已更新",
   "subdux_export_file_is_too_large": "subdux导出文件太大",
+  "subscription_field_too_long": "{{field}} 最多 {{max}} 个字符",
+  "subscription_limit_reached": "订阅数量已达上限（每个账户 {{limit}} 个）",
   "subscription_not_found": "找不到订阅",
   "subscription_recurrence_settings_are_invalid": "订阅重复设置无效",
   "subscription_url_must_be_a_valid_http_or_https_url": "订阅 url 必须是有效的 http 或 https URL",

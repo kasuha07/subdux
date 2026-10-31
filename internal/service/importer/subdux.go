@@ -687,6 +687,7 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 			result.Imported++
 		}
 
+		var capacity *subscriptionservice.CapacityTracker
 		for _, incoming := range data.Subscriptions {
 			name := strings.TrimSpace(incoming.Name)
 			if name == "" {
@@ -888,6 +889,20 @@ func (s *Service) ImportFromSubdux(userID uint, data SubduxImportData, confirm b
 			}
 			subscriptionservice.SyncLegacyEnabledForLifecycle(&created)
 
+			if err := subscriptionservice.ValidateSubscriptionText(created.Name, created.Category, created.Notes, created.URL); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to create subscription %q: %v", incoming.Name, err))
+				continue
+			}
+			if capacity == nil {
+				var capacityErr error
+				if capacity, capacityErr = subscriptionservice.NewCapacityTracker(tx, userID); capacityErr != nil {
+					return capacityErr
+				}
+			}
+			if err := capacity.Reserve(); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to create subscription %q: %v", incoming.Name, err))
+				continue
+			}
 			if err := tx.Create(&created).Error; err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("failed to create subscription %q: %v", incoming.Name, err))
 				continue

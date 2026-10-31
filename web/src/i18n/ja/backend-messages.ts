@@ -321,6 +321,8 @@ const backendMessages = {
   "status_must_be_one_of_active_ended": "ステータスはアクティブ、終了のいずれかである必要があります。",
   "status_updated": "ステータスが更新されました",
   "subdux_export_file_is_too_large": "subdux エクスポート ファイルが大きすぎます",
+  "subscription_field_too_long": "{{field}} は {{max}} 文字以内で入力してください",
+  "subscription_limit_reached": "サブスクリプションの上限に達しました（1アカウントあたり {{limit}} 件）",
   "subscription_not_found": "サブスクリプションが見つかりません",
   "subscription_recurrence_settings_are_invalid": "定期購入の繰り返し設定が無効です",
   "subscription_url_must_be_a_valid_http_or_https_url": "サブスクリプション URL は有効な http または https URL である必要があります",

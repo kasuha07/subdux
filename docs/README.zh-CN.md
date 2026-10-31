@@ -173,7 +173,7 @@ docker compose up -d
 }
 ```
 
-端点保持无状态：每个 `POST /mcp` 请求都会独立认证。写操作工具必须提供 `idempotency_key`，客户端在超时后可以安全重试而不会重复执行；同一个 Key 携带不同参数会被拒绝，且 Key 按用户隔离。
+端点保持无状态：每个 `POST /mcp` 请求都会独立认证。写操作工具必须提供 `idempotency_key`，客户端在超时后可以安全重试而不会重复执行；同一个 Key 携带不同参数会被拒绝，且 Key 按用户隔离。结果可在 24 小时内重放；超过 24 小时后该 Key 会被视为新请求。
 
 Subdux 为 `initialize`、`ping`、`tools/list` 和 `tools/call` 返回 JSON-RPC 响应，不维护 MCP 传输会话，也不提供 SSE 或服务端主动流式推送。
 
