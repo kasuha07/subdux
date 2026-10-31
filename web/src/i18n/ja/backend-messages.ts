@@ -372,6 +372,7 @@ const backendMessages = {
   "wecom_channel_requires_webhook_url": "wecom チャネルには webhook_url が必要です",
   "yearly_day_must_be_between_1_and_31_for_yearly_date_recurrence": "毎年日付を繰り返す場合、yearly_day は 1 ～ 31 の範囲にする必要があります",
   "yearly_month_must_be_between_1_and_12_for_yearly_date_recurrence": "毎年日付を繰り返す場合、yearly_month は 1 から 12 までの値にする必要があります",
+  "notification_secrets_must_be_reentered_when_destination_changes": "配信先が変更されました。保存する前に、次の保存済みシークレットを再入力するかクリアしてください: {{fields}}",
   "maximum_number_of_notification_channels_reached": "有効化できる通知チャンネルは最大 {{max}} 件です",
   "you_have_already_connected_another_oidc_account": "すでに別のoidcアカウントに接続しています",
   "your_provider_sign_in_did_not_prove_strong_enough_authentication_for_this_account_use_a_passkey_or_another_method": "プロバイダーのサインインでは、このアカウントに対する認証が十分に強力であることが証明されませんでした。パスキーまたは別の方法を使用する",

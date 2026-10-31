@@ -2,6 +2,7 @@ package notification
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kasuha07/subdux/internal/service/serviceerr"
 )
@@ -22,6 +23,19 @@ func errTooManyEnabledChannels() *serviceerr.Error {
 		"maximum_number_of_notification_channels_reached",
 		fmt.Sprintf("you can enable at most %d notification channels", maxEnabledNotificationChannels),
 		map[string]any{"max": maxEnabledNotificationChannels},
+	)
+}
+
+// errNotificationSecretsRequireReentry rejects a channel update that changes the
+// delivery destination while relying on stored secrets the caller did not
+// re-enter or explicitly clear.
+func errNotificationSecretsRequireReentry(fields []string) *serviceerr.Error {
+	joined := strings.Join(fields, ", ")
+	return serviceerr.NewCode(
+		serviceerr.KindInvalid,
+		"notification_secrets_must_be_reentered_when_destination_changes",
+		"notification destination changed; re-enter or clear these stored secrets: "+joined,
+		map[string]any{"fields": joined},
 	)
 }
 

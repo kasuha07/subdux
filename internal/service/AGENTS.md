@@ -126,6 +126,7 @@ func NewService(db *gorm.DB) *Service {
 - Outbox/dispatch logic should remain lease-aware and idempotent enough for retries.
 - Template rendering must keep unsafe template behavior covered by tests.
 - New channels need validation, rendering/delivery, policy/log behavior, settings UI/API wiring, and tests.
+- Stored channel secrets (and webhook header values) are only carried forward on update while the delivery destination is unchanged. A channel type whose secrets go to a configurable host must list its destination fields in `notification/channel_destination.go`; changing them requires the caller to re-enter or explicitly clear every retained secret.
 
 ## TESTING
 

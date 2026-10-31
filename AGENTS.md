@@ -6,7 +6,7 @@
 
 ## PROJECT OVERVIEW
 
-Go 1.26.4 + React 19 monorepo. Subdux builds as a single binary with the Vite frontend embedded into the Go server. It tracks recurring subscriptions, renewal actions, reports, calendar feeds, multi-currency costs, notifications, imports/exports, API keys, MCP access, admin settings, backup/restore, and human-account authentication through password, TOTP, passkey, and OIDC flows.
+Go 1.26.10 + React 19 monorepo. Subdux builds as a single binary with the Vite frontend embedded into the Go server. It tracks recurring subscriptions, renewal actions, reports, calendar feeds, multi-currency costs, notifications, imports/exports, API keys, MCP access, admin settings, backup/restore, and human-account authentication through password, TOTP, passkey, and OIDC flows.
 
 **Stack:** Echo v4 + GORM on SQLite, `modelcontextprotocol/go-sdk`, React 19 + React Router 7, Vite 8, Tailwind v4, Shadcn-style local UI primitives, i18next, Bun.
 

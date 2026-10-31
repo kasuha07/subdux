@@ -372,6 +372,7 @@ const backendMessages = {
   "wecom_channel_requires_webhook_url": "wecom 频道需要 webhook_url",
   "yearly_day_must_be_between_1_and_31_for_yearly_date_recurrence": "对于每年的日期重复，yearly_day 必须介于 1 和 31 之间",
   "yearly_month_must_be_between_1_and_12_for_yearly_date_recurrence": "对于每年日期重复，yearly_month 必须介于 1 和 12 之间",
+  "notification_secrets_must_be_reentered_when_destination_changes": "投递目标已变更。保存前请重新填写或清除以下已保存的密钥：{{fields}}",
   "maximum_number_of_notification_channels_reached": "最多只能启用 {{max}} 个通知渠道",
   "you_have_already_connected_another_oidc_account": "您已经连接了另一个 oidc 帐户",
   "your_provider_sign_in_did_not_prove_strong_enough_authentication_for_this_account_use_a_passkey_or_another_method": "您的提供商登录未证明该帐户的身份验证足够强大；使用密钥或其他方法",

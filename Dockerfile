@@ -7,7 +7,7 @@ COPY web/ .
 RUN bun run build
 
 # Stage 2: Build Go binary
-FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine AS backend
+FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine AS backend
 WORKDIR /app
 
 ARG VERSION=dev

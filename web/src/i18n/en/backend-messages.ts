@@ -372,6 +372,7 @@ const backendMessages = {
   "wecom_channel_requires_webhook_url": "wecom channel requires webhook_url",
   "yearly_day_must_be_between_1_and_31_for_yearly_date_recurrence": "yearly_day must be between 1 and 31 for yearly date recurrence",
   "yearly_month_must_be_between_1_and_12_for_yearly_date_recurrence": "yearly_month must be between 1 and 12 for yearly date recurrence",
+  "notification_secrets_must_be_reentered_when_destination_changes": "The delivery destination changed. Re-enter or clear these saved secrets before saving: {{fields}}",
   "maximum_number_of_notification_channels_reached": "You can enable at most {{max}} notification channels.",
   "you_have_already_connected_another_oidc_account": "you have already connected another oidc account",
   "your_provider_sign_in_did_not_prove_strong_enough_authentication_for_this_account_use_a_passkey_or_another_method": "your provider sign-in did not prove strong enough authentication for this account; use a passkey or another method",

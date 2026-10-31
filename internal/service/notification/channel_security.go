@@ -120,6 +120,16 @@ func SanitizeNotificationConfig(channelType, config string) (string, []string, [
 	return sanitizeNotificationConfig(channelType, config)
 }
 
+// mergeNotificationConfigWithExistingSecrets rebuilds a channel config from an
+// update payload, carrying forward stored secrets (and webhook header values)
+// that the client left blank because responses only ever expose them masked.
+//
+// Carrying a secret forward is only safe while it keeps flowing to the same
+// destination it was entered for. When the update changes where the channel
+// delivers (see notificationChannelDestinationFingerprint), every stored secret
+// that would otherwise be retained must be re-entered or explicitly cleared;
+// otherwise the update is rejected so a caller cannot rebind a write-only
+// credential to an endpoint it controls.
 func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, incomingConfig string, clearedFields []string, clearedHeaderKeys []string) (string, error) {
 	incomingParsed, err := parseNotificationConfigMap(incomingConfig)
 	if err != nil {
@@ -144,17 +154,30 @@ func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, inc
 		return "", err
 	}
 
+	destinationChanged := notificationChannelDestinationChanged(channelType, existingParsed, incomingParsed)
+	unresolved := make([]string, 0)
+
 	for field := range secretFields {
 		if sliceContains(clearedFields, field) {
 			incomingParsed[field] = ""
 			continue
 		}
 
+		existingValue, hasExisting := nonBlankStringValue(existingParsed, field)
+
 		rawIncoming, hasIncoming := incomingParsed[field]
 		if !hasIncoming {
-			if rawExisting, ok := existingParsed[field]; ok {
-				incomingParsed[field] = rawExisting
+			if !hasExisting {
+				if rawExisting, ok := existingParsed[field]; ok {
+					incomingParsed[field] = rawExisting
+				}
+				continue
 			}
+			if destinationChanged {
+				unresolved = append(unresolved, field)
+				continue
+			}
+			incomingParsed[field] = existingValue
 			continue
 		}
 
@@ -162,22 +185,24 @@ func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, inc
 		if !ok {
 			continue
 		}
-
-		trimmedIncoming := strings.TrimSpace(incomingValue)
-		if trimmedIncoming != "" {
+		if strings.TrimSpace(incomingValue) != "" {
 			continue
 		}
-
-		rawExisting, ok := existingParsed[field]
-		if !ok {
+		if !hasExisting {
 			continue
 		}
-		if existingValue, ok := rawExisting.(string); ok && strings.TrimSpace(existingValue) != "" {
-			incomingParsed[field] = existingValue
+		if destinationChanged {
+			unresolved = append(unresolved, field)
+			continue
 		}
+		incomingParsed[field] = existingValue
 	}
 	if strings.EqualFold(strings.TrimSpace(channelType), "webhook") {
-		mergeWebhookHeadersWithExisting(existingParsed, incomingParsed, clearedHeaderKeys)
+		unresolved = append(unresolved, mergeWebhookHeadersWithExisting(existingParsed, incomingParsed, clearedHeaderKeys, destinationChanged)...)
+	}
+	if len(unresolved) > 0 {
+		sort.Strings(unresolved)
+		return "", errNotificationSecretsRequireReentry(unresolved)
 	}
 
 	encoded, err := json.Marshal(incomingParsed)
@@ -185,6 +210,18 @@ func mergeNotificationConfigWithExistingSecrets(channelType, existingConfig, inc
 		return "", err
 	}
 	return string(encoded), nil
+}
+
+func nonBlankStringValue(config map[string]interface{}, field string) (string, bool) {
+	raw, ok := config[field]
+	if !ok {
+		return "", false
+	}
+	value, ok := raw.(string)
+	if !ok || strings.TrimSpace(value) == "" {
+		return "", false
+	}
+	return value, true
 }
 
 func sliceContains(slice []string, item string) bool {
@@ -219,30 +256,48 @@ func maskWebhookHeaders(config map[string]interface{}) []string {
 	return maskedHeaderKeys
 }
 
-func mergeWebhookHeadersWithExisting(existingConfig map[string]interface{}, incomingConfig map[string]interface{}, clearedHeaderKeys []string) {
+// mergeWebhookHeadersWithExisting carries forward masked webhook header values
+// the client left blank. When destinationChanged is true nothing is carried
+// forward; instead the keys of stored header values that would have been
+// retained are returned (prefixed with "headers.") so the caller can reject the
+// update until they are re-entered or explicitly cleared.
+func mergeWebhookHeadersWithExisting(existingConfig map[string]interface{}, incomingConfig map[string]interface{}, clearedHeaderKeys []string, destinationChanged bool) []string {
 	existingRawHeaders, hasExistingHeaders := existingConfig["headers"]
 	if !hasExistingHeaders {
-		return
+		return nil
 	}
 	existingHeaders, ok := existingRawHeaders.(map[string]interface{})
 	if !ok {
-		return
+		return nil
 	}
 
 	incomingRawHeaders, hasIncomingHeaders := incomingConfig["headers"]
 	if !hasIncomingHeaders {
-		incomingConfig["headers"] = existingHeaders
-		return
+		if !destinationChanged {
+			incomingConfig["headers"] = existingHeaders
+			return nil
+		}
+		unresolved := make([]string, 0)
+		for key := range existingHeaders {
+			if sliceContains(clearedHeaderKeys, key) {
+				continue
+			}
+			if _, ok := nonBlankStringValue(existingHeaders, key); ok {
+				unresolved = append(unresolved, "headers."+key)
+			}
+		}
+		return unresolved
 	}
 
 	incomingHeaders, ok := incomingRawHeaders.(map[string]interface{})
 	if !ok {
-		return
+		return nil
 	}
 	if len(incomingHeaders) == 0 {
-		return
+		return nil
 	}
 
+	unresolved := make([]string, 0)
 	for key, rawIncoming := range incomingHeaders {
 		if sliceContains(clearedHeaderKeys, key) {
 			incomingHeaders[key] = ""
@@ -252,20 +307,20 @@ func mergeWebhookHeadersWithExisting(existingConfig map[string]interface{}, inco
 		if !ok {
 			continue
 		}
-		trimmedIncoming := strings.TrimSpace(incomingValue)
-		if trimmedIncoming != "" {
+		if strings.TrimSpace(incomingValue) != "" {
 			continue
 		}
-		rawExisting, ok := existingHeaders[key]
+		existingValue, ok := nonBlankStringValue(existingHeaders, key)
 		if !ok {
 			continue
 		}
-		existingValue, ok := rawExisting.(string)
-		if !ok || strings.TrimSpace(existingValue) == "" {
+		if destinationChanged {
+			unresolved = append(unresolved, "headers."+key)
 			continue
 		}
 		incomingHeaders[key] = existingValue
 	}
+	return unresolved
 }
 
 func (s *Service) SanitizeChannelForResponse(channel model.NotificationChannel) (model.NotificationChannel, []string, []string) {

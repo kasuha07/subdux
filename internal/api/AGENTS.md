@@ -43,8 +43,8 @@ api/
 - Public auth routes live under `/api/auth/*`.
 - Shared step-up routes live under `/api/reauth/*`.
 - Public utility routes include `/api/version`, `/api/version/latest`, `/api/site-info`, and `/api/icon-proxy/:provider`.
-- Protected REST routes cover subscriptions, dashboard, actions, reports, exchange rates, currencies, categories, payment methods, notifications, and imports.
-- Human-only routes cover account changes, passkeys, OIDC connections, API keys, audit events, calendar token management, and export.
+- Protected REST routes cover subscriptions, dashboard, actions, reports, exchange rates, currencies, categories, payment methods, notification channel listing (secret-masked), notification policy/templates/logs, and imports.
+- Human-only routes cover account changes, passkeys, OIDC connections, API keys, audit events, calendar token management, export, and notification channel create/update/delete/test (channel configs hold third-party credentials).
 - Admin JWT routes live under `/api/admin/*`.
 - Public calendar feed is `/api/calendar/feed`.
 - MCP lives at `/mcp` and is handled separately from REST.
