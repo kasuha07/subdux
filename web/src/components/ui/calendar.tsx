@@ -1,4 +1,3 @@
-import * as React from "react"
 import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
@@ -110,16 +109,17 @@ export function Calendar({
   const [viewYear, setViewYear] = useState(() => parsedValue?.year ?? today.year)
   const [viewMonth, setViewMonth] = useState(() => parsedValue?.month ?? today.month)
 
-  const parsedYear = parsedValue?.year
-  const parsedMonth = parsedValue?.month
-
-  // Sync view when controlled value changes to a different month/year
-  React.useEffect(() => {
-    if (parsedYear !== undefined && parsedMonth !== undefined) {
-      setViewYear(parsedYear)
-      setViewMonth(parsedMonth)
+  // Sync view when controlled value changes to a different month/year.
+  // Adjusting state during render avoids an extra effect-driven pass.
+  const parsedMonthKey = parsedValue ? `${parsedValue.year}-${parsedValue.month}` : null
+  const [syncedMonthKey, setSyncedMonthKey] = useState(parsedMonthKey)
+  if (parsedMonthKey !== syncedMonthKey) {
+    setSyncedMonthKey(parsedMonthKey)
+    if (parsedValue) {
+      setViewYear(parsedValue.year)
+      setViewMonth(parsedValue.month)
     }
-  }, [parsedYear, parsedMonth])
+  }
 
   // Year options for fast select
   const yearOptions = useMemo(() => {

@@ -30,7 +30,6 @@ export default function CategoryManagement() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     api.get<Category[]>("/categories").then((list) => {
       if (!cancelled) setCategories(list ?? [])
     }).catch(() => void 0).finally(() => {

@@ -13,26 +13,50 @@ interface OAuthGrant {
   last_used_at: string | null
 }
 
+interface OAuthInfo {
+  enabled: boolean
+  configured: boolean
+  url: string
+}
+
+type OAuthState = [OAuthGrant[], OAuthInfo]
+
+function requestOAuthState(): Promise<OAuthState> {
+  return Promise.all([api.get<OAuthGrant[]>("/mcp/oauth/grants"), api.get<OAuthInfo>("/mcp/oauth/info")])
+}
+
 export default function MCPOAuthConnections({ active }: { active: boolean }) {
   const { t } = useTranslation()
   const [grants, setGrants] = useState<OAuthGrant[]>([])
-  const [info, setInfo] = useState<{ enabled: boolean; configured: boolean; url: string } | null>(null)
+  const [info, setInfo] = useState<OAuthInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [revoking, setRevoking] = useState<number | null>(null)
+
+  const applyResult = useCallback(([connections, config]: OAuthState) => {
+    setGrants(connections)
+    setInfo(config)
+    setError(false)
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(false)
     try {
-      const [connections, config] = await Promise.all([api.get<OAuthGrant[]>("/mcp/oauth/grants"), api.get<{ enabled: boolean; configured: boolean; url: string }>("/mcp/oauth/info")])
-      setGrants(connections)
-      setInfo(config)
+      applyResult(await requestOAuthState())
     } catch { setError(true) }
     finally { setLoading(false) }
-  }, [])
+  }, [applyResult])
 
-  useEffect(() => { if (active) void load() }, [active, load])
+  useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    requestOAuthState()
+      .then((result) => { if (!cancelled) applyResult(result) })
+      .catch(() => { if (!cancelled) setError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [active, applyResult])
 
   async function revoke(id: number) {
     if (revoking !== null || !window.confirm(t("settings.mcpOAuth.revokeConfirm"))) return

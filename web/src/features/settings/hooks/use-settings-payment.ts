@@ -26,6 +26,11 @@ import type {
 } from "@/types"
 
 const customCodeOption = "__custom__"
+
+interface AddFieldDraft {
+  key: string
+  value: string
+}
 const currencyPlaceholderFallbackCode = "USD"
 
 interface UseSettingsPaymentOptions {
@@ -96,10 +101,10 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
 
   const [currency, setCurrency] = useState(getDefaultCurrency())
   const [userCurrencies, setUserCurrencies] = useState<UserCurrency[]>([])
-  const [addCode, setAddCode] = useState("")
+  const [selectedAddCode, setSelectedAddCode] = useState("")
   const [customCode, setCustomCode] = useState("")
-  const [addSymbol, setAddSymbol] = useState("")
-  const [addAlias, setAddAlias] = useState("")
+  const [addSymbolDraft, setAddSymbolDraft] = useState<AddFieldDraft | null>(null)
+  const [addAliasDraft, setAddAliasDraft] = useState<AddFieldDraft | null>(null)
   const [addLoading, setAddLoading] = useState(false)
   const [currencyPreferenceLoaded, setCurrencyPreferenceLoaded] = useState(false)
   const [currencySaving, setCurrencySaving] = useState(false)
@@ -183,6 +188,41 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     [i18n.language, userCurrencies]
   )
 
+  // The effective add code is derived from the user's selection so it always
+  // points at an addable preset (or the custom option) without an effect.
+  const addCode = useMemo(() => {
+    if (selectedAddCode === customCodeOption || addableCurrencyCodes.length === 0) {
+      return customCodeOption
+    }
+    if (!selectedAddCode || !addableCurrencyCodes.includes(selectedAddCode)) {
+      return addableCurrencyCodes[0]
+    }
+    return selectedAddCode
+  }, [addableCurrencyCodes, selectedAddCode])
+
+  // Symbol/alias edits only apply to the code and language they were typed
+  // for; any change falls back to the preset values (empty for custom codes).
+  const addFieldKey = `${addCode}|${i18n.language}`
+  const addPreset = addCode === customCodeOption ? null : getPresetCurrencyMeta(addCode, i18n.language)
+  const addSymbol = addSymbolDraft?.key === addFieldKey ? addSymbolDraft.value : (addPreset?.symbol ?? "")
+  const addAlias = addAliasDraft?.key === addFieldKey ? addAliasDraft.value : (addPreset?.alias ?? "")
+
+  const setAddCode = useCallback((value: string) => {
+    setSelectedAddCode(value)
+    setAddSymbolDraft(null)
+    setAddAliasDraft(null)
+  }, [])
+
+  const setAddSymbol = useCallback(
+    (value: string) => setAddSymbolDraft({ key: addFieldKey, value }),
+    [addFieldKey]
+  )
+
+  const setAddAlias = useCallback(
+    (value: string) => setAddAliasDraft({ key: addFieldKey, value }),
+    [addFieldKey]
+  )
+
   const addPlaceholderCode = useMemo(() => {
     if (addCode === customCodeOption) {
       return customCode.trim().toUpperCase() || currencyPlaceholderFallbackCode
@@ -246,39 +286,6 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
     [i18n.language, intlFallbackAliasPlaceholder]
   )
 
-  useEffect(() => {
-    if (addCode === customCodeOption) {
-      setAddSymbol("")
-      setAddAlias("")
-      return
-    }
-
-    if (addableCurrencyCodes.length === 0) {
-      setAddCode(customCodeOption)
-      return
-    }
-
-    if (!addCode || !addableCurrencyCodes.includes(addCode)) {
-      setAddCode(addableCurrencyCodes[0])
-    }
-  }, [addCode, addableCurrencyCodes])
-
-  useEffect(() => {
-    if (addCode === customCodeOption) {
-      return
-    }
-
-    const preset = getPresetCurrencyMeta(addCode, i18n.language)
-    if (!preset) {
-      setAddSymbol("")
-      setAddAlias("")
-      return
-    }
-
-    setAddSymbol(preset.symbol)
-    setAddAlias(preset.alias)
-  }, [addCode, i18n.language])
-
   async function handleCurrency(value: string) {
     if (currencySaving || value === currency) {
       return
@@ -318,8 +325,8 @@ export function useSettingsPayment({ active }: UseSettingsPaymentOptions): UseSe
       setUserCurrencies((prev) => [...prev, created])
       if (addCode === customCodeOption) {
         setCustomCode("")
-        setAddSymbol("")
-        setAddAlias("")
+        setAddSymbolDraft(null)
+        setAddAliasDraft(null)
       }
       toast.success(t("settings.currencyManagement.addSuccess"))
     } catch (err) {

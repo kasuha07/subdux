@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { KeyRound, Plus, Trash2 } from "lucide-react"
 import { CopyButton } from "@/components/copy-button"
@@ -50,24 +50,31 @@ export default function SettingsAPIKeyTab({ active }: SettingsAPIKeyTabProps) {
   const [deleteReauthId, setDeleteReauthId] = useState<number | null>(null)
   const [mcpEnabled, setMCPEnabled] = useState(false)
 
-  const loadKeys = useCallback(() => {
-    setLoading(true)
+  useEffect(() => {
+    if (!active) return
+
+    let cancelled = false
     api
       .get<APIKey[]>("/api-keys")
-      .then(setKeys)
+      .then((list) => {
+        if (!cancelled) setKeys(list)
+      })
       .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    if (active) {
-      loadKeys()
-      api
-        .get<{ mcp_enabled: boolean }>("/site-info")
-        .then((info) => setMCPEnabled(info?.mcp_enabled ?? false))
-        .catch(() => setMCPEnabled(false))
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    api
+      .get<{ mcp_enabled: boolean }>("/site-info")
+      .then((info) => {
+        if (!cancelled) setMCPEnabled(info?.mcp_enabled ?? false)
+      })
+      .catch(() => {
+        if (!cancelled) setMCPEnabled(false)
+      })
+    return () => {
+      cancelled = true
     }
-  }, [active, loadKeys])
+  }, [active])
 
   function handleCreate() {
     if (!name.trim() || reauthOpen) return

@@ -39,30 +39,48 @@ export function useDashboardData(): UseDashboardDataResult {
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
 
+  const applyData = useCallback((data: DashboardBootstrap) => {
+    setSubscriptions(data.subscriptions || [])
+    setSummary(data.summary)
+    setUserCurrencies(data.currencies || [])
+    setCategories(data.categories || [])
+    setPaymentMethods(data.payment_methods || [])
+    if (data.preferred_currency) {
+      setPreferredCurrency(data.preferred_currency)
+      setDefaultCurrency(data.preferred_currency)
+    }
+  }, [])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await requestDashboardBootstrap()
-      setSubscriptions(data.subscriptions || [])
-      setSummary(data.summary)
-      setUserCurrencies(data.currencies || [])
-      setCategories(data.categories || [])
-      setPaymentMethods(data.payment_methods || [])
-      if (data.preferred_currency) {
-        setPreferredCurrency(data.preferred_currency)
-        setDefaultCurrency(data.preferred_currency)
-      }
+      applyData(await requestDashboardBootstrap())
     } catch (error) {
       setError(error)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [applyData])
 
+  // Initial load: state starts in the loading state, so only settle it from
+  // the request callbacks instead of resetting it synchronously in the effect.
   useEffect(() => {
-    void fetchData()
-  }, [fetchData])
+    let cancelled = false
+    requestDashboardBootstrap()
+      .then((data) => {
+        if (!cancelled) applyData(data)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setError(error)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [applyData])
 
   return {
     categories,
