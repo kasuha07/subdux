@@ -14,9 +14,12 @@ type User struct {
 	TotpTempSecret *string `gorm:"size:64" json:"-"`
 	// PasswordGenerated marks a server-generated password the user never knew
 	// (OIDC auto-provisioning). It is cleared when the user sets a password.
-	PasswordGenerated bool      `gorm:"not null;default:false" json:"-"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	PasswordGenerated bool `gorm:"not null;default:false" json:"-"`
+	// SessionEpoch is carried by human access JWTs and advanced by global
+	// session revocation; a token whose epoch no longer matches is rejected.
+	SessionEpoch uint64    `gorm:"not null;default:0" json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type EmailVerificationCode struct {

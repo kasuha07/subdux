@@ -27,6 +27,8 @@ type Principal struct {
 	AuthType string
 	KeyKind  string
 	Scopes   []string
+	// SessionEpoch is the human access token's session epoch (0 for API keys).
+	SessionEpoch uint64
 }
 
 // IsAPIKey reports whether the principal authenticated with an API key rather
@@ -91,5 +93,7 @@ func buildPrincipal(c echo.Context) Principal {
 		AuthType: authType,
 		KeyKind:  apikeyservice.NormalizePersistedAPIKeyKind(claims.KeyKind),
 		Scopes:   claims.Scopes,
+		// API-key principals are built elsewhere; a JWT here is a human token.
+		SessionEpoch: claims.SessionEpoch,
 	}
 }

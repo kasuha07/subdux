@@ -232,7 +232,7 @@ The same settings section can test the saved credential without sending subscrip
 | `DATA_PATH` | `data` | Directory for uploaded assets and generated local keys; SQLite stores `subdux.db` here when PostgreSQL is not configured. |
 | `JWT_SECRET` | auto-generated on first run if unset | Recommended in production; must be at least 32 characters |
 | `SETTINGS_ENCRYPTION_KEY` | falls back to `JWT_SECRET`, then a generated local key file | Used to encrypt sensitive system settings and notification secrets |
-| `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access token lifetime |
+| `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access token lifetime in minutes (1–1440; larger values are capped at 24 hours) |
 | `TRUSTED_PROXY_CIDRS` | empty | Comma-separated trusted reverse-proxy CIDRs. Empty uses the connection IP. Configured proxies must append or overwrite `X-Forwarded-For`; only explicitly listed ranges are trusted. |
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh token lifetime |
 | `CORS_ALLOW_ORIGINS` | unset | Comma-separated list of allowed origins |

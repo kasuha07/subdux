@@ -107,7 +107,14 @@ func (s *Service) ChangeUserStatus(userID uint, status string) error {
 	})
 }
 
+// revokeAllRefreshTokens ends the user's sessions: refresh tokens are revoked
+// and the session epoch advances so already issued access tokens stop working
+// even if the account is re-enabled before they expire.
 func revokeAllRefreshTokens(tx *gorm.DB, userID uint) error {
+	if err := tx.Model(&model.User{}).Where("id = ?", userID).
+		UpdateColumn("session_epoch", gorm.Expr("session_epoch + ?", 1)).Error; err != nil {
+		return err
+	}
 	now := pkg.NowUTC()
 	return tx.Model(&model.RefreshToken{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).

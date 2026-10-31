@@ -87,10 +87,17 @@ export function useSettingsAccount({ active }: UseSettingsAccountOptions): UseSe
 
     setPasswordLoading(true)
     try {
-      await api.put("/auth/password", {
+      // Changing the password signs out every session; the response carries a
+      // fresh one for this device.
+      const authData = await api.put<AuthResponse>("/auth/password", {
         current_password: currentPassword,
         new_password: newPassword,
       })
+      const accessToken = authData?.access_token ?? authData?.token
+      if (accessToken && authData.user) {
+        setAuth(accessToken, authData.user)
+        setUserState(authData.user)
+      }
       toast.success(t("settings.account.passwordChanged"))
       setCurrentPassword("")
       setNewPassword("")

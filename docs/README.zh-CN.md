@@ -227,7 +227,7 @@ Subdux 原生 JSON 可用于迁移订阅、分类、支付方式、币种偏好�
 | `DATA_PATH` | `data` | SQLite 数据库、上传资源和本地生成密钥的存储目录 |
 | `JWT_SECRET` | 未设置时首次启动自动生成 | 生产环境建议显式配置，且长度至少 32 字符 |
 | `SETTINGS_ENCRYPTION_KEY` | 依次回退到 `JWT_SECRET` 与本地生成密钥文件 | 用于加密系统设置和通知渠道中的敏感信息 |
-| `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access Token 有效期 |
+| `ACCESS_TOKEN_TTL_MINUTES` | `15` | Access Token 有效期（分钟，1–1440；超过 24 小时会被截断） |
 | `REFRESH_TOKEN_TTL_HOURS` | `720` | Refresh Token 有效期 |
 | `CORS_ALLOW_ORIGINS` | 未设置 | 逗号分隔的允许来源列表 |
 | `TZ` | 系统时区 | IANA 时区名称，例如 `UTC`、`Asia/Shanghai` |
