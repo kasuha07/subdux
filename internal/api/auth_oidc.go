@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/kasuha07/subdux/internal/api/apimw"
 	"github.com/kasuha07/subdux/internal/api/httpx"
@@ -108,6 +109,14 @@ func (h *AuthHandler) OIDCCallback(c echo.Context) error {
 	if err != nil {
 		apimw.ClearOIDCSessionCookie(c)
 		return httpx.WriteError(c, http.StatusInternalServerError, "failed_to_process_oidc_callback")
+	}
+	if callbackResult.SessionID == "" && callbackResult.ErrorCode != "" {
+		// The callback named no state this server issued, so there is no flow
+		// (and no result session) to resume. Report the error to the login page
+		// directly instead of allocating shared result-pool state.
+		apimw.ClearOIDCSessionCookie(c)
+		query := url.Values{"oidc_action": {"login"}, "oidc_error": {callbackResult.ErrorCode}}
+		return c.Redirect(http.StatusFound, "/login?"+query.Encode())
 	}
 	if callbackResult.SessionID == "" {
 		apimw.ClearOIDCSessionCookie(c)

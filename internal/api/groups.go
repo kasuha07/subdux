@@ -47,6 +47,7 @@ type rateLimiters struct {
 	refreshToken    echo.MiddlewareFunc
 	iconProxy       echo.MiddlewareFunc
 	versionLatest   echo.MiddlewareFunc
+	oidcCallbackIP  echo.MiddlewareFunc
 	reauthIP        echo.MiddlewareFunc
 	reauthUser      echo.MiddlewareFunc
 	emailChangeUser echo.MiddlewareFunc
@@ -62,6 +63,7 @@ func newRateLimiters() rateLimiters {
 		refreshToken:    apimw.AuthAccountRateLimit(20, time.Minute, apimw.RefreshTokenAccountKey),
 		iconProxy:       apimw.AuthIPRateLimit(600, time.Minute),
 		versionLatest:   apimw.AuthIPRateLimit(30, time.Minute),
+		oidcCallbackIP:  apimw.AuthIPRateLimit(30, time.Minute),
 		reauthIP:        apimw.AuthIPRateLimit(30, time.Minute),
 		reauthUser:      apimw.AuthAccountRateLimit(6, 10*time.Minute, apimw.AuthenticatedUserAccountKey),
 		emailChangeUser: apimw.AuthAccountRateLimit(6, 10*time.Minute, apimw.AuthenticatedUserAccountKey),

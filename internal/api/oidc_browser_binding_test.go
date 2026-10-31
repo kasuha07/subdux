@@ -157,3 +157,51 @@ func TestOIDCReauthStartSetsBrowserBindingCookie(t *testing.T) {
 		t.Fatalf("reauth start body leaks the binding value: %s", rec.Body.String())
 	}
 }
+
+func TestOIDCCallbackWithUnknownStateRedirectsWithoutResultSession(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	e := newHumanOnlyRouteTestServer(t, db)
+
+	for _, tc := range []struct {
+		query string
+		code  string
+	}{
+		{query: "", code: "missing_oidc_state"},
+		{query: "?state=never-issued&code=x", code: "invalid_or_expired_oidc_session"},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/callback"+tc.query, nil)
+		req.RemoteAddr = "198.51.100.7:1234"
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusFound {
+			t.Fatalf("callback%s status = %d, want 302; body = %s", tc.query, rec.Code, rec.Body.String())
+		}
+		want := "/login?oidc_action=login&oidc_error=" + tc.code
+		if got := rec.Header().Get(echo.HeaderLocation); got != want {
+			t.Fatalf("callback%s redirect = %q, want %q", tc.query, got, want)
+		}
+		if session := findResponseCookie(rec, apimw.OIDCSessionCookieName); session != nil && session.Value != "" {
+			t.Fatalf("callback%s set a result session cookie %+v", tc.query, session)
+		}
+	}
+}
+
+func TestOIDCCallbackIsRateLimitedPerIP(t *testing.T) {
+	db := newHumanOnlyRouteTestDB(t)
+	e := newHumanOnlyRouteTestServer(t, db)
+
+	limited := false
+	for i := 0; i < 40; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/callback", nil)
+		req.RemoteAddr = "203.0.113.9:4321"
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code == http.StatusTooManyRequests {
+			limited = true
+			break
+		}
+	}
+	if !limited {
+		t.Fatal("40 callbacks from one IP were never rate limited")
+	}
+}

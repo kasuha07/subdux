@@ -38,7 +38,7 @@ func (h *AuthHandler) RegisterRoutes(g RouteGroups) {
 	g.Auth.POST("/passkeys/login/finish", h.FinishPasskeyLogin)
 	g.Auth.GET("/oidc/config", h.GetOIDCConfig)
 	g.Auth.POST("/oidc/login/start", h.BeginOIDCLogin, l.authIP)
-	g.Auth.GET("/oidc/callback", h.OIDCCallback)
+	g.Auth.GET("/oidc/callback", h.OIDCCallback, l.oidcCallbackIP)
 	g.Auth.GET("/oidc/session", h.GetOIDCSession)
 
 	g.Protected.GET("/auth/me", h.Me)

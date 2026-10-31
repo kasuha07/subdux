@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/password-input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { api, setAuth } from "@/lib/api"
+import { api, localizeBackendError, setAuth } from "@/lib/api"
 import { getPasskeyCredential, isPasskeySupported, type CredentialAssertionJSON } from "@/lib/passkey"
 import { getPasskeyErrorMessage } from "@/lib/passkey-error"
 import { toast } from "@/lib/toast"
@@ -27,12 +27,20 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  // The callback reports flows it cannot resume (missing or unknown state)
+  // directly in the URL as oidc_error instead of through a stored result
+  // session, so read it once on mount.
+  const [error, setError] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const callbackError = params.get("oidc_action") === "login" ? params.get("oidc_error") : null
+    return callbackError ? localizeBackendError(callbackError, undefined, "auth.login.oidcError") : ""
+  })
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
-  const [oidcLoading, setOidcLoading] = useState(
-    () => new URLSearchParams(window.location.search).get("oidc_action") === "login"
-  )
+  const [oidcLoading, setOidcLoading] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get("oidc_action") === "login" && !params.get("oidc_error")
+  })
   const [oidcSubmitting, setOidcSubmitting] = useState(false)
   const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
 
@@ -51,6 +59,16 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search)
     const action = params.get("oidc_action")
     if (action !== "login") {
+      return
+    }
+
+    if (params.get("oidc_error")) {
+      const nextURL = new URL(window.location.href)
+      nextURL.searchParams.delete("oidc_action")
+      nextURL.searchParams.delete("oidc_error")
+      const query = nextURL.searchParams.toString()
+      const search = query ? `?${query}` : ""
+      window.history.replaceState({}, "", `${nextURL.pathname}${search}${nextURL.hash}`)
       return
     }
 

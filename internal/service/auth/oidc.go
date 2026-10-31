@@ -68,6 +68,11 @@ type OIDCCallbackResult struct {
 	// operation the step-up was started for so the callback handler can redirect
 	// back to the originating page. Empty for login/connect.
 	Operation string `json:"operation,omitempty"`
+	// ErrorCode is set, with no SessionID, when the callback carried no state
+	// this server issued. Such callbacks are not tied to any started flow, so
+	// they never allocate a result session: an unauthenticated caller must not
+	// be able to fill (and evict entries from) the shared result pool.
+	ErrorCode string `json:"error_code,omitempty"`
 }
 
 type OIDCSessionResult struct {
@@ -317,12 +322,17 @@ func (s *Service) HandleOIDCCallback(state string, browserBinding string, code s
 	purpose := oidcPurposeLogin
 	trimmedState := strings.TrimSpace(state)
 	if trimmedState == "" {
-		return s.createOIDCCallbackErrorResult(purpose, serviceerr.New(serviceerr.KindInvalid, "missing_oidc_state", "missing OIDC state"))
+		return &OIDCCallbackResult{Purpose: purpose, ErrorCode: "missing_oidc_state"}, nil
 	}
 
 	session, err := s.takeOIDCStateSession(trimmedState)
 	if err != nil {
-		return s.createOIDCCallbackErrorResult(purpose, err)
+		code := "invalid_or_expired_oidc_session"
+		var typed *serviceerr.Error
+		if errors.As(err, &typed) && typed != nil && typed.Code != "" {
+			code = typed.Code
+		}
+		return &OIDCCallbackResult{Purpose: purpose, ErrorCode: code}, nil
 	}
 
 	purpose = session.Purpose
