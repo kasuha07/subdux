@@ -300,6 +300,26 @@ func TestHumanOnlyRoutesBlockAPIKeyPrincipal(t *testing.T) {
 			method: http.MethodPost,
 			target: "/api/import/subdux",
 		},
+		{
+			name:   "create notification channel",
+			method: http.MethodPost,
+			target: "/api/notifications/channels",
+		},
+		{
+			name:   "update notification channel",
+			method: http.MethodPut,
+			target: "/api/notifications/channels/1",
+		},
+		{
+			name:   "delete notification channel",
+			method: http.MethodDelete,
+			target: "/api/notifications/channels/1",
+		},
+		{
+			name:   "test notification channel",
+			method: http.MethodPost,
+			target: "/api/notifications/channels/1/test",
+		},
 	}
 
 	for _, tt := range tests {
@@ -442,6 +462,7 @@ func TestAPIKeyAllowedRoutesStillAcceptAPIKeyPrincipal(t *testing.T) {
 	}{
 		{name: "auth me", target: "/api/auth/me"},
 		{name: "subscriptions", target: "/api/subscriptions"},
+		{name: "notification channels (masked list)", target: "/api/notifications/channels"},
 	}
 
 	for _, tt := range tests {

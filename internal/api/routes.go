@@ -134,12 +134,17 @@ func (h *PaymentMethodHandler) RegisterRoutes(g RouteGroups) {
 }
 
 // RegisterRoutes wires notification channels, policy, and logs.
+//
+// Channel configs hold write-only third-party credentials (SMTP passwords,
+// provider tokens, webhook headers), so creating, changing, deleting, and
+// test-dispatching a channel are human-session-only credential flows. API keys
+// may still list channels, whose responses are always secret-masked.
 func (h *NotificationHandler) RegisterRoutes(g RouteGroups) {
 	g.Protected.GET("/notifications/channels", h.ListChannels)
-	g.Protected.POST("/notifications/channels", h.CreateChannel)
-	g.Protected.PUT("/notifications/channels/:id", h.UpdateChannel)
-	g.Protected.DELETE("/notifications/channels/:id", h.DeleteChannel)
-	g.Protected.POST("/notifications/channels/:id/test", h.TestChannel)
+	g.HumanProtected.POST("/notifications/channels", h.CreateChannel)
+	g.HumanProtected.PUT("/notifications/channels/:id", h.UpdateChannel)
+	g.HumanProtected.DELETE("/notifications/channels/:id", h.DeleteChannel)
+	g.HumanProtected.POST("/notifications/channels/:id/test", h.TestChannel)
 	g.Protected.GET("/notifications/policy", h.GetPolicy)
 	g.Protected.PUT("/notifications/policy", h.UpdatePolicy)
 	g.Protected.GET("/notifications/logs", h.ListLogs)
