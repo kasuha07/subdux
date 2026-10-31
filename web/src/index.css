@@ -489,12 +489,12 @@ html[dir='rtl'] .ulw-toast-close {
 @keyframes subscription-edit-modal-enter {
   from {
     opacity: 0;
-    translate: -50% calc(-50% + 6px);
+    translate: 0 6px;
     scale: 0.988;
   }
   to {
     opacity: 1;
-    translate: -50% -50%;
+    translate: 0 0;
     scale: 1;
   }
 }
@@ -502,12 +502,12 @@ html[dir='rtl'] .ulw-toast-close {
 @keyframes subscription-edit-modal-exit {
   from {
     opacity: 1;
-    translate: -50% -50%;
+    translate: 0 0;
     scale: 1;
   }
   to {
     opacity: 0;
-    translate: -50% calc(-50% + 4px);
+    translate: 0 4px;
     scale: 0.992;
   }
 }
@@ -526,13 +526,11 @@ html[dir='rtl'] .ulw-toast-close {
 .subscription-edit-modal[data-state="open"],
 .subscription-form-dialog[data-state="open"] {
   animation: subscription-edit-modal-enter 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: translate, opacity, scale;
 }
 
 .subscription-edit-modal[data-state="closed"],
 .subscription-form-dialog[data-state="closed"] {
   animation: subscription-edit-modal-exit 180ms ease-out forwards;
-  will-change: translate, opacity, scale;
 }
 
 .subscription-edit-modal .subscription-form-dialog-header,
@@ -554,8 +552,9 @@ html[dir='rtl'] .ulw-toast-close {
   animation-delay: 75ms;
 }
 
-/* Keep exit animations mounted through Radix Presence. Animate transform rather
-   than translate so centered dialogs retain their Tailwind positioning. */
+/* Keep exit animations mounted through Radix Presence. Dialogs are centered by
+   layout (inset-0 + m-auto) instead of translate(-50%, -50%) so the resting
+   position lands on whole pixels and text stays crisp. */
 @keyframes surface-enter {
   from { opacity: 0; transform: translate(var(--motion-x, 0), var(--motion-y, 4px)) scale(0.98); }
   to { opacity: 1; transform: translate(0, 0) scale(1); }
