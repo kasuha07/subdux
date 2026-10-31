@@ -204,3 +204,29 @@ func AdvanceSessionEpoch(tx *gorm.DB, userID uint) error {
 	return tx.Model(&model.User{}).Where("id = ?", userID).
 		UpdateColumn("session_epoch", gorm.Expr("session_epoch + ?", 1)).Error
 }
+
+// ErrPendingTOTPLoginInvalid rejects a pending-TOTP token that is malformed,
+// expired, or was issued before the user's last global session revocation.
+var ErrPendingTOTPLoginInvalid = serviceerr.New(serviceerr.KindUnauthorized, "invalid_or_expired_session", "invalid or expired session")
+
+// ValidatePendingTOTPLogin verifies a pending-TOTP token and checks that the
+// user's session epoch has not advanced since it was issued, so logout-all or
+// a credential change also cancels password-stage logins still awaiting a
+// second factor.
+func (s *Service) ValidatePendingTOTPLogin(token string) (uint, error) {
+	claims, err := pkg.ParseTOTPPendingToken(token)
+	if err != nil || claims.UserID == 0 {
+		return 0, ErrPendingTOTPLoginInvalid
+	}
+	var user model.User
+	if err := s.DB.Select("id", "session_epoch").First(&user, claims.UserID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, ErrPendingTOTPLoginInvalid
+		}
+		return 0, err
+	}
+	if user.SessionEpoch != claims.SessionEpoch {
+		return 0, ErrPendingTOTPLoginInvalid
+	}
+	return claims.UserID, nil
+}

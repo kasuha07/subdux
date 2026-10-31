@@ -17,9 +17,12 @@ type User struct {
 	PasswordGenerated bool `gorm:"not null;default:false" json:"-"`
 	// SessionEpoch is carried by human access JWTs and advanced by global
 	// session revocation; a token whose epoch no longer matches is rejected.
-	SessionEpoch uint64    `gorm:"not null;default:0" json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	SessionEpoch uint64 `gorm:"not null;default:0" json:"-"`
+	// TotpLastCounter is the last TOTP time step accepted, so a code cannot be
+	// replayed within its validity window.
+	TotpLastCounter int64     `gorm:"not null;default:0" json:"-"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type EmailVerificationCode struct {

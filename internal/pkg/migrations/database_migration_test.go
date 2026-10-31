@@ -63,7 +63,7 @@ func configureSQLiteDatabase(db *gorm.DB) error {
 // usersColumnsAddedAfterLegacySchema lists users columns that later migrations
 // add. Legacy fixtures insert through the current model before migrating, so
 // they must omit columns their hand-written legacy schema does not have.
-var usersColumnsAddedAfterLegacySchema = []string{"password_generated", "session_epoch"}
+var usersColumnsAddedAfterLegacySchema = []string{"password_generated", "session_epoch", "totp_last_counter"}
 
 func TestRunSchemaMigrationsRebuildsLegacyTablesWithConstraints(t *testing.T) {
 	db := openRawSQLiteTestDB(t)
@@ -727,6 +727,7 @@ func TestPublishedSchemaMigrationManifestIsImmutable(t *testing.T) {
 		{Name: "20261010_01_subscription_pending_price", Checksum: "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0"},
 		{Name: "20261031_01_user_password_generated", Checksum: "5302f9525a339bcc462835ba2b554b9d92057a1da1ee454d47632d1c57b9fff2"},
 		{Name: "20261031_02_user_session_epoch", Checksum: "c1ed0ed01649fb0e2a748f747c5eee5bfd0d5348edea690eec7ec8c7f31eeecf"},
+		{Name: "20261031_03_user_totp_last_counter", Checksum: "f1d8699c0a1b7a7d0494d6f2ec7aac60bc9c4db475e27c41b3ad5fc6279edf87"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("schema migration manifest changed\n got: %#v\nwant: %#v", got, want)
@@ -753,7 +754,8 @@ func TestPublishedSchemaMigrationSourcesAreImmutable(t *testing.T) {
 		"migration_20261010_01_subscription_pending_price.go":      "cee69f1d48148dbcf1245f550af39e25eb68eab7f99fb96eb3c4021d0e9acaa0",
 		"migration_20261031_01_user_password_generated.go":         "5302f9525a339bcc462835ba2b554b9d92057a1da1ee454d47632d1c57b9fff2",
 		"migration_20261031_02_user_session_epoch.go":              "c1ed0ed01649fb0e2a748f747c5eee5bfd0d5348edea690eec7ec8c7f31eeecf",
-		"schema_migration_registry.go":                             "b554da94de27839cf0d9fc43f00666a9ada6f4949834dbc73d7e81671744cd74",
+		"migration_20261031_03_user_totp_last_counter.go":          "f1d8699c0a1b7a7d0494d6f2ec7aac60bc9c4db475e27c41b3ad5fc6279edf87",
+		"schema_migration_registry.go":                             "20eb70c4e08fbe09469897c5164993b137f25bdcb20a88cb7c0c81cbe7887cf1",
 		"schema_migration_steps.go":                                "f623585e6f9a11395f52e8c320835b75f2d509b8e496ac3552275fb294b2dd5b",
 	}
 	for path, expected := range want {

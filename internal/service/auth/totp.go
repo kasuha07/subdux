@@ -221,10 +221,7 @@ func (s *TOTPService) VerifyLogin(userID uint, code string) bool {
 	if err := s.DB.First(&user, userID).Error; err != nil {
 		return false
 	}
-	if user.TotpSecret == nil {
-		return false
-	}
-	return totp.Validate(code, *user.TotpSecret)
+	return consumeTOTPCode(s.DB, user.ID, user.TotpSecret, code)
 }
 
 func (s *TOTPService) VerifyBackupCode(userID uint, code string) bool {

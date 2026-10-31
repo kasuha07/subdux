@@ -282,7 +282,7 @@ func (s *Service) Login(input LoginInput) (*LoginResponse, error) {
 	}
 
 	if user.TotpEnabled {
-		pendingToken, err := pkg.GenerateTOTPPendingToken(user.ID)
+		pendingToken, err := pkg.GenerateTOTPPendingTokenForEpoch(user.ID, user.SessionEpoch)
 		if err != nil {
 			return nil, err
 		}

@@ -121,6 +121,7 @@ func TestDeletePasskeyGateRequiresValidReauthTicket(t *testing.T) {
 	enableReauthGateTestTOTP(t, db, admin.ID, secret)
 	currentCode := func() string {
 		t.Helper()
+		resetTOTPReplayGuard(t, db, admin.ID)
 		code, err := totp.GenerateCode(secret, time.Now().UTC())
 		if err != nil {
 			t.Fatalf("GenerateCode() error = %v", err)

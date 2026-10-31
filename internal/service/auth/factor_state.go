@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/kasuha07/subdux/internal/model"
-	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -51,7 +50,7 @@ func (s *Service) VerifyPasswordForReauth(userID uint, password string, code str
 		return ErrCurrentPasswordIncorrect
 	}
 	if requireTOTP {
-		if code == "" || user.TotpSecret == nil || !totp.Validate(code, *user.TotpSecret) {
+		if !consumeTOTPCode(s.DB, user.ID, user.TotpSecret, code) {
 			return ErrTOTPInvalidCode
 		}
 	}
