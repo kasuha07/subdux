@@ -97,6 +97,42 @@ func (s *Service) Register(m ClientMetadata) (*ClientMetadata, error) {
 	return &m, nil
 }
 
+const (
+	// maxOAuthClients bounds the client table, which unauthenticated dynamic
+	// registration can grow.
+	maxOAuthClients = 1000
+	// orphanClientMinAge protects a freshly registered client long enough to
+	// start its first authorization request before it can be evicted.
+	orphanClientMinAge = RequestTTL
+)
+
+// evictOrphanClients deletes up to limit of the oldest clients that hold no
+// grant and no pending authorization request and are older than
+// orphanClientMinAge. Registration calls it at capacity so a flood of unused
+// registrations cannot keep new clients out until the 30-day cleanup; clients
+// with a grant or an in-flight request are never evicted. It returns the
+// number of clients deleted.
+func evictOrphanClients(tx *gorm.DB, limit int64, now time.Time) (int64, error) {
+	if limit <= 0 {
+		return 0, nil
+	}
+	var ids []string
+	if err := tx.Model(&model.MCPOAuthClient{}).
+		Where("created_at < ? AND id NOT IN (?) AND id NOT IN (?)", now.Add(-orphanClientMinAge),
+			tx.Model(&model.MCPOAuthGrant{}).Select("client_id"),
+			tx.Model(&model.MCPOAuthRequest{}).Select("client_id")).
+		Order("created_at ASC").
+		Limit(int(limit)).
+		Pluck("id", &ids).Error; err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	result := tx.Where("id IN ?", ids).Delete(&model.MCPOAuthClient{})
+	return result.RowsAffected, result.Error
+}
+
 func (s *Service) saveClient(m ClientMetadata, replace bool) error {
 	redirects, err := json.Marshal(m.RedirectURIs)
 	if err != nil {
@@ -108,13 +144,19 @@ func (s *Service) saveClient(m ClientMetadata, replace bool) error {
 		if err := tx.Model(&model.MCPOAuthClient{}).Count(&count).Error; err != nil {
 			return err
 		}
-		if count >= 1000 {
+		if count >= maxOAuthClients {
 			var existing int64
 			if err := tx.Model(&model.MCPOAuthClient{}).Where("id = ?", m.ClientID).Count(&existing).Error; err != nil {
 				return err
 			}
 			if existing == 0 {
-				return problem("temporarily_unavailable", "client registration limit reached")
+				evicted, err := evictOrphanClients(tx, count-maxOAuthClients+1, time.Now())
+				if err != nil {
+					return err
+				}
+				if count-evicted >= maxOAuthClients {
+					return problem("temporarily_unavailable", "client registration limit reached")
+				}
 			}
 		}
 		if replace {
