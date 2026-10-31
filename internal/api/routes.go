@@ -3,9 +3,10 @@ package api
 import "github.com/kasuha07/subdux/internal/api/apimw"
 
 // RegisterRoutes wires the build-version endpoints (public, unauthenticated).
+// The latest-release lookup is IP rate limited and cached in the handler.
 func (h *VersionHandler) RegisterRoutes(g RouteGroups) {
 	g.Public.GET("/version", h.Get)
-	g.Public.GET("/version/latest", h.GetLatest)
+	g.Public.GET("/version/latest", h.GetLatest, g.Limiters.versionLatest)
 }
 
 // RegisterRoutes wires the icon-proxy endpoint (public, IP rate limited).
