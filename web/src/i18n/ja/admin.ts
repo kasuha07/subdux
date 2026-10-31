@@ -55,6 +55,9 @@ const admin = {
     createAdminReauthTitle: "管理者作成の確認",
     createAdminReauthDescription:
       "セキュリティのため、管理者権限を持つユーザーを作成する前に再認証してください。",
+    statusReauthTitle: "アカウント状態変更の確認",
+    statusReauthDescription:
+      "セキュリティのため、ユーザーアカウントを無効化または再有効化する前に再認証してください。",
     roleReauthTitle: "ロール変更の確認",
     roleReauthDescription:
       "セキュリティのため、ユーザーのロールを変更する前に再認証してください。",

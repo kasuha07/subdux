@@ -44,6 +44,7 @@ type ReauthOperation =
   | "delete_api_key"
   | "create_admin_user"
   | "change_user_role"
+  | "change_user_status"
   | "admin_disable_user_totp"
   | "admin_disable_user_passkeys"
   | "delete_user"

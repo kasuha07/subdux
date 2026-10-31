@@ -98,7 +98,7 @@ interface UseAdminPageStateResult {
   handleTestSSRF: () => Promise<void>
   handleTestSMTP: () => Promise<void>
   handleToggleRole: (user: AdminUser) => Promise<void>
-  handleToggleStatus: (user: AdminUser) => Promise<void>
+  handleToggleStatus: (user: AdminUser, reauthTicket: string) => Promise<void>
   backupRuns: BackupRunRecord[]
   backupRunsRefreshing: boolean
   includeAssetsInBackup: boolean
@@ -301,10 +301,15 @@ export function useAdminPageState({ t }: UseAdminPageStateOptions): UseAdminPage
     }
   }
 
-  async function handleToggleStatus(user: AdminUser) {
-    const nextStatus = user.status === "active" ? "disabled" : "active"
+  async function handleToggleStatus(user: AdminUser, reauthTicket: string) {
+    const target = users.find((item) => item.id === user.id) ?? user
+    const nextStatus = target.status === "active" ? "disabled" : "active"
     try {
-      await api.put(`/admin/users/${user.id}/status`, { status: nextStatus }, { errorHandling: "toast" })
+      await api.put(
+        `/admin/users/${target.id}/status`,
+        { status: nextStatus },
+        { headers: { "X-Reauth-Ticket": reauthTicket }, errorHandling: "toast" }
+      )
       setUsers((prev) =>
         prev.map((item) => (item.id === user.id ? { ...item, status: nextStatus } : item))
       )

@@ -50,6 +50,8 @@ const admin = {
     createSuccess: "用户已创建",
     createAdminReauthTitle: "确认创建管理员",
     createAdminReauthDescription: "出于安全考虑，创建管理员用户前请重新验证身份。",
+    statusReauthTitle: "确认账户状态修改",
+    statusReauthDescription: "出于安全考虑，禁用或重新启用用户账户前请重新验证身份。",
     roleReauthTitle: "确认角色修改",
     roleReauthDescription: "出于安全考虑，修改用户角色前请重新验证身份。",
     deleteReauthTitle: "确认删除用户",
