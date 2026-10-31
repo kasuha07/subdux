@@ -36,7 +36,6 @@ export default function PaymentMethodManagement() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     api.get<PaymentMethod[]>("/payment-methods").then((list) => {
       if (!cancelled) setMethods(list ?? [])
     }).catch(() => void 0).finally(() => {

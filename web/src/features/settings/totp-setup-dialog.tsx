@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useEffectEvent } from "react"
 import { useTranslation } from "react-i18next"
 import QRCode from "react-qr-code"
 import { CopyButton } from "@/components/copy-button"
@@ -35,28 +35,46 @@ export default function TotpSetupDialog({ open, onOpenChange, reauthTicket, onEn
   const [copied, setCopied] = useState(false)
 
   const handleClose = useCallback((val: boolean) => onOpenChange(val), [onOpenChange])
+  const closeDialog = useEffectEvent(() => onOpenChange(false))
+
+  // Reset the wizard whenever a new setup session starts (dialog opened or a
+  // fresh reauth ticket supplied). Adjusting state during render avoids an
+  // extra effect-driven render pass.
+  const sessionKey = open ? reauthTicket : null
+  const [activeSessionKey, setActiveSessionKey] = useState(sessionKey)
+  if (activeSessionKey !== sessionKey) {
+    setActiveSessionKey(sessionKey)
+    if (sessionKey !== null) {
+      setStep("qr")
+      setCode("")
+      setVerifyError("")
+      setBackupCodes([])
+      setCopied(false)
+      setSetup(null)
+    }
+  }
 
   useEffect(() => {
     if (!open) return
     if (!reauthTicket) {
-      handleClose(false)
+      closeDialog()
       return
     }
-    setStep("qr")
-    setCode("")
-    setVerifyError("")
-    setBackupCodes([])
-    setCopied(false)
-    setSetup(null)
 
+    let cancelled = false
     api.post<TotpSetupResponse>(
       "/auth/totp/setup",
       {},
       { headers: { "X-Reauth-Ticket": reauthTicket } }
-    ).then(setSetup).catch(() => {
-      handleClose(false)
+    ).then((result) => {
+      if (!cancelled) setSetup(result)
+    }).catch(() => {
+      if (!cancelled) closeDialog()
     })
-  }, [open, handleClose, reauthTicket, t])
+    return () => {
+      cancelled = true
+    }
+  }, [open, reauthTicket])
 
   async function handleVerify() {
     if (!code.trim()) return

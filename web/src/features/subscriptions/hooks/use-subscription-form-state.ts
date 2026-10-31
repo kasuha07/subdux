@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { useCallback, useMemo, useState, type FormEvent } from "react"
 
 import { api } from "@/lib/api"
 import { DEFAULT_CURRENCY_FALLBACK, getPresetCurrencyMeta } from "@/lib/currencies"
@@ -271,6 +271,22 @@ function buildInitialValues(
   }
 }
 
+// Keeps the end date consistent with the status/renewal mode. Applied whenever
+// values change so the adjustment happens in the same update, not in an effect.
+function syncEndsAt(values: SubscriptionFormValues): SubscriptionFormValues {
+  if (values.status === "active") {
+    if (values.renewalMode === "cancel_at_period_end" && values.endsAt !== values.nextBillingDate) {
+      return { ...values, endsAt: values.nextBillingDate }
+    }
+    return values
+  }
+
+  if (!values.endsAt) {
+    return { ...values, endsAt: values.nextBillingDate || formatDateKey(new Date()) }
+  }
+  return values
+}
+
 export function useSubscriptionFormState({
   categories = [],
   language,
@@ -301,14 +317,45 @@ export function useSubscriptionFormState({
 
   const defaultCurrencyCode = currencyOptions[0]?.code || DEFAULT_CURRENCY_FALLBACK[0] || ""
 
-  const [values, setValues] = useState<SubscriptionFormValues>(() =>
-    buildInitialValues(subscription, defaultCurrencyCode, categories, paymentMethods)
+  const [rawValues, setValues] = useState<SubscriptionFormValues>(() =>
+    syncEndsAt(buildInitialValues(subscription, defaultCurrencyCode, categories, paymentMethods))
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [iconFile, setIconFile] = useState<File | null>(null)
-  const wasOpenRef = useRef(open)
-  const uploadedRevisionRef = useRef<number | undefined>(undefined)
+  const [wasOpen, setWasOpen] = useState(open)
+  const [uploadedRevision, setUploadedRevision] = useState<number | undefined>(undefined)
+
+  // Reset the form when the dialog opens and drop any pending icon file when it
+  // closes. Adjusting state during render avoids an extra effect-driven pass.
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setIconFile(null)
+    if (open) {
+      setUploadedRevision(undefined)
+      setError("")
+      setLoading(false)
+      setValues(syncEndsAt(buildInitialValues(subscription, defaultCurrencyCode, categories, paymentMethods)))
+    }
+  }
+
+  // Currency and payment method selections must reference options that still
+  // exist; derive the effective values instead of rewriting state in effects.
+  const values = useMemo(() => {
+    const currency =
+      currencyOptions.length === 0 || currencyOptions.some((option) => option.code === rawValues.currency)
+        ? rawValues.currency
+        : currencyOptions[0].code
+    const paymentMethodId =
+      rawValues.paymentMethodId &&
+      !paymentMethods.some((item) => item.id.toString() === rawValues.paymentMethodId)
+        ? ""
+        : rawValues.paymentMethodId
+    if (currency === rawValues.currency && paymentMethodId === rawValues.paymentMethodId) {
+      return rawValues
+    }
+    return { ...rawValues, currency, paymentMethodId }
+  }, [currencyOptions, paymentMethods, rawValues])
 
   const applyCategorySuggestion = useCallback((categoryId: string) => {
     setValues((previous) => ({ ...previous, categoryId }))
@@ -321,7 +368,7 @@ export function useSubscriptionFormState({
   const setField = useCallback(
     <K extends keyof SubscriptionFormValues>(field: K, value: SubscriptionFormValues[K]) => {
       if (field === "categoryId") stopCategorySuggestion()
-      setValues((prev) => ({
+      setValues((prev) => syncEndsAt({
         ...prev,
         existingIntroPlan: prev[field] !== value && INTRO_SCHEDULE_FIELDS.has(field)
           ? undefined
@@ -341,64 +388,6 @@ export function useSubscriptionFormState({
     setIconFile(file)
     setField("icon", "")
   }, [setField])
-
-  useEffect(() => {
-    const isOpening = open && !wasOpenRef.current
-
-    if (isOpening) {
-      uploadedRevisionRef.current = undefined
-      setError("")
-      setLoading(false)
-      setIconFile(null)
-      setValues(buildInitialValues(subscription, defaultCurrencyCode, categories, paymentMethods))
-    }
-
-    if (!open) {
-      setIconFile(null)
-    }
-
-    wasOpenRef.current = open
-  }, [categories, defaultCurrencyCode, open, paymentMethods, subscription])
-
-  useEffect(() => {
-    if (!open || currencyOptions.length === 0) {
-      return
-    }
-
-    if (!currencyOptions.some((option) => option.code === values.currency)) {
-      setField("currency", currencyOptions[0].code)
-    }
-  }, [currencyOptions, open, setField, values.currency])
-
-  useEffect(() => {
-    if (!open || !values.paymentMethodId) {
-      return
-    }
-
-    const exists = paymentMethods.some((item) => item.id.toString() === values.paymentMethodId)
-    if (!exists) {
-      setField("paymentMethodId", "")
-    }
-  }, [open, paymentMethods, setField, values.paymentMethodId])
-
-  useEffect(() => {
-    if (!open) {
-      return
-    }
-
-    if (values.status === "active") {
-      if (values.renewalMode === "cancel_at_period_end") {
-        if (values.endsAt !== values.nextBillingDate) {
-          setField("endsAt", values.nextBillingDate)
-        }
-      }
-      return
-    }
-
-    if (!values.endsAt) {
-      setField("endsAt", values.nextBillingDate || formatDateKey(new Date()))
-    }
-  }, [open, setField, values.endsAt, values.nextBillingDate, values.renewalMode, values.status])
 
   const handleMarkRenewed = useCallback(async () => {
     if (!subscription || !onMarkRenewed) {
@@ -425,7 +414,7 @@ export function useSubscriptionFormState({
 
     try {
       let iconValue = values.icon
-      let revision = uploadedRevisionRef.current ?? subscription?.revision
+      let revision = uploadedRevision ?? subscription?.revision
 
       if (iconFile && isEditing && subscription?.id) {
         const formData = new FormData()
@@ -436,7 +425,7 @@ export function useSubscriptionFormState({
         )
         iconValue = result.icon
         revision = (revision ?? 0) + 1
-        uploadedRevisionRef.current = revision
+        setUploadedRevision(revision)
         setField("icon", iconValue)
         setIconFile(null)
       }
@@ -533,7 +522,7 @@ export function useSubscriptionFormState({
     } finally {
       setLoading(false)
     }
-  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription?.id, subscription?.revision, subscription?.pending_amount, t, values, stopCategorySuggestion])
+  }, [iconFile, isEditing, onOpenChange, onSubmit, setField, subscription, t, uploadedRevision, values, stopCategorySuggestion])
 
   return {
     currencyOptions,

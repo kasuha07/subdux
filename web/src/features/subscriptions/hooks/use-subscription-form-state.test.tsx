@@ -3,7 +3,7 @@ import { act, useEffect, type FormEvent } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { Subscription } from "@/types"
+import type { PaymentMethod, Subscription, UserCurrency } from "@/types"
 import { computeIntroPlan, useSubscriptionFormState } from "./use-subscription-form-state"
 
 vi.mock("./use-jev-category", () => ({ useJevCategory: () => () => {} }))
@@ -112,5 +112,85 @@ describe("editing subscriptions with scheduled prices", () => {
     const payload = await submit()
     expect(payload.amount).toBe(1)
     expect(payload).not.toHaveProperty("pending_from")
+  })
+})
+
+describe("derived subscription form values", () => {
+  let container: HTMLDivElement
+  let root: Root
+  let state: ReturnType<typeof useSubscriptionFormState>
+
+  interface HarnessProps {
+    open: boolean
+    paymentMethods?: PaymentMethod[]
+    subscription?: Subscription | null
+    userCurrencies?: UserCurrency[]
+  }
+
+  function Harness({ open, paymentMethods = [], subscription = null, userCurrencies = [] }: HarnessProps) {
+    const formState = useSubscriptionFormState({
+      subscription, open, language: "en", onSubmit: vi.fn(), onOpenChange: () => {},
+      paymentMethods, userCurrencies, t: (key) => key,
+    })
+    useEffect(() => { state = formState }, [formState])
+    return null
+  }
+
+  const card: PaymentMethod = {
+    id: 7, revision: 1, name: "Card", system_key: null, name_customized: false, icon: "", sort_order: 0,
+  }
+  const eur: UserCurrency = {
+    id: 1, revision: 1, code: "EUR", symbol: "€", alias: "Euro", sort_order: 0,
+  }
+
+  beforeEach(() => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(async () => {
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  async function render(props: HarnessProps) {
+    await act(async () => root.render(<Harness {...props} />))
+  }
+
+  it("keeps the end date on the next billing date while canceling at period end", async () => {
+    await render({ open: true })
+    await act(async () => state.setField("renewalMode", "cancel_at_period_end"))
+    await act(async () => state.setField("nextBillingDate", "2099-05-10"))
+    expect(state.values.endsAt).toBe("2099-05-10")
+  })
+
+  it("fills an empty end date for ended subscriptions", async () => {
+    await render({ open: true })
+    await act(async () => state.setField("nextBillingDate", "2099-06-01"))
+    await act(async () => state.setField("status", "ended"))
+    await act(async () => state.setField("endsAt", ""))
+    expect(state.values.endsAt).toBe("2099-06-01")
+  })
+
+  it("falls back to an available currency and drops unknown payment methods", async () => {
+    await render({ open: true, paymentMethods: [card], userCurrencies: [eur] })
+    await act(async () => state.setField("currency", "USD"))
+    await act(async () => state.setField("paymentMethodId", "99"))
+    expect(state.values.currency).toBe("EUR")
+    expect(state.values.paymentMethodId).toBe("")
+
+    await act(async () => state.setField("paymentMethodId", "7"))
+    expect(state.values.paymentMethodId).toBe("7")
+  })
+
+  it("resets edits when the dialog is reopened", async () => {
+    await render({ open: true })
+    await act(async () => state.setField("name", "Draft"))
+    expect(state.values.name).toBe("Draft")
+    await render({ open: false })
+    await render({ open: true })
+    expect(state.values.name).toBe("")
   })
 })

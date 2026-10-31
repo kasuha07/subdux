@@ -49,6 +49,18 @@ import type {
   UserCurrency,
 } from "@/types"
 
+type ActionsPageData = [ActionCenter, Subscription[], UserCurrency[], Category[], PaymentMethod[]]
+
+function requestActionsPageData(): Promise<ActionsPageData> {
+  return Promise.all([
+    api.get<ActionCenter>("/actions"),
+    api.get<Subscription[]>("/subscriptions"),
+    api.get<UserCurrency[]>("/currencies"),
+    api.get<Category[]>("/categories"),
+    api.get<PaymentMethod[]>("/payment-methods"),
+  ])
+}
+
 const actionIconMap: Record<SubscriptionActionType, LucideIcon> = {
   upcoming_renewal: CalendarClock,
   manual_renewal_due: CheckCircle2,
@@ -218,15 +230,7 @@ export default function ActionsPage() {
     [subscriptions]
   )
 
-  const fetchData = useCallback(async (beforeApply?: (center: ActionCenter) => Promise<void>) => {
-    const [actionCenter, subs, currencies, categoryList, methods] = await Promise.all([
-      api.get<ActionCenter>("/actions"),
-      api.get<Subscription[]>("/subscriptions"),
-      api.get<UserCurrency[]>("/currencies"),
-      api.get<Category[]>("/categories"),
-      api.get<PaymentMethod[]>("/payment-methods"),
-    ])
-    await beforeApply?.(actionCenter)
+  const applyData = useCallback(([actionCenter, subs, currencies, categoryList, methods]: ActionsPageData) => {
     setCenter(actionCenter)
     setSubscriptions(subs ?? [])
     setUserCurrencies(currencies ?? [])
@@ -234,11 +238,26 @@ export default function ActionsPage() {
     setPaymentMethods(methods ?? [])
   }, [])
 
+  const fetchData = useCallback(async (beforeApply?: (center: ActionCenter) => Promise<void>) => {
+    const data = await requestActionsPageData()
+    await beforeApply?.(data[0])
+    applyData(data)
+  }, [applyData])
+
   useEffect(() => {
-    fetchData()
+    let cancelled = false
+    requestActionsPageData()
+      .then((data) => {
+        if (!cancelled) applyData(data)
+      })
       .catch(() => void 0)
-      .finally(() => setLoading(false))
-  }, [fetchData])
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [applyData])
 
   async function handleRefresh() {
     setRefreshing(true)

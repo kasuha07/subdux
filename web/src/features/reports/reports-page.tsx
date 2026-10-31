@@ -56,24 +56,45 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
 
+  const applyReportData = useCallback(
+    ([reportData, currencyData, subscriptionData]: Awaited<ReturnType<typeof requestReportsData>>) => {
+      setReport(reportData)
+      setCurrencies(currencyData || [])
+      setSubscriptions(subscriptionData || [])
+    },
+    []
+  )
+
   const fetchReport = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [reportData, currencyData, subscriptionData] = await requestReportsData()
-      setReport(reportData)
-      setCurrencies(currencyData || [])
-      setSubscriptions(subscriptionData || [])
+      applyReportData(await requestReportsData())
     } catch (error) {
       setError(error)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [applyReportData])
 
+  // Initial load: state starts in the loading state, so only settle it from
+  // the request callbacks instead of resetting it synchronously in the effect.
   useEffect(() => {
-    void fetchReport()
-  }, [fetchReport])
+    let cancelled = false
+    requestReportsData()
+      .then((data) => {
+        if (!cancelled) applyReportData(data)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setError(error)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [applyReportData])
 
   const currencySymbolMap = useMemo(() => {
     return new Map(currencies.map((currency) => [currency.code.toUpperCase(), currency.symbol]))

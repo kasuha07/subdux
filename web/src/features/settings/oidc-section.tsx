@@ -15,7 +15,9 @@ export default function OIDCSection() {
   const [config, setConfig] = useState<OIDCConfig | null>(null)
   const [connections, setConnections] = useState<OIDCConnection[]>([])
   const [loading, setLoading] = useState(true)
-  const [processingCallback, setProcessingCallback] = useState(false)
+  const [processingCallback, setProcessingCallback] = useState(
+    () => new URLSearchParams(window.location.search).get("oidc_action") === "connect"
+  )
   const [starting, setStarting] = useState(false)
   const [deletingID, setDeletingID] = useState<number | null>(null)
   const [error, setError] = useState("")
@@ -43,7 +45,6 @@ export default function OIDCSection() {
       return
     }
 
-    setProcessingCallback(true)
     api.get<OIDCSessionResult>("/auth/oidc/session")
       .then((result) => {
         if (result.connection) {

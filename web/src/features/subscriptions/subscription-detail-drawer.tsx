@@ -70,19 +70,30 @@ export default function SubscriptionDetailDrawer({
   onDelete,
 }: SubscriptionDetailDrawerProps) {
   const { t, i18n } = useTranslation()
-  const [detail, setDetail] = useState<SubscriptionDetail | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Preserve the visible detail while the drawer plays its exit animation:
+  // state is only reset when a new subscription is opened, never on close.
+  const requestedSubscription = open ? subscription : null
+  const [loadedSubscription, setLoadedSubscription] = useState(requestedSubscription)
+  const [detail, setDetail] = useState<SubscriptionDetail | null>(() =>
+    requestedSubscription ? getCachedSubscriptionDetail(requestedSubscription.id) : null
+  )
+  const [loading, setLoading] = useState(() => requestedSubscription !== null && detail === null)
   const [error, setError] = useState("")
 
+  if (requestedSubscription !== loadedSubscription) {
+    setLoadedSubscription(requestedSubscription)
+    if (requestedSubscription) {
+      const cached = getCachedSubscriptionDetail(requestedSubscription.id)
+      setDetail(cached)
+      setLoading(!cached)
+      setError("")
+    }
+  }
+
   useEffect(() => {
-    // Preserve the visible detail while the drawer plays its exit animation.
     if (!open || !subscription) return
 
     let active = true
-    const cached = getCachedSubscriptionDetail(subscription.id)
-    setDetail(cached)
-    setLoading(!cached)
-    setError("")
     loadSubscriptionDetail(subscription.id)
       .then((data) => {
         if (active) {

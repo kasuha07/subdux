@@ -30,7 +30,9 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
-  const [oidcLoading, setOidcLoading] = useState(false)
+  const [oidcLoading, setOidcLoading] = useState(
+    () => new URLSearchParams(window.location.search).get("oidc_action") === "login"
+  )
   const [oidcSubmitting, setOidcSubmitting] = useState(false)
   const [oidcConfig, setOidcConfig] = useState<OIDCConfig | null>(null)
 
@@ -52,7 +54,6 @@ export default function LoginPage() {
       return
     }
 
-    setOidcLoading(true)
     api.get<OIDCSessionResult>("/auth/oidc/session")
       .then((result) => {
         const accessToken = result.access_token ?? result.token
