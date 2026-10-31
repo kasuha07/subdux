@@ -100,7 +100,7 @@ function DialogContent({
       ref={contentRef}
       data-slot="dialog-content"
       className={cn(
-        "motion-dialog bg-background fixed top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
+        "motion-dialog bg-background fixed inset-0 m-auto grid h-fit w-full max-w-[calc(100%-2rem)] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
         layerClasses.content,
         className
       )}

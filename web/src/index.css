@@ -489,12 +489,12 @@ html[dir='rtl'] .ulw-toast-close {
 @keyframes subscription-edit-modal-enter {
   from {
     opacity: 0;
-    translate: -50% calc(-50% + 6px);
+    translate: 0 6px;
     scale: 0.988;
   }
   to {
     opacity: 1;
-    translate: -50% -50%;
+    translate: 0 0;
     scale: 1;
   }
 }
@@ -502,12 +502,12 @@ html[dir='rtl'] .ulw-toast-close {
 @keyframes subscription-edit-modal-exit {
   from {
     opacity: 1;
-    translate: -50% -50%;
+    translate: 0 0;
     scale: 1;
   }
   to {
     opacity: 0;
-    translate: -50% calc(-50% + 4px);
+    translate: 0 4px;
     scale: 0.992;
   }
 }
@@ -526,13 +526,11 @@ html[dir='rtl'] .ulw-toast-close {
 .subscription-edit-modal[data-state="open"],
 .subscription-form-dialog[data-state="open"] {
   animation: subscription-edit-modal-enter 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: translate, opacity, scale;
 }
 
 .subscription-edit-modal[data-state="closed"],
 .subscription-form-dialog[data-state="closed"] {
   animation: subscription-edit-modal-exit 180ms ease-out forwards;
-  will-change: translate, opacity, scale;
 }
 
 .subscription-edit-modal .subscription-form-dialog-header,
@@ -554,8 +552,9 @@ html[dir='rtl'] .ulw-toast-close {
   animation-delay: 75ms;
 }
 
-/* Keep exit animations mounted through Radix Presence. Animate transform rather
-   than translate so centered dialogs retain their Tailwind positioning. */
+/* Keep exit animations mounted through Radix Presence. Dialogs are centered by
+   layout (inset-0 + m-auto) instead of translate(-50%, -50%) so the resting
+   position lands on whole pixels and text stays crisp. */
 @keyframes surface-enter {
   from { opacity: 0; transform: translate(var(--motion-x, 0), var(--motion-y, 4px)) scale(0.98); }
   to { opacity: 1; transform: translate(0, 0) scale(1); }
@@ -639,12 +638,13 @@ html[dir='rtl'] .ulw-toast-close {
   }
 }
 
+/* No persistent will-change on long-lived content: it keeps the element on its
+   own GPU layer after the animation ends, which blurs text on Windows. */
 .admin-tabs [data-slot="tabs-content"][data-state="active"],
 .admin-tab-content[data-state="active"],
 .settings-tabs [data-slot="tabs-content"][data-state="active"],
 .settings-tab-content[data-state="active"] {
   animation: admin-tab-content-enter var(--motion-normal) var(--motion-ease) both;
-  will-change: opacity, translate;
 }
 
 .admin-tabs-list [data-slot="tabs-trigger"],
@@ -675,7 +675,6 @@ html[dir='rtl'] .ulw-toast-close {
 
 .icon-picker-tab-content[data-state="active"] {
   animation: icon-picker-tab-enter var(--motion-fast) var(--motion-ease) both;
-  will-change: opacity, transform;
 }
 
 @keyframes icon-picker-grid-enter {
@@ -691,7 +690,6 @@ html[dir='rtl'] .ulw-toast-close {
 
 .icon-picker-grid-enter {
   animation: icon-picker-grid-enter 160ms var(--motion-ease) both;
-  will-change: opacity, transform;
 }
 
 [data-slot="button"],
@@ -750,7 +748,6 @@ html[dir='rtl'] .ulw-toast-close {
     transition: opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
       translate 280ms cubic-bezier(0.22, 1, 0.36, 1),
       scale 280ms cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: opacity, translate, scale;
   }
 
   .subscription-scroll-wrap[data-scroll-state="in-view"] {
@@ -823,7 +820,6 @@ html[dir='rtl'] .ulw-toast-close {
     opacity 220ms ease-out,
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
     margin-bottom 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: grid-template-rows, opacity, transform;
 }
 
 .action-item-inner {
@@ -860,7 +856,6 @@ html[dir='rtl'] .ulw-toast-close {
     transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
     margin-bottom 260ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 260ms;
-  will-change: grid-template-rows, opacity, transform;
 }
 
 .batch-bar-wrap.batch-bar-open {
@@ -894,7 +889,6 @@ html[dir='rtl'] .ulw-toast-close {
   justify-content: center;
   animation: batch-checkbox-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: min(calc(var(--card-delay, 0ms) * 0.4), 120ms);
-  will-change: transform, opacity;
 }
 
 @keyframes page-enter {
@@ -910,7 +904,6 @@ html[dir='rtl'] .ulw-toast-close {
 
 .page-transition {
   animation: page-enter var(--motion-normal) var(--motion-ease) both;
-  will-change: opacity, translate;
 }
 
 @keyframes page-stage-enter {
@@ -927,7 +920,6 @@ html[dir='rtl'] .ulw-toast-close {
 .page-stage-enter {
   animation: page-stage-enter 240ms var(--motion-ease) backwards;
   animation-delay: 40ms;
-  will-change: opacity, translate;
 }
 
 @keyframes page-content-fade-in {
