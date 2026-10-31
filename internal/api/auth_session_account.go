@@ -94,9 +94,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	resp, err := h.Service.WithContext(c.Request().Context()).Login(input)
 	if err != nil {
 		apimw.ClearRefreshTokenCookie(c)
-		// Login deliberately collapses every failure (bad credentials, disabled
-		// account, lookup error) to a single 401 so the response never reveals
-		// which account exists or why sign-in failed.
+		// Every failure is a 401. Unknown identifiers, wrong passwords, and
+		// disabled accounts with a wrong password all share invalid_credentials;
+		// account_is_disabled is only reported after the password verified.
 		return httpx.WriteErrorFrom(c, http.StatusUnauthorized, err)
 	}
 
