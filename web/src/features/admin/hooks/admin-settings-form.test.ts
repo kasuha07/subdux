@@ -283,6 +283,38 @@ describe("adminSettingsSaveRequiresReauth", () => {
     expect(adminSettingsSaveRequiresReauth(saved, { ...saved, oidcClientSecret: "   " }, "auth")).toBe(false)
   })
 
+  describe("SMTP credential destination", () => {
+    const savedWithPassword = createAdminSettingsForm(
+      settings({ smtp_host: "smtp.example.com", smtp_username: "mailer", smtp_password_configured: true })
+    )
+
+    it.each([
+      { smtpHost: "smtp.attacker.example" },
+      { smtpPort: 2525 },
+      { smtpEncryption: "none" },
+      { smtpAuthMethod: "login" },
+      { smtpUsername: "other" },
+      { smtpSkipTLSVerify: true },
+    ])("requires reauth when %o changes and the stored password is kept", (change) => {
+      expect(adminSettingsSaveRequiresReauth(savedWithPassword, { ...savedWithPassword, ...change }, "smtp")).toBe(true)
+    })
+
+    it("does not require reauth when the password is re-entered", () => {
+      const current = { ...savedWithPassword, smtpHost: "smtp.other.example", smtpPassword: "fresh" }
+      expect(adminSettingsSaveRequiresReauth(savedWithPassword, current, "smtp")).toBe(false)
+    })
+
+    it("does not require reauth without a stored password or for harmless fields", () => {
+      const savedWithoutPassword = { ...savedWithPassword, smtpPasswordConfigured: false }
+      expect(
+        adminSettingsSaveRequiresReauth(savedWithoutPassword, { ...savedWithoutPassword, smtpHost: "smtp.other.example" }, "smtp")
+      ).toBe(false)
+      expect(
+        adminSettingsSaveRequiresReauth(savedWithPassword, { ...savedWithPassword, smtpFromName: "Renamed", smtpHost: " SMTP.example.com " }, "smtp")
+      ).toBe(false)
+    })
+  })
+
   it("only considers fields saved by the scope", () => {
     const current = { ...saved, oidcIssuerURL: "https://attacker.example.com" }
     expect(adminSettingsSaveRequiresReauth(saved, current, "general")).toBe(false)
