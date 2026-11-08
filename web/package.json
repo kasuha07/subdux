@@ -29,7 +29,7 @@
     "@icongo/si": "^1.2.0",
     "@icongo/vl": "^1.2.0",
     "@radix-ui/react-dismissable-layer": "1.2.1",
-    "@tailwindcss/vite": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^26.5.12",
